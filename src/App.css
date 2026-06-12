@@ -237,6 +237,82 @@
   border-color: rgba(255, 77, 109, 0.3);
 }
 
+/* ── Menu scrim ── */
+.menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+}
+
+/* ── Hamburger toggle (mobile only) ── */
+.menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-left: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ── Dropdown menu (mobile only) ── */
+.topmenu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 14px;
+  z-index: 30;
+  min-width: 200px;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: rgba(8, 12, 22, 0.97);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topmenu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+
+.topmenu__item.is-active {
+  background: linear-gradient(135deg, var(--neon), #13d886);
+  color: #031b10;
+}
+
+.topmenu__item.chip-btn--live {
+  color: var(--neon);
+}
+
+.topmenu__item--danger {
+  color: var(--danger);
+}
+
+.topmenu__sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
+}
+
 .daymodal {
   position: fixed;
   inset: 0;
@@ -1629,6 +1705,7 @@
   .topbar {
     padding: 12px 14px;
     gap: 12px;
+    position: relative;
   }
 
   .syncbox {
@@ -1637,8 +1714,16 @@
   }
 
   .topactions {
-    margin-left: 0;
+    display: none;
+  }
+
+  .menu-toggle {
+    display: flex;
     order: 2;
+  }
+
+  .topmenu {
+    display: flex;
   }
 
   .controls,

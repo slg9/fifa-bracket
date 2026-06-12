@@ -25,7 +25,7 @@ type LiveState = {
   syncedAt: string | null
   source: string
   warnings: string[]
-  matches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null }>
+  matches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null; kickoffIso?: string | null }>
 }
 
 type DisplayMatch = {
@@ -130,13 +130,24 @@ function isToday(date: string): boolean {
 }
 
 function formatKickoff(match: GroupMatch): { label: string; tooltip?: string } {
+  if (match.kickoffIso) {
+    const formatted = new Intl.DateTimeFormat('fr-FR', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date(match.kickoffIso))
+    return { label: formatted }
+  }
+
   if (!match.kickoffTime) {
     return { label: formatDate(match.kickoffDate) }
   }
 
   const venueOffset = venueUtcOffsetBySeedVenue[match.venue]
   if (!venueOffset) {
-    return { label: `${formatDate(match.kickoffDate)} ? ${match.kickoffTime}` }
+    return { label: `${formatDate(match.kickoffDate)} ${match.kickoffTime}` }
   }
 
   const localInstant = new Date(`${match.kickoffDate}T${match.kickoffTime}:00${venueOffset}`)
@@ -145,12 +156,13 @@ function formatKickoff(match: GroupMatch): { label: string; tooltip?: string } {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   }).format(localInstant)
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
   return {
     label: formatted,
-    tooltip: `Heure locale du visiteur ? ${timeZone}`, 
+    tooltip: `Heure locale (${timeZone})`,
   }
 }
 
@@ -696,6 +708,7 @@ function App() {
   const [isCompactGroups, setIsCompactGroups] = useState(() => window.innerWidth <= 680)
   const [selectedGroupId, setSelectedGroupId] = useState('A')
   const [showDayModal, setShowDayModal] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -858,9 +871,17 @@ function App() {
       .every((match) => match.homeScore !== null && match.awayScore !== null),
   ).length
   const visibleGroups = isCompactGroups ? seed.groups.filter((group) => group.id === selectedGroupId) : seed.groups
-  const todayMatches = mergedMatches
-    .filter((match) => isToday(match.kickoffDate))
-    .sort((a, b) => (a.kickoffTime ?? '99:99').localeCompare(b.kickoffTime ?? '99:99'))
+  const todayMatches = [...new Map(
+    mergedMatches
+      .filter((match) => isToday(match.kickoffDate))
+      .map((m) => [m.id, m]),
+  ).values()]
+    .sort((a, b) => {
+      const aTime = a.kickoffIso ?? `${a.kickoffDate}T${a.kickoffTime ?? '99:99'}`
+      const bTime = b.kickoffIso ?? `${b.kickoffDate}T${b.kickoffTime ?? '99:99'}`
+      return aTime.localeCompare(bTime)
+    })
+    .slice(0, 10)
   const liveNowMatches = todayMatches.filter((match) => match.status === 'live')
   const featuredDayMatch = liveNowMatches[0] ?? todayMatches[0] ?? null
   const countryCode = getCountryCodeFromFixturesUrl(seed.meta.sourceUrls.fixtures)
@@ -998,6 +1019,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      {menuOpen ? <div className="menu-scrim" onClick={() => setMenuOpen(false)} /> : null}
       <div className="floods" aria-hidden="true">
         <i />
         <i />
@@ -1051,6 +1073,55 @@ function App() {
             </button>
           ) : null}
         </div>
+
+        <button
+          type="button"
+          className="menu-toggle"
+          aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          {menuOpen ? '×' : '☰'}
+        </button>
+
+        {menuOpen ? (
+          <div className="topmenu" role="menu">
+            {todayMatches.length > 0 ? (
+              <button
+                type="button"
+                className="topmenu__item chip-btn--live"
+                onClick={() => { reopenDayModal(); setMenuOpen(false) }}
+              >
+                <span className="chip-btn__pulse" aria-hidden="true" />
+                Matchs du jour
+              </button>
+            ) : null}
+            <div className="topmenu__sep" />
+            <button
+              type="button"
+              className={`topmenu__item${mode === 'real' ? ' is-active' : ''}`}
+              onClick={() => { setMode('real'); setMenuOpen(false) }}
+            >
+              Vue réelle
+            </button>
+            <button
+              type="button"
+              className={`topmenu__item${mode === 'simulation' ? ' is-active' : ''}`}
+              onClick={() => { setMode('simulation'); setMenuOpen(false) }}
+            >
+              Simulation
+            </button>
+            {mode === 'simulation' ? (
+              <button
+                type="button"
+                className="topmenu__item topmenu__item--danger"
+                onClick={() => { clearSimulation(); setMenuOpen(false) }}
+              >
+                Réinitialiser
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </header>
 
       {showDayModal && featuredDayMatch ? (

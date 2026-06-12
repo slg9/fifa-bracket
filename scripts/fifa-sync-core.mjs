@@ -1,7 +1,11 @@
 const standingsUrl =
-  'https://r.jina.ai/http://https://www.fifa.com/fr/tournaments/mens/worldcup/canadamexicousa2026/standings'
+  'https://r.jina.ai/https://www.fifa.com/fr/tournaments/mens/worldcup/canadamexicousa2026/standings'
 const fixturesUrl =
-  'https://r.jina.ai/http://https://www.fifa.com/fr/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures?country=FR&wtw-filter=ALL'
+  'https://r.jina.ai/https://www.fifa.com/fr/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures?country=FR&wtw-filter=ALL'
+
+const API_FOOTBALL_BASE = 'https://v3.football.api-sports.io'
+const API_FOOTBALL_LEAGUE = 1
+const API_FOOTBALL_SEASON = 2026
 
 function stripImages(text) {
   return text.replace(/!\[Image[^\]]*\]\([^)]*\)/g, '')
@@ -19,6 +23,15 @@ function normalizeStatus(statusToken) {
   }
 
   return 'finished'
+}
+
+function normalizeApiFootballStatus(shortStatus) {
+  const live = ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE']
+  const finished = ['FT', 'AET', 'PEN']
+
+  if (live.includes(shortStatus)) return 'live'
+  if (finished.includes(shortStatus)) return 'finished'
+  return 'scheduled'
 }
 
 function parseFixtureEntry(entry) {
@@ -135,13 +148,127 @@ function buildMatchLookup(seed) {
       continue
     }
 
+    // Primary: groupId + codes
     lookup.set(`${match.groupId}:${homeTeam.fifaCode}:${awayTeam.fifaCode}`, match)
+    // Secondary: codes only (for API-Football which doesn't expose groupId)
+    lookup.set(`${homeTeam.fifaCode}:${awayTeam.fifaCode}`, match)
   }
 
   return lookup
 }
 
-export async function buildFifaLiveSnapshot(seed) {
+async function buildApiFootballSnapshot(seed, apiKey) {
+  const warnings = []
+  const matchLookup = buildMatchLookup(seed)
+
+  const url = `${API_FOOTBALL_BASE}/fixtures?league=${API_FOOTBALL_LEAGUE}&season=${API_FOOTBALL_SEASON}`
+  const response = await fetch(url, {
+    headers: {
+      'x-apisports-key': apiKey,
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`API-Football indisponible (${response.status}).`)
+  }
+
+  const json = await response.json()
+  const fixtures = json.response ?? []
+
+  if (fixtures.length === 0) {
+    throw new Error('API-Football: aucun match retourné pour la Coupe du Monde 2026.')
+  }
+
+  // Only process group stage fixtures
+  const groupFixtures = fixtures.filter((f) =>
+    typeof f.league?.round === 'string' && f.league.round.startsWith('Group Stage'),
+  )
+
+  const matches = []
+  for (const f of groupFixtures) {
+    const homeCode = f.teams?.home?.code
+    const awayCode = f.teams?.away?.code
+    if (!homeCode || !awayCode) continue
+
+    const seedMatch = matchLookup.get(`${homeCode}:${awayCode}`)
+    if (!seedMatch) {
+      warnings.push(`API-Football: match non mappé ${homeCode}-${awayCode}.`)
+      continue
+    }
+
+    const status = normalizeApiFootballStatus(f.fixture?.status?.short ?? '')
+    const homeScore = f.goals?.home ?? null
+    const awayScore = f.goals?.away ?? null
+
+    matches.push({
+      id: seedMatch.id,
+      homeScore: status === 'scheduled' ? null : homeScore,
+      awayScore: status === 'scheduled' ? null : awayScore,
+      status,
+      kickoffTime: null,
+      kickoffIso: f.fixture?.date ?? null,
+    })
+  }
+
+  if (matches.length === 0) {
+    throw new Error('API-Football: aucun match de groupe mappé.')
+  }
+
+  // Build standings from API-Football standings endpoint
+  const standingsUrl2 = `${API_FOOTBALL_BASE}/standings?league=${API_FOOTBALL_LEAGUE}&season=${API_FOOTBALL_SEASON}`
+  const standingsRes = await fetch(standingsUrl2, {
+    headers: { 'x-apisports-key': apiKey },
+  })
+
+  const standings = []
+  const codeToTeamId = new Map(seed.teams.map((team) => [team.fifaCode, team.id]))
+
+  if (standingsRes.ok) {
+    const standingsJson = await standingsRes.json()
+    const groups = standingsJson.response?.[0]?.league?.standings ?? []
+
+    for (const group of groups) {
+      for (const row of group) {
+        const teamId = codeToTeamId.get(row.team?.code)
+        if (!teamId) {
+          warnings.push(`API-Football: équipe non mappée dans classements: ${row.team?.code}.`)
+          continue
+        }
+        standings.push({
+          groupId: row.group?.replace('Group ', '') ?? '',
+          teamId,
+          rank: row.rank ?? 0,
+          points: row.points ?? 0,
+          goalDifference: row.goalsDiff ?? 0,
+          goalsFor: row.all?.goals?.for ?? 0,
+          goalsAgainst: row.all?.goals?.against ?? 0,
+        })
+      }
+    }
+  } else {
+    warnings.push(`API-Football: classements indisponibles (${standingsRes.status}).`)
+  }
+
+  return {
+    syncedAt: new Date().toISOString(),
+    source: 'api-football',
+    warnings,
+    matches,
+    standings,
+  }
+}
+
+export async function buildFifaLiveSnapshot(seed, apiKey) {
+  // Try API-Football first if key is provided
+  if (apiKey) {
+    try {
+      return await buildApiFootballSnapshot(seed, apiKey)
+    } catch (error) {
+      console.warn('[sync] API-Football failed, falling back to FIFA.com:', error.message)
+    }
+  }
+
+  // Fallback: scrape FIFA.com via Jina
   const warnings = []
   const codeToTeamId = new Map(seed.teams.map((team) => [team.fifaCode, team.id]))
   const matchLookup = buildMatchLookup(seed)
@@ -178,6 +305,7 @@ export async function buildFifaLiveSnapshot(seed) {
       awayScore: fixture.awayScore,
       status: fixture.status,
       kickoffTime: fixture.kickoffTime,
+      kickoffIso: null,
     })
   }
 

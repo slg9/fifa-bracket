@@ -186,7 +186,7 @@ function rankGroupWithHeadToHead(rows: StandingRow[], groupMatches: GroupMatch[]
 
 export function mergeScores(
   matches: GroupMatch[],
-  liveMatches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null }>,
+  liveMatches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null; kickoffIso?: string | null }>,
   overrides: Record<string, MatchOverride>,
   mode: 'real' | 'simulation',
 ): GroupMatch[] {
@@ -202,6 +202,7 @@ export function mergeScores(
       awayScore: live?.awayScore ?? match.awayScore,
       status: live?.status ?? match.status,
       kickoffTime: live?.kickoffTime ?? match.kickoffTime ?? null,
+      kickoffIso: live?.kickoffIso ?? match.kickoffIso ?? null,
     }
 
     if (mode === 'simulation' && override) {

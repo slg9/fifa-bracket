@@ -18,7 +18,7 @@ function fifaSyncApi() {
   const handler = async (_req: unknown, res: ApiResponse) => {
     try {
       const seed = JSON.parse(await readFile(seedPath, 'utf8'))
-      const snapshot = await buildFifaLiveSnapshot(seed)
+      const snapshot = await buildFifaLiveSnapshot(seed, process.env.API_FOOTBALL_KEY)
 
       res.statusCode = 200
       res.setHeader('Content-Type', 'application/json; charset=utf-8')

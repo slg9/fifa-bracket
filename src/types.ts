@@ -26,6 +26,7 @@ export type GroupMatch = {
   awayTeamId: string
   kickoffDate: string
   kickoffTime?: string | null
+  kickoffIso?: string | null
   venue: string
   homeScore: number | null
   awayScore: number | null
@@ -56,6 +57,7 @@ export type LiveSnapshot = {
     awayScore: number | null
     status: MatchStatus
     kickoffTime?: string | null
+    kickoffIso?: string | null
   }>
   standings: Array<{
     groupId: string
