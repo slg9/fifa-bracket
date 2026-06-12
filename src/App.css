@@ -528,23 +528,16 @@
 
 .gmrow__rank {
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--line-strong);
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--muted-2);
-  display: grid;
-  place-items: center;
-  font-family: var(--numbers);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+  opacity: 0.6;
 }
 
 .gmrow__rank.is-q {
-  background: rgba(43, 255, 154, 0.12);
-  border-color: rgba(43, 255, 154, 0.3);
   color: var(--neon);
+  opacity: 0.85;
 }
 
 .gmrow__score {
@@ -2328,9 +2321,7 @@
   }
 
   .gmrow__rank {
-    width: 16px;
-    height: 16px;
-    font-size: 9px;
+    font-size: 8px;
   }
 
   .groups-rail {

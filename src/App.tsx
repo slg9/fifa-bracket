@@ -1340,7 +1340,7 @@ function App() {
                       {/* Teams + score */}
                       <div className="gmrow__match">
                         <div className={`gmrow__team gmrow__team--home${homeWin ? ' is-win' : ''}`}>
-                          {homeRank != null && <span className={`gmrow__rank${homeRank <= 2 ? ' is-q' : ''}`}>{homeRank}</span>}
+                          {homeRank != null && <span className={`gmrow__rank${homeRank <= 2 ? ' is-q' : ''}`}>#{homeRank}</span>}
                           {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="flag-image" /> : <span className="flag-emoji">{homeTeam.flagEmoji}</span>}
                           <span className="gmrow__name">{homeTeam.name}</span>
                         </div>
@@ -1370,7 +1370,7 @@ function App() {
                         <div className={`gmrow__team gmrow__team--away${awayWin ? ' is-win' : ''}`}>
                           <span className="gmrow__name">{awayTeam.name}</span>
                           {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="flag-image" /> : <span className="flag-emoji">{awayTeam.flagEmoji}</span>}
-                          {awayRank != null && <span className={`gmrow__rank${awayRank <= 2 ? ' is-q' : ''}`}>{awayRank}</span>}
+                          {awayRank != null && <span className={`gmrow__rank${awayRank <= 2 ? ' is-q' : ''}`}>#{awayRank}</span>}
                         </div>
                       </div>
 
