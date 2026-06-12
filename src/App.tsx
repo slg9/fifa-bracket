@@ -26,7 +26,7 @@ type LiveState = {
   syncedAt: string | null
   source: string
   warnings: string[]
-  matches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null; kickoffIso?: string | null }>
+  matches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null; kickoffIso?: string | null; liveMinute?: string | null }>
   predictions: MatchPrediction[]
 }
 
@@ -136,6 +136,35 @@ function formatDate(date: string): string {
     day: 'numeric',
     month: 'short',
   }).format(new Date(`${date}T12:00:00Z`))
+}
+
+// Format live minute for display.
+// rawToken = scraper value like "MT", "45'", "90'+2'", "45", "90+2"
+// syncedAt = ISO string of when that token was scraped
+function formatLiveMinute(rawToken: string | null | undefined, syncedAt: string | null): string {
+  if (!rawToken) return 'En direct'
+  const upper = rawToken.toUpperCase().replace(/['\u2019\u02b9\u2032]/g, '')
+  if (upper === 'MT' || upper === 'MI' || upper === 'HT') return 'Mi-temps'
+
+  // Parse numeric minute (e.g. "90+2" → base 90, extra 2)
+  const m = upper.match(/^(\d+)(?:\+(\d+))?$/)
+  if (!m) return rawToken // unknown token, show as-is
+
+  let base = Number(m[1])
+  const extra = m[2] ? Number(m[2]) : 0
+  const scraped = base + extra
+
+  // Add elapsed seconds since sync (capped at period max: 45 or 90)
+  if (syncedAt) {
+    const elapsedMin = Math.floor((Date.now() - new Date(syncedAt).getTime()) / 60_000)
+    const raw = scraped + elapsedMin
+    const max = scraped <= 45 ? 45 : 90
+    base = Math.min(raw, max)
+  } else {
+    base = scraped
+  }
+
+  return `${base}'`
 }
 
 function localDateStr(d = new Date()): string {
@@ -748,6 +777,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [, setTick] = useState(0)
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [isCompactGroups, setIsCompactGroups] = useState(() => window.innerWidth <= 680)
   const [selectedGroupId, setSelectedGroupId] = useState('A')
@@ -927,6 +957,12 @@ function App() {
     const id = setInterval(() => silentSyncRef.current(), pollingInterval)
     return () => clearInterval(id)
   }, [pollingInterval])
+
+  // Tick every 30s to keep live-minute display fresh between polls
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30_000)
+    return () => clearInterval(id)
+  }, [])
 
   if (loading) {
     return (
@@ -1280,7 +1316,9 @@ function App() {
 
                       <div className="daymatch__scoreblock">
                         <div className="daymatch__status">
-                          {heroStatus === 'live' ? 'EN COURS' : heroStatus === 'finished' ? 'TERMINÉ' : 'BIENTÔT'}
+                          {heroStatus === 'live'
+                            ? formatLiveMinute(featuredDayMatch.liveMinute, liveSource.syncedAt).toUpperCase()
+                            : heroStatus === 'finished' ? 'TERMINÉ' : 'BIENTÔT'}
                         </div>
                         {heroStatus === 'scheduled' && heroHHMM ? (
                           <div className="daymatch__score daymatch__score--time">{heroHHMM}</div>
@@ -1327,7 +1365,7 @@ function App() {
                       <span>Groupe {match.groupId}</span>
                       <div className="daymatch__meta-right">
                         <BroadcasterBadge matchId={match.id} />
-                        <span>{liveStatus === 'live' ? 'En cours' : liveStatus === 'scheduled' ? 'Bientôt' : kickoff.label}</span>
+                        <span>{liveStatus === 'live' ? formatLiveMinute(match.liveMinute, liveSource.syncedAt) : liveStatus === 'scheduled' ? 'Bientôt' : kickoff.label}</span>
                       </div>
                     </div>
 
@@ -1435,7 +1473,7 @@ function App() {
                       {/* Date / status row */}
                       <div className="gmrow__header">
                         {isLive
-                          ? <span className="gmrow__livebadge"><span className="gstatus__pulse" aria-hidden="true" />En direct</span>
+                          ? <span className="gmrow__livebadge"><span className="gstatus__pulse" aria-hidden="true" />{formatLiveMinute(match.liveMinute, liveSource.syncedAt)}</span>
                           : <span className="gmrow__time">{dateLabel}</span>
                         }
                         <div className="gmrow__header-right">

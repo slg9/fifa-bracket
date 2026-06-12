@@ -62,6 +62,7 @@ function parseFixtureEntry(entry) {
     homeScore: homeScore ? Number(homeScore) : null,
     awayScore: awayScore ? Number(awayScore) : null,
     status: statusToken ? normalizeStatus(statusToken) : 'scheduled',
+    rawStatusToken: statusToken ?? null,
   }
 }
 
@@ -230,6 +231,7 @@ export async function buildFifaLiveSnapshot(seed) {
       status: fixture.status,
       kickoffTime: null,
       kickoffIso,
+      liveMinute: fixture.status === 'live' ? fixture.rawStatusToken : null,
     })
   }
 
