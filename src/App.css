@@ -208,6 +208,24 @@
   font-weight: 700;
 }
 
+.chip-btn--live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-color: rgba(43, 255, 154, 0.28);
+  background: rgba(43, 255, 154, 0.08);
+  color: var(--neon);
+}
+
+.chip-btn__pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 0 rgba(43, 255, 154, 0.45);
+  animation: livePulse 1.2s infinite;
+}
+
 .chip-btn.is-active {
   color: #031b10;
   background: linear-gradient(135deg, var(--neon), #13d886);
@@ -217,6 +235,270 @@
 .chip-btn--danger {
   color: var(--danger);
   border-color: rgba(255, 77, 109, 0.3);
+}
+
+.daymodal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.daymodal__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 7, 14, 0.72);
+  backdrop-filter: blur(12px);
+}
+
+.daymodal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(1100px, 100%);
+  max-height: min(92vh, 960px);
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(25, 211, 255, 0.16), transparent 28%),
+    radial-gradient(circle at right, rgba(43, 255, 154, 0.16), transparent 24%),
+    linear-gradient(180deg, rgba(10, 16, 29, 0.98), rgba(7, 11, 20, 0.98));
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.45);
+}
+
+.daymodal__close {
+  position: sticky;
+  top: 14px;
+  float: right;
+  margin: 14px 14px 0 0;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 26px;
+  z-index: 2;
+}
+
+.daymodal__hero {
+  padding: 28px 28px 18px;
+}
+
+.daymodal__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.daymodal__livepill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: #04130b;
+  background: linear-gradient(135deg, var(--neon), #13d886);
+}
+
+.daymodal__livepill--upcoming {
+  color: var(--gold);
+  background: rgba(255, 210, 74, 0.12);
+}
+
+.daymodal__heroheader {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 18px;
+  align-items: end;
+  margin-top: 18px;
+}
+
+.daymodal__heroheader h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(32px, 5vw, 52px);
+  line-height: 0.92;
+  letter-spacing: 0.8px;
+}
+
+.daymodal__heroheader p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.daymodal__watchlist {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+.daymodal__watchlist > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.daymodal__watchchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.daymodal__watchchip {
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.daymodal__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 0 28px 28px;
+}
+
+.daymatch {
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.daymatch.is-live {
+  border-color: rgba(43, 255, 154, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(43, 255, 154, 0.12), 0 0 26px rgba(43, 255, 154, 0.08);
+}
+
+.daymatch--hero {
+  margin-top: 24px;
+  padding: 20px;
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(25, 211, 255, 0.03));
+}
+
+.daymatch__meta,
+.daymatch__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.daymatch__main,
+.daymatch__row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.daymatch__team,
+.daymatch__mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.daymatch__team strong,
+.daymatch__mini span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.daymatch__team--right,
+.daymatch__mini--right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.daymatch__scoreblock,
+.daymatch__mini--score {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.daymatch__status {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+}
+
+.daymatch__score {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-family: var(--numbers);
+  font-size: clamp(34px, 5vw, 56px);
+  color: var(--text);
+}
+
+.daymatch__score i,
+.daymatch__mini--score span {
+  color: var(--muted-2);
+  font-style: normal;
+}
+
+.daymatch__mini--score b {
+  font-family: var(--numbers);
+  font-size: 26px;
+  color: var(--text);
+}
+
+.daymatch__flag,
+.daymatch__flag-image {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.daymatch__flag {
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+}
+
+.daymatch__flag-image {
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.daymatch__foot {
+  margin-top: 16px;
+}
+
+.daymatch__foot a {
+  color: var(--neon);
+  text-decoration: none;
 }
 
 .controls {
@@ -1307,6 +1589,43 @@
 }
 
 @media (max-width: 680px) {
+  .daymodal {
+    padding: 10px;
+  }
+
+  .daymodal__panel {
+    max-height: calc(100vh - 20px);
+    border-radius: 24px;
+  }
+
+  .daymodal__hero {
+    padding: 18px 18px 12px;
+  }
+
+  .daymodal__heroheader {
+    grid-template-columns: 1fr;
+  }
+
+  .daymodal__watchlist,
+  .daymodal__watchchips {
+    justify-items: start;
+    justify-content: flex-start;
+  }
+
+  .daymodal__grid {
+    grid-template-columns: 1fr;
+    padding: 0 18px 18px;
+  }
+
+  .daymatch__main,
+  .daymatch__row {
+    gap: 10px;
+  }
+
+  .daymatch__team strong {
+    font-size: 14px;
+  }
+
   .topbar {
     padding: 12px 14px;
     gap: 12px;

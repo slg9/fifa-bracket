@@ -46,6 +46,12 @@ type DragState = {
 }
 
 const simulationStorageKey = 'fifabracket:simulation'
+const dayFeatureStorageKey = 'fifabracket:day-feature-dismissed'
+
+type WatchOption = {
+  label: string
+  href: string
+}
 
 type StoredSimulation = {
   overrides: Record<string, MatchOverride>
@@ -81,6 +87,30 @@ const venueUtcOffsetBySeedVenue: Record<string, string> = {
   'Dallas Stadium': '-05:00',
   'Kansas City Stadium': '-05:00',
   'Seattle Stadium': '-07:00',
+}
+
+const watchOptionsByCountry: Record<string, WatchOption[]> = {
+  FR: [
+    { label: 'beIN Sports', href: 'https://www.beinsports.com/france/' },
+    { label: 'M6 Direct', href: 'https://www.m6.fr/m6/direct' },
+  ],
+  US: [
+    { label: 'FOX Sports', href: 'https://www.foxsports.com/soccer/fifa-world-cup-men' },
+    { label: 'Telemundo', href: 'https://www.telemundo.com/deportes/fifa-world-cup' },
+  ],
+}
+
+function getTodayStorageKey(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = `${now.getMonth() + 1}`.padStart(2, '0')
+  const day = `${now.getDate()}`.padStart(2, '0')
+  return `${dayFeatureStorageKey}:${year}-${month}-${day}`
+}
+
+function getCountryCodeFromFixturesUrl(url: string): string {
+  const match = url.match(/[?&]country=([A-Z]{2})/i)
+  return match?.[1]?.toUpperCase() ?? 'FR'
 }
 
 function formatDate(date: string): string {
@@ -665,6 +695,7 @@ function App() {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
   const [isCompactGroups, setIsCompactGroups] = useState(() => window.innerWidth <= 680)
   const [selectedGroupId, setSelectedGroupId] = useState('A')
+  const [showDayModal, setShowDayModal] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -758,6 +789,24 @@ function App() {
     return () => window.removeEventListener('resize', syncViewport)
   }, [])
 
+  useEffect(() => {
+    if (!seed) {
+      return
+    }
+
+    const hasTodayMatches = seed.matches.some((match) => isToday(match.kickoffDate))
+    if (!hasTodayMatches) {
+      return
+    }
+
+    const dismissKey = getTodayStorageKey()
+    if (window.localStorage.getItem(dismissKey) === '1') {
+      return
+    }
+
+    setShowDayModal(true)
+  }, [liveSource.matches, seed])
+
   async function handleSyncLiveSnapshot() {
     setSyncing(true)
     try {
@@ -809,6 +858,16 @@ function App() {
       .every((match) => match.homeScore !== null && match.awayScore !== null),
   ).length
   const visibleGroups = isCompactGroups ? seed.groups.filter((group) => group.id === selectedGroupId) : seed.groups
+  const todayMatches = mergedMatches
+    .filter((match) => isToday(match.kickoffDate))
+    .sort((a, b) => (a.kickoffTime ?? '99:99').localeCompare(b.kickoffTime ?? '99:99'))
+  const liveNowMatches = todayMatches.filter((match) => match.status === 'live')
+  const featuredDayMatch = liveNowMatches[0] ?? todayMatches[0] ?? null
+  const countryCode = getCountryCodeFromFixturesUrl(seed.meta.sourceUrls.fixtures)
+  const watchOptions = [
+    ...(watchOptionsByCountry[countryCode] ?? watchOptionsByCountry.FR),
+    { label: 'Programme FIFA', href: seed.meta.sourceUrls.fixtures },
+  ]
 
   function updateOverride(matchId: string, side: 'homeScore' | 'awayScore', value: string) {
     setOverrides((current) => {
@@ -928,6 +987,15 @@ function App() {
     }))
   }
 
+  function closeDayModal() {
+    window.localStorage.setItem(getTodayStorageKey(), '1')
+    setShowDayModal(false)
+  }
+
+  function reopenDayModal() {
+    setShowDayModal(true)
+  }
+
   return (
     <div className="app-shell">
       <div className="floods" aria-hidden="true">
@@ -961,6 +1029,12 @@ function App() {
         </div>
 
         <div className="topactions">
+          {todayMatches.length > 0 ? (
+            <button type="button" className="chip-btn chip-btn--live" onClick={reopenDayModal}>
+              <span className="chip-btn__pulse" aria-hidden="true" />
+              Matchs du jour
+            </button>
+          ) : null}
           <button type="button" className={`chip-btn${mode === 'real' ? ' is-active' : ''}`} onClick={() => setMode('real')}>
             Réel
           </button>
@@ -978,6 +1052,133 @@ function App() {
           ) : null}
         </div>
       </header>
+
+      {showDayModal && featuredDayMatch ? (
+        <div className="daymodal" role="dialog" aria-modal="true" aria-labelledby="daymodal-title">
+          <div className="daymodal__scrim" onClick={closeDayModal} />
+          <div className="daymodal__panel">
+            <button type="button" className="daymodal__close" onClick={closeDayModal} aria-label="Fermer">
+              ×
+            </button>
+
+            <div className="daymodal__hero">
+              <div className="daymodal__eyebrow">
+                {liveNowMatches.length > 0 ? (
+                  <span className="daymodal__livepill">
+                    <span className="gstatus__pulse" aria-hidden="true" />
+                    En direct
+                  </span>
+                ) : (
+                  <span className="daymodal__livepill daymodal__livepill--upcoming">Aujourd hui</span>
+                )}
+                <span>{formatSyncTime(liveSource.syncedAt)}</span>
+              </div>
+
+              <div className="daymodal__heroheader">
+                <div>
+                  <h2 id="daymodal-title">Soiree Coupe du monde</h2>
+                  <p>
+                    {liveNowMatches.length > 0
+                      ? `${liveNowMatches.length} match${liveNowMatches.length > 1 ? 's' : ''} en direct maintenant.`
+                      : `${todayMatches.length} match${todayMatches.length > 1 ? 's' : ''} au programme aujourd hui.`}
+                  </p>
+                </div>
+
+                <div className="daymodal__watchlist">
+                  <span>Ou regarder</span>
+                  <div className="daymodal__watchchips">
+                    {watchOptions.map((option) => (
+                      <a key={option.label} href={option.href} target="_blank" rel="noreferrer" className="daymodal__watchchip">
+                        {option.label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {(() => {
+                const homeTeam = teamsById.get(featuredDayMatch.homeTeamId)
+                const awayTeam = teamsById.get(featuredDayMatch.awayTeamId)
+                if (!homeTeam || !awayTeam) return null
+                const kickoff = formatKickoff(featuredDayMatch)
+
+                return (
+                  <div className="daymatch daymatch--hero">
+                    <div className="daymatch__meta">
+                      <span>Groupe {featuredDayMatch.groupId}</span>
+                      <span>{featuredDayMatch.venue}</span>
+                    </div>
+
+                    <div className="daymatch__main">
+                      <div className="daymatch__team">
+                        {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{homeTeam.flagEmoji}</span>}
+                        <strong>{homeTeam.name}</strong>
+                      </div>
+
+                      <div className="daymatch__scoreblock">
+                        <div className="daymatch__status">
+                          {featuredDayMatch.status === 'live' ? 'LIVE' : featuredDayMatch.status === 'finished' ? 'TERMINE' : kickoff.label}
+                        </div>
+                        <div className="daymatch__score">
+                          <span>{featuredDayMatch.homeScore ?? '-'}</span>
+                          <i>:</i>
+                          <span>{featuredDayMatch.awayScore ?? '-'}</span>
+                        </div>
+                      </div>
+
+                      <div className="daymatch__team daymatch__team--right">
+                        <strong>{awayTeam.name}</strong>
+                        {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{awayTeam.flagEmoji}</span>}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+
+            <div className="daymodal__grid">
+              {todayMatches.map((match) => {
+                const homeTeam = teamsById.get(match.homeTeamId)
+                const awayTeam = teamsById.get(match.awayTeamId)
+                if (!homeTeam || !awayTeam) return null
+                const kickoff = formatKickoff(match)
+
+                return (
+                  <article key={match.id} className={`daymatch${match.status === 'live' ? ' is-live' : ''}`}>
+                    <div className="daymatch__meta">
+                      <span>Groupe {match.groupId}</span>
+                      <span>{match.status === 'live' ? 'En direct' : kickoff.label}</span>
+                    </div>
+
+                    <div className="daymatch__row">
+                      <div className="daymatch__mini">
+                        {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{homeTeam.flagEmoji}</span>}
+                        <span>{homeTeam.shortName}</span>
+                      </div>
+                      <div className="daymatch__mini daymatch__mini--score">
+                        <b>{match.homeScore ?? '-'}</b>
+                        <span>:</span>
+                        <b>{match.awayScore ?? '-'}</b>
+                      </div>
+                      <div className="daymatch__mini daymatch__mini--right">
+                        <span>{awayTeam.shortName}</span>
+                        {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{awayTeam.flagEmoji}</span>}
+                      </div>
+                    </div>
+
+                    <div className="daymatch__foot">
+                      <span>{match.venue}</span>
+                      <a href={seed.meta.sourceUrls.fixtures} target="_blank" rel="noreferrer">
+                        Diffusion
+                      </a>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="controls">
         <div className="seg">
