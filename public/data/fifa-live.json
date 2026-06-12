@@ -7,505 +7,433 @@
       "id": "A1",
       "homeScore": 2,
       "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null
+      "status": "finished"
     },
     {
       "id": "A2",
       "homeScore": 2,
       "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null
+      "status": "finished"
     },
     {
       "id": "B1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "19:00"
+      "status": "scheduled"
     },
     {
       "id": "D1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "01:00"
+      "status": "scheduled"
     },
     {
       "id": "B2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "19:00"
+      "status": "scheduled"
     },
     {
       "id": "C2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "22:00"
+      "status": "scheduled"
     },
     {
       "id": "C1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "01:00"
+      "status": "scheduled"
     },
     {
       "id": "D2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "04:00"
+      "status": "scheduled"
     },
     {
       "id": "E2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "17:00"
+      "status": "scheduled"
     },
     {
       "id": "F1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "20:00"
+      "status": "scheduled"
     },
     {
       "id": "E1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "23:00"
+      "status": "scheduled"
     },
     {
       "id": "F2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "02:00"
+      "status": "scheduled"
     },
     {
       "id": "H2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "16:00"
+      "status": "scheduled"
     },
     {
       "id": "G2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "19:00"
+      "status": "scheduled"
     },
     {
       "id": "H1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "22:00"
+      "status": "scheduled"
     },
     {
       "id": "G1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "01:00"
+      "status": "scheduled"
     },
     {
       "id": "I1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "19:00"
+      "status": "scheduled"
     },
     {
       "id": "I2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "22:00"
+      "status": "scheduled"
     },
     {
       "id": "J1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "01:00"
+      "status": "scheduled"
     },
     {
       "id": "J2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "04:00"
+      "status": "scheduled"
     },
     {
       "id": "K1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "17:00"
+      "status": "scheduled"
     },
     {
       "id": "L2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "20:00"
+      "status": "scheduled"
     },
     {
       "id": "L1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "23:00"
+      "status": "scheduled"
     },
     {
       "id": "K2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "02:00"
+      "status": "scheduled"
     },
     {
       "id": "A3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "16:00"
+      "status": "scheduled"
     },
     {
       "id": "B3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "19:00"
+      "status": "scheduled"
     },
     {
       "id": "B4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "22:00"
+      "status": "scheduled"
     },
     {
       "id": "A4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "01:00"
+      "status": "scheduled"
     },
     {
       "id": "D4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "19:00"
+      "status": "scheduled"
     },
     {
       "id": "C4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "22:00"
+      "status": "scheduled"
     },
     {
       "id": "C3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "00:30"
+      "status": "scheduled"
     },
     {
       "id": "D3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "03:00"
+      "status": "scheduled"
     },
     {
       "id": "F3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "17:00"
+      "status": "scheduled"
     },
     {
       "id": "E3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "20:00"
+      "status": "scheduled"
     },
     {
       "id": "E4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "00:00"
+      "status": "scheduled"
     },
     {
       "id": "F4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "04:00"
+      "status": "scheduled"
     },
     {
       "id": "H4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "16:00"
+      "status": "scheduled"
     },
     {
       "id": "G3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "19:00"
+      "status": "scheduled"
     },
     {
       "id": "H3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "22:00"
+      "status": "scheduled"
     },
     {
       "id": "G4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "01:00"
+      "status": "scheduled"
     },
     {
       "id": "J3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "17:00"
+      "status": "scheduled"
     },
     {
       "id": "I4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "21:00"
+      "status": "scheduled"
     },
     {
       "id": "I3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "00:00"
+      "status": "scheduled"
     },
     {
       "id": "J4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "03:00"
+      "status": "scheduled"
     },
     {
       "id": "K3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "17:00"
+      "status": "scheduled"
     },
     {
       "id": "L3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "20:00"
+      "status": "scheduled"
     },
     {
       "id": "L4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "23:00"
+      "status": "scheduled"
     },
     {
       "id": "K4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "02:00"
+      "status": "scheduled"
     },
     {
       "id": "B5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "19:00"
+      "status": "scheduled"
     },
     {
       "id": "B6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "19:00"
+      "status": "scheduled"
     },
     {
       "id": "C5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "22:00"
+      "status": "scheduled"
     },
     {
       "id": "C6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "22:00"
+      "status": "scheduled"
     },
     {
       "id": "A5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "01:00"
+      "status": "scheduled"
     },
     {
       "id": "A6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "01:00"
+      "status": "scheduled"
     },
     {
       "id": "E5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "20:00"
+      "status": "scheduled"
     },
     {
       "id": "E6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "20:00"
+      "status": "scheduled"
     },
     {
       "id": "F5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "23:00"
+      "status": "scheduled"
     },
     {
       "id": "F6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "23:00"
+      "status": "scheduled"
     },
     {
       "id": "D5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "02:00"
+      "status": "scheduled"
     },
     {
       "id": "D6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "02:00"
+      "status": "scheduled"
     },
     {
       "id": "I5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "19:00"
+      "status": "scheduled"
     },
     {
       "id": "I6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "19:00"
+      "status": "scheduled"
     },
     {
       "id": "H5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "00:00"
+      "status": "scheduled"
     },
     {
       "id": "H6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "00:00"
+      "status": "scheduled"
     },
     {
       "id": "G5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "03:00"
+      "status": "scheduled"
     },
     {
       "id": "G6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "03:00"
+      "status": "scheduled"
     },
     {
       "id": "L5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "21:00"
+      "status": "scheduled"
     },
     {
       "id": "L6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "21:00"
+      "status": "scheduled"
     },
     {
       "id": "K5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "23:30"
+      "status": "scheduled"
     },
     {
       "id": "K6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "23:30"
+      "status": "scheduled"
     },
     {
       "id": "J5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "02:00"
+      "status": "scheduled"
     },
     {
       "id": "J6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled",
-      "kickoffTime": "02:00"
+      "status": "scheduled"
     }
   ],
   "standings": [

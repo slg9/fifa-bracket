@@ -709,6 +709,7 @@ function App() {
   const [selectedGroupId, setSelectedGroupId] = useState('A')
   const [showDayModal, setShowDayModal] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [matchModalGroupId, setMatchModalGroupId] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -1039,45 +1040,24 @@ function App() {
           </div>
         </div>
 
-        <div className="syncbox">
-          <button type="button" className={`syncbtn${syncing ? ' is-busy' : ''}`} onClick={handleSyncLiveSnapshot}>
-            <span className="syncbtn__ico">{syncing ? '◌' : '⟳'}</span>
-            <span>{syncing ? 'Synchronisation…' : 'Synchroniser les résultats'}</span>
-          </button>
-          <div className="syncmeta">
-            <span className={`srcdot srcdot--${mode === 'simulation' ? 'sim' : 'live'}`} />
-            {mode === 'simulation' ? 'Simulation locale' : liveSource.source} · {formatSyncTime(liveSource.syncedAt)}
-          </div>
-        </div>
-
         <div className="topactions">
           {todayMatches.length > 0 ? (
             <button type="button" className="chip-btn chip-btn--live" onClick={reopenDayModal}>
               <span className="chip-btn__pulse" aria-hidden="true" />
-              Matchs du jour
+              {todayMatches.length} match{todayMatches.length > 1 ? 's' : ''} aujourd&apos;hui
             </button>
           ) : null}
-          <button type="button" className={`chip-btn${mode === 'real' ? ' is-active' : ''}`} onClick={() => setMode('real')}>
-            Réel
+          <button type="button" className={`syncbtn${syncing ? ' is-busy' : ''}`} onClick={handleSyncLiveSnapshot} title="Synchroniser les données live">
+            <span className="syncbtn__ico">{syncing ? '◌' : '⟳'}</span>
+            <span className="syncbtn__label">{syncing ? 'Synchro…' : 'Sync'}</span>
+            <span className="syncbtn__meta">{formatSyncTime(liveSource.syncedAt)}</span>
           </button>
-          <button
-            type="button"
-            className={`chip-btn${mode === 'simulation' ? ' is-active' : ''}`}
-            onClick={() => setMode('simulation')}
-          >
-            Simulation
-          </button>
-          {mode === 'simulation' ? (
-            <button type="button" className="chip-btn chip-btn--danger" onClick={clearSimulation}>
-              Réinitialiser
-            </button>
-          ) : null}
         </div>
 
         <button
           type="button"
           className="menu-toggle"
-          aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          aria-label={menuOpen ? 'Fermer' : 'Menu'}
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((v) => !v)}
         >
@@ -1093,7 +1073,7 @@ function App() {
                 onClick={() => { reopenDayModal(); setMenuOpen(false) }}
               >
                 <span className="chip-btn__pulse" aria-hidden="true" />
-                Matchs du jour
+                {todayMatches.length} match{todayMatches.length > 1 ? 's' : ''} aujourd&apos;hui
               </button>
             ) : null}
             <div className="topmenu__sep" />
@@ -1102,14 +1082,14 @@ function App() {
               className={`topmenu__item${mode === 'real' ? ' is-active' : ''}`}
               onClick={() => { setMode('real'); setMenuOpen(false) }}
             >
-              Vue réelle
+              Vue en direct
             </button>
             <button
               type="button"
               className={`topmenu__item${mode === 'simulation' ? ' is-active' : ''}`}
               onClick={() => { setMode('simulation'); setMenuOpen(false) }}
             >
-              Simulation
+              Mode simulation
             </button>
             {mode === 'simulation' ? (
               <button
@@ -1117,7 +1097,7 @@ function App() {
                 className="topmenu__item topmenu__item--danger"
                 onClick={() => { clearSimulation(); setMenuOpen(false) }}
               >
-                Réinitialiser
+                Réinitialiser simulation
               </button>
             ) : null}
           </div>
@@ -1251,17 +1231,152 @@ function App() {
         </div>
       ) : null}
 
+      {matchModalGroupId ? (() => {
+        const modalGroup = seed.groups.find((g) => g.id === matchModalGroupId)
+        const modalMatches = mergedMatches
+          .filter((m) => m.groupId === matchModalGroupId)
+          .sort((a, b) => (a.kickoffIso ?? `${a.kickoffDate}T${a.kickoffTime ?? '99:99'}`).localeCompare(b.kickoffIso ?? `${b.kickoffDate}T${b.kickoffTime ?? '99:99'}`))
+        const modalStandings = standings[matchModalGroupId] ?? []
+
+        return (
+          <div className="gmmodal" role="dialog" aria-modal="true">
+            <div className="gmmodal__scrim" onClick={() => setMatchModalGroupId(null)} />
+            <div className="gmmodal__panel">
+              <div className="gmmodal__head">
+                <div className="gmmodal__title">
+                  <span className="gmmodal__badge">{matchModalGroupId}</span>
+                  Groupe {matchModalGroupId}
+                </div>
+                <button type="button" className="gmmodal__close" onClick={() => setMatchModalGroupId(null)} aria-label="Fermer">×</button>
+              </div>
+
+              <div className="gmmodal__body">
+                <div className="gmmodal__matches">
+                  {modalMatches.map((match) => {
+                    const homeTeam = teamsById.get(match.homeTeamId)
+                    const awayTeam = teamsById.get(match.awayTeamId)
+                    if (!homeTeam || !awayTeam) return null
+                    const kickoff = formatKickoff(match)
+                    const isLive = match.status === 'live'
+                    const isDone = match.status === 'finished'
+                    const homeWin = isDone && match.homeScore !== null && match.awayScore !== null && match.homeScore > match.awayScore
+                    const awayWin = isDone && match.homeScore !== null && match.awayScore !== null && match.awayScore > match.homeScore
+
+                    return (
+                      <div key={match.id} className={`gmrow${isLive ? ' is-live' : ''}${isToday(match.kickoffDate) ? ' is-today' : ''}`}>
+                        <div className="gmrow__when">
+                          {isLive ? <span className="gmrow__live"><span className="gstatus__pulse" aria-hidden="true" />LIVE</span> : kickoff.label}
+                        </div>
+                        <div className="gmrow__match">
+                          <div className={`gmrow__team gmrow__team--home${homeWin ? ' is-win' : ''}`}>
+                            {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="flag-image" /> : <span className="flag-emoji">{homeTeam.flagEmoji}</span>}
+                            <span>{homeTeam.name}</span>
+                          </div>
+                          <div className="gmrow__score">
+                            {mode === 'simulation' ? (
+                              <>
+                                <input type="number" min="0"
+                                  value={overrides[match.id]?.homeScore ?? match.homeScore ?? ''}
+                                  onChange={(e) => updateOverride(match.id, 'homeScore', e.target.value)} />
+                                <span>:</span>
+                                <input type="number" min="0"
+                                  value={overrides[match.id]?.awayScore ?? match.awayScore ?? ''}
+                                  onChange={(e) => updateOverride(match.id, 'awayScore', e.target.value)} />
+                              </>
+                            ) : (
+                              <>
+                                <b>{match.homeScore ?? '–'}</b>
+                                <span>:</span>
+                                <b>{match.awayScore ?? '–'}</b>
+                              </>
+                            )}
+                          </div>
+                          <div className={`gmrow__team gmrow__team--away${awayWin ? ' is-win' : ''}`}>
+                            <span>{awayTeam.name}</span>
+                            {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="flag-image" /> : <span className="flag-emoji">{awayTeam.flagEmoji}</span>}
+                          </div>
+                        </div>
+                        <div className="gmrow__venue">{match.venue}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="gmmodal__stand">
+                  <div className="gmmodal__standtitle">Classement</div>
+                  <table className="stand">
+                    <thead>
+                      <tr>
+                        <th className="stand__pos">#</th>
+                        <th className="stand__team">Équipe</th>
+                        <th>J</th>
+                        <th>G</th>
+                        <th>N</th>
+                        <th>P</th>
+                        <th>+/-</th>
+                        <th className="stand__pts">Pts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {modalStandings.map((row) => {
+                        const team = teamsById.get(row.teamId)
+                        if (!team) return null
+                        return (
+                          <tr key={row.teamId} className={`stand__row ${row.rank <= 2 ? 'stand__row--q1' : row.rank === 3 ? 'stand__row--q3' : 'stand__row--q0'}`}>
+                            <td className="stand__pos">{row.rank}</td>
+                            <td className="stand__team">
+                              {flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
+                              <span className="stand__name">{team.name}</span>
+                            </td>
+                            <td>{row.played}</td>
+                            <td>{row.wins}</td>
+                            <td>{row.draws}</td>
+                            <td>{row.losses}</td>
+                            <td className={row.goalDifference > 0 ? 'pos' : row.goalDifference < 0 ? 'neg' : ''}>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td>
+                            <td className="stand__pts">{row.points}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {modalGroup && <div className="gmmodal__foot">
+                <span className={`srcdot srcdot--${mode === 'simulation' ? 'sim' : 'live'}`} />
+                {mode === 'simulation' ? 'Scores simulés' : 'Données live'}
+              </div>}
+            </div>
+          </div>
+        )
+      })() : null}
+
       <div className="controls">
         <div className="seg">
           <button type="button" className={`seg__btn${view === 'groups' ? ' is-active' : ''}`} onClick={() => setView('groups')}>
-            <span className="seg__icon">▦</span>
-            Phase de groupes
+            ▦ Groupes
           </button>
           <button type="button" className={`seg__btn${view === 'bracket' ? ' is-active' : ''}`} onClick={() => setView('bracket')}>
-            <span className="seg__icon">🏆</span>
-            Tableau final
+            🏆 Tableau
           </button>
           <div className={`seg__thumb seg__thumb--${view}`} />
+        </div>
+
+        <div className="controls__modeseg">
+          <div className="seg seg--mode">
+            <button type="button" className={`seg__btn${mode === 'real' ? ' is-active' : ''}`} onClick={() => setMode('real')}>
+              En direct
+            </button>
+            <button type="button" className={`seg__btn${mode === 'simulation' ? ' is-active' : ''}`} onClick={() => setMode('simulation')}>
+              Simulation
+            </button>
+            <div className={`seg__thumb seg__thumb--${mode === 'real' ? 'groups' : 'bracket'}`} />
+          </div>
+          {mode === 'simulation' ? (
+            <button type="button" className="chip-btn chip-btn--danger chip-btn--sm" onClick={clearSimulation}>
+              Réinitialiser
+            </button>
+          ) : null}
         </div>
 
         <div className="controls__right">
@@ -1296,25 +1411,9 @@ function App() {
       ) : null}
 
       {mode === 'simulation' ? (
-        <div className="warning-strip warning-strip--sim">
-          <p>Simulation active : glisse les equipes dans un groupe pour generer un classement coherent, ajuste ensuite les scores, puis clique sur une equipe du tableau final pour la faire avancer.</p>
-        </div>
-      ) : null}
-
-      {view === 'groups' ? (
-        <div className="groups-summary">
-          <div className="groups-summary__card">
-            <span className="groups-summary__value">{completedGroups}/12</span>
-            <span className="groups-summary__label">groupes complets</span>
-          </div>
-          <div className="groups-summary__card">
-            <span className="groups-summary__value">{projectedQualifiedIds.size}</span>
-            <span className="groups-summary__label">qualifies projetes</span>
-          </div>
-          <div className="groups-summary__card">
-            <span className="groups-summary__value">{mode === 'simulation' ? 'Edition' : 'Lecture'}</span>
-            <span className="groups-summary__label">{mode === 'simulation' ? 'drag + scores actifs' : 'vue allegee'}</span>
-          </div>
+        <div className="simhint">
+          <span className="simhint__ico">✦</span>
+          Glisse les équipes pour réordonner un groupe · ajuste les scores · clique une équipe dans le tableau pour la faire avancer
         </div>
       ) : null}
 
@@ -1349,7 +1448,6 @@ function App() {
                 const groupMatches = mergedMatches.filter((match) => match.groupId === group.id)
                 const isComplete = groupMatches.every((match) => match.homeScore !== null && match.awayScore !== null)
                 const todayMatches = groupMatches.filter((match) => isToday(match.kickoffDate)).length
-                const openMatches = expandedGroups[group.id] ?? false
 
                 return (
                   <section key={group.id} className={`gcard${isComplete ? ' is-complete' : ''}`}>
@@ -1428,69 +1526,12 @@ function App() {
                     </table>
 
                     <div className="gcard__footer">
-                      <button type="button" className="gcard__toggle" onClick={() => toggleGroupMatches(group.id)}>
-                        <span>{openMatches ? 'Masquer les matchs' : 'Voir les matchs'}</span>
-                        <span className="gcard__togglemeta">
-                          {todayMatches > 0 && !openMatches ? <span className="gcard__livetag"><span className="gstatus__pulse" aria-hidden="true" />Live</span> : null}
-                          <span className={`gcard__togglechev${openMatches ? ' is-open' : ''}`}>⌄</span>
-                        </span>
+                      <button type="button" className="gcard__toggle" onClick={() => setMatchModalGroupId(group.id)}>
+                        {todayMatches > 0 ? <span className="gcard__livetag"><span className="gstatus__pulse" aria-hidden="true" />En direct</span> : null}
+                        <span>Programme · {groupMatches.length} matchs</span>
+                        <span className="gcard__togglearrow">→</span>
                       </button>
                     </div>
-
-                    {openMatches ? <div className="gcard__matches">
-                      {groupMatches.map((match) => {
-                        const homeTeam = teamsById.get(match.homeTeamId)
-                        const awayTeam = teamsById.get(match.awayTeamId)
-                        if (!homeTeam || !awayTeam) return null
-
-                        return (
-                          <div key={match.id} className={`mrow${isToday(match.kickoffDate) ? ' mrow--today' : ''}`}>
-                            <div className={`mrow__team mrow__team--home${match.homeScore !== null && match.awayScore !== null && (match.homeScore > match.awayScore) ? ' is-win' : ''}`}>
-                              <span className="mrow__name" onClick={() => toggleFocus(homeTeam.id)}>{homeTeam.name}</span>
-                              {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="flag-image" /> : <span className="flag-emoji">{homeTeam.flagEmoji}</span>}
-                            </div>
-                            <div className="mrow__score">
-                              {mode === 'simulation' ? (
-                                <>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={overrides[match.id]?.homeScore ?? match.homeScore ?? ''}
-                                    onChange={(event) => updateOverride(match.id, 'homeScore', event.target.value)}
-                                  />
-                                  <span className="mrow__sep">:</span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={overrides[match.id]?.awayScore ?? match.awayScore ?? ''}
-                                    onChange={(event) => updateOverride(match.id, 'awayScore', event.target.value)}
-                                  />
-                                </>
-                              ) : (
-                                <>
-                                  <b>{match.homeScore ?? '-'}</b>
-                                  <span className="mrow__sep">:</span>
-                                  <b>{match.awayScore ?? '-'}</b>
-                                </>
-                              )}
-                            </div>
-                            <div className={`mrow__team mrow__team--away${match.homeScore !== null && match.awayScore !== null && (match.awayScore > match.homeScore) ? ' is-win' : ''}`}>
-                              {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="flag-image" /> : <span className="flag-emoji">{awayTeam.flagEmoji}</span>}
-                              <span className="mrow__name" onClick={() => toggleFocus(awayTeam.id)}>{awayTeam.name}</span>
-                            </div>
-                            {(() => {
-                              const kickoff = formatKickoff(match)
-                              return (
-                                <div className="mrow__tools" title={kickoff.tooltip}>
-                                  {isToday(match.kickoffDate) ? "Aujourd'hui · " : ''}
-                                  {kickoff.label}
-                                </div>
-                              )
-                            })()}
-                          </div>
-                        )
-                      })}
-                    </div> : null}
                   </section>
                 )
               })}
@@ -1512,8 +1553,8 @@ function App() {
           <div className="panel">
             <div className="panel__head">
               <div>
-                <div className="panel__title">Qualifiés projetés</div>
-                <div className="panel__sub">Top 2 de chaque groupe + 8 meilleurs 3es</div>
+                <div className="panel__title">En route pour les 8es</div>
+                <div className="panel__sub">Top 2 par groupe · 8 meilleurs 3es qualifiés</div>
               </div>
             </div>
             <div className="odds">

@@ -304,7 +304,7 @@ export async function buildFifaLiveSnapshot(seed, apiKey) {
       homeScore: fixture.homeScore,
       awayScore: fixture.awayScore,
       status: fixture.status,
-      kickoffTime: fixture.kickoffTime,
+      kickoffTime: null, // scraped time has no reliable timezone — use API-Football kickoffIso instead
       kickoffIso: null,
     })
   }
