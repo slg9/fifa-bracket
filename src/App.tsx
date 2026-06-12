@@ -1148,7 +1148,7 @@ function App() {
                 </div>
 
                 <div className="daymodal__watchlist">
-                  <span>Diffusion officielle</span>
+                  <span>Où regarder</span>
                   <div className="daymodal__watchchips">
                     {watchOptions.map((option) => (
                       <a key={option.label} href={option.href} target="_blank" rel="noreferrer" className="daymodal__watchchip">
