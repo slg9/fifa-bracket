@@ -198,6 +198,11 @@
   border-color: rgba(43, 255, 154, 0.3);
 }
 
+.syncbtn.is-polling {
+  color: var(--cyan);
+  border-color: rgba(25, 211, 255, 0.25);
+}
+
 .syncbtn.is-busy .syncbtn__ico {
   animation: spin 1s linear infinite;
 }

@@ -876,6 +876,58 @@ function App() {
     }
   }
 
+  // Silent background sync — no spinner, no error banner
+  const silentSyncRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    silentSyncRef.current = async () => {
+      try {
+        const snapshot = await requestLiveSync()
+        setLiveSource({
+          syncedAt: snapshot.syncedAt,
+          source: snapshot.source,
+          warnings: snapshot.warnings,
+          matches: snapshot.matches,
+          predictions: snapshot.predictions ?? [],
+        })
+      } catch {
+        // network hiccup — keep current data
+      }
+    }
+  })
+
+  // Compute how often to poll based on match schedule
+  const pollingInterval = useMemo(() => {
+    if (!seed) return null
+    const now = Date.now()
+
+    // Any live match → poll every 5s
+    if (liveSource.matches.some((m) => m.status === 'live' || isLiveNow(m.kickoffIso))) return 5_000
+
+    // Find closest upcoming kickoff (from live snapshot which has kickoffIso)
+    const msToNext = liveSource.matches
+      .filter((m) => m.kickoffIso && m.status === 'scheduled')
+      .map((m) => new Date(m.kickoffIso!).getTime() - now)
+      .filter((d) => d > 0)
+      .sort((a, b) => a - b)[0]
+
+    if (msToNext !== undefined) {
+      if (msToNext < 15 * 60_000)  return 30_000       // < 15 min → 30s
+      if (msToNext < 2 * 3600_000) return 60_000        // < 2h   → 1 min
+    }
+
+    // Match day but nothing imminent → 3 min
+    if (seed.matches.some((m) => isToday(m.kickoffDate))) return 3 * 60_000
+
+    return null // no relevant match → no polling
+  }, [seed, liveSource.matches])
+
+  // Start / restart polling whenever the interval changes
+  useEffect(() => {
+    if (!pollingInterval) return
+    const id = setInterval(() => silentSyncRef.current(), pollingInterval)
+    return () => clearInterval(id)
+  }, [pollingInterval])
+
   if (loading) {
     return (
       <main className="app-shell loading">
@@ -1095,9 +1147,9 @@ function App() {
               {todayMatches.length} match{todayMatches.length > 1 ? 's' : ''} aujourd&apos;hui
             </button>
           ) : null}
-          <button type="button" className={`syncbtn${syncing ? ' is-busy' : ''}`} onClick={handleSyncLiveSnapshot} title="Synchroniser les données live">
+          <button type="button" className={`syncbtn${syncing ? ' is-busy' : ''}${pollingInterval ? ' is-polling' : ''}`} onClick={handleSyncLiveSnapshot} title="Synchroniser les données live">
             <span className="syncbtn__ico">{syncing ? '◌' : '⟳'}</span>
-            <span className="syncbtn__label">{syncing ? 'Synchro…' : 'Sync'}</span>
+            <span className="syncbtn__label">{syncing ? 'Synchro…' : pollingInterval ? `Auto · ${pollingInterval >= 60_000 ? `${pollingInterval / 60_000}min` : `${pollingInterval / 1_000}s`}` : 'Sync'}</span>
             <span className="syncbtn__meta">{formatSyncTime(liveSource.syncedAt)}</span>
           </button>
         </div>
