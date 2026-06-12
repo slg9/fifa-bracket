@@ -1348,9 +1348,6 @@ function App() {
                 if (!homeTeam || !awayTeam) return null
                 const kickoff = formatKickoff(match)
                 const liveStatus = inferStatus(match)
-                const cardHHMM = match.kickoffIso
-                  ? new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(match.kickoffIso))
-                  : null
 
                 return (
                   <article
