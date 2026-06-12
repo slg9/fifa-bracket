@@ -663,6 +663,8 @@ function App() {
   const [syncing, setSyncing] = useState(false)
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
+  const [isCompactGroups, setIsCompactGroups] = useState(() => window.innerWidth <= 680)
+  const [selectedGroupId, setSelectedGroupId] = useState('A')
 
   useEffect(() => {
     let active = true
@@ -746,6 +748,16 @@ function App() {
     })
   }, [overrides, knockoutPicks])
 
+  useEffect(() => {
+    const syncViewport = () => {
+      setIsCompactGroups(window.innerWidth <= 680)
+    }
+
+    syncViewport()
+    window.addEventListener('resize', syncViewport)
+    return () => window.removeEventListener('resize', syncViewport)
+  }, [])
+
   async function handleSyncLiveSnapshot() {
     setSyncing(true)
     try {
@@ -796,6 +808,7 @@ function App() {
       .filter((match) => match.groupId === group.id)
       .every((match) => match.homeScore !== null && match.awayScore !== null),
   ).length
+  const visibleGroups = isCompactGroups ? seed.groups.filter((group) => group.id === selectedGroupId) : seed.groups
 
   function updateOverride(matchId: string, side: 'homeScore' | 'awayScore', value: string) {
     setOverrides((current) => {
@@ -1033,16 +1046,38 @@ function App() {
         </div>
       ) : null}
 
+      {view === 'groups' ? (
+        <div className="groups-rail" aria-label="Navigation groupes">
+          {seed.groups.map((group) => {
+            const groupMatches = mergedMatches.filter((match) => match.groupId === group.id)
+            const todayMatches = groupMatches.filter((match) => isToday(match.kickoffDate)).length
+            const isComplete = groupMatches.every((match) => match.homeScore !== null && match.awayScore !== null)
+            return (
+              <button
+                key={group.id}
+                type="button"
+                className={`groups-rail__chip${selectedGroupId === group.id ? ' is-active' : ''}`}
+                onClick={() => setSelectedGroupId(group.id)}
+              >
+                <span>Groupe {group.id}</span>
+                {todayMatches > 0 ? <span className="groups-rail__dot is-live" aria-hidden="true" /> : null}
+                {isComplete ? <span className="groups-rail__state">OK</span> : null}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+
       <div className={`board${view === 'bracket' ? ' board--wide' : ''}`}>
         <main className="board__main">
           {view === 'groups' ? (
             <div className="groups">
-              {seed.groups.map((group) => {
+              {visibleGroups.map((group) => {
                 const groupStandings = standings[group.id] ?? []
                 const groupMatches = mergedMatches.filter((match) => match.groupId === group.id)
                 const isComplete = groupMatches.every((match) => match.homeScore !== null && match.awayScore !== null)
                 const todayMatches = groupMatches.filter((match) => isToday(match.kickoffDate)).length
-                const openMatches = expandedGroups[group.id] ?? (todayMatches > 0 || mode === 'simulation')
+                const openMatches = expandedGroups[group.id] ?? false
 
                 return (
                   <section key={group.id} className={`gcard${isComplete ? ' is-complete' : ''}`}>
@@ -1055,7 +1090,7 @@ function App() {
                         </div>
                       </div>
                       <div className="gcard__status">
-                        {todayMatches > 0 ? <span className="gstatus gstatus--live">Aujourd hui {todayMatches}</span> : null}
+                        {todayMatches > 0 ? <span className="gstatus gstatus--live"><span className="gstatus__pulse" aria-hidden="true" />Aujourd hui {todayMatches}</span> : null}
                         <span className={`gstatus${isComplete ? ' gstatus--ok' : ''}`}>{isComplete ? 'Complet' : `${groupMatches.length} matchs`}</span>
                       </div>
                     </header>
@@ -1123,7 +1158,10 @@ function App() {
                     <div className="gcard__footer">
                       <button type="button" className="gcard__toggle" onClick={() => toggleGroupMatches(group.id)}>
                         <span>{openMatches ? 'Masquer les matchs' : 'Voir les matchs'}</span>
-                        <span className={`gcard__togglechev${openMatches ? ' is-open' : ''}`}>⌄</span>
+                        <span className="gcard__togglemeta">
+                          {todayMatches > 0 && !openMatches ? <span className="gcard__livetag"><span className="gstatus__pulse" aria-hidden="true" />Live</span> : null}
+                          <span className={`gcard__togglechev${openMatches ? ' is-open' : ''}`}>⌄</span>
+                        </span>
                       </button>
                     </div>
 
