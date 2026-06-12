@@ -147,8 +147,12 @@ function localDateStr(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function isToday(date: string): boolean {
-  return date === localDateStr()
+function isMatchToday(match: Pick<GroupMatch, 'kickoffDate' | 'kickoffIso'>): boolean {
+  if (!match.kickoffIso) {
+    return match.kickoffDate === localDateStr()
+  }
+
+  return localDateStr(new Date(match.kickoffIso)) === localDateStr()
 }
 
 function isLiveNow(kickoffIso: string | null | undefined): boolean {
@@ -168,15 +172,13 @@ function inferStatus(match: GroupMatch): GroupMatch['status'] {
 }
 
 function formatKickoffTime(match: GroupMatch): string | null {
-  if (match.kickoffIso) {
-    return new Intl.DateTimeFormat('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).format(new Date(match.kickoffIso))
-  }
+  if (!match.kickoffIso) return null
 
-  return match.kickoffTime ?? null
+  return new Intl.DateTimeFormat('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(match.kickoffIso))
 }
 
 function formatSyncTime(isoDate: string | null): string {
@@ -830,7 +832,10 @@ function App() {
       return
     }
 
-    const hasTodayMatches = seed.matches.some((match) => isToday(match.kickoffDate))
+    const hasTodayMatches = liveSource.matches.some((match) => {
+      const seedMatch = seed.matches.find((candidate) => candidate.id === match.id)
+      return seedMatch ? isMatchToday({ ...seedMatch, kickoffIso: match.kickoffIso }) : false
+    })
     const hasLiveMatch = liveSource.matches.some((m) => m.status === 'live' || isLiveNow(m.kickoffIso))
     if (!hasTodayMatches && !hasLiveMatch) {
       return
@@ -902,7 +907,10 @@ function App() {
     }
 
     // Match day but nothing imminent → 5 min
-    if (seed.matches.some((m) => isToday(m.kickoffDate))) return 5 * 60_000
+    if (liveSource.matches.some((match) => {
+      const seedMatch = seed.matches.find((candidate) => candidate.id === match.id)
+      return seedMatch ? isMatchToday({ ...seedMatch, kickoffIso: match.kickoffIso }) : false
+    })) return 5 * 60_000
 
     return null // no relevant match → no polling
   }, [seed, liveSource.matches])
@@ -982,7 +990,7 @@ function App() {
   const visibleGroups = isCompactGroups ? seed.groups.filter((group) => group.id === selectedGroupId) : seed.groups
   const todayMatches = [...new Map(
     mergedMatches
-      .filter((match) => isToday(match.kickoffDate) || inferStatus(match) === 'live')
+      .filter((match) => isMatchToday(match) || inferStatus(match) === 'live')
       .map((m) => [m.id, m]),
   ).values()]
     .sort((a, b) => {
@@ -1432,7 +1440,7 @@ function App() {
                     : null
 
                   return (
-                    <div key={match.id} className={`gmrow${isLive ? ' is-live' : ''}${isToday(match.kickoffDate) ? ' is-today' : ''}`}>
+                    <div key={match.id} className={`gmrow${isLive ? ' is-live' : ''}${isMatchToday(match) ? ' is-today' : ''}`}>
 
                       {/* Date / status row */}
                       <div className="gmrow__header">
@@ -1606,7 +1614,7 @@ function App() {
         <div className="groups-rail" aria-label="Navigation groupes">
           {seed.groups.map((group) => {
             const groupMatches = mergedMatches.filter((match) => match.groupId === group.id)
-            const todayMatches = groupMatches.filter((match) => isToday(match.kickoffDate)).length
+            const todayMatches = groupMatches.filter(isMatchToday).length
             const isComplete = groupMatches.every((match) => match.homeScore !== null && match.awayScore !== null)
             return (
               <button
@@ -1632,7 +1640,7 @@ function App() {
                 const groupStandings = standings[group.id] ?? []
                 const groupMatches = mergedMatches.filter((match) => match.groupId === group.id)
                 const isComplete = groupMatches.every((match) => match.homeScore !== null && match.awayScore !== null)
-                const todayMatches = groupMatches.filter((match) => isToday(match.kickoffDate)).length
+                const todayMatches = groupMatches.filter(isMatchToday).length
 
                 return (
                   <section key={group.id} className={`gcard${isComplete ? ' is-complete' : ''}`}>
@@ -1651,6 +1659,16 @@ function App() {
                     </header>
 
                     <table className="stand">
+                      <colgroup>
+                        <col className="stand__col-pos" />
+                        <col className="stand__col-team" />
+                        <col className="stand__col-played" />
+                        <col className="stand__col-wins" />
+                        <col className="stand__col-draws" />
+                        <col className="stand__col-losses" />
+                        <col className="stand__col-diff" />
+                        <col className="stand__col-points" />
+                      </colgroup>
                       <thead>
                         <tr>
                           <th className="stand__pos">#</th>

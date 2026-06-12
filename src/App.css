@@ -1538,8 +1538,26 @@
 
 .stand {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 13px;
+}
+
+.stand__col-pos {
+  width: 7%;
+}
+
+.stand__col-team {
+  width: 38%;
+}
+
+.stand__col-played,
+.stand__col-wins,
+.stand__col-draws,
+.stand__col-losses,
+.stand__col-diff,
+.stand__col-points {
+  width: 9.166%;
 }
 
 .stand thead th {
@@ -1615,6 +1633,8 @@
   display: flex;
   align-items: center;
   gap: 9px;
+  width: 100%;
+  min-width: 0;
 }
 
 .stand__drag {
@@ -1623,6 +1643,10 @@
 }
 
 .stand__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text);
   font-family: var(--ui);
   font-size: 12.5px;
@@ -2375,6 +2399,27 @@
   .stand__team {
     padding-left: 12px !important;
     min-width: 120px;
+  }
+
+  .stand__col-pos {
+    width: 9%;
+  }
+
+  .stand__col-team {
+    width: 52%;
+  }
+
+  .stand__col-played,
+  .stand__col-diff,
+  .stand__col-points {
+    width: 13%;
+  }
+
+  .stand__col-wins,
+  .stand__col-draws,
+  .stand__col-losses {
+    visibility: collapse;
+    width: 0;
   }
 
   /* Hide Wins, Draws, Losses columns on mobile — keep J, +/-, Pts */
