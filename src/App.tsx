@@ -114,13 +114,18 @@ function formatDate(date: string): string {
   }).format(new Date(`${date}T12:00:00Z`))
 }
 
-function isToday(date: string): boolean {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = `${now.getMonth() + 1}`.padStart(2, '0')
-  const day = `${now.getDate()}`.padStart(2, '0')
+function localDateStr(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
-  return date === `${year}-${month}-${day}`
+function isToday(date: string): boolean {
+  return date === localDateStr()
+}
+
+function isLiveNow(kickoffIso: string | null | undefined): boolean {
+  if (!kickoffIso) return false
+  const elapsed = Date.now() - new Date(kickoffIso).getTime()
+  return elapsed >= 0 && elapsed < 130 * 60 * 1000
 }
 
 // If the scraper still marks a match as 'scheduled' but kickoff time has passed,
@@ -826,7 +831,8 @@ function App() {
     }
 
     const hasTodayMatches = seed.matches.some((match) => isToday(match.kickoffDate))
-    if (!hasTodayMatches) {
+    const hasLiveMatch = liveSource.matches.some((m) => isLiveNow(m.kickoffIso))
+    if (!hasTodayMatches && !hasLiveMatch) {
       return
     }
 
@@ -888,7 +894,7 @@ function App() {
   const visibleGroups = isCompactGroups ? seed.groups.filter((group) => group.id === selectedGroupId) : seed.groups
   const todayMatches = [...new Map(
     mergedMatches
-      .filter((match) => isToday(match.kickoffDate))
+      .filter((match) => isToday(match.kickoffDate) || isLiveNow(match.kickoffIso))
       .map((m) => [m.id, m]),
   ).values()]
     .sort((a, b) => {
@@ -1142,7 +1148,7 @@ function App() {
                 </div>
 
                 <div className="daymodal__watchlist">
-                  <span>Ou regarder</span>
+                  <span>Diffusion officielle</span>
                   <div className="daymodal__watchchips">
                     {watchOptions.map((option) => (
                       <a key={option.label} href={option.href} target="_blank" rel="noreferrer" className="daymodal__watchchip">
