@@ -1,0 +1,945 @@
+{
+  "syncedAt": "2026-06-12T12:15:40.672Z",
+  "source": "fifa-live",
+  "warnings": [],
+  "matches": [
+    {
+      "id": "A1",
+      "homeScore": 2,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null
+    },
+    {
+      "id": "A2",
+      "homeScore": 2,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null
+    },
+    {
+      "id": "B1",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "19:00"
+    },
+    {
+      "id": "D1",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "01:00"
+    },
+    {
+      "id": "B2",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "19:00"
+    },
+    {
+      "id": "C2",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "22:00"
+    },
+    {
+      "id": "C1",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "01:00"
+    },
+    {
+      "id": "D2",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "04:00"
+    },
+    {
+      "id": "E2",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "17:00"
+    },
+    {
+      "id": "F1",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "20:00"
+    },
+    {
+      "id": "E1",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "23:00"
+    },
+    {
+      "id": "F2",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "02:00"
+    },
+    {
+      "id": "H2",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "16:00"
+    },
+    {
+      "id": "G2",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "19:00"
+    },
+    {
+      "id": "H1",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "22:00"
+    },
+    {
+      "id": "G1",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "01:00"
+    },
+    {
+      "id": "I1",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "19:00"
+    },
+    {
+      "id": "I2",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "22:00"
+    },
+    {
+      "id": "J1",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "01:00"
+    },
+    {
+      "id": "J2",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "04:00"
+    },
+    {
+      "id": "K1",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "17:00"
+    },
+    {
+      "id": "L2",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "20:00"
+    },
+    {
+      "id": "L1",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "23:00"
+    },
+    {
+      "id": "K2",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "02:00"
+    },
+    {
+      "id": "A3",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "16:00"
+    },
+    {
+      "id": "B3",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "19:00"
+    },
+    {
+      "id": "B4",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "22:00"
+    },
+    {
+      "id": "A4",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "01:00"
+    },
+    {
+      "id": "D4",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "19:00"
+    },
+    {
+      "id": "C4",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "22:00"
+    },
+    {
+      "id": "C3",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "00:30"
+    },
+    {
+      "id": "D3",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "03:00"
+    },
+    {
+      "id": "F3",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "17:00"
+    },
+    {
+      "id": "E3",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "20:00"
+    },
+    {
+      "id": "E4",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "00:00"
+    },
+    {
+      "id": "F4",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "04:00"
+    },
+    {
+      "id": "H4",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "16:00"
+    },
+    {
+      "id": "G3",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "19:00"
+    },
+    {
+      "id": "H3",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "22:00"
+    },
+    {
+      "id": "G4",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "01:00"
+    },
+    {
+      "id": "J3",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "17:00"
+    },
+    {
+      "id": "I4",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "21:00"
+    },
+    {
+      "id": "I3",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "00:00"
+    },
+    {
+      "id": "J4",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "03:00"
+    },
+    {
+      "id": "K3",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "17:00"
+    },
+    {
+      "id": "L3",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "20:00"
+    },
+    {
+      "id": "L4",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "23:00"
+    },
+    {
+      "id": "K4",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "02:00"
+    },
+    {
+      "id": "B5",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "19:00"
+    },
+    {
+      "id": "B6",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "19:00"
+    },
+    {
+      "id": "C5",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "22:00"
+    },
+    {
+      "id": "C6",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "22:00"
+    },
+    {
+      "id": "A5",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "01:00"
+    },
+    {
+      "id": "A6",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "01:00"
+    },
+    {
+      "id": "E5",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "20:00"
+    },
+    {
+      "id": "E6",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "20:00"
+    },
+    {
+      "id": "F5",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "23:00"
+    },
+    {
+      "id": "F6",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "23:00"
+    },
+    {
+      "id": "D5",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "02:00"
+    },
+    {
+      "id": "D6",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "02:00"
+    },
+    {
+      "id": "I5",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "19:00"
+    },
+    {
+      "id": "I6",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "19:00"
+    },
+    {
+      "id": "H5",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "00:00"
+    },
+    {
+      "id": "H6",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "00:00"
+    },
+    {
+      "id": "G5",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "03:00"
+    },
+    {
+      "id": "G6",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "03:00"
+    },
+    {
+      "id": "L5",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "21:00"
+    },
+    {
+      "id": "L6",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "21:00"
+    },
+    {
+      "id": "K5",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "23:30"
+    },
+    {
+      "id": "K6",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "23:30"
+    },
+    {
+      "id": "J5",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "02:00"
+    },
+    {
+      "id": "J6",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffTime": "02:00"
+    }
+  ],
+  "standings": [
+    {
+      "groupId": "A",
+      "teamId": "MEX",
+      "rank": 1,
+      "points": 3,
+      "goalDifference": 2,
+      "goalsFor": 2,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "A",
+      "teamId": "KOR",
+      "rank": 2,
+      "points": 3,
+      "goalDifference": 1,
+      "goalsFor": 2,
+      "goalsAgainst": 1
+    },
+    {
+      "groupId": "A",
+      "teamId": "CZE",
+      "rank": 3,
+      "points": 0,
+      "goalDifference": -1,
+      "goalsFor": 1,
+      "goalsAgainst": 2
+    },
+    {
+      "groupId": "A",
+      "teamId": "RSA",
+      "rank": 4,
+      "points": 0,
+      "goalDifference": -2,
+      "goalsFor": 0,
+      "goalsAgainst": 2
+    },
+    {
+      "groupId": "B",
+      "teamId": "CAN",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "B",
+      "teamId": "BIH",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "B",
+      "teamId": "QAT",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "B",
+      "teamId": "SUI",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "C",
+      "teamId": "BRA",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "C",
+      "teamId": "MAR",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "C",
+      "teamId": "HAI",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "C",
+      "teamId": "SCO",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "D",
+      "teamId": "USA",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "D",
+      "teamId": "PAR",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "D",
+      "teamId": "AUS",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "D",
+      "teamId": "TUR",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "E",
+      "teamId": "GER",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "E",
+      "teamId": "CUW",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "E",
+      "teamId": "CIV",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "E",
+      "teamId": "ECU",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "F",
+      "teamId": "NED",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "F",
+      "teamId": "JPN",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "F",
+      "teamId": "SWE",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "F",
+      "teamId": "TUN",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "G",
+      "teamId": "BEL",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "G",
+      "teamId": "EGY",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "G",
+      "teamId": "IRN",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "G",
+      "teamId": "NZL",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "H",
+      "teamId": "ESP",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "H",
+      "teamId": "CPV",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "H",
+      "teamId": "KSA",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "H",
+      "teamId": "URU",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "I",
+      "teamId": "FRA",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "I",
+      "teamId": "SEN",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "I",
+      "teamId": "IRQ",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "I",
+      "teamId": "NOR",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "J",
+      "teamId": "ARG",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "J",
+      "teamId": "ALG",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "J",
+      "teamId": "AUT",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "J",
+      "teamId": "JOR",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "K",
+      "teamId": "POR",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "K",
+      "teamId": "COD",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "K",
+      "teamId": "UZB",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "K",
+      "teamId": "COL",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "L",
+      "teamId": "ENG",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "L",
+      "teamId": "CRO",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "L",
+      "teamId": "GHA",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    },
+    {
+      "groupId": "L",
+      "teamId": "PAN",
+      "rank": 1,
+      "points": 0,
+      "goalDifference": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    }
+  ]
+}
