@@ -1264,7 +1264,6 @@ function App() {
       ) : null}
 
       {matchModalGroupId ? (() => {
-        const modalGroup = seed.groups.find((g) => g.id === matchModalGroupId)
         const modalMatches = mergedMatches
           .filter((m) => m.groupId === matchModalGroupId)
           .sort((a, b) => (a.kickoffIso ?? `${a.kickoffDate}T${a.kickoffTime ?? '99:99'}`).localeCompare(b.kickoffIso ?? `${b.kickoffDate}T${b.kickoffTime ?? '99:99'}`))
