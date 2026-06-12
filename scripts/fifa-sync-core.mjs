@@ -72,13 +72,38 @@ function parseFixtureEntry(entry) {
   }
 }
 
+// Parse a French date like "Jeudi 11 juin 2026" → "2026-06-11"
+function parseFrenchDateLine(line) {
+  const months = {
+    janvier: '01', février: '02', mars: '03', avril: '04',
+    mai: '05', juin: '06', juillet: '07', août: '08',
+    septembre: '09', octobre: '10', novembre: '11', décembre: '12',
+  }
+  const m = line.match(/\b(\d{1,2})\s+(janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s+(\d{4})\b/i)
+  if (!m) return null
+  const key = m[2].toLowerCase()
+    .replace('é', 'e').replace('è', 'e').replace('û', 'u').replace('â', 'a')
+  const month = months[key] ?? months[m[2].toLowerCase()]
+  if (!month) return null
+  return `${m[3]}-${month}-${m[1].padStart(2, '0')}`
+}
+
 function parseFixtures(text) {
   const cleaned = stripImages(text)
   const chunks = cleaned.split('](https://www.fifa.com/fr/match-centre/match/')
   const fixtures = []
+  let currentCestDate = null
 
   for (let index = 0; index < chunks.length - 1; index += 1) {
     const chunk = chunks[index]
+
+    // Extract CEST date from any date header appearing before the match entry
+    const beforeEntry = chunk.slice(0, chunk.lastIndexOf('['))
+    for (const line of beforeEntry.split('\n')) {
+      const d = parseFrenchDateLine(line)
+      if (d) currentCestDate = d
+    }
+
     const entry = chunk.slice(chunk.lastIndexOf('[') + 1).replace(/\s+/g, ' ').trim()
 
     if (!entry) {
@@ -87,7 +112,7 @@ function parseFixtures(text) {
 
     const parsed = parseFixtureEntry(entry)
     if (parsed) {
-      fixtures.push(parsed)
+      fixtures.push({ ...parsed, cestDate: currentCestDate })
     }
   }
 
@@ -173,6 +198,13 @@ async function buildApiFootballSnapshot(seed, apiKey) {
   }
 
   const json = await response.json()
+
+  // Surface plan/auth errors explicitly before checking results
+  if (json.errors && Object.keys(json.errors).length > 0) {
+    const firstError = Object.values(json.errors)[0]
+    throw new Error(`API-Football: ${firstError}`)
+  }
+
   const fixtures = json.response ?? []
 
   if (fixtures.length === 0) {
@@ -363,13 +395,23 @@ export async function buildFifaLiveSnapshot(seed, apiKey) {
       continue
     }
 
+    // FIFA.com renders times in French locale = CEST (UTC+2) during June-July World Cup.
+    // Convert CEST date+time to a proper UTC ISO string using the offset "+02:00".
+    let kickoffIso = null
+    if (fixture.kickoffTime && fixture.cestDate) {
+      const dt = new Date(`${fixture.cestDate}T${fixture.kickoffTime}:00+02:00`)
+      if (!Number.isNaN(dt.getTime())) {
+        kickoffIso = dt.toISOString()
+      }
+    }
+
     matches.push({
       id: match.id,
       homeScore: fixture.homeScore,
       awayScore: fixture.awayScore,
       status: fixture.status,
-      kickoffTime: null, // scraped time has no reliable timezone — use API-Football kickoffIso instead
-      kickoffIso: null,
+      kickoffTime: null,
+      kickoffIso,
     })
   }
 

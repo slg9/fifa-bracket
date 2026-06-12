@@ -909,29 +909,49 @@
 .daymatch__mini {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .daymatch__team strong,
-.daymatch__mini span {
+.daymatch__mini span:not(.daymatch__flag) {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Away team: right-aligned, flag stays outer-right */
 .daymatch__team--right,
 .daymatch__mini--right {
   justify-content: flex-end;
   text-align: right;
 }
 
-.daymatch__scoreblock,
-.daymatch__mini--score {
+.daymatch__scoreblock {
   display: grid;
   gap: 6px;
   justify-items: center;
+}
+
+/* Mini score in grid cards: horizontal row, not vertical grid */
+.daymatch__mini--score {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-family: var(--numbers);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 52px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 9px;
 }
 
 .daymatch__status {
