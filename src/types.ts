@@ -68,6 +68,20 @@ export type LiveSnapshot = {
     goalsFor: number
     goalsAgainst: number
   }>
+  predictions?: MatchPrediction[]
+}
+
+export type MatchPrediction = {
+  matchId: string
+  homePercent: number
+  drawPercent: number
+  awayPercent: number
+  homeForm: string | null   // e.g. "WWDLW"
+  awayForm: string | null
+  homeGoalsAvg: number | null
+  awayGoalsAvg: number | null
+  advice: string | null
+  winnerName: string | null
 }
 
 export type MatchOverride = {

@@ -14,6 +14,7 @@ import type {
   GroupMatch,
   KnockoutEntrant,
   MatchOverride,
+  MatchPrediction,
   Mode,
   Team,
   TournamentSeed,
@@ -26,6 +27,7 @@ type LiveState = {
   source: string
   warnings: string[]
   matches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null; kickoffIso?: string | null }>
+  predictions: MatchPrediction[]
 }
 
 type DisplayMatch = {
@@ -687,6 +689,17 @@ function BracketBoard({
   )
 }
 
+function FormDots({ form, align = 'left' }: { form: string; align?: 'left' | 'right' }) {
+  const chars = form.toUpperCase().split('').filter((c) => 'WDL'.includes(c)).slice(-5)
+  return (
+    <div className={`formdots formdots--${align}`}>
+      {chars.map((c, i) => (
+        <span key={i} className={`formdot formdot--${c === 'W' ? 'win' : c === 'D' ? 'draw' : 'loss'}`} title={c === 'W' ? 'Victoire' : c === 'D' ? 'Nul' : 'Défaite'} />
+      ))}
+    </div>
+  )
+}
+
 function App() {
   const [seed, setSeed] = useState<TournamentSeed | null>(null)
   const [liveSource, setLiveSource] = useState<LiveState>({
@@ -694,6 +707,7 @@ function App() {
     source: 'seed',
     warnings: [],
     matches: [],
+    predictions: [],
   })
   const [mode, setMode] = useState<Mode>('real')
   const [view, setView] = useState<View>('groups')
@@ -704,7 +718,6 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [dragState, setDragState] = useState<DragState | null>(null)
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
   const [isCompactGroups, setIsCompactGroups] = useState(() => window.innerWidth <= 680)
   const [selectedGroupId, setSelectedGroupId] = useState('A')
   const [showDayModal, setShowDayModal] = useState(false)
@@ -747,6 +760,7 @@ function App() {
             source: liveSnapshot.source,
             warnings: liveSnapshot.warnings,
             matches: liveSnapshot.matches,
+            predictions: liveSnapshot.predictions ?? [],
           })
         } catch {
           const fallbackSnapshot = await loadLiveSnapshot()
@@ -760,6 +774,7 @@ function App() {
             source: fallbackSnapshot.source,
             warnings: fallbackSnapshot.warnings,
             matches: fallbackSnapshot.matches,
+            predictions: fallbackSnapshot.predictions ?? [],
           })
         }
       } catch (caughtError) {
@@ -830,6 +845,7 @@ function App() {
         source: snapshot.source,
         warnings: snapshot.warnings,
         matches: snapshot.matches,
+        predictions: snapshot.predictions ?? [],
       })
     } catch (caughtError) {
       setLiveSource((current) => ({
@@ -1000,13 +1016,6 @@ function App() {
     orderedTeamIds.splice(toIndex, 0, movedTeamId)
     applyGroupRankingSimulation(groupId, orderedTeamIds)
     setDragState(null)
-  }
-
-  function toggleGroupMatches(groupId: string) {
-    setExpandedGroups((current) => ({
-      ...current,
-      [groupId]: !current[groupId],
-    }))
   }
 
   function closeDayModal() {
@@ -1237,6 +1246,7 @@ function App() {
           .filter((m) => m.groupId === matchModalGroupId)
           .sort((a, b) => (a.kickoffIso ?? `${a.kickoffDate}T${a.kickoffTime ?? '99:99'}`).localeCompare(b.kickoffIso ?? `${b.kickoffDate}T${b.kickoffTime ?? '99:99'}`))
         const modalStandings = standings[matchModalGroupId] ?? []
+        const predMap = new Map(liveSource.predictions.map((p) => [p.matchId, p]))
 
         return (
           <div className="gmmodal" role="dialog" aria-modal="true">
@@ -1297,6 +1307,36 @@ function App() {
                           </div>
                         </div>
                         <div className="gmrow__venue">{match.venue}</div>
+                        {(() => {
+                          const pred = predMap.get(match.id)
+                          if (!pred || match.status !== 'scheduled') return null
+                          const total = pred.homePercent + pred.drawPercent + pred.awayPercent || 100
+                          const homeW = (pred.homePercent / total) * 100
+                          const drawW = (pred.drawPercent / total) * 100
+                          const awayW = (pred.awayPercent / total) * 100
+                          return (
+                            <div className="gmrow__prono">
+                              <div className="prono__bar">
+                                <div className="prono__seg prono__seg--home" style={{ width: `${homeW}%` }} title={`${homeTeam.name} : ${pred.homePercent}%`} />
+                                <div className="prono__seg prono__seg--draw" style={{ width: `${drawW}%` }} title={`Nul : ${pred.drawPercent}%`} />
+                                <div className="prono__seg prono__seg--away" style={{ width: `${awayW}%` }} title={`${awayTeam.name} : ${pred.awayPercent}%`} />
+                              </div>
+                              <div className="prono__labels">
+                                <span className="prono__pct prono__pct--home">{pred.homePercent}%</span>
+                                <span className="prono__pct prono__pct--draw">{pred.drawPercent}%</span>
+                                <span className="prono__pct prono__pct--away">{pred.awayPercent}%</span>
+                              </div>
+                              {pred.homeForm || pred.awayForm ? (
+                                <div className="prono__forms">
+                                  {pred.homeForm ? <FormDots form={pred.homeForm} /> : null}
+                                  <span className="prono__formsep">Forme</span>
+                                  {pred.awayForm ? <FormDots form={pred.awayForm} align="right" /> : null}
+                                </div>
+                              ) : null}
+                              {pred.advice ? <div className="prono__advice">✦ {pred.advice}</div> : null}
+                            </div>
+                          )
+                        })()}
                       </div>
                     )
                   })}

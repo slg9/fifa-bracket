@@ -559,6 +559,101 @@
   flex-shrink: 0;
 }
 
+/* ── Prediction / prono ── */
+.gmrow__prono {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.prono__bar {
+  display: flex;
+  height: 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.prono__seg {
+  border-radius: 3px;
+  transition: width 0.4s ease;
+  min-width: 4px;
+}
+
+.prono__seg--home {
+  background: var(--neon);
+  opacity: 0.85;
+}
+
+.prono__seg--draw {
+  background: var(--muted-2);
+  opacity: 0.6;
+}
+
+.prono__seg--away {
+  background: var(--cyan);
+  opacity: 0.85;
+}
+
+.prono__labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.prono__pct--home { color: var(--neon); }
+.prono__pct--draw { color: var(--muted); text-align: center; flex: 1; }
+.prono__pct--away { color: var(--cyan); text-align: right; }
+
+.prono__forms {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.prono__formsep {
+  color: var(--muted-2);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  text-align: center;
+}
+
+.formdots {
+  display: flex;
+  gap: 4px;
+}
+
+.formdots--right {
+  justify-content: flex-end;
+}
+
+.formdot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.formdot--win  { background: var(--neon); }
+.formdot--draw { background: var(--gold); }
+.formdot--loss { background: var(--danger); }
+
+.prono__advice {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 700;
+  font-style: italic;
+  padding-top: 2px;
+  line-height: 1.4;
+}
+
 /* ── Day modal ── */
 .daymodal {
   position: fixed;

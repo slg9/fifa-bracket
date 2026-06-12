@@ -185,6 +185,9 @@ async function buildApiFootballSnapshot(seed, apiKey) {
   )
 
   const matches = []
+  // Map: seed match ID → API-Football fixture ID (for predictions)
+  const apiFixtureIdBySeedId = new Map()
+
   for (const f of groupFixtures) {
     const homeCode = f.teams?.home?.code
     const awayCode = f.teams?.away?.code
@@ -208,10 +211,70 @@ async function buildApiFootballSnapshot(seed, apiKey) {
       kickoffTime: null,
       kickoffIso: f.fixture?.date ?? null,
     })
+
+    if (status === 'scheduled' && f.fixture?.id) {
+      apiFixtureIdBySeedId.set(seedMatch.id, f.fixture.id)
+    }
   }
 
   if (matches.length === 0) {
     throw new Error('API-Football: aucun match de groupe mappé.')
+  }
+
+  // Fetch predictions for upcoming matches (next 10 days, max 15 calls)
+  const now = new Date()
+  const tenDays = 10 * 24 * 60 * 60 * 1000
+  const upcomingEntries = [...apiFixtureIdBySeedId.entries()]
+    .filter(([seedId]) => {
+      const m = matches.find((x) => x.id === seedId)
+      if (!m?.kickoffIso) return false
+      const diff = new Date(m.kickoffIso) - now
+      return diff >= 0 && diff <= tenDays
+    })
+    .slice(0, 15)
+
+  const predictions = []
+  if (upcomingEntries.length > 0) {
+    // Batch in groups of 5 to avoid rate-limit bursts
+    for (let i = 0; i < upcomingEntries.length; i += 5) {
+      const batch = upcomingEntries.slice(i, i + 5)
+      const results = await Promise.allSettled(
+        batch.map(async ([seedId, apiId]) => {
+          const res = await fetch(`${API_FOOTBALL_BASE}/predictions?fixture=${apiId}`, {
+            headers: { 'x-apisports-key': apiKey },
+          })
+          if (!res.ok) return null
+          const json = await res.json()
+          const pred = json.response?.[0]
+          if (!pred) return null
+
+          const pct = pred.predictions?.percent ?? {}
+          const parse = (s) => parseInt((s ?? '0').replace('%', ''), 10) || 0
+
+          return {
+            matchId: seedId,
+            homePercent: parse(pct.home),
+            drawPercent: parse(pct.draw),
+            awayPercent: parse(pct.away),
+            homeForm: pred.teams?.home?.last_5?.form ?? null,
+            awayForm: pred.teams?.away?.last_5?.form ?? null,
+            homeGoalsAvg: parseFloat(pred.teams?.home?.last_5?.goals?.for?.average ?? '') || null,
+            awayGoalsAvg: parseFloat(pred.teams?.away?.last_5?.goals?.for?.average ?? '') || null,
+            advice: pred.predictions?.advice ?? null,
+            winnerName: pred.predictions?.winner?.name ?? null,
+          }
+        }),
+      )
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) {
+          predictions.push(result.value)
+        }
+      }
+      // Small pause between batches
+      if (i + 5 < upcomingEntries.length) {
+        await new Promise((r) => setTimeout(r, 500))
+      }
+    }
   }
 
   // Build standings from API-Football standings endpoint
@@ -255,6 +318,7 @@ async function buildApiFootballSnapshot(seed, apiKey) {
     warnings,
     matches,
     standings,
+    predictions,
   }
 }
 
