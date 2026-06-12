@@ -131,6 +131,16 @@ function isToday(date: string): boolean {
   return date === `${year}-${month}-${day}`
 }
 
+// If the scraper still marks a match as 'scheduled' but kickoff time has passed,
+// infer the actual status from wall-clock time (no API needed).
+function inferStatus(match: GroupMatch): GroupMatch['status'] {
+  if (match.status !== 'scheduled' || !match.kickoffIso) return match.status
+  const elapsed = Date.now() - new Date(match.kickoffIso).getTime()
+  if (elapsed < 0) return 'scheduled'
+  if (elapsed < 130 * 60 * 1000) return 'live'  // within 130 min → probably live
+  return 'finished'
+}
+
 function formatKickoff(match: GroupMatch): { label: string; tooltip?: string } {
   if (match.kickoffIso) {
     const formatted = new Intl.DateTimeFormat('fr-FR', {
@@ -900,7 +910,7 @@ function App() {
       return aTime.localeCompare(bTime)
     })
     .slice(0, 10)
-  const liveNowMatches = todayMatches.filter((match) => match.status === 'live')
+  const liveNowMatches = todayMatches.filter((match) => inferStatus(match) === 'live')
   const featuredDayMatch = liveNowMatches[0] ?? todayMatches[0] ?? null
   const countryCode = getCountryCodeFromFixturesUrl(seed.meta.sourceUrls.fixtures)
   const watchOptions = [
@@ -1164,7 +1174,13 @@ function App() {
                 const kickoff = formatKickoff(featuredDayMatch)
 
                 return (
-                  <div className="daymatch daymatch--hero">
+                  <div
+                    className="daymatch daymatch--hero daymatch--clickable"
+                    onClick={() => { closeDayModal(); setMatchModalGroupId(featuredDayMatch.groupId) }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { closeDayModal(); setMatchModalGroupId(featuredDayMatch.groupId) } }}
+                  >
                     <div className="daymatch__meta">
                       <span>Groupe {featuredDayMatch.groupId}</span>
                       <span>{featuredDayMatch.venue}</span>
@@ -1178,7 +1194,7 @@ function App() {
 
                       <div className="daymatch__scoreblock">
                         <div className="daymatch__status">
-                          {featuredDayMatch.status === 'live' ? 'LIVE' : featuredDayMatch.status === 'finished' ? 'TERMINE' : kickoff.label}
+                          {(() => { const s = inferStatus(featuredDayMatch); return s === 'live' ? 'EN COURS' : s === 'finished' ? 'TERMINÉ' : kickoff.label })()}
                         </div>
                         <div className="daymatch__score">
                           <span>{featuredDayMatch.homeScore ?? '-'}</span>
@@ -1203,12 +1219,20 @@ function App() {
                 const awayTeam = teamsById.get(match.awayTeamId)
                 if (!homeTeam || !awayTeam) return null
                 const kickoff = formatKickoff(match)
+                const liveStatus = inferStatus(match)
 
                 return (
-                  <article key={match.id} className={`daymatch${match.status === 'live' ? ' is-live' : ''}`}>
+                  <article
+                    key={match.id}
+                    className={`daymatch daymatch--clickable${liveStatus === 'live' ? ' is-live' : ''}`}
+                    onClick={() => { closeDayModal(); setMatchModalGroupId(match.groupId) }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { closeDayModal(); setMatchModalGroupId(match.groupId) } }}
+                  >
                     <div className="daymatch__meta">
                       <span>Groupe {match.groupId}</span>
-                      <span>{match.status === 'live' ? 'En direct' : kickoff.label}</span>
+                      <span>{liveStatus === 'live' ? 'En cours' : kickoff.label}</span>
                     </div>
 
                     <div className="daymatch__row">
@@ -1293,9 +1317,10 @@ function App() {
                   const awayTeam = teamsById.get(match.awayTeamId)
                   if (!homeTeam || !awayTeam) return null
 
-                  const isLive = match.status === 'live'
-                  const isDone = match.status === 'finished'
-                  const isScheduled = match.status === 'scheduled'
+                  const effectiveStatus = inferStatus(match)
+                  const isLive = effectiveStatus === 'live'
+                  const isDone = effectiveStatus === 'finished'
+                  const isScheduled = effectiveStatus === 'scheduled'
                   const homeWin = isDone && match.homeScore !== null && match.awayScore !== null && match.homeScore > match.awayScore
                   const awayWin = isDone && match.homeScore !== null && match.awayScore !== null && match.awayScore > match.homeScore
 
