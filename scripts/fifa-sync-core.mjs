@@ -95,16 +95,16 @@ function parseFixtures(text) {
   const cleaned = stripImages(text)
   const chunks = cleaned.split('](https://www.fifa.com/fr/match-centre/match/')
   const fixtures = []
-  let currentCestDate = null
+  let currentUtcDate = null
 
   for (let index = 0; index < chunks.length - 1; index += 1) {
     const chunk = chunks[index]
 
-    // Extract CEST date from any date header appearing before the match entry
+    // Jina's server-side FIFA rendering exposes fixture dates and times in UTC.
     const beforeEntry = chunk.slice(0, chunk.lastIndexOf('['))
     for (const line of beforeEntry.split('\n')) {
       const d = parseFrenchDateLine(line)
-      if (d) currentCestDate = d
+      if (d) currentUtcDate = d
     }
 
     const entry = chunk.slice(chunk.lastIndexOf('[') + 1).replace(/\s+/g, ' ').trim()
@@ -115,7 +115,7 @@ function parseFixtures(text) {
 
     const parsed = parseFixtureEntry(entry)
     if (parsed) {
-      fixtures.push({ ...parsed, cestDate: currentCestDate })
+      fixtures.push({ ...parsed, utcDate: currentUtcDate })
     }
   }
 
@@ -218,11 +218,11 @@ export async function buildFifaLiveSnapshot(seed) {
       continue
     }
 
-    // FIFA.com renders times in French locale = CEST (UTC+2) during June-July World Cup.
-    // Convert CEST date+time to a proper UTC ISO string using the offset "+02:00".
+    // Jina renders FIFA fixture times in UTC. Store that absolute instant as ISO;
+    // the browser converts it to the client's timezone when displaying it.
     let kickoffIso = null
-    if (fixture.kickoffTime && fixture.cestDate) {
-      const dt = new Date(`${fixture.cestDate}T${fixture.kickoffTime}:00+02:00`)
+    if (fixture.kickoffTime && fixture.utcDate) {
+      const dt = new Date(`${fixture.utcDate}T${fixture.kickoffTime}:00Z`)
       if (!Number.isNaN(dt.getTime())) {
         kickoffIso = dt.toISOString()
       }

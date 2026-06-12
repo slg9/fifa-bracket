@@ -1,5 +1,5 @@
 {
-  "syncedAt": "2026-06-12T21:23:15.177Z",
+  "syncedAt": "2026-06-12T21:55:29.985Z",
   "source": "fifa-live",
   "warnings": [],
   "matches": [
@@ -36,7 +36,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-12T23:00:00.000Z",
+      "kickoffIso": "2026-06-13T01:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -45,7 +45,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-13T17:00:00.000Z",
+      "kickoffIso": "2026-06-13T19:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -54,7 +54,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-13T20:00:00.000Z",
+      "kickoffIso": "2026-06-13T22:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -63,7 +63,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-13T23:00:00.000Z",
+      "kickoffIso": "2026-06-14T01:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -72,7 +72,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-14T02:00:00.000Z",
+      "kickoffIso": "2026-06-14T04:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -81,7 +81,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-14T15:00:00.000Z",
+      "kickoffIso": "2026-06-14T17:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -90,7 +90,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-14T18:00:00.000Z",
+      "kickoffIso": "2026-06-14T20:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -99,7 +99,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-14T21:00:00.000Z",
+      "kickoffIso": "2026-06-14T23:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -108,7 +108,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-15T00:00:00.000Z",
+      "kickoffIso": "2026-06-15T02:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -117,7 +117,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-15T14:00:00.000Z",
+      "kickoffIso": "2026-06-15T16:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -126,7 +126,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-15T17:00:00.000Z",
+      "kickoffIso": "2026-06-15T19:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -135,7 +135,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-15T20:00:00.000Z",
+      "kickoffIso": "2026-06-15T22:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -144,7 +144,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-15T23:00:00.000Z",
+      "kickoffIso": "2026-06-16T01:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -153,7 +153,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-16T17:00:00.000Z",
+      "kickoffIso": "2026-06-16T19:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -162,7 +162,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-16T20:00:00.000Z",
+      "kickoffIso": "2026-06-16T22:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -171,7 +171,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-16T23:00:00.000Z",
+      "kickoffIso": "2026-06-17T01:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -180,7 +180,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-17T02:00:00.000Z",
+      "kickoffIso": "2026-06-17T04:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -189,7 +189,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-17T15:00:00.000Z",
+      "kickoffIso": "2026-06-17T17:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -198,7 +198,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-17T18:00:00.000Z",
+      "kickoffIso": "2026-06-17T20:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -207,7 +207,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-17T21:00:00.000Z",
+      "kickoffIso": "2026-06-17T23:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -216,7 +216,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-18T00:00:00.000Z",
+      "kickoffIso": "2026-06-18T02:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -225,7 +225,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-18T14:00:00.000Z",
+      "kickoffIso": "2026-06-18T16:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -234,7 +234,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-18T17:00:00.000Z",
+      "kickoffIso": "2026-06-18T19:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -243,7 +243,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-18T20:00:00.000Z",
+      "kickoffIso": "2026-06-18T22:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -252,7 +252,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-18T23:00:00.000Z",
+      "kickoffIso": "2026-06-19T01:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -261,7 +261,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-19T17:00:00.000Z",
+      "kickoffIso": "2026-06-19T19:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -270,7 +270,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-19T20:00:00.000Z",
+      "kickoffIso": "2026-06-19T22:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -279,7 +279,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-19T22:30:00.000Z",
+      "kickoffIso": "2026-06-20T00:30:00.000Z",
       "liveMinute": null
     },
     {
@@ -288,7 +288,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-20T01:00:00.000Z",
+      "kickoffIso": "2026-06-20T03:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -297,7 +297,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-20T15:00:00.000Z",
+      "kickoffIso": "2026-06-20T17:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -306,7 +306,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-20T18:00:00.000Z",
+      "kickoffIso": "2026-06-20T20:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -315,7 +315,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-20T22:00:00.000Z",
+      "kickoffIso": "2026-06-21T00:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -324,7 +324,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-21T02:00:00.000Z",
+      "kickoffIso": "2026-06-21T04:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -333,7 +333,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-21T14:00:00.000Z",
+      "kickoffIso": "2026-06-21T16:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -342,7 +342,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-21T17:00:00.000Z",
+      "kickoffIso": "2026-06-21T19:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -351,7 +351,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-21T20:00:00.000Z",
+      "kickoffIso": "2026-06-21T22:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -360,7 +360,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-21T23:00:00.000Z",
+      "kickoffIso": "2026-06-22T01:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -369,7 +369,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-22T15:00:00.000Z",
+      "kickoffIso": "2026-06-22T17:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -378,7 +378,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-22T19:00:00.000Z",
+      "kickoffIso": "2026-06-22T21:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -387,7 +387,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-22T22:00:00.000Z",
+      "kickoffIso": "2026-06-23T00:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -396,7 +396,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-23T01:00:00.000Z",
+      "kickoffIso": "2026-06-23T03:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -405,7 +405,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-23T15:00:00.000Z",
+      "kickoffIso": "2026-06-23T17:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -414,7 +414,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-23T18:00:00.000Z",
+      "kickoffIso": "2026-06-23T20:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -423,7 +423,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-23T21:00:00.000Z",
+      "kickoffIso": "2026-06-23T23:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -432,7 +432,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-24T00:00:00.000Z",
+      "kickoffIso": "2026-06-24T02:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -441,7 +441,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-24T17:00:00.000Z",
+      "kickoffIso": "2026-06-24T19:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -450,7 +450,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-24T17:00:00.000Z",
+      "kickoffIso": "2026-06-24T19:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -459,7 +459,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-24T20:00:00.000Z",
+      "kickoffIso": "2026-06-24T22:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -468,7 +468,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-24T20:00:00.000Z",
+      "kickoffIso": "2026-06-24T22:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -477,7 +477,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-24T23:00:00.000Z",
+      "kickoffIso": "2026-06-25T01:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -486,7 +486,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-24T23:00:00.000Z",
+      "kickoffIso": "2026-06-25T01:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -495,7 +495,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-25T18:00:00.000Z",
+      "kickoffIso": "2026-06-25T20:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -504,7 +504,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-25T18:00:00.000Z",
+      "kickoffIso": "2026-06-25T20:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -513,7 +513,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-25T21:00:00.000Z",
+      "kickoffIso": "2026-06-25T23:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -522,7 +522,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-25T21:00:00.000Z",
+      "kickoffIso": "2026-06-25T23:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -531,7 +531,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-26T00:00:00.000Z",
+      "kickoffIso": "2026-06-26T02:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -540,7 +540,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-26T00:00:00.000Z",
+      "kickoffIso": "2026-06-26T02:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -549,7 +549,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-26T17:00:00.000Z",
+      "kickoffIso": "2026-06-26T19:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -558,7 +558,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-26T17:00:00.000Z",
+      "kickoffIso": "2026-06-26T19:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -567,7 +567,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-26T22:00:00.000Z",
+      "kickoffIso": "2026-06-27T00:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -576,7 +576,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-26T22:00:00.000Z",
+      "kickoffIso": "2026-06-27T00:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -585,7 +585,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-27T01:00:00.000Z",
+      "kickoffIso": "2026-06-27T03:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -594,7 +594,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-27T01:00:00.000Z",
+      "kickoffIso": "2026-06-27T03:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -603,7 +603,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-27T19:00:00.000Z",
+      "kickoffIso": "2026-06-27T21:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -612,7 +612,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-27T19:00:00.000Z",
+      "kickoffIso": "2026-06-27T21:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -621,7 +621,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-27T21:30:00.000Z",
+      "kickoffIso": "2026-06-27T23:30:00.000Z",
       "liveMinute": null
     },
     {
@@ -630,7 +630,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-27T21:30:00.000Z",
+      "kickoffIso": "2026-06-27T23:30:00.000Z",
       "liveMinute": null
     },
     {
@@ -639,7 +639,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-28T00:00:00.000Z",
+      "kickoffIso": "2026-06-28T02:00:00.000Z",
       "liveMinute": null
     },
     {
@@ -648,7 +648,7 @@
       "awayScore": null,
       "status": "scheduled",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-28T00:00:00.000Z",
+      "kickoffIso": "2026-06-28T02:00:00.000Z",
       "liveMinute": null
     }
   ],
