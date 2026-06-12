@@ -985,7 +985,7 @@
 .daymatch__main,
 .daymatch__row {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(84px, auto) minmax(0, 1fr);
   gap: 16px;
   align-items: center;
   margin-top: 16px;
@@ -996,6 +996,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   min-width: 0;
   font-size: 13px;
   font-weight: 700;
@@ -1033,7 +1034,8 @@
   font-size: 20px;
   font-weight: 700;
   color: var(--text);
-  min-width: 52px;
+  width: auto;
+  min-width: 84px;
   padding: 4px 8px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
@@ -1072,10 +1074,10 @@
 /* Time in mini grid card score cell */
 .daymatch__mini-time {
   font-family: var(--numbers);
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--cyan);
-  letter-spacing: 0.2px;
+  letter-spacing: -0.2px;
 }
 
 .daymatch__score i,

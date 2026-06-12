@@ -97,25 +97,6 @@ const roundColumns: Array<{ key: string; stage: string; side: 'left' | 'center' 
   { key: 'R32R', stage: 'Round of 32', side: 'right', ids: ['M81', 'M82', 'M83', 'M84', 'M85', 'M86', 'M87', 'M88'] },
 ]
 
-const venueUtcOffsetBySeedVenue: Record<string, string> = {
-  'Mexico City Stadium': '-06:00',
-  'Estadio Guadalajara': '-06:00',
-  'Estadio Monterrey': '-06:00',
-  'Toronto Stadium': '-04:00',
-  'San Francisco Bay Area Stadium': '-07:00',
-  'Los Angeles Stadium': '-07:00',
-  'BC Place Vancouver': '-07:00',
-  'Boston Stadium': '-04:00',
-  'New York New Jersey Stadium': '-04:00',
-  'Philadelphia Stadium': '-04:00',
-  'Atlanta Stadium': '-04:00',
-  'Miami Stadium': '-04:00',
-  'Houston Stadium': '-05:00',
-  'Dallas Stadium': '-05:00',
-  'Kansas City Stadium': '-05:00',
-  'Seattle Stadium': '-07:00',
-}
-
 const watchOptionsByCountry: Record<string, WatchOption[]> = {
   FR: [
     { label: 'beIN Sports', href: 'https://www.beinsports.com/france/' },
@@ -131,13 +112,6 @@ const watchOptionsByCountry: Record<string, WatchOption[]> = {
 function getCountryCodeFromFixturesUrl(url: string): string {
   const match = url.match(/[?&]country=([A-Z]{2})/i)
   return match?.[1]?.toUpperCase() ?? 'FR'
-}
-
-function formatDate(date: string): string {
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-  }).format(new Date(`${date}T12:00:00Z`))
 }
 
 // Format live minute for display.
@@ -193,41 +167,16 @@ function inferStatus(match: GroupMatch): GroupMatch['status'] {
   return 'finished'
 }
 
-function formatKickoff(match: GroupMatch): { label: string; tooltip?: string } {
+function formatKickoffTime(match: GroupMatch): string | null {
   if (match.kickoffIso) {
-    const formatted = new Intl.DateTimeFormat('fr-FR', {
-      day: 'numeric',
-      month: 'short',
+    return new Intl.DateTimeFormat('fr-FR', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
     }).format(new Date(match.kickoffIso))
-    return { label: formatted }
   }
 
-  if (!match.kickoffTime) {
-    return { label: formatDate(match.kickoffDate) }
-  }
-
-  const venueOffset = venueUtcOffsetBySeedVenue[match.venue]
-  if (!venueOffset) {
-    return { label: `${formatDate(match.kickoffDate)} ${match.kickoffTime}` }
-  }
-
-  const localInstant = new Date(`${match.kickoffDate}T${match.kickoffTime}:00${venueOffset}`)
-  const formatted = new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(localInstant)
-
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  return {
-    label: formatted,
-    tooltip: `Heure locale (${timeZone})`,
-  }
+  return match.kickoffTime ?? null
 }
 
 function formatSyncTime(isoDate: string | null): string {
@@ -1303,9 +1252,7 @@ function App() {
                 const awayTeam = teamsById.get(featuredDayMatch.awayTeamId)
                 if (!homeTeam || !awayTeam) return null
                 const heroStatus = inferStatus(featuredDayMatch)
-                const heroHHMM = featuredDayMatch.kickoffIso
-                  ? new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(featuredDayMatch.kickoffIso))
-                  : null
+                const heroHHMM = formatKickoffTime(featuredDayMatch)
 
                 return (
                   <div
@@ -1361,7 +1308,7 @@ function App() {
                 const homeTeam = teamsById.get(match.homeTeamId)
                 const awayTeam = teamsById.get(match.awayTeamId)
                 if (!homeTeam || !awayTeam) return null
-                const kickoff = formatKickoff(match)
+                const kickoffTime = formatKickoffTime(match)
                 const liveStatus = inferStatus(match)
 
                 return (
@@ -1377,7 +1324,7 @@ function App() {
                       <span>Groupe {match.groupId}</span>
                       <div className="daymatch__meta-right">
                         <BroadcasterBadge matchId={match.id} />
-                        <span>{liveStatus === 'live' ? formatLiveMinute(match.liveMinute, liveSource.syncedAt) : kickoff.label}</span>
+                        {liveStatus === 'live' ? <span>{formatLiveMinute(match.liveMinute, liveSource.syncedAt)}</span> : null}
                       </div>
                     </div>
 
@@ -1387,9 +1334,15 @@ function App() {
                         <span>{homeTeam.shortName}</span>
                       </div>
                       <div className="daymatch__mini daymatch__mini--score">
-                        <b>{match.homeScore ?? '-'}</b>
-                        <span>:</span>
-                        <b>{match.awayScore ?? '-'}</b>
+                        {liveStatus === 'scheduled' && kickoffTime ? (
+                          <time className="daymatch__mini-time">{kickoffTime}</time>
+                        ) : (
+                          <>
+                            <b>{match.homeScore ?? '-'}</b>
+                            <span>:</span>
+                            <b>{match.awayScore ?? '-'}</b>
+                          </>
+                        )}
                       </div>
                       <div className="daymatch__mini daymatch__mini--right">
                         <span>{awayTeam.shortName}</span>
