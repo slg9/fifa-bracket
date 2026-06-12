@@ -923,6 +923,32 @@
   letter-spacing: 0.7px;
 }
 
+.daymatch__meta-right,
+.gmrow__header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Broadcaster channel badges */
+.bcbadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  line-height: 1.5;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.bcbadge--m6  { background: #E5000F; color: #fff; }
+.bcbadge--w9  { background: #6C1D8E; color: #fff; }
+.bcbadge--bein { background: #FF6B00; color: #fff; }
+
 .daymatch__main,
 .daymatch__row {
   display: grid;

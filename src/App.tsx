@@ -49,6 +49,30 @@ type DragState = {
 
 const simulationStorageKey = 'fifabracket:simulation'
 
+// Free-to-air broadcaster per match (France). Matches not listed = beIN Sports only.
+// Source: M6/W9 rights + beIN Sports 2026 World Cup schedule.
+const broadcasterFR: Record<string, 'M6' | 'W9'> = {
+  A1: 'M6',                               // MEX vs RSA
+  B1: 'M6', B2: 'W9', B5: 'M6',          // CAN-BIH, QAT-SUI, SUI-CAN
+  C2: 'M6', C4: 'M6',                     // BRA-MAR, SCO-MAR
+  D4: 'M6',                               // USA-AUS
+  E2: 'W9', E3: 'W9', E6: 'W9',          // GER-CUW, GER-CIV, ECU-GER
+  F1: 'W9', F6: 'M6',                     // NED-JPN, TUN-NED
+  G2: 'M6', G3: 'M6',                     // BEL-EGY, BEL-IRN
+  H1: 'M6', H2: 'W9', H4: 'W9', H6: 'M6', // KSA-URU, ESP-CPV, ESP-KSA, URU-ESP
+  I1: 'M6', I4: 'M6', I5: 'M6',          // FRA-SEN, FRA-IRQ, NOR-FRA
+  J3: 'M6', J5: 'M6',                     // ARG-AUT, ALG-AUT
+  K3: 'W9', K5: 'M6',                     // POR-UZB, COL-POR
+  L2: 'W9', L3: 'W9', L5: 'M6',          // ENG-CRO, ENG-GHA, PAN-ENG
+}
+
+function BroadcasterBadge({ matchId }: { matchId: string }) {
+  const ch = broadcasterFR[matchId]
+  if (ch === 'M6') return <span className="bcbadge bcbadge--m6">M6</span>
+  if (ch === 'W9') return <span className="bcbadge bcbadge--w9">W9</span>
+  return <span className="bcbadge bcbadge--bein">beIN</span>
+}
+
 type WatchOption = {
   label: string
   href: string
@@ -1178,7 +1202,10 @@ function App() {
                   >
                     <div className="daymatch__meta">
                       <span>Groupe {featuredDayMatch.groupId}</span>
-                      <span>{featuredDayMatch.venue}</span>
+                      <div className="daymatch__meta-right">
+                        <BroadcasterBadge matchId={featuredDayMatch.id} />
+                        <span>{featuredDayMatch.venue}</span>
+                      </div>
                     </div>
 
                     <div className="daymatch__main">
@@ -1234,7 +1261,10 @@ function App() {
                   >
                     <div className="daymatch__meta">
                       <span>Groupe {match.groupId}</span>
-                      <span>{liveStatus === 'live' ? 'En cours' : liveStatus === 'scheduled' ? 'Bientôt' : kickoff.label}</span>
+                      <div className="daymatch__meta-right">
+                        <BroadcasterBadge matchId={match.id} />
+                        <span>{liveStatus === 'live' ? 'En cours' : liveStatus === 'scheduled' ? 'Bientôt' : kickoff.label}</span>
+                      </div>
                     </div>
 
                     <div className="daymatch__row">
@@ -1344,7 +1374,10 @@ function App() {
                           ? <span className="gmrow__livebadge"><span className="gstatus__pulse" aria-hidden="true" />En direct</span>
                           : <span className="gmrow__time">{dateLabel}</span>
                         }
-                        <span className="gmrow__venue">{match.venue}</span>
+                        <div className="gmrow__header-right">
+                          <BroadcasterBadge matchId={match.id} />
+                          <span className="gmrow__venue">{match.venue}</span>
+                        </div>
                       </div>
 
                       {/* Teams + score */}
