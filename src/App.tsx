@@ -327,9 +327,12 @@ function BracketBoard({
   const fitRef = useRef<HTMLDivElement | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const refs = useRef<Record<string, HTMLDivElement | null>>({})
+  const fullscreenRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState(1)
   const [box, setBox] = useState({ width: 0, height: 0 })
   const [lines, setLines] = useState<Array<{ id: string; d: string; active: boolean }>>([])
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isLandscape, setIsLandscape] = useState(() => window.innerWidth >= window.innerHeight)
 
   const matchMap = useMemo(() => new Map(matches.map((match) => [match.id, match])), [matches])
 
@@ -342,7 +345,10 @@ function BracketBoard({
       const naturalWidth = wrapRef.current.scrollWidth
       const naturalHeight = wrapRef.current.scrollHeight
       const availableWidth = fitRef.current.clientWidth
-      const nextScale = naturalWidth > 0 ? Math.min(1, availableWidth / naturalWidth) : 1
+      const availableHeight = isFullscreen ? Math.max(fullscreenRef.current?.clientHeight ?? 0, fitRef.current.clientHeight) : 0
+      const widthScale = naturalWidth > 0 ? availableWidth / naturalWidth : 1
+      const heightScale = naturalHeight > 0 && availableHeight > 0 ? availableHeight / naturalHeight : 1
+      const nextScale = Math.min(1, widthScale, heightScale)
 
       setScale((current) => (Math.abs(current - nextScale) < 0.001 ? current : nextScale))
       setBox({ width: naturalWidth, height: naturalHeight })
@@ -361,7 +367,48 @@ function BracketBoard({
       resizeObserver.disconnect()
       window.removeEventListener('resize', fit)
     }
-  }, [matches, picks])
+  }, [isFullscreen, isLandscape, matches, picks])
+
+  useEffect(() => {
+    const syncViewportState = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement === fullscreenRef.current))
+      setIsLandscape(window.innerWidth >= window.innerHeight)
+    }
+
+    syncViewportState()
+    document.addEventListener('fullscreenchange', syncViewportState)
+    window.addEventListener('resize', syncViewportState)
+    window.addEventListener('orientationchange', syncViewportState)
+
+    return () => {
+      document.removeEventListener('fullscreenchange', syncViewportState)
+      window.removeEventListener('resize', syncViewportState)
+      window.removeEventListener('orientationchange', syncViewportState)
+    }
+  }, [])
+
+  async function toggleFullscreen() {
+    const node = fullscreenRef.current
+    if (!node) {
+      return
+    }
+
+    if (document.fullscreenElement === node) {
+      await document.exitFullscreen()
+      return
+    }
+
+    await node.requestFullscreen()
+
+    const orientation = screen.orientation as (ScreenOrientation & { lock?: (orientation: OrientationLockType) => Promise<void> }) | undefined
+    if (orientation?.lock) {
+      try {
+        await orientation.lock('landscape')
+      } catch {
+        // iOS Safari and some Android browsers ignore or block orientation lock.
+      }
+    }
+  }
 
   useEffect(() => {
     const parentLookup = new Map<string, string>()
@@ -437,12 +484,32 @@ function BracketBoard({
   const championTeam = champion ? teamsById.get(champion) : null
 
   return (
-    <div className="bracket-fit" ref={fitRef} style={{ height: box.height ? Math.ceil(box.height * scale) : undefined }}>
-      <div
-        className="bracket"
-        ref={wrapRef}
-        style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}
-      >
+    <div className={`bracket-shell${isFullscreen ? ' is-fullscreen' : ''}`} ref={fullscreenRef}>
+      <div className="bracket-shell__toolbar">
+        <div className="bracket-shell__hint">
+          {isFullscreen && !isLandscape ? 'Tourne sur le cote pour profiter du bracket en paysage.' : 'Le tableau s ajuste a la largeur de ton ecran.'}
+        </div>
+        <button type="button" className="chip-btn bracket-shell__fullscreen" onClick={() => void toggleFullscreen()}>
+          {isFullscreen ? 'Quitter plein ecran' : 'Plein ecran'}
+        </button>
+      </div>
+
+      {isFullscreen && !isLandscape ? (
+        <div className="bracket-rotate">
+          <div className="bracket-rotate__icon" aria-hidden="true">
+            ↺
+          </div>
+          <div className="bracket-rotate__title">Tourne sur le cote</div>
+          <p>Le plein ecran est lance. Passe le telephone en paysage pour voir tout le tableau comme une video.</p>
+        </div>
+      ) : null}
+
+      <div className="bracket-fit" ref={fitRef} style={{ height: box.height ? Math.ceil(box.height * scale) : undefined }}>
+        <div
+          className="bracket"
+          ref={wrapRef}
+          style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}
+        >
         <svg className="bracket__links" width={box.width} height={box.height} aria-hidden="true">
           {lines.map((line) => (
             <path key={line.id} d={line.d} className={line.active ? 'link link--lit' : 'link'} />
@@ -572,6 +639,7 @@ function BracketBoard({
             </div>
           </div>
         ))}
+        </div>
       </div>
     </div>
   )
@@ -594,6 +662,7 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [dragState, setDragState] = useState<DragState | null>(null)
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     let active = true
@@ -839,6 +908,13 @@ function App() {
     setDragState(null)
   }
 
+  function toggleGroupMatches(groupId: string) {
+    setExpandedGroups((current) => ({
+      ...current,
+      [groupId]: !current[groupId],
+    }))
+  }
+
   return (
     <div className="app-shell">
       <div className="floods" aria-hidden="true">
@@ -940,6 +1016,23 @@ function App() {
         </div>
       ) : null}
 
+      {view === 'groups' ? (
+        <div className="groups-summary">
+          <div className="groups-summary__card">
+            <span className="groups-summary__value">{completedGroups}/12</span>
+            <span className="groups-summary__label">groupes complets</span>
+          </div>
+          <div className="groups-summary__card">
+            <span className="groups-summary__value">{projectedQualifiedIds.size}</span>
+            <span className="groups-summary__label">qualifies projetes</span>
+          </div>
+          <div className="groups-summary__card">
+            <span className="groups-summary__value">{mode === 'simulation' ? 'Edition' : 'Lecture'}</span>
+            <span className="groups-summary__label">{mode === 'simulation' ? 'drag + scores actifs' : 'vue allegee'}</span>
+          </div>
+        </div>
+      ) : null}
+
       <div className={`board${view === 'bracket' ? ' board--wide' : ''}`}>
         <main className="board__main">
           {view === 'groups' ? (
@@ -947,12 +1040,24 @@ function App() {
               {seed.groups.map((group) => {
                 const groupStandings = standings[group.id] ?? []
                 const groupMatches = mergedMatches.filter((match) => match.groupId === group.id)
+                const isComplete = groupMatches.every((match) => match.homeScore !== null && match.awayScore !== null)
+                const todayMatches = groupMatches.filter((match) => isToday(match.kickoffDate)).length
+                const openMatches = expandedGroups[group.id] ?? (todayMatches > 0 || mode === 'simulation')
 
                 return (
-                  <section key={group.id} className={`gcard${groupMatches.every((match) => match.homeScore !== null && match.awayScore !== null) ? ' is-complete' : ''}`}>
+                  <section key={group.id} className={`gcard${isComplete ? ' is-complete' : ''}`}>
                     <header className="gcard__head">
-                      <div className="gcard__badge">{group.id}</div>
-                      <div className="gcard__title">Groupe {group.id}</div>
+                      <div className="gcard__identity">
+                        <div className="gcard__badge">{group.id}</div>
+                        <div>
+                          <div className="gcard__title">Groupe {group.id}</div>
+                          <div className="gcard__sub">{isComplete ? 'Classement fige' : 'Classement en cours'}</div>
+                        </div>
+                      </div>
+                      <div className="gcard__status">
+                        {todayMatches > 0 ? <span className="gstatus gstatus--live">Aujourd hui {todayMatches}</span> : null}
+                        <span className={`gstatus${isComplete ? ' gstatus--ok' : ''}`}>{isComplete ? 'Complet' : `${groupMatches.length} matchs`}</span>
+                      </div>
                     </header>
 
                     <table className="stand">
@@ -1015,7 +1120,14 @@ function App() {
                       </tbody>
                     </table>
 
-                    <div className="gcard__matches">
+                    <div className="gcard__footer">
+                      <button type="button" className="gcard__toggle" onClick={() => toggleGroupMatches(group.id)}>
+                        <span>{openMatches ? 'Masquer les matchs' : 'Voir les matchs'}</span>
+                        <span className={`gcard__togglechev${openMatches ? ' is-open' : ''}`}>⌄</span>
+                      </button>
+                    </div>
+
+                    {openMatches ? <div className="gcard__matches">
                       {groupMatches.map((match) => {
                         const homeTeam = teamsById.get(match.homeTeamId)
                         const awayTeam = teamsById.get(match.awayTeamId)
@@ -1068,7 +1180,7 @@ function App() {
                           </div>
                         )
                       })}
-                    </div>
+                    </div> : null}
                   </section>
                 )
               })}
