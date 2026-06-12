@@ -16,6 +16,7 @@ import type {
   MatchOverride,
   MatchPrediction,
   Mode,
+  RankedStandingRow,
   Team,
   TournamentSeed,
 } from './types'
@@ -27,6 +28,7 @@ type LiveState = {
   source: string
   warnings: string[]
   matches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null; kickoffIso?: string | null; liveMinute?: string | null }>
+  standings: RankedStandingRow[]
   predictions: MatchPrediction[]
 }
 
@@ -767,6 +769,7 @@ function App() {
     source: 'seed',
     warnings: [],
     matches: [],
+    standings: [],
     predictions: [],
   })
   const [mode, setMode] = useState<Mode>('real')
@@ -818,6 +821,7 @@ function App() {
             source: staticSnapshot.source,
             warnings: staticSnapshot.warnings,
             matches: staticSnapshot.matches,
+            standings: staticSnapshot.standings,
             predictions: staticSnapshot.predictions ?? [],
           })
         }
@@ -831,6 +835,7 @@ function App() {
             source: liveSnapshot.source,
             warnings: liveSnapshot.warnings,
             matches: liveSnapshot.matches,
+            standings: liveSnapshot.standings,
             predictions: liveSnapshot.predictions ?? [],
           })
         }).catch(() => {
@@ -894,6 +899,7 @@ function App() {
         source: snapshot.source,
         warnings: snapshot.warnings,
         matches: snapshot.matches,
+        standings: snapshot.standings,
         predictions: snapshot.predictions ?? [],
       })
     } catch (caughtError) {
@@ -917,6 +923,7 @@ function App() {
           source: snapshot.source,
           warnings: snapshot.warnings,
           matches: snapshot.matches,
+          standings: snapshot.standings,
           predictions: snapshot.predictions ?? [],
         })
       } catch {
@@ -994,7 +1001,15 @@ function App() {
 
   const teamsById = new Map(seed.teams.map((team) => [team.id, team]))
   const mergedMatches = mergeScores(seed.matches, liveSource.matches, overrides, mode)
-  const standings = computeStandings(seed.teams, mergedMatches)
+  const computedStandings = computeStandings(seed.teams, mergedMatches)
+  const officialStandings = liveSource.standings.reduce<Record<string, RankedStandingRow[]>>((groups, row) => {
+    groups[row.groupId] ??= []
+    groups[row.groupId].push(row)
+    return groups
+  }, {})
+  const standings = mode === 'real' && liveSource.standings.length > 0
+    ? officialStandings
+    : computedStandings
   const predMap = new Map(liveSource.predictions.map((p) => [p.matchId, p]))
   const bestThirds = getBestThirdPlacedTeams(standings)
   const groupBracket = buildKnockoutBracket(standings)
@@ -1687,12 +1702,12 @@ function App() {
                         <tr>
                           <th className="stand__pos">#</th>
                           <th className="stand__team">Équipe</th>
-                          <th>J</th>
-                          <th>G</th>
-                          <th>N</th>
-                          <th>P</th>
-                          <th>+/-</th>
-                          <th className="stand__pts">Pts</th>
+                          <th title="Matchs joués">J</th>
+                          <th title="Matchs gagnés">G</th>
+                          <th title="Matchs nuls">N</th>
+                          <th title="Matchs perdus">P</th>
+                          <th title="Différence de buts : buts marqués moins buts encaissés">+/-</th>
+                          <th className="stand__pts" title="Points de classement : 3 par victoire, 1 par nul">Pts</th>
                         </tr>
                       </thead>
                       <tbody>

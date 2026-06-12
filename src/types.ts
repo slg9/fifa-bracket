@@ -65,6 +65,10 @@ export type LiveSnapshot = {
     groupId: string
     teamId: string
     rank: number
+    played: number
+    wins: number
+    draws: number
+    losses: number
     points: number
     goalDifference: number
     goalsFor: number
