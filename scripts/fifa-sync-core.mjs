@@ -18,8 +18,10 @@ function normalizeStatus(statusToken) {
   const liveTokens = ['LIVE', 'EN DIRECT', 'MT', 'MI', 'P', 'ET', 'HT', 'EX']
   if (liveTokens.includes(upper)) return 'live'
 
-  // Numeric-only token = match minute (e.g. "45", "90+2") → live
-  if (/^\d+(\+\d+)?$/.test(upper)) return 'live'
+  // Minute token = live: "45", "90+2", "90'+2'", "90ʹ+2ʹ" etc.
+  // Strip prime/apostrophe chars then test for digits+optional extension
+  const stripped = upper.replace(/['\u2019\u02b9\u2032]+/g, '')
+  if (/^\d+(\+\d+)?$/.test(stripped)) return 'live'
 
   return 'finished'
 }
@@ -38,8 +40,9 @@ function parseFixtureEntry(entry) {
     return null
   }
 
+  // Status token: letters (FIN/MT/ET…) OR minute like 45' / 90'+2' / 90+3'
   const detailsMatch = trimmedLeft.match(
-    /^([A-Z]{3})\s+(.+?)\s+(?:(\d+)\s+([A-Z]+)\s+(\d+)|(\d{1,2}:\d{2}))\s+([A-Z]{3})\s+(.+)$/,
+    /^([A-Z]{3})\s+(.+?)\s+(?:(\d+)\s+([A-Za-z0-9'+\u2019\u02b9\u2032]+)\s+(\d+)|(\d{1,2}:\d{2}))\s+([A-Z]{3})\s+(.+)$/,
   )
 
   if (!detailsMatch) {
@@ -183,9 +186,10 @@ export async function buildFifaLiveSnapshot(seed) {
   const codeToTeamId = new Map(seed.teams.map((team) => [team.fifaCode, team.id]))
   const matchLookup = buildMatchLookup(seed)
 
+  const jinaHeaders = { 'user-agent': 'Mozilla/5.0', 'x-no-cache': 'true' }
   const [standingsResponse, fixturesResponse] = await Promise.all([
-    fetch(standingsUrl, { headers: { 'user-agent': 'Mozilla/5.0' } }),
-    fetch(fixturesUrl, { headers: { 'user-agent': 'Mozilla/5.0' } }),
+    fetch(standingsUrl, { headers: jinaHeaders }),
+    fetch(fixturesUrl, { headers: jinaHeaders }),
   ])
 
   if (!standingsResponse.ok || !fixturesResponse.ok) {
