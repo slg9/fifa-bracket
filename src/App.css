@@ -33,6 +33,34 @@
   place-items: center;
 }
 
+.boot-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.boot-loader__ball {
+  width: 72px;
+  height: 72px;
+  filter: drop-shadow(0 0 16px rgba(25, 211, 255, 0.35));
+}
+
+.boot-loader__label {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  animation: boot-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes boot-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1; }
+}
+
 .floods {
   position: fixed;
   inset: 0;

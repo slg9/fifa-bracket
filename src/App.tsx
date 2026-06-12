@@ -760,11 +760,13 @@ function App() {
 
     async function bootstrap() {
       try {
-        const seedData = await loadSeed()
+        // Load seed + static snapshot in parallel — show UI immediately
+        const [seedData, staticSnapshot] = await Promise.all([
+          loadSeed(),
+          loadLiveSnapshot(),
+        ])
 
-        if (!active) {
-          return
-        }
+        if (!active) return
 
         setSeed(seedData)
         const storedSimulation = readStoredSimulation()
@@ -779,13 +781,21 @@ function App() {
           }
         }
 
-        try {
-          const liveSnapshot = await requestLiveSync()
+        // Show static data right away — UI is usable instantly
+        if (staticSnapshot) {
+          setLiveSource({
+            syncedAt: staticSnapshot.syncedAt,
+            source: staticSnapshot.source,
+            warnings: staticSnapshot.warnings,
+            matches: staticSnapshot.matches,
+            predictions: staticSnapshot.predictions ?? [],
+          })
+        }
+        setLoading(false)
 
-          if (!active) {
-            return
-          }
-
+        // Then fetch fresh scores from FIFA.com in background
+        requestLiveSync().then((liveSnapshot) => {
+          if (!active) return
           setLiveSource({
             syncedAt: liveSnapshot.syncedAt,
             source: liveSnapshot.source,
@@ -793,31 +803,13 @@ function App() {
             matches: liveSnapshot.matches,
             predictions: liveSnapshot.predictions ?? [],
           })
-        } catch {
-          const fallbackSnapshot = await loadLiveSnapshot()
-
-          if (!active || !fallbackSnapshot) {
-            return
-          }
-
-          setLiveSource({
-            syncedAt: fallbackSnapshot.syncedAt,
-            source: fallbackSnapshot.source,
-            warnings: fallbackSnapshot.warnings,
-            matches: fallbackSnapshot.matches,
-            predictions: fallbackSnapshot.predictions ?? [],
-          })
-        }
+        }).catch(() => {
+          // Sync failed — static data already shown, nothing to do
+        })
       } catch (caughtError) {
-        if (!active) {
-          return
-        }
-
+        if (!active) return
         setError(caughtError instanceof Error ? caughtError.message : 'Chargement impossible.')
-      } finally {
-        if (active) {
-          setLoading(false)
-        }
+        setLoading(false)
       }
     }
 
@@ -885,7 +877,27 @@ function App() {
   }
 
   if (loading) {
-    return <main className="app-shell loading">Chargement du simulateur…</main>
+    return (
+      <main className="app-shell loading">
+        <div className="boot-loader">
+          <svg className="boot-loader__ball" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="30" cy="30" r="28" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2" />
+            {/* Spinning arc */}
+            <circle cx="30" cy="30" r="28" fill="none" stroke="var(--cyan)" strokeWidth="2"
+              strokeDasharray="44 132" strokeLinecap="round">
+              <animateTransform attributeName="transform" type="rotate"
+                from="0 30 30" to="360 30 30" dur="1s" repeatCount="indefinite" />
+            </circle>
+            {/* Football pentagon pattern */}
+            <circle cx="30" cy="30" r="10" fill="rgba(255,255,255,0.9)" />
+            <polygon points="30,20 38,26 35,36 25,36 22,26" fill="rgba(0,0,0,0.7)" />
+            <polygon points="30,20 22,14 14,20 16,30 22,26" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="0.8" />
+            <polygon points="30,20 38,26 46,20 44,10 36,10" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="0.8" />
+          </svg>
+          <span className="boot-loader__label">Coupe du Monde 2026</span>
+        </div>
+      </main>
+    )
   }
 
   if (error || !seed) {
