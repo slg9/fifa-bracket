@@ -1365,7 +1365,7 @@ function App() {
                       <span>Groupe {match.groupId}</span>
                       <div className="daymatch__meta-right">
                         <BroadcasterBadge matchId={match.id} />
-                        <span>{liveStatus === 'live' ? formatLiveMinute(match.liveMinute, liveSource.syncedAt) : liveStatus === 'scheduled' ? 'Bientôt' : kickoff.label}</span>
+                        <span>{liveStatus === 'live' ? formatLiveMinute(match.liveMinute, liveSource.syncedAt) : kickoff.label}</span>
                       </div>
                     </div>
 
@@ -1375,10 +1375,9 @@ function App() {
                         <span>{homeTeam.shortName}</span>
                       </div>
                       <div className="daymatch__mini daymatch__mini--score">
-                        {liveStatus === 'scheduled' && cardHHMM
-                          ? <b className="daymatch__mini-time">{cardHHMM}</b>
-                          : <><b>{match.homeScore ?? '-'}</b><span>:</span><b>{match.awayScore ?? '-'}</b></>
-                        }
+                        <b>{match.homeScore ?? '-'}</b>
+                        <span>:</span>
+                        <b>{match.awayScore ?? '-'}</b>
                       </div>
                       <div className="daymatch__mini daymatch__mini--right">
                         <span>{awayTeam.shortName}</span>
