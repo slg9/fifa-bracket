@@ -1278,9 +1278,6 @@ function App() {
 
                     <div className="daymatch__foot">
                       <span>{match.venue}</span>
-                      <a href={seed.meta.sourceUrls.fixtures} target="_blank" rel="noreferrer">
-                        Diffusion
-                      </a>
                     </div>
                   </article>
                 )
