@@ -1604,12 +1604,15 @@
 }
 
 .stand__team {
-  display: flex;
-  align-items: center;
-  gap: 9px;
   padding-left: 18px !important;
   text-align: left;
   cursor: pointer;
+}
+
+.stand__team-content {
+  display: flex;
+  align-items: center;
+  gap: 9px;
 }
 
 .stand__drag {

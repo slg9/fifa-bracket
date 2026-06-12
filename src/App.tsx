@@ -1738,10 +1738,12 @@ function App() {
                             >
                               <td className="stand__pos">{row.rank}</td>
                               <td className="stand__team" onClick={() => toggleFocus(row.teamId)}>
-                                {mode === 'simulation' ? <span className="stand__drag">⋮⋮</span> : null}
-                                {flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
-                                <span className="stand__name">{team.name}</span>
-                                {projectedQualifiedIds.has(team.id) ? <span className="stand__check">✓</span> : null}
+                                <div className="stand__team-content">
+                                  {mode === 'simulation' ? <span className="stand__drag">⋮⋮</span> : null}
+                                  {flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
+                                  <span className="stand__name">{team.name}</span>
+                                  {projectedQualifiedIds.has(team.id) ? <span className="stand__check">✓</span> : null}
+                                </div>
                               </td>
                               <td>{row.played}</td>
                               <td>{row.wins}</td>
