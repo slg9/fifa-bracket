@@ -868,6 +868,7 @@ function App() {
   const teamsById = new Map(seed.teams.map((team) => [team.id, team]))
   const mergedMatches = mergeScores(seed.matches, liveSource.matches, overrides, mode)
   const standings = computeStandings(seed.teams, mergedMatches)
+  const predMap = new Map(liveSource.predictions.map((p) => [p.matchId, p]))
   const bestThirds = getBestThirdPlacedTeams(standings)
   const groupBracket = buildKnockoutBracket(standings)
   const activeKnockoutPicks = mode === 'simulation' ? knockoutPicks : {}
@@ -1197,7 +1198,7 @@ function App() {
             </div>
 
             <div className="daymodal__grid">
-              {todayMatches.map((match) => {
+              {todayMatches.filter((m) => m.id !== featuredDayMatch.id).map((match) => {
                 const homeTeam = teamsById.get(match.homeTeamId)
                 const awayTeam = teamsById.get(match.awayTeamId)
                 if (!homeTeam || !awayTeam) return null
@@ -1226,6 +1227,28 @@ function App() {
                       </div>
                     </div>
 
+                    {match.status === 'scheduled' && predMap.has(match.id) ? (
+                      <div className="daymatch__prono">
+                        {(() => {
+                          const pred = predMap.get(match.id)!
+                          return (
+                            <>
+                              <div className="prono__bar">
+                                <div className="prono__seg prono__seg--home" style={{ width: `${pred.homePercent}%` }} />
+                                <div className="prono__seg prono__seg--draw" style={{ width: `${pred.drawPercent}%` }} />
+                                <div className="prono__seg prono__seg--away" style={{ width: `${pred.awayPercent}%` }} />
+                              </div>
+                              <div className="prono__pcts">
+                                <span className="prono__pct prono__pct--home">{pred.homePercent}%</span>
+                                <span className="prono__pct prono__pct--draw">{pred.drawPercent}% nul</span>
+                                <span className="prono__pct prono__pct--away">{pred.awayPercent}%</span>
+                              </div>
+                            </>
+                          )
+                        })()}
+                      </div>
+                    ) : null}
+
                     <div className="daymatch__foot">
                       <span>{match.venue}</span>
                       <a href={seed.meta.sourceUrls.fixtures} target="_blank" rel="noreferrer">
@@ -1246,12 +1269,16 @@ function App() {
           .filter((m) => m.groupId === matchModalGroupId)
           .sort((a, b) => (a.kickoffIso ?? `${a.kickoffDate}T${a.kickoffTime ?? '99:99'}`).localeCompare(b.kickoffIso ?? `${b.kickoffDate}T${b.kickoffTime ?? '99:99'}`))
         const modalStandings = standings[matchModalGroupId] ?? []
-        const predMap = new Map(liveSource.predictions.map((p) => [p.matchId, p]))
+
+        // rank lookup: teamId → rank in this group
+        const rankByTeamId = new Map(modalStandings.map((r) => [r.teamId, r.rank]))
 
         return (
           <div className="gmmodal" role="dialog" aria-modal="true">
             <div className="gmmodal__scrim" onClick={() => setMatchModalGroupId(null)} />
             <div className="gmmodal__panel">
+
+              {/* Header */}
               <div className="gmmodal__head">
                 <div className="gmmodal__title">
                   <span className="gmmodal__badge">{matchModalGroupId}</span>
@@ -1260,132 +1287,120 @@ function App() {
                 <button type="button" className="gmmodal__close" onClick={() => setMatchModalGroupId(null)} aria-label="Fermer">×</button>
               </div>
 
+              {/* Match list */}
               <div className="gmmodal__body">
-                <div className="gmmodal__matches">
-                  {modalMatches.map((match) => {
-                    const homeTeam = teamsById.get(match.homeTeamId)
-                    const awayTeam = teamsById.get(match.awayTeamId)
-                    if (!homeTeam || !awayTeam) return null
-                    const kickoff = formatKickoff(match)
-                    const isLive = match.status === 'live'
-                    const isDone = match.status === 'finished'
-                    const homeWin = isDone && match.homeScore !== null && match.awayScore !== null && match.homeScore > match.awayScore
-                    const awayWin = isDone && match.homeScore !== null && match.awayScore !== null && match.awayScore > match.homeScore
+                {modalMatches.map((match) => {
+                  const homeTeam = teamsById.get(match.homeTeamId)
+                  const awayTeam = teamsById.get(match.awayTeamId)
+                  if (!homeTeam || !awayTeam) return null
 
-                    return (
-                      <div key={match.id} className={`gmrow${isLive ? ' is-live' : ''}${isToday(match.kickoffDate) ? ' is-today' : ''}`}>
-                        <div className="gmrow__when">
-                          {isLive ? <span className="gmrow__live"><span className="gstatus__pulse" aria-hidden="true" />LIVE</span> : kickoff.label}
-                        </div>
-                        <div className="gmrow__match">
-                          <div className={`gmrow__team gmrow__team--home${homeWin ? ' is-win' : ''}`}>
-                            {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="flag-image" /> : <span className="flag-emoji">{homeTeam.flagEmoji}</span>}
-                            <span>{homeTeam.name}</span>
-                          </div>
-                          <div className="gmrow__score">
-                            {mode === 'simulation' ? (
-                              <>
-                                <input type="number" min="0"
-                                  value={overrides[match.id]?.homeScore ?? match.homeScore ?? ''}
-                                  onChange={(e) => updateOverride(match.id, 'homeScore', e.target.value)} />
-                                <span>:</span>
-                                <input type="number" min="0"
-                                  value={overrides[match.id]?.awayScore ?? match.awayScore ?? ''}
-                                  onChange={(e) => updateOverride(match.id, 'awayScore', e.target.value)} />
-                              </>
-                            ) : (
-                              <>
-                                <b>{match.homeScore ?? '–'}</b>
-                                <span>:</span>
-                                <b>{match.awayScore ?? '–'}</b>
-                              </>
-                            )}
-                          </div>
-                          <div className={`gmrow__team gmrow__team--away${awayWin ? ' is-win' : ''}`}>
-                            <span>{awayTeam.name}</span>
-                            {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="flag-image" /> : <span className="flag-emoji">{awayTeam.flagEmoji}</span>}
-                          </div>
-                        </div>
-                        <div className="gmrow__venue">{match.venue}</div>
-                        {(() => {
-                          const pred = predMap.get(match.id)
-                          if (!pred || match.status !== 'scheduled') return null
-                          const total = pred.homePercent + pred.drawPercent + pred.awayPercent || 100
-                          const homeW = (pred.homePercent / total) * 100
-                          const drawW = (pred.drawPercent / total) * 100
-                          const awayW = (pred.awayPercent / total) * 100
-                          return (
-                            <div className="gmrow__prono">
-                              <div className="prono__bar">
-                                <div className="prono__seg prono__seg--home" style={{ width: `${homeW}%` }} title={`${homeTeam.name} : ${pred.homePercent}%`} />
-                                <div className="prono__seg prono__seg--draw" style={{ width: `${drawW}%` }} title={`Nul : ${pred.drawPercent}%`} />
-                                <div className="prono__seg prono__seg--away" style={{ width: `${awayW}%` }} title={`${awayTeam.name} : ${pred.awayPercent}%`} />
-                              </div>
-                              <div className="prono__labels">
-                                <span className="prono__pct prono__pct--home">{pred.homePercent}%</span>
-                                <span className="prono__pct prono__pct--draw">{pred.drawPercent}%</span>
-                                <span className="prono__pct prono__pct--away">{pred.awayPercent}%</span>
-                              </div>
-                              {pred.homeForm || pred.awayForm ? (
-                                <div className="prono__forms">
-                                  {pred.homeForm ? <FormDots form={pred.homeForm} /> : null}
-                                  <span className="prono__formsep">Forme</span>
-                                  {pred.awayForm ? <FormDots form={pred.awayForm} align="right" /> : null}
-                                </div>
-                              ) : null}
-                              {pred.advice ? <div className="prono__advice">✦ {pred.advice}</div> : null}
-                            </div>
-                          )
-                        })()}
+                  const isLive = match.status === 'live'
+                  const isDone = match.status === 'finished'
+                  const isScheduled = match.status === 'scheduled'
+                  const homeWin = isDone && match.homeScore !== null && match.awayScore !== null && match.homeScore > match.awayScore
+                  const awayWin = isDone && match.homeScore !== null && match.awayScore !== null && match.awayScore > match.homeScore
+
+                  const homeRank = rankByTeamId.get(homeTeam.id)
+                  const awayRank = rankByTeamId.get(awayTeam.id)
+                  const pred = predMap.get(match.id)
+
+                  // Format time in browser local timezone
+                  const timeLabel = match.kickoffIso
+                    ? new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(match.kickoffIso))
+                    : new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' }).format(new Date(`${match.kickoffDate}T12:00:00Z`))
+
+                  return (
+                    <div key={match.id} className={`gmrow${isLive ? ' is-live' : ''}${isToday(match.kickoffDate) ? ' is-today' : ''}`}>
+
+                      {/* Date / status row */}
+                      <div className="gmrow__header">
+                        {isLive
+                          ? <span className="gmrow__livebadge"><span className="gstatus__pulse" aria-hidden="true" />En direct</span>
+                          : <span className="gmrow__time">{timeLabel}</span>
+                        }
+                        <span className="gmrow__venue">{match.venue}</span>
                       </div>
-                    )
-                  })}
-                </div>
 
-                <div className="gmmodal__stand">
-                  <div className="gmmodal__standtitle">Classement</div>
-                  <table className="stand">
-                    <thead>
-                      <tr>
-                        <th className="stand__pos">#</th>
-                        <th className="stand__team">Équipe</th>
-                        <th>J</th>
-                        <th>G</th>
-                        <th>N</th>
-                        <th>P</th>
-                        <th>+/-</th>
-                        <th className="stand__pts">Pts</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {modalStandings.map((row) => {
-                        const team = teamsById.get(row.teamId)
-                        if (!team) return null
-                        return (
-                          <tr key={row.teamId} className={`stand__row ${row.rank <= 2 ? 'stand__row--q1' : row.rank === 3 ? 'stand__row--q3' : 'stand__row--q0'}`}>
-                            <td className="stand__pos">{row.rank}</td>
-                            <td className="stand__team">
-                              {flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
-                              <span className="stand__name">{team.name}</span>
-                            </td>
-                            <td>{row.played}</td>
-                            <td>{row.wins}</td>
-                            <td>{row.draws}</td>
-                            <td>{row.losses}</td>
-                            <td className={row.goalDifference > 0 ? 'pos' : row.goalDifference < 0 ? 'neg' : ''}>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td>
-                            <td className="stand__pts">{row.points}</td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                      {/* Teams + score */}
+                      <div className="gmrow__match">
+                        <div className={`gmrow__team gmrow__team--home${homeWin ? ' is-win' : ''}`}>
+                          {homeRank != null && <span className={`gmrow__rank${homeRank <= 2 ? ' is-q' : ''}`}>{homeRank}</span>}
+                          {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="flag-image" /> : <span className="flag-emoji">{homeTeam.flagEmoji}</span>}
+                          <span className="gmrow__name">{homeTeam.name}</span>
+                        </div>
+
+                        <div className="gmrow__score">
+                          {mode === 'simulation' ? (
+                            <>
+                              <input type="number" min="0"
+                                value={overrides[match.id]?.homeScore ?? match.homeScore ?? ''}
+                                onChange={(e) => updateOverride(match.id, 'homeScore', e.target.value)} />
+                              <span>:</span>
+                              <input type="number" min="0"
+                                value={overrides[match.id]?.awayScore ?? match.awayScore ?? ''}
+                                onChange={(e) => updateOverride(match.id, 'awayScore', e.target.value)} />
+                            </>
+                          ) : isScheduled ? (
+                            <span className="gmrow__score__dash">–</span>
+                          ) : (
+                            <>
+                              <b>{match.homeScore ?? '–'}</b>
+                              <span>:</span>
+                              <b>{match.awayScore ?? '–'}</b>
+                            </>
+                          )}
+                        </div>
+
+                        <div className={`gmrow__team gmrow__team--away${awayWin ? ' is-win' : ''}`}>
+                          <span className="gmrow__name">{awayTeam.name}</span>
+                          {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="flag-image" /> : <span className="flag-emoji">{awayTeam.flagEmoji}</span>}
+                          {awayRank != null && <span className={`gmrow__rank${awayRank <= 2 ? ' is-q' : ''}`}>{awayRank}</span>}
+                        </div>
+                      </div>
+
+                      {/* Prono — only for scheduled matches */}
+                      {isScheduled && pred ? (
+                        <div className="gmrow__prono">
+                          <div className="prono__teams">
+                            <span>{homeTeam.shortName}</span>
+                            <span className="prono__label">Prono</span>
+                            <span>{awayTeam.shortName}</span>
+                          </div>
+                          <div className="prono__bar">
+                            <div className="prono__seg prono__seg--home" style={{ width: `${pred.homePercent}%` }} />
+                            <div className="prono__seg prono__seg--draw" style={{ width: `${pred.drawPercent}%` }} />
+                            <div className="prono__seg prono__seg--away" style={{ width: `${pred.awayPercent}%` }} />
+                          </div>
+                          <div className="prono__pcts">
+                            <span className="prono__pct prono__pct--home">{pred.homePercent}%</span>
+                            <span className="prono__pct prono__pct--draw">{pred.drawPercent}% nul</span>
+                            <span className="prono__pct prono__pct--away">{pred.awayPercent}%</span>
+                          </div>
+                          {(pred.homeForm || pred.awayForm) && (
+                            <div className="prono__forms">
+                              {pred.homeForm ? <FormDots form={pred.homeForm} /> : <span />}
+                              <span className="prono__formsep">5 derniers</span>
+                              {pred.awayForm ? <FormDots form={pred.awayForm} align="right" /> : <span />}
+                            </div>
+                          )}
+                          {pred.advice && <div className="prono__advice">✦ {pred.advice}</div>}
+                        </div>
+                      ) : null}
+
+                      {/* No time hint if no kickoffIso */}
+                      {isScheduled && !match.kickoffIso && !pred && (
+                        <div className="gmrow__nosync">Sync pour voir l&apos;heure exacte et le pronostic</div>
+                      )}
+
+                    </div>
+                  )
+                })}
               </div>
 
-              {modalGroup && <div className="gmmodal__foot">
+              <div className="gmmodal__foot">
                 <span className={`srcdot srcdot--${mode === 'simulation' ? 'sim' : 'live'}`} />
-                {mode === 'simulation' ? 'Scores simulés' : 'Données live'}
-              </div>}
+                {mode === 'simulation' ? 'Scores simulés' : liveSource.syncedAt ? `Données live · ${new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(liveSource.syncedAt))}` : 'Synchronise pour avoir les horaires et pronostics'}
+              </div>
             </div>
           </div>
         )
