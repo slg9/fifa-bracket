@@ -48,7 +48,6 @@ type DragState = {
 }
 
 const simulationStorageKey = 'fifabracket:simulation'
-const dayFeatureStorageKey = 'fifabracket:day-feature-dismissed'
 
 type WatchOption = {
   label: string
@@ -102,13 +101,6 @@ const watchOptionsByCountry: Record<string, WatchOption[]> = {
   ],
 }
 
-function getTodayStorageKey(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = `${now.getMonth() + 1}`.padStart(2, '0')
-  const day = `${now.getDate()}`.padStart(2, '0')
-  return `${dayFeatureStorageKey}:${year}-${month}-${day}`
-}
 
 function getCountryCodeFromFixturesUrl(url: string): string {
   const match = url.match(/[?&]country=([A-Z]{2})/i)
@@ -838,11 +830,6 @@ function App() {
       return
     }
 
-    const dismissKey = getTodayStorageKey()
-    if (window.localStorage.getItem(dismissKey) === '1') {
-      return
-    }
-
     setShowDayModal(true)
   }, [liveSource.matches, seed])
 
@@ -1030,7 +1017,6 @@ function App() {
   }
 
   function closeDayModal() {
-    window.localStorage.setItem(getTodayStorageKey(), '1')
     setShowDayModal(false)
   }
 

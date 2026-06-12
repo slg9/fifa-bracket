@@ -10,13 +10,16 @@ function stripImages(text) {
 function normalizeStatus(statusToken) {
   const upper = statusToken.toUpperCase()
 
-  if (upper === 'FIN' || upper === 'FT') {
-    return 'finished'
-  }
+  const finishedTokens = ['FIN', 'FT', 'AET', 'PEN', 'APR']
+  if (finishedTokens.includes(upper)) return 'finished'
 
-  if (upper === 'LIVE' || upper === 'EN DIRECT') {
-    return 'live'
-  }
+  // Live/in-progress tokens from FIFA.com French rendering
+  // MT = Mi-Temps or in-game minute abbreviation, P = Prolongations, etc.
+  const liveTokens = ['LIVE', 'EN DIRECT', 'MT', 'MI', 'P', 'ET', 'HT', 'EX']
+  if (liveTokens.includes(upper)) return 'live'
+
+  // Numeric-only token = match minute (e.g. "45", "90+2") → live
+  if (/^\d+(\+\d+)?$/.test(upper)) return 'live'
 
   return 'finished'
 }
