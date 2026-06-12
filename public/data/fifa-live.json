@@ -1,5 +1,5 @@
 {
-  "syncedAt": "2026-06-12T12:15:40.672Z",
+  "syncedAt": "2026-06-12T20:05:12.879Z",
   "source": "fifa-live",
   "warnings": [],
   "matches": [
@@ -7,433 +7,577 @@
       "id": "A1",
       "homeScore": 2,
       "awayScore": 0,
-      "status": "finished"
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": null
     },
     {
       "id": "A2",
       "homeScore": 2,
       "awayScore": 1,
-      "status": "finished"
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": null
     },
     {
       "id": "B1",
-      "homeScore": null,
-      "awayScore": null,
-      "status": "scheduled"
+      "homeScore": 0,
+      "awayScore": 1,
+      "status": "live",
+      "kickoffTime": null,
+      "kickoffIso": null
     },
     {
       "id": "D1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-12T23:00:00.000Z"
     },
     {
       "id": "B2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-13T17:00:00.000Z"
     },
     {
       "id": "C2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-13T20:00:00.000Z"
     },
     {
       "id": "C1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-13T23:00:00.000Z"
     },
     {
       "id": "D2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-14T02:00:00.000Z"
     },
     {
       "id": "E2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-14T15:00:00.000Z"
     },
     {
       "id": "F1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-14T18:00:00.000Z"
     },
     {
       "id": "E1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-14T21:00:00.000Z"
     },
     {
       "id": "F2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-15T00:00:00.000Z"
     },
     {
       "id": "H2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-15T14:00:00.000Z"
     },
     {
       "id": "G2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-15T17:00:00.000Z"
     },
     {
       "id": "H1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-15T20:00:00.000Z"
     },
     {
       "id": "G1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-15T23:00:00.000Z"
     },
     {
       "id": "I1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-16T17:00:00.000Z"
     },
     {
       "id": "I2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-16T20:00:00.000Z"
     },
     {
       "id": "J1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-16T23:00:00.000Z"
     },
     {
       "id": "J2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-17T02:00:00.000Z"
     },
     {
       "id": "K1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-17T15:00:00.000Z"
     },
     {
       "id": "L2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-17T18:00:00.000Z"
     },
     {
       "id": "L1",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-17T21:00:00.000Z"
     },
     {
       "id": "K2",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-18T00:00:00.000Z"
     },
     {
       "id": "A3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-18T14:00:00.000Z"
     },
     {
       "id": "B3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-18T17:00:00.000Z"
     },
     {
       "id": "B4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-18T20:00:00.000Z"
     },
     {
       "id": "A4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-18T23:00:00.000Z"
     },
     {
       "id": "D4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-19T17:00:00.000Z"
     },
     {
       "id": "C4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-19T20:00:00.000Z"
     },
     {
       "id": "C3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-19T22:30:00.000Z"
     },
     {
       "id": "D3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-20T01:00:00.000Z"
     },
     {
       "id": "F3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-20T15:00:00.000Z"
     },
     {
       "id": "E3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-20T18:00:00.000Z"
     },
     {
       "id": "E4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-20T22:00:00.000Z"
     },
     {
       "id": "F4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-21T02:00:00.000Z"
     },
     {
       "id": "H4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-21T14:00:00.000Z"
     },
     {
       "id": "G3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-21T17:00:00.000Z"
     },
     {
       "id": "H3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-21T20:00:00.000Z"
     },
     {
       "id": "G4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-21T23:00:00.000Z"
     },
     {
       "id": "J3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-22T15:00:00.000Z"
     },
     {
       "id": "I4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-22T19:00:00.000Z"
     },
     {
       "id": "I3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-22T22:00:00.000Z"
     },
     {
       "id": "J4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-23T01:00:00.000Z"
     },
     {
       "id": "K3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-23T15:00:00.000Z"
     },
     {
       "id": "L3",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-23T18:00:00.000Z"
     },
     {
       "id": "L4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-23T21:00:00.000Z"
     },
     {
       "id": "K4",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-24T00:00:00.000Z"
     },
     {
       "id": "B5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-24T17:00:00.000Z"
     },
     {
       "id": "B6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-24T17:00:00.000Z"
     },
     {
       "id": "C5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-24T20:00:00.000Z"
     },
     {
       "id": "C6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-24T20:00:00.000Z"
     },
     {
       "id": "A5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-24T23:00:00.000Z"
     },
     {
       "id": "A6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-24T23:00:00.000Z"
     },
     {
       "id": "E5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-25T18:00:00.000Z"
     },
     {
       "id": "E6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-25T18:00:00.000Z"
     },
     {
       "id": "F5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-25T21:00:00.000Z"
     },
     {
       "id": "F6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-25T21:00:00.000Z"
     },
     {
       "id": "D5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-26T00:00:00.000Z"
     },
     {
       "id": "D6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-26T00:00:00.000Z"
     },
     {
       "id": "I5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-26T17:00:00.000Z"
     },
     {
       "id": "I6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-26T17:00:00.000Z"
     },
     {
       "id": "H5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-26T22:00:00.000Z"
     },
     {
       "id": "H6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-26T22:00:00.000Z"
     },
     {
       "id": "G5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T01:00:00.000Z"
     },
     {
       "id": "G6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T01:00:00.000Z"
     },
     {
       "id": "L5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T19:00:00.000Z"
     },
     {
       "id": "L6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T19:00:00.000Z"
     },
     {
       "id": "K5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T21:30:00.000Z"
     },
     {
       "id": "K6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T21:30:00.000Z"
     },
     {
       "id": "J5",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-28T00:00:00.000Z"
     },
     {
       "id": "J6",
       "homeScore": null,
       "awayScore": null,
-      "status": "scheduled"
+      "status": "scheduled",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-28T00:00:00.000Z"
     }
   ],
   "standings": [
@@ -475,17 +619,17 @@
     },
     {
       "groupId": "B",
-      "teamId": "CAN",
+      "teamId": "BIH",
       "rank": 1,
-      "points": 0,
-      "goalDifference": 0,
-      "goalsFor": 0,
+      "points": 3,
+      "goalDifference": 1,
+      "goalsFor": 1,
       "goalsAgainst": 0
     },
     {
       "groupId": "B",
-      "teamId": "BIH",
-      "rank": 1,
+      "teamId": "SUI",
+      "rank": 2,
       "points": 0,
       "goalDifference": 0,
       "goalsFor": 0,
@@ -494,7 +638,7 @@
     {
       "groupId": "B",
       "teamId": "QAT",
-      "rank": 1,
+      "rank": 3,
       "points": 0,
       "goalDifference": 0,
       "goalsFor": 0,
@@ -502,12 +646,12 @@
     },
     {
       "groupId": "B",
-      "teamId": "SUI",
-      "rank": 1,
+      "teamId": "CAN",
+      "rank": 4,
       "points": 0,
-      "goalDifference": 0,
+      "goalDifference": -1,
       "goalsFor": 0,
-      "goalsAgainst": 0
+      "goalsAgainst": 1
     },
     {
       "groupId": "C",
