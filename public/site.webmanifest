@@ -1,0 +1,17 @@
+{
+  "name": "Mondial 2026 Bracket Predictor",
+  "short_name": "Mondial 2026",
+  "description": "Simulateur premium de Coupe du monde 2026 avec groupes, scores live et bracket final interactif.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070b14",
+  "theme_color": "#070b14",
+  "icons": [
+    {
+      "src": "/logo-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
