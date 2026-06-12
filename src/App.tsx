@@ -900,8 +900,8 @@ function App() {
     if (!seed) return null
     const now = Date.now()
 
-    // Any live match → poll every 5s
-    if (liveSource.matches.some((m) => m.status === 'live' || isLiveNow(m.kickoffIso))) return 5_000
+    // Any live match → poll every 20s (Jina latency ~2-3s, avoid overlap)
+    if (liveSource.matches.some((m) => m.status === 'live' || isLiveNow(m.kickoffIso))) return 20_000
 
     // Find closest upcoming kickoff (from live snapshot which has kickoffIso)
     const msToNext = liveSource.matches
@@ -911,12 +911,12 @@ function App() {
       .sort((a, b) => a - b)[0]
 
     if (msToNext !== undefined) {
-      if (msToNext < 15 * 60_000)  return 30_000       // < 15 min → 30s
-      if (msToNext < 2 * 3600_000) return 60_000        // < 2h   → 1 min
+      if (msToNext < 15 * 60_000)  return 60_000        // < 15 min → 1 min
+      if (msToNext < 2 * 3600_000) return 2 * 60_000    // < 2h    → 2 min
     }
 
-    // Match day but nothing imminent → 3 min
-    if (seed.matches.some((m) => isToday(m.kickoffDate))) return 3 * 60_000
+    // Match day but nothing imminent → 5 min
+    if (seed.matches.some((m) => isToday(m.kickoffDate))) return 5 * 60_000
 
     return null // no relevant match → no polling
   }, [seed, liveSource.matches])
