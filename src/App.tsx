@@ -12,6 +12,7 @@ import {
 } from './lib/tournament'
 import type {
   GroupMatch,
+  LiveSnapshot,
   KnockoutEntrant,
   MatchOverride,
   MatchPrediction,
@@ -30,6 +31,21 @@ type LiveState = {
   matches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null; kickoffIso?: string | null; liveMinute?: string | null }>
   standings: RankedStandingRow[]
   predictions: MatchPrediction[]
+}
+
+function mergeLiveSnapshot(current: LiveState, snapshot: LiveSnapshot): LiveState {
+  const hasMatches = snapshot.matches.length > 0
+  const hasStandings = snapshot.standings.length > 0
+  const extractionFailed = !hasMatches && !hasStandings
+
+  return {
+    syncedAt: extractionFailed ? current.syncedAt : snapshot.syncedAt,
+    source: extractionFailed ? current.source : snapshot.source,
+    warnings: extractionFailed ? [] : snapshot.warnings,
+    matches: hasMatches ? snapshot.matches : current.matches,
+    standings: hasStandings ? snapshot.standings : current.standings,
+    predictions: snapshot.predictions?.length ? snapshot.predictions : current.predictions,
+  }
 }
 
 type DisplayMatch = {
@@ -796,14 +812,7 @@ function App() {
         // Then fetch fresh scores from FIFA.com in background
         requestLiveSync().then((liveSnapshot) => {
           if (!active) return
-          setLiveSource({
-            syncedAt: liveSnapshot.syncedAt,
-            source: liveSnapshot.source,
-            warnings: liveSnapshot.warnings,
-            matches: liveSnapshot.matches,
-            standings: liveSnapshot.standings,
-            predictions: liveSnapshot.predictions ?? [],
-          })
+          setLiveSource((current) => mergeLiveSnapshot(current, liveSnapshot))
         }).catch(() => {
           // Sync failed — static data already shown, nothing to do
         })
@@ -843,6 +852,20 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!showDayModal && !matchModalGroupId) return
+
+    const previousOverflow = document.body.style.overflow
+    const previousOverscroll = document.body.style.overscrollBehavior
+    document.body.style.overflow = 'hidden'
+    document.body.style.overscrollBehavior = 'none'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.body.style.overscrollBehavior = previousOverscroll
+    }
+  }, [showDayModal, matchModalGroupId])
+
+  useEffect(() => {
     if (!seed) {
       return
     }
@@ -863,14 +886,7 @@ function App() {
     setSyncing(true)
     try {
       const snapshot = await requestLiveSync()
-      setLiveSource({
-        syncedAt: snapshot.syncedAt,
-        source: snapshot.source,
-        warnings: snapshot.warnings,
-        matches: snapshot.matches,
-        standings: snapshot.standings,
-        predictions: snapshot.predictions ?? [],
-      })
+      setLiveSource((current) => mergeLiveSnapshot(current, snapshot))
     } catch (caughtError) {
       setLiveSource((current) => ({
         ...current,
@@ -887,14 +903,7 @@ function App() {
     silentSyncRef.current = async () => {
       try {
         const snapshot = await requestLiveSync()
-        setLiveSource({
-          syncedAt: snapshot.syncedAt,
-          source: snapshot.source,
-          warnings: snapshot.warnings,
-          matches: snapshot.matches,
-          standings: snapshot.standings,
-          predictions: snapshot.predictions ?? [],
-        })
+        setLiveSource((current) => mergeLiveSnapshot(current, snapshot))
       } catch {
         // network hiccup — keep current data
       }
@@ -947,21 +956,20 @@ function App() {
     return (
       <main className="app-shell loading">
         <div className="boot-loader">
-          <svg className="boot-loader__ball" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <circle cx="30" cy="30" r="28" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2" />
-            {/* Spinning arc */}
-            <circle cx="30" cy="30" r="28" fill="none" stroke="var(--cyan)" strokeWidth="2"
-              strokeDasharray="44 132" strokeLinecap="round">
-              <animateTransform attributeName="transform" type="rotate"
-                from="0 30 30" to="360 30 30" dur="1s" repeatCount="indefinite" />
-            </circle>
-            {/* Football pentagon pattern */}
-            <circle cx="30" cy="30" r="10" fill="rgba(255,255,255,0.9)" />
-            <polygon points="30,20 38,26 35,36 25,36 22,26" fill="rgba(0,0,0,0.7)" />
-            <polygon points="30,20 22,14 14,20 16,30 22,26" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="0.8" />
-            <polygon points="30,20 38,26 46,20 44,10 36,10" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="0.8" />
+          <svg className="boot-loader__mark" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle className="boot-loader__orbit boot-loader__orbit--outer" cx="60" cy="60" r="50" />
+            <circle className="boot-loader__orbit boot-loader__orbit--inner" cx="60" cy="60" r="39" />
+            <g className="boot-loader__ball">
+              <circle cx="60" cy="60" r="24" fill="#eef3ff" />
+              <polygon points="60,45 71,53 67,67 53,67 49,53" fill="#0a1020" />
+              <path d="M60 45 60 36M71 53 80 49M67 67 73 76M53 67 47 76M49 53 40 49" stroke="#0a1020" strokeWidth="3" strokeLinecap="round" />
+              <path d="M60 36A24 24 0 0 1 80 49M73 76A24 24 0 0 1 47 76M40 49A24 24 0 0 1 60 36" stroke="#0a1020" strokeWidth="3" fill="none" />
+            </g>
           </svg>
-          <span className="boot-loader__label">Coupe du Monde 2026</span>
+          <div className="boot-loader__copy">
+            <span className="boot-loader__label">Coupe du Monde 2026</span>
+            <span className="boot-loader__status">Synchronisation du terrain</span>
+          </div>
         </div>
       </main>
     )
@@ -1713,16 +1721,6 @@ function App() {
                     </header>
 
                     <table className="stand">
-                      <colgroup>
-                        <col className="stand__col-pos" />
-                        <col className="stand__col-team" />
-                        <col className="stand__col-played" />
-                        <col className="stand__col-wins" />
-                        <col className="stand__col-draws" />
-                        <col className="stand__col-losses" />
-                        <col className="stand__col-diff" />
-                        <col className="stand__col-points" />
-                      </colgroup>
                       <thead>
                         <tr>
                           <th className="stand__pos">#</th>

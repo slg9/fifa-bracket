@@ -31,19 +31,55 @@
 .app-shell.loading {
   display: grid;
   place-items: center;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(25, 211, 255, 0.13), transparent 24%),
+    radial-gradient(circle at 50% 58%, rgba(43, 255, 154, 0.08), transparent 30%),
+    var(--bg);
 }
 
 .boot-loader {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 18px;
+}
+
+.boot-loader__mark {
+  width: 112px;
+  height: 112px;
+  overflow: visible;
+  filter: drop-shadow(0 0 22px rgba(25, 211, 255, 0.22));
+}
+
+.boot-loader__orbit {
+  fill: none;
+  stroke-linecap: round;
+  transform-origin: 60px 60px;
+}
+
+.boot-loader__orbit--outer {
+  stroke: var(--cyan);
+  stroke-width: 2;
+  stroke-dasharray: 72 242;
+  animation: boot-orbit 1.4s linear infinite;
+}
+
+.boot-loader__orbit--inner {
+  stroke: var(--neon);
+  stroke-width: 1.5;
+  stroke-dasharray: 36 210;
+  animation: boot-orbit-reverse 1.9s linear infinite;
 }
 
 .boot-loader__ball {
-  width: 72px;
-  height: 72px;
-  filter: drop-shadow(0 0 16px rgba(25, 211, 255, 0.35));
+  transform-origin: 60px 60px;
+  animation: boot-ball 1.15s cubic-bezier(.5, 0, .5, 1) infinite;
+}
+
+.boot-loader__copy {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
 }
 
 .boot-loader__label {
@@ -54,6 +90,27 @@
   text-transform: uppercase;
   color: var(--muted);
   animation: boot-pulse 1.8s ease-in-out infinite;
+}
+
+.boot-loader__status {
+  color: var(--muted-2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+@keyframes boot-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes boot-orbit-reverse {
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes boot-ball {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-7px) rotate(18deg); }
 }
 
 @keyframes boot-pulse {
@@ -453,6 +510,7 @@
   flex: 1;
   padding: 8px 12px;
   gap: 6px;
+  overscroll-behavior: contain;
 }
 
 /* ── Single match row ── */
@@ -799,6 +857,7 @@
   width: min(1100px, 100%);
   max-height: min(92vh, 960px);
   overflow: auto;
+  overscroll-behavior: contain;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 28px;
   background:
@@ -1614,26 +1673,8 @@
 
 .stand {
   width: 100%;
-  table-layout: fixed;
   border-collapse: collapse;
   font-size: 13px;
-}
-
-.stand__col-pos {
-  width: 7%;
-}
-
-.stand__col-team {
-  width: 38%;
-}
-
-.stand__col-played,
-.stand__col-wins,
-.stand__col-draws,
-.stand__col-losses,
-.stand__col-diff,
-.stand__col-points {
-  width: 9.166%;
 }
 
 .stand thead th {
@@ -2359,12 +2400,21 @@
 
 @media (max-width: 680px) {
   .daymodal {
-    padding: 10px;
+    align-items: flex-start;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
   }
 
   .daymodal__panel {
-    max-height: calc(100vh - 20px);
-    border-radius: 24px;
+    max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+    border-radius: 20px;
+  }
+
+  .daymodal__close {
+    position: sticky;
+    top: 8px;
+    margin: 8px 8px 0 0;
+    width: 38px;
+    height: 38px;
   }
 
   .daymodal__hero {
@@ -2496,27 +2546,6 @@
     min-width: 120px;
   }
 
-  .stand__col-pos {
-    width: 9%;
-  }
-
-  .stand__col-team {
-    width: 52%;
-  }
-
-  .stand__col-played,
-  .stand__col-diff,
-  .stand__col-points {
-    width: 13%;
-  }
-
-  .stand__col-wins,
-  .stand__col-draws,
-  .stand__col-losses {
-    visibility: collapse;
-    width: 0;
-  }
-
   /* Hide Wins, Draws, Losses columns on mobile — keep J, +/-, Pts */
   .stand thead th:nth-child(4),
   .stand thead th:nth-child(5),
@@ -2529,15 +2558,19 @@
 
   /* Group modal mobile — bottom sheet, no horizontal overflow */
   .gmmodal {
-    padding: 0;
-    align-items: flex-end;
+    align-items: flex-start;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
   }
 
   .gmmodal__panel {
     width: 100%;
-    max-height: 92vh;
-    border-radius: 24px 24px 0 0;
+    max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+    border-radius: 20px;
     overflow-x: hidden;
+  }
+
+  .gmmodal__head {
+    padding: 12px 14px;
   }
 
   .gmmodal__body {
