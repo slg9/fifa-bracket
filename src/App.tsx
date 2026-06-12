@@ -155,6 +155,20 @@ function isMatchToday(match: Pick<GroupMatch, 'kickoffDate' | 'kickoffIso'>): bo
   return localDateStr(new Date(match.kickoffIso)) === localDateStr()
 }
 
+function matchLocalDateKey(match: Pick<GroupMatch, 'kickoffDate' | 'kickoffIso'>): string {
+  return match.kickoffIso ? localDateStr(new Date(match.kickoffIso)) : match.kickoffDate
+}
+
+function formatDayLabel(dateKey: string): string {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  const date = new Date(year, month - 1, day, 12)
+  return new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(date)
+}
+
 function isLiveNow(kickoffIso: string | null | undefined): boolean {
   if (!kickoffIso) return false
   const elapsed = Date.now() - new Date(kickoffIso).getTime()
@@ -736,6 +750,7 @@ function App() {
   const [isCompactGroups, setIsCompactGroups] = useState(() => window.innerWidth <= 680)
   const [selectedGroupId, setSelectedGroupId] = useState('A')
   const [showDayModal, setShowDayModal] = useState(false)
+  const [selectedDayKey, setSelectedDayKey] = useState(() => localDateStr())
   const [menuOpen, setMenuOpen] = useState(false)
   const [matchModalGroupId, setMatchModalGroupId] = useState<string | null>(null)
 
@@ -988,19 +1003,26 @@ function App() {
       .every((match) => match.homeScore !== null && match.awayScore !== null),
   ).length
   const visibleGroups = isCompactGroups ? seed.groups.filter((group) => group.id === selectedGroupId) : seed.groups
-  const todayMatches = [...new Map(
-    mergedMatches
-      .filter((match) => isMatchToday(match) || inferStatus(match) === 'live')
-      .map((m) => [m.id, m]),
-  ).values()]
+  const todayMatches = mergedMatches.filter(isMatchToday)
+  const matchDayKeys = [...new Set(mergedMatches.map(matchLocalDateKey))].sort()
+  const selectedDayIndex = matchDayKeys.indexOf(selectedDayKey)
+  const activeDayIndex = selectedDayIndex >= 0
+    ? selectedDayIndex
+    : Math.max(0, matchDayKeys.findIndex((dateKey) => dateKey >= localDateStr()))
+  const activeDayKey = matchDayKeys[activeDayIndex] ?? selectedDayKey
+  const dayMatches = mergedMatches
+    .filter((match) => matchLocalDateKey(match) === activeDayKey)
     .sort((a, b) => {
       const aTime = a.kickoffIso ?? `${a.kickoffDate}T${a.kickoffTime ?? '99:99'}`
       const bTime = b.kickoffIso ?? `${b.kickoffDate}T${b.kickoffTime ?? '99:99'}`
       return aTime.localeCompare(bTime)
     })
     .slice(0, 10)
-  const liveNowMatches = todayMatches.filter((match) => inferStatus(match) === 'live')
-  const featuredDayMatch = liveNowMatches[0] ?? todayMatches[0] ?? null
+  const liveNowMatches = dayMatches.filter((match) => inferStatus(match) === 'live')
+  const featuredDayMatch = liveNowMatches[0] ?? dayMatches[0] ?? null
+  const previousDayKey = activeDayIndex > 0 ? matchDayKeys[activeDayIndex - 1] : null
+  const nextDayKey = activeDayIndex < matchDayKeys.length - 1 ? matchDayKeys[activeDayIndex + 1] : null
+  const isSelectedToday = activeDayKey === localDateStr()
   const countryCode = getCountryCodeFromFixturesUrl(seed.meta.sourceUrls.fixtures)
   const watchOptions = [
     ...(watchOptionsByCountry[countryCode] ?? watchOptionsByCountry.FR),
@@ -1123,6 +1145,7 @@ function App() {
   }
 
   function reopenDayModal() {
+    setSelectedDayKey(localDateStr())
     setShowDayModal(true)
   }
 
@@ -1233,13 +1256,44 @@ function App() {
                 <span>{formatSyncTime(liveSource.syncedAt)}</span>
               </div>
 
+              <div className="daymodal__daynav" aria-label="Navigation entre les journées de matchs">
+                <button
+                  type="button"
+                  onClick={() => previousDayKey && setSelectedDayKey(previousDayKey)}
+                  disabled={!previousDayKey}
+                  aria-label="Journée précédente"
+                >
+                  ←
+                </button>
+                <div>
+                  <strong>{isSelectedToday ? 'Aujourd hui' : formatDayLabel(activeDayKey)}</strong>
+                  <span>{dayMatches.length} match{dayMatches.length > 1 ? 's' : ''}</span>
+                </div>
+                <button
+                  type="button"
+                  className="daymodal__todaybtn"
+                  onClick={() => setSelectedDayKey(localDateStr())}
+                  disabled={isSelectedToday}
+                >
+                  Aujourd hui
+                </button>
+                <button
+                  type="button"
+                  onClick={() => nextDayKey && setSelectedDayKey(nextDayKey)}
+                  disabled={!nextDayKey}
+                  aria-label="Journée suivante"
+                >
+                  →
+                </button>
+              </div>
+
               <div className="daymodal__heroheader">
                 <div>
                   <h2 id="daymodal-title">Soiree Coupe du monde</h2>
                   <p>
                     {liveNowMatches.length > 0
                       ? `${liveNowMatches.length} match${liveNowMatches.length > 1 ? 's' : ''} en direct maintenant.`
-                      : `${todayMatches.length} match${todayMatches.length > 1 ? 's' : ''} au programme aujourd hui.`}
+                      : `${dayMatches.length} match${dayMatches.length > 1 ? 's' : ''} au programme ${isSelectedToday ? 'aujourd hui' : formatDayLabel(activeDayKey)}.`}
                   </p>
                 </div>
 
@@ -1312,7 +1366,7 @@ function App() {
             </div>
 
             <div className="daymodal__grid">
-              {todayMatches.filter((m) => m.id !== featuredDayMatch.id).map((match) => {
+              {dayMatches.filter((m) => m.id !== featuredDayMatch.id).map((match) => {
                 const homeTeam = teamsById.get(match.homeTeamId)
                 const awayTeam = teamsById.get(match.awayTeamId)
                 if (!homeTeam || !awayTeam) return null

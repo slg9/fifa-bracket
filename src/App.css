@@ -536,6 +536,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
+  width: 100%;
   font-size: 13px;
   font-weight: 700;
   color: var(--muted);
@@ -546,6 +547,11 @@
   justify-content: flex-end;
   text-align: right;
   flex-direction: row-reverse;
+}
+
+.gmrow__team--away {
+  justify-content: flex-end;
+  text-align: right;
 }
 
 .gmrow__name {
@@ -846,6 +852,76 @@
 .daymodal__livepill--upcoming {
   color: var(--gold);
   background: rgba(255, 210, 74, 0.12);
+}
+
+.daymodal__daynav {
+  display: grid;
+  grid-template-columns: 44px minmax(180px, auto) auto 44px;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.daymodal__daynav button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font: inherit;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.daymodal__daynav button:hover:not(:disabled) {
+  border-color: rgba(25, 211, 255, 0.4);
+  color: var(--cyan);
+  background: rgba(25, 211, 255, 0.08);
+}
+
+.daymodal__daynav button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.daymodal__daynav .daymodal__todaybtn {
+  width: auto;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: var(--cyan);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.daymodal__daynav .daymodal__todaybtn:disabled {
+  color: var(--neon);
+  border-color: rgba(43, 255, 154, 0.25);
+  background: rgba(43, 255, 154, 0.08);
+  opacity: 1;
+}
+
+.daymodal__daynav > div {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  text-align: center;
+}
+
+.daymodal__daynav strong {
+  color: var(--text);
+  font-size: 15px;
+  text-transform: capitalize;
+}
+
+.daymodal__daynav span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .daymodal__heroheader {
@@ -1584,11 +1660,14 @@
 }
 
 .stand__row {
-  position: relative;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
-.stand__row::before {
+.stand tbody .stand__pos {
+  position: relative;
+}
+
+.stand tbody .stand__pos::before {
   content: '';
   position: absolute;
   left: 0;
@@ -1598,11 +1677,11 @@
   border-radius: 2px;
 }
 
-.stand__row--q1::before {
+.stand__row--q1 .stand__pos::before {
   background: var(--neon);
 }
 
-.stand__row--q3::before {
+.stand__row--q3 .stand__pos::before {
   background: var(--gold);
 }
 
@@ -2294,6 +2373,22 @@
 
   .daymodal__heroheader {
     grid-template-columns: 1fr;
+  }
+
+  .daymodal__daynav {
+    grid-template-columns: 38px minmax(130px, 1fr) 38px;
+    gap: 8px;
+  }
+
+  .daymodal__daynav button {
+    width: 38px;
+    height: 38px;
+  }
+
+  .daymodal__daynav .daymodal__todaybtn {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: center;
   }
 
   .daymodal__watchlist,
