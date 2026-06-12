@@ -1163,11 +1163,14 @@ function App() {
                 const homeTeam = teamsById.get(featuredDayMatch.homeTeamId)
                 const awayTeam = teamsById.get(featuredDayMatch.awayTeamId)
                 if (!homeTeam || !awayTeam) return null
-                const kickoff = formatKickoff(featuredDayMatch)
+                const heroStatus = inferStatus(featuredDayMatch)
+                const heroHHMM = featuredDayMatch.kickoffIso
+                  ? new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(featuredDayMatch.kickoffIso))
+                  : null
 
                 return (
                   <div
-                    className="daymatch daymatch--hero daymatch--clickable"
+                    className={`daymatch daymatch--hero daymatch--clickable${heroStatus === 'live' ? ' is-live' : heroStatus === 'scheduled' ? ' is-upcoming' : ''}`}
                     onClick={() => { closeDayModal(); setMatchModalGroupId(featuredDayMatch.groupId) }}
                     role="button"
                     tabIndex={0}
@@ -1186,13 +1189,17 @@ function App() {
 
                       <div className="daymatch__scoreblock">
                         <div className="daymatch__status">
-                          {(() => { const s = inferStatus(featuredDayMatch); return s === 'live' ? 'EN COURS' : s === 'finished' ? 'TERMINÉ' : kickoff.label })()}
+                          {heroStatus === 'live' ? 'EN COURS' : heroStatus === 'finished' ? 'TERMINÉ' : 'BIENTÔT'}
                         </div>
-                        <div className="daymatch__score">
-                          <span>{featuredDayMatch.homeScore ?? '-'}</span>
-                          <i>:</i>
-                          <span>{featuredDayMatch.awayScore ?? '-'}</span>
-                        </div>
+                        {heroStatus === 'scheduled' && heroHHMM ? (
+                          <div className="daymatch__score daymatch__score--time">{heroHHMM}</div>
+                        ) : (
+                          <div className="daymatch__score">
+                            <span>{featuredDayMatch.homeScore ?? '-'}</span>
+                            <i>:</i>
+                            <span>{featuredDayMatch.awayScore ?? '-'}</span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="daymatch__team daymatch__team--right">
@@ -1212,11 +1219,14 @@ function App() {
                 if (!homeTeam || !awayTeam) return null
                 const kickoff = formatKickoff(match)
                 const liveStatus = inferStatus(match)
+                const cardHHMM = match.kickoffIso
+                  ? new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(match.kickoffIso))
+                  : null
 
                 return (
                   <article
                     key={match.id}
-                    className={`daymatch daymatch--clickable${liveStatus === 'live' ? ' is-live' : ''}`}
+                    className={`daymatch daymatch--clickable${liveStatus === 'live' ? ' is-live' : liveStatus === 'scheduled' ? ' is-upcoming' : ''}`}
                     onClick={() => { closeDayModal(); setMatchModalGroupId(match.groupId) }}
                     role="button"
                     tabIndex={0}
@@ -1224,7 +1234,7 @@ function App() {
                   >
                     <div className="daymatch__meta">
                       <span>Groupe {match.groupId}</span>
-                      <span>{liveStatus === 'live' ? 'En cours' : kickoff.label}</span>
+                      <span>{liveStatus === 'live' ? 'En cours' : liveStatus === 'scheduled' ? 'Bientôt' : kickoff.label}</span>
                     </div>
 
                     <div className="daymatch__row">
@@ -1233,9 +1243,10 @@ function App() {
                         <span>{homeTeam.shortName}</span>
                       </div>
                       <div className="daymatch__mini daymatch__mini--score">
-                        <b>{match.homeScore ?? '-'}</b>
-                        <span>:</span>
-                        <b>{match.awayScore ?? '-'}</b>
+                        {liveStatus === 'scheduled' && cardHHMM
+                          ? <b className="daymatch__mini-time">{cardHHMM}</b>
+                          : <><b>{match.homeScore ?? '-'}</b><span>:</span><b>{match.awayScore ?? '-'}</b></>
+                        }
                       </div>
                       <div className="daymatch__mini daymatch__mini--right">
                         <span>{awayTeam.shortName}</span>

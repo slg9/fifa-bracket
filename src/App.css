@@ -889,6 +889,10 @@
   box-shadow: inset 0 0 0 1px rgba(43, 255, 154, 0.12), 0 0 26px rgba(43, 255, 154, 0.08);
 }
 
+.daymatch.is-upcoming {
+  border-color: rgba(25, 211, 255, 0.2);
+}
+
 .daymatch--clickable {
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
@@ -984,6 +988,10 @@
   letter-spacing: 0.8px;
 }
 
+.daymatch.is-upcoming .daymatch__status {
+  color: var(--cyan);
+}
+
 .daymatch__score {
   display: flex;
   align-items: baseline;
@@ -991,6 +999,24 @@
   font-family: var(--numbers);
   font-size: clamp(34px, 5vw, 56px);
   color: var(--text);
+}
+
+/* Time displayed large in score position for upcoming matches */
+.daymatch__score--time {
+  font-family: var(--numbers);
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: -0.5px;
+}
+
+/* Time in mini grid card score cell */
+.daymatch__mini-time {
+  font-family: var(--numbers);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: 0.2px;
 }
 
 .daymatch__score i,
