@@ -831,7 +831,7 @@ function App() {
     }
 
     const hasTodayMatches = seed.matches.some((match) => isToday(match.kickoffDate))
-    const hasLiveMatch = liveSource.matches.some((m) => isLiveNow(m.kickoffIso))
+    const hasLiveMatch = liveSource.matches.some((m) => m.status === 'live' || isLiveNow(m.kickoffIso))
     if (!hasTodayMatches && !hasLiveMatch) {
       return
     }
@@ -894,7 +894,7 @@ function App() {
   const visibleGroups = isCompactGroups ? seed.groups.filter((group) => group.id === selectedGroupId) : seed.groups
   const todayMatches = [...new Map(
     mergedMatches
-      .filter((match) => isToday(match.kickoffDate) || isLiveNow(match.kickoffIso))
+      .filter((match) => isToday(match.kickoffDate) || inferStatus(match) === 'live')
       .map((m) => [m.id, m]),
   ).values()]
     .sort((a, b) => {
@@ -1321,9 +1321,11 @@ function App() {
                   const pred = predMap.get(match.id)
 
                   // Format time in browser local timezone
-                  const timeLabel = match.kickoffIso
-                    ? new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(match.kickoffIso))
-                    : new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' }).format(new Date(`${match.kickoffDate}T12:00:00Z`))
+                  const kickoffDate = new Date(match.kickoffIso ?? `${match.kickoffDate}T12:00:00Z`)
+                  const dateLabel = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).format(kickoffDate)
+                  const kickoffHHMM = match.kickoffIso
+                    ? new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(match.kickoffIso))
+                    : null
 
                   return (
                     <div key={match.id} className={`gmrow${isLive ? ' is-live' : ''}${isToday(match.kickoffDate) ? ' is-today' : ''}`}>
@@ -1332,7 +1334,7 @@ function App() {
                       <div className="gmrow__header">
                         {isLive
                           ? <span className="gmrow__livebadge"><span className="gstatus__pulse" aria-hidden="true" />En direct</span>
-                          : <span className="gmrow__time">{timeLabel}</span>
+                          : <span className="gmrow__time">{dateLabel}</span>
                         }
                         <span className="gmrow__venue">{match.venue}</span>
                       </div>
@@ -1346,25 +1348,30 @@ function App() {
                         </div>
 
                         <div className="gmrow__score">
-                          {mode === 'simulation' ? (
-                            <>
-                              <input type="number" min="0"
-                                value={overrides[match.id]?.homeScore ?? match.homeScore ?? ''}
-                                onChange={(e) => updateOverride(match.id, 'homeScore', e.target.value)} />
-                              <span>:</span>
-                              <input type="number" min="0"
-                                value={overrides[match.id]?.awayScore ?? match.awayScore ?? ''}
-                                onChange={(e) => updateOverride(match.id, 'awayScore', e.target.value)} />
-                            </>
-                          ) : isScheduled ? (
-                            <span className="gmrow__score__dash">–</span>
-                          ) : (
-                            <>
-                              <b>{match.homeScore ?? '–'}</b>
-                              <span>:</span>
-                              <b>{match.awayScore ?? '–'}</b>
-                            </>
+                          {isScheduled && kickoffHHMM && (
+                            <span className="gmrow__kicktime">{kickoffHHMM}</span>
                           )}
+                          <div className="gmrow__score__digits">
+                            {mode === 'simulation' ? (
+                              <>
+                                <input type="number" min="0"
+                                  value={overrides[match.id]?.homeScore ?? match.homeScore ?? ''}
+                                  onChange={(e) => updateOverride(match.id, 'homeScore', e.target.value)} />
+                                <span>:</span>
+                                <input type="number" min="0"
+                                  value={overrides[match.id]?.awayScore ?? match.awayScore ?? ''}
+                                  onChange={(e) => updateOverride(match.id, 'awayScore', e.target.value)} />
+                              </>
+                            ) : isScheduled ? (
+                              <span className="gmrow__score__dash">–</span>
+                            ) : (
+                              <>
+                                <b>{match.homeScore ?? '–'}</b>
+                                <span>:</span>
+                                <b>{match.awayScore ?? '–'}</b>
+                              </>
+                            )}
+                          </div>
                         </div>
 
                         <div className={`gmrow__team gmrow__team--away${awayWin ? ' is-win' : ''}`}>
