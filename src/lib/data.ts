@@ -1,15 +1,10 @@
 import type { LiveSnapshot, TournamentSeed } from '../types'
 
-export type MatchStatsData = {
-  possession: { home: number; away: number } | null
-  shots: { home: number; away: number } | null
-  shotsOnTarget: { home: number; away: number } | null
-  corners: { home: number; away: number } | null
-  fouls: { home: number; away: number } | null
-  yellowCards: { home: number; away: number } | null
-  redCards: { home: number; away: number } | null
-  passes: { home: number; away: number } | null
-  scorers: Array<{ name: string; minute: string | null }>
+export type MatchEventsData = {
+  home: { code: string; tactics: string | null; coach: string | null; players: Array<{ shirt: number; name: string; starter: boolean }> }
+  away: { code: string; tactics: string | null; coach: string | null; players: Array<{ shirt: number; name: string; starter: boolean }> }
+  goals: Array<{ name: string; minute: string; team: string }>
+  attendance: string | null
 }
 
 export async function loadSeed(): Promise<TournamentSeed> {
@@ -61,12 +56,12 @@ export async function fetchOdds(): Promise<OddsSnapshot | null> {
   }
 }
 
-export async function fetchMatchStats(fifaMatchPath: string): Promise<MatchStatsData | null> {
+export async function fetchMatchStats(fifaMatchPath: string): Promise<MatchEventsData | null> {
   try {
     const encoded = encodeURIComponent(fifaMatchPath)
     const response = await fetch(`/api/match-stats?path=${encoded}`, { cache: 'no-store' })
     if (!response.ok) return null
-    return response.json() as Promise<MatchStatsData>
+    return response.json() as Promise<MatchEventsData>
   } catch {
     return null
   }

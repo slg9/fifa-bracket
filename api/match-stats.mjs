@@ -1,108 +1,66 @@
-function parseMatchStats(text) {
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+async function fetchFifaMatchData(fifaMatchPath) {
+  const url = `https://api.fifa.com/api/v3/live/football/${fifaMatchPath}?language=fr-FR`
+  const response = await fetch(url, {
+    headers: { 'user-agent': 'Mozilla/5.0 (compatible; fifabracket/1.0)' },
+  })
+  if (!response.ok) return null
+  return response.json()
+}
 
-  // Find a French label and return the next two numeric values found after it
-  function extractPair(label) {
-    const idx = lines.findIndex(l => l === label || l.startsWith(label))
-    if (idx === -1) return null
-    const values = []
-    for (let i = idx + 1; i < Math.min(idx + 10, lines.length) && values.length < 2; i++) {
-      const m = lines[i].match(/^(\d+)/)
-      if (m) values.push(Number(m[1]))
-    }
-    return values.length === 2 ? { home: values[0], away: values[1] } : null
+function extractPlayers(teamData) {
+  if (!teamData?.Players) return []
+  return teamData.Players.map((p) => ({
+    shirt: p.ShirtNumber ?? 0,
+    name: p.PlayerName?.[0]?.Description ?? p.Name?.[0]?.Description ?? '',
+    starter: p.Status === 1,
+  })).sort((a, b) => {
+    // Starters first, then by shirt number
+    if (a.starter !== b.starter) return a.starter ? -1 : 1
+    return a.shirt - b.shirt
+  })
+}
+
+function extractGoals(data) {
+  const allGoals = []
+
+  const homeCode = data?.HomeTeam?.Abbreviation ?? null
+  const awayCode = data?.AwayTeam?.Abbreviation ?? null
+
+  // Build player lookup across both teams
+  const playerMap = new Map()
+  for (const p of data?.HomeTeam?.Players ?? []) {
+    const name = p.PlayerName?.[0]?.Description ?? p.Name?.[0]?.Description ?? ''
+    if (p.IdPlayer) playerMap.set(p.IdPlayer, { name, team: homeCode })
+  }
+  for (const p of data?.AwayTeam?.Players ?? []) {
+    const name = p.PlayerName?.[0]?.Description ?? p.Name?.[0]?.Description ?? ''
+    if (p.IdPlayer) playerMap.set(p.IdPlayer, { name, team: awayCode })
   }
 
-  // Possession: looks for "Possession" then extracts percentage values
-  function extractPossession() {
-    const idx = lines.findIndex(l => l === 'Possession')
-    if (idx === -1) return null
-    const pcts = []
-    for (let i = idx + 1; i < Math.min(idx + 8, lines.length) && pcts.length < 2; i++) {
-      const m = lines[i].match(/^(\d+)%/)
-      if (m) pcts.push(Number(m[1]))
-      else {
-        // also handle "52%Situations" concatenated form
-        const m2 = lines[i].match(/^(\d+)%\w/)
-        if (m2) pcts.push(Number(m2[1]))
-      }
-    }
-    return pcts.length >= 2 ? { home: pcts[0], away: pcts[1] } : null
+  for (const goal of data?.HomeTeam?.Goals ?? []) {
+    const player = playerMap.get(goal.IdPlayer)
+    if (!player) continue
+    allGoals.push({
+      name: player.name,
+      minute: goal.Minute != null ? String(goal.Minute).replace(/'+$/, '') + "'" : '',
+      team: homeCode,
+      _minuteRaw: parseInt(String(goal.Minute ?? '999'), 10) || 999,
+    })
   }
 
-  // Total shots: find "Frappes au but" then "Total" right after
-  function extractTotalShots() {
-    const frapIdx = lines.findIndex(l => l === 'Frappes au but' || l.includes('Frappes au but'))
-    if (frapIdx === -1) return extractPair('Total')
-    const totalIdx = lines.findIndex((l, i) => i > frapIdx && l === 'Total')
-    if (totalIdx === -1) return null
-    const values = []
-    for (let i = totalIdx + 1; i < Math.min(totalIdx + 6, lines.length) && values.length < 2; i++) {
-      const m = lines[i].match(/^(\d+)/)
-      if (m) values.push(Number(m[1]))
-    }
-    return values.length === 2 ? { home: values[0], away: values[1] } : null
+  for (const goal of data?.AwayTeam?.Goals ?? []) {
+    const player = playerMap.get(goal.IdPlayer)
+    if (!player) continue
+    allGoals.push({
+      name: player.name,
+      minute: goal.Minute != null ? `${goal.Minute}'` : '',
+      team: awayCode,
+      _minuteRaw: goal.Minute ?? 999,
+    })
   }
 
-  // Scorers: FIFA player-stats section doubles every token ("LARIN LARIN", "Buts Buts").
-  // Pattern: lines[i]="Buts Buts", lines[i-1]=goal count, lines[i-2]="LASTNAME LASTNAME", lines[i-3]="Firstname Firstname"
-  function dedup(s) {
-    const parts = s.trim().split(/\s+/)
-    const half = Math.floor(parts.length / 2)
-    if (half > 0) {
-      const first = parts.slice(0, half).join(' ')
-      const second = parts.slice(half).join(' ')
-      if (first === second) return first
-    }
-    return s.trim()
-  }
-
-  function extractScorers() {
-    // Strategy 1: FIFA player-stats "Buts Buts" doubled-label (works for GER/CUW style pages)
-    const butsRe = /^Buts?\s+Buts?$/i
-    const scorers1 = []
-    for (let i = 3; i < lines.length; i++) {
-      if (!butsRe.test(lines[i])) continue
-      const lastRaw = lines[i - 2]
-      const firstRaw = lines[i - 3]
-      if (!lastRaw || !firstRaw) continue
-      const lastName = dedup(lastRaw)
-      const firstName = dedup(firstRaw)
-      const name = `${firstName} ${lastName}`.trim()
-      if (name.length > 2) scorers1.push({ name, minute: null })
-    }
-    if (scorers1.length > 0) return scorers1
-
-    // Strategy 2: events section — Name line followed by minute line (works for NED/JPN style pages)
-    const minuteRe = /^\d{1,3}['\u2019\u02b9\u2032+]/
-    // Skip lines that are clearly not player names
-    const skipRe = /^(https?:|www\.|Image|Coupe|FIFA|Groupe|Phase|APERÇU|STATS|COMPO|CLASSEM|INFOS|LIVE|Où|Télé|Pas|data |Fin |Mi-|En |Match|Politique|Télécharger)/i
-    const scorers2 = []
-    for (let i = 0; i < lines.length - 1; i++) {
-      if (!minuteRe.test(lines[i + 1])) continue
-      const name = lines[i].trim()
-      if (name.length < 3 || name.length > 60) continue
-      if (skipRe.test(name)) continue
-      if (!/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(name)) continue
-      // Must look like a name: not a URL, not a pure number, not a label
-      if (/^\d+$/.test(name)) continue
-      scorers2.push({ name, minute: lines[i + 1].replace(/['\u2019\u02b9\u2032]/g, "'") })
-      i++ // skip the minute line
-    }
-    return scorers2
-  }
-
-  return {
-    possession: extractPossession(),
-    shots: extractTotalShots(),
-    shotsOnTarget: extractPair('Cadrés'),
-    corners: extractPair('Corners') ?? extractPair('Corner'),
-    fouls: extractPair('Fautes concédées'),
-    yellowCards: extractPair('Cartons jaunes'),
-    redCards: extractPair('Cartons rouges'),
-    passes: extractPair('Passes décisives'),
-    scorers: extractScorers(),
-  }
+  allGoals.sort((a, b) => a._minuteRaw - b._minuteRaw)
+  return allGoals.map(({ name, minute, team }) => ({ name, minute, team }))
 }
 
 export default async function handler(req, res) {
@@ -111,19 +69,34 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'path required' })
   }
 
-  const url = `https://r.jina.ai/https://www.fifa.com/fr/match-centre/match/${path}`
-  const response = await fetch(url, {
-    headers: { 'user-agent': 'Mozilla/5.0', 'x-no-cache': 'true' },
-  })
+  const data = await fetchFifaMatchData(path)
 
-  if (!response.ok) {
-    return res.status(502).json({ error: 'FIFA page unavailable' })
+  if (!data) {
+    return res.status(502).json({ error: 'FIFA API unavailable' })
   }
 
-  const text = await response.text()
-  const stats = parseMatchStats(text)
+  const result = {
+    home: {
+      code: data.HomeTeam?.Abbreviation ?? null,
+      tactics: data.HomeTeam?.Tactics ?? null,
+      coach: data.HomeTeam?.Coaches?.find((c) => c.Role === 1)?.Name?.[0]?.Description
+        ?? data.HomeTeam?.Coaches?.[0]?.Name?.[0]?.Description
+        ?? null,
+      players: extractPlayers(data.HomeTeam),
+    },
+    away: {
+      code: data.AwayTeam?.Abbreviation ?? null,
+      tactics: data.AwayTeam?.Tactics ?? null,
+      coach: data.AwayTeam?.Coaches?.find((c) => c.Role === 1)?.Name?.[0]?.Description
+        ?? data.AwayTeam?.Coaches?.[0]?.Name?.[0]?.Description
+        ?? null,
+      players: extractPlayers(data.AwayTeam),
+    },
+    goals: extractGoals(data),
+    attendance: data.Stadium?.Attendance != null ? String(data.Stadium.Attendance) : null,
+  }
 
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
-  res.setHeader('Cache-Control', 'public, max-age=60')
-  res.status(200).json(stats)
+  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600')
+  res.status(200).json(result)
 }

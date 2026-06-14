@@ -77,6 +77,7 @@ export type LiveSnapshot = {
     goalsAgainst: number
   }>
   predictions?: MatchPrediction[]
+  topScorers?: Array<{ name: string; teamCode: string; goals: number }>
 }
 
 export type MatchPrediction = {

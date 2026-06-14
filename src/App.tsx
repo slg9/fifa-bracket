@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
-import type { MatchStatsData, MatchOdds, OddsSnapshot } from './lib/data'
+import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -28,9 +28,10 @@ type LiveState = {
   syncedAt: string | null
   source: string
   warnings: string[]
-  matches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null; kickoffIso?: string | null; liveMinute?: string | null }>
+  matches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null; kickoffIso?: string | null; liveMinute?: string | null; fifaMatchPath?: string | null }>
   standings: RankedStandingRow[]
   predictions: MatchPrediction[]
+  topScorers?: Array<{ name: string; teamCode: string; goals: number }>
 }
 
 function mergeLiveSnapshot(current: LiveState, snapshot: LiveSnapshot): LiveState {
@@ -770,7 +771,7 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [matchModalGroupId, setMatchModalGroupId] = useState<string | null>(null)
   const [matchStatsModal, setMatchStatsModal] = useState<{ match: GroupMatch; homeTeam: Team; awayTeam: Team } | null>(null)
-  const [matchStatsData, setMatchStatsData] = useState<MatchStatsData | null>(null)
+  const [matchStatsData, setMatchStatsData] = useState<MatchEventsData | null>(null)
   const [matchStatsLoading, setMatchStatsLoading] = useState(false)
   const [oddsData, setOddsData] = useState<OddsSnapshot | null>(null)
 
@@ -1917,6 +1918,24 @@ function App() {
             </div>
           </div>
 
+          {liveSource.topScorers && liveSource.topScorers.length > 0 ? (
+            <div className="panel">
+              <div className="panel__head">
+                <div className="panel__title">Top buteurs</div>
+              </div>
+              <div className="scorers">
+                {liveSource.topScorers.map((scorer, index) => (
+                  <div key={`${scorer.name}-${scorer.teamCode}`} className={`scorerrow${index === 0 ? ' is-top' : ''}`}>
+                    <span className="scorerrow__rank">{index + 1}</span>
+                    <span className="scorerrow__name">{scorer.name}</span>
+                    <span className="scorerrow__team">{scorer.teamCode}</span>
+                    <span className="scorerrow__goals"><b>{scorer.goals}</b></span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
         </aside>
       </div>
       {matchStatsModal ? (() => {
@@ -2013,52 +2032,96 @@ function App() {
                   </div>
                 ) : (
                   <>
-                    {/* Possession bar */}
-                    {matchStatsData.possession ? (
-                      <div className="statrow statrow--possession">
-                        <span className="statrow__val">{matchStatsData.possession.home}%</span>
-                        <div className="statrow__label">Possession</div>
-                        <span className="statrow__val statrow__val--right">{matchStatsData.possession.away}%</span>
-                        <div className="statrow__bar" style={{ gridColumn: '1/-1' }}>
-                          <div className="statrow__fill--home" style={{ width: `${matchStatsData.possession.home}%` }} />
-                          <div className="statrow__fill--away" style={{ width: `${matchStatsData.possession.away}%` }} />
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {/* Stats table */}
-                    {([
-                      { label: 'Tirs', data: matchStatsData.shots },
-                      { label: 'Tirs cadrés', data: matchStatsData.shotsOnTarget },
-                      { label: 'Corners', data: matchStatsData.corners },
-                      { label: 'Fautes', data: matchStatsData.fouls },
-                      { label: 'Cartons jaunes', data: matchStatsData.yellowCards },
-                      { label: 'Cartons rouges', data: matchStatsData.redCards },
-                    ] as const).filter(s => s.data !== null).map(s => (
-                      <div key={s.label} className="statrow">
-                        <span className="statrow__val">{s.data!.home}</span>
-                        <span className="statrow__label">{s.label}</span>
-                        <span className="statrow__val statrow__val--right">{s.data!.away}</span>
-                      </div>
-                    ))}
-
-                    {/* Scorers */}
-                    {matchStatsData.scorers.length > 0 ? (
-                      <div className="statsmodal__scorers">
-                        <div className="statsmodal__scorers-title">Buteurs</div>
-                        {matchStatsData.scorers.map((s, i) => (
+                    {/* Goals */}
+                    {matchStatsData.goals.length > 0 ? (
+                      <div className="statsmodal__goals-section">
+                        <div className="statsmodal__scorers-title">Buts</div>
+                        {matchStatsData.goals.map((g, i) => (
                           <div key={i} className="statsmodal__scorer">
-                            <span>⚽ {s.name}</span>
-                            {s.minute ? <span className="statsmodal__scorer-min">{s.minute}</span> : null}
+                            <span>⚽ {g.name}</span>
+                            <span className="statsmodal__scorer-min">{g.minute}</span>
                           </div>
                         ))}
                       </div>
                     ) : null}
 
-                    {/* No detailed stats but no scorers either */}
-                    {matchStatsData.possession === null && matchStatsData.shots === null && matchStatsData.scorers.length === 0 ? (
+                    {/* Home lineup */}
+                    <div className="statsmodal__lineup">
+                      <div className="statsmodal__scorers-title">
+                        {matchStatsData.home.code ?? homeTeam.fifaCode}
+                        {matchStatsData.home.tactics ? <span className="statsmodal__lineup-tactics">{matchStatsData.home.tactics}</span> : null}
+                      </div>
+                      {matchStatsData.home.coach ? (
+                        <div className="statsmodal__player" style={{ opacity: 0.6, fontSize: 11 }}>Coach · {matchStatsData.home.coach}</div>
+                      ) : null}
+                      {matchStatsData.home.players.filter(p => p.starter).length > 0 ? (
+                        <>
+                          <div className="statsmodal__lineup-title">TITULAIRES</div>
+                          {matchStatsData.home.players.filter(p => p.starter).map((p, i) => (
+                            <div key={i} className="statsmodal__player">
+                              <span className="statsmodal__player-shirt">{p.shirt}</span>
+                              <span>{p.name}</span>
+                            </div>
+                          ))}
+                        </>
+                      ) : null}
+                      {matchStatsData.home.players.filter(p => !p.starter).length > 0 ? (
+                        <>
+                          <div className="statsmodal__lineup-title">REMPLAÇANTS</div>
+                          {matchStatsData.home.players.filter(p => !p.starter).map((p, i) => (
+                            <div key={i} className="statsmodal__player">
+                              <span className="statsmodal__player-shirt">{p.shirt}</span>
+                              <span>{p.name}</span>
+                            </div>
+                          ))}
+                        </>
+                      ) : null}
+                    </div>
+
+                    {/* Away lineup */}
+                    <div className="statsmodal__lineup">
+                      <div className="statsmodal__scorers-title">
+                        {matchStatsData.away.code ?? awayTeam.fifaCode}
+                        {matchStatsData.away.tactics ? <span className="statsmodal__lineup-tactics">{matchStatsData.away.tactics}</span> : null}
+                      </div>
+                      {matchStatsData.away.coach ? (
+                        <div className="statsmodal__player" style={{ opacity: 0.6, fontSize: 11 }}>Coach · {matchStatsData.away.coach}</div>
+                      ) : null}
+                      {matchStatsData.away.players.filter(p => p.starter).length > 0 ? (
+                        <>
+                          <div className="statsmodal__lineup-title">TITULAIRES</div>
+                          {matchStatsData.away.players.filter(p => p.starter).map((p, i) => (
+                            <div key={i} className="statsmodal__player">
+                              <span className="statsmodal__player-shirt">{p.shirt}</span>
+                              <span>{p.name}</span>
+                            </div>
+                          ))}
+                        </>
+                      ) : null}
+                      {matchStatsData.away.players.filter(p => !p.starter).length > 0 ? (
+                        <>
+                          <div className="statsmodal__lineup-title">REMPLAÇANTS</div>
+                          {matchStatsData.away.players.filter(p => !p.starter).map((p, i) => (
+                            <div key={i} className="statsmodal__player">
+                              <span className="statsmodal__player-shirt">{p.shirt}</span>
+                              <span>{p.name}</span>
+                            </div>
+                          ))}
+                        </>
+                      ) : null}
+                    </div>
+
+                    {/* Attendance */}
+                    {matchStatsData.attendance ? (
+                      <div className="statsmodal__player" style={{ opacity: 0.55, fontSize: 11, marginTop: 8 }}>
+                        Affluence · {Number(matchStatsData.attendance).toLocaleString('fr-FR')}
+                      </div>
+                    ) : null}
+
+                    {/* Empty state */}
+                    {matchStatsData.goals.length === 0 && matchStatsData.home.players.length === 0 && matchStatsData.away.players.length === 0 ? (
                       <div className="statsmodal__empty" style={{ fontSize: 12 }}>
-                        Stats détaillées non disponibles — le moteur FIFA charge les données en direct.
+                        Données non disponibles — le moteur FIFA charge les données en direct.
                         <br />
                         <button type="button" className="statsmodal__refresh-btn" style={{ marginTop: 10 }} onClick={() => void refreshMatchStats()}>↻ Actualiser</button>
                       </div>

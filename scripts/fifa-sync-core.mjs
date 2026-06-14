@@ -273,11 +273,83 @@ export async function buildFifaLiveSnapshot(seed) {
     warnings.push('Aucun classement de groupe n a ete extrait depuis FIFA.')
   }
 
+  // Fetch goals from FIFA live API for finished matches to build top scorers
+  const finishedMatches = matches.filter(
+    (m) => m.status === 'finished' && m.fifaMatchPath,
+  )
+
+  const topScorers = await buildTopScorers(finishedMatches, warnings)
+
   return {
     syncedAt: new Date().toISOString(),
     source: 'fifa-live',
     warnings,
     matches,
     standings,
+    topScorers,
   }
+}
+
+async function fetchFifaLiveData(fifaMatchPath) {
+  try {
+    const url = `https://api.fifa.com/api/v3/live/football/${fifaMatchPath}?language=fr-FR`
+    const response = await fetch(url, {
+      headers: { 'user-agent': 'Mozilla/5.0 (compatible; fifabracket/1.0)' },
+    })
+    if (!response.ok) return null
+    return response.json()
+  } catch {
+    return null
+  }
+}
+
+async function buildTopScorers(finishedMatches, warnings) {
+  const goalTally = new Map() // key: `${name}|${teamCode}`, value: count
+
+  const results = await Promise.all(
+    finishedMatches.map((m) => fetchFifaLiveData(m.fifaMatchPath)),
+  )
+
+  for (const data of results) {
+    if (!data) continue
+
+    const homeCode = data?.HomeTeam?.Abbreviation ?? null
+    const awayCode = data?.AwayTeam?.Abbreviation ?? null
+
+    // Build player id → { name, teamCode } map
+    const playerMap = new Map()
+    for (const p of data?.HomeTeam?.Players ?? []) {
+      const name = p.PlayerName?.[0]?.Description ?? p.Name?.[0]?.Description ?? ''
+      if (p.IdPlayer && name) playerMap.set(p.IdPlayer, { name, teamCode: homeCode })
+    }
+    for (const p of data?.AwayTeam?.Players ?? []) {
+      const name = p.PlayerName?.[0]?.Description ?? p.Name?.[0]?.Description ?? ''
+      if (p.IdPlayer && name) playerMap.set(p.IdPlayer, { name, teamCode: awayCode })
+    }
+
+    for (const goal of data?.HomeTeam?.Goals ?? []) {
+      const player = playerMap.get(goal.IdPlayer)
+      if (!player) continue
+      const key = `${player.name}|${player.teamCode}`
+      goalTally.set(key, (goalTally.get(key) ?? 0) + 1)
+    }
+
+    for (const goal of data?.AwayTeam?.Goals ?? []) {
+      const player = playerMap.get(goal.IdPlayer)
+      if (!player) continue
+      const key = `${player.name}|${player.teamCode}`
+      goalTally.set(key, (goalTally.get(key) ?? 0) + 1)
+    }
+  }
+
+  if (goalTally.size === 0 && finishedMatches.length > 0) {
+    warnings.push('Aucun buteur extrait depuis l API FIFA live.')
+  }
+
+  return Array.from(goalTally.entries())
+    .map(([key, goals]) => {
+      const [name, teamCode] = key.split('|')
+      return { name, teamCode, goals }
+    })
+    .sort((a, b) => b.goals - a.goals)
 }

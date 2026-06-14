@@ -18,103 +18,80 @@ type IncomingMessage = {
   url?: string
 }
 
-function parseMatchStats(text: string) {
-  const lines = text.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean)
+type FifaPlayer = {
+  IdPlayer?: string
+  ShirtNumber?: number
+  Status?: number
+  PlayerName?: Array<{ Description?: string }>
+  Name?: Array<{ Description?: string }>
+}
 
-  function extractPair(label: string) {
-    const idx = lines.findIndex((l: string) => l === label || l.startsWith(label))
-    if (idx === -1) return null
-    const values: number[] = []
-    for (let i = idx + 1; i < Math.min(idx + 10, lines.length) && values.length < 2; i++) {
-      const m = lines[i].match(/^(\d+)/)
-      if (m) values.push(Number(m[1]))
-    }
-    return values.length === 2 ? { home: values[0], away: values[1] } : null
+type FifaCoach = {
+  Role?: number
+  Name?: Array<{ Description?: string }>
+}
+
+type FifaGoal = {
+  IdPlayer?: string
+  Minute?: number
+  Type?: number
+}
+
+type FifaTeam = {
+  Abbreviation?: string
+  Tactics?: string
+  Players?: FifaPlayer[]
+  Coaches?: FifaCoach[]
+  Goals?: FifaGoal[]
+}
+
+type FifaMatchData = {
+  HomeTeam?: FifaTeam
+  AwayTeam?: FifaTeam
+  Stadium?: { Attendance?: number }
+}
+
+function extractPlayersFromTeam(teamData: FifaTeam | undefined): Array<{ shirt: number; name: string; starter: boolean }> {
+  if (!teamData?.Players) return []
+  return teamData.Players.map((p) => ({
+    shirt: p.ShirtNumber ?? 0,
+    name: p.PlayerName?.[0]?.Description ?? p.Name?.[0]?.Description ?? '',
+    starter: p.Status === 1,
+  })).sort((a, b) => {
+    if (a.starter !== b.starter) return a.starter ? -1 : 1
+    return a.shirt - b.shirt
+  })
+}
+
+function extractGoalsFromData(data: FifaMatchData) {
+  const homeCode = data.HomeTeam?.Abbreviation ?? null
+  const awayCode = data.AwayTeam?.Abbreviation ?? null
+
+  const playerMap = new Map<string, { name: string; team: string | null }>()
+  for (const p of data.HomeTeam?.Players ?? []) {
+    const name = p.PlayerName?.[0]?.Description ?? p.Name?.[0]?.Description ?? ''
+    if (p.IdPlayer) playerMap.set(p.IdPlayer, { name, team: homeCode })
+  }
+  for (const p of data.AwayTeam?.Players ?? []) {
+    const name = p.PlayerName?.[0]?.Description ?? p.Name?.[0]?.Description ?? ''
+    if (p.IdPlayer) playerMap.set(p.IdPlayer, { name, team: awayCode })
   }
 
-  function extractPossession() {
-    const idx = lines.findIndex((l: string) => l === 'Possession')
-    if (idx === -1) return null
-    const pcts: number[] = []
-    for (let i = idx + 1; i < Math.min(idx + 8, lines.length) && pcts.length < 2; i++) {
-      const m = lines[i].match(/^(\d+)%/)
-      if (m) pcts.push(Number(m[1]))
-      else {
-        const m2 = lines[i].match(/^(\d+)%\w/)
-        if (m2) pcts.push(Number(m2[1]))
-      }
-    }
-    return pcts.length >= 2 ? { home: pcts[0], away: pcts[1] } : null
+  const allGoals: Array<{ name: string; minute: string; team: string | null; _raw: number }> = []
+  for (const goal of data.HomeTeam?.Goals ?? []) {
+    if (!goal.IdPlayer) continue
+    const player = playerMap.get(goal.IdPlayer)
+    if (!player) continue
+    allGoals.push({ name: player.name, minute: goal.Minute != null ? String(goal.Minute).replace(/'+$/, '') + "'" : '', team: homeCode, _raw: parseInt(String(goal.Minute ?? '999'), 10) || 999 })
   }
-
-  function extractTotalShots() {
-    const frapIdx = lines.findIndex((l: string) => l === 'Frappes au but' || l.includes('Frappes au but'))
-    if (frapIdx === -1) return extractPair('Total')
-    const totalIdx = lines.findIndex((l: string, i: number) => i > frapIdx && l === 'Total')
-    if (totalIdx === -1) return null
-    const values: number[] = []
-    for (let i = totalIdx + 1; i < Math.min(totalIdx + 6, lines.length) && values.length < 2; i++) {
-      const m = lines[i].match(/^(\d+)/)
-      if (m) values.push(Number(m[1]))
-    }
-    return values.length === 2 ? { home: values[0], away: values[1] } : null
+  for (const goal of data.AwayTeam?.Goals ?? []) {
+    if (!goal.IdPlayer) continue
+    const player = playerMap.get(goal.IdPlayer)
+    if (!player) continue
+    allGoals.push({ name: player.name, minute: goal.Minute != null ? String(goal.Minute).replace(/'+$/, '') + "'" : '', team: awayCode, _raw: parseInt(String(goal.Minute ?? '999'), 10) || 999 })
   }
-
-  function dedup(s: string): string {
-    const parts = s.trim().split(/\s+/)
-    const half = Math.floor(parts.length / 2)
-    if (half > 0) {
-      const first = parts.slice(0, half).join(' ')
-      const second = parts.slice(half).join(' ')
-      if (first === second) return first
-    }
-    return s.trim()
-  }
-
-  function extractScorers() {
-    // Strategy 1: FIFA player-stats "Buts Buts" doubled-label (GER/CUW style pages)
-    const butsRe = /^Buts?\s+Buts?$/i
-    const scorers1: Array<{ name: string; minute: string | null }> = []
-    for (let i = 3; i < lines.length; i++) {
-      if (!butsRe.test(lines[i])) continue
-      const lastRaw = lines[i - 2]
-      const firstRaw = lines[i - 3]
-      if (!lastRaw || !firstRaw) continue
-      const lastName = dedup(lastRaw)
-      const firstName = dedup(firstRaw)
-      const name = `${firstName} ${lastName}`.trim()
-      if (name.length > 2) scorers1.push({ name, minute: null })
-    }
-    if (scorers1.length > 0) return scorers1
-
-    // Strategy 2: events section — Name line followed by minute line (NED/JPN style pages)
-    const minuteRe = /^\d{1,3}['\u2019\u02b9\u2032+]/
-    const skipRe = /^(https?:|www\.|Image|Coupe|FIFA|Groupe|Phase|APERÇU|STATS|COMPO|CLASSEM|INFOS|LIVE|Où|Télé|Pas|data |Fin |Mi-|En |Match|Politique|Télécharger)/i
-    const scorers2: Array<{ name: string; minute: string | null }> = []
-    for (let i = 0; i < lines.length - 1; i++) {
-      if (!minuteRe.test(lines[i + 1])) continue
-      const name = lines[i].trim()
-      if (name.length < 3 || name.length > 60) continue
-      if (skipRe.test(name)) continue
-      if (!/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(name)) continue
-      if (/^\d+$/.test(name)) continue
-      scorers2.push({ name, minute: lines[i + 1].replace(/['\u2019\u02b9\u2032]/g, "'") })
-      i++
-    }
-    return scorers2
-  }
-
-  return {
-    possession: extractPossession(),
-    shots: extractTotalShots(),
-    shotsOnTarget: extractPair('Cadrés'),
-    corners: extractPair('Corners') ?? extractPair('Corner'),
-    fouls: extractPair('Fautes concédées'),
-    yellowCards: extractPair('Cartons jaunes'),
-    redCards: extractPair('Cartons rouges'),
-    passes: extractPair('Passes décisives'),
-    scorers: extractScorers(),
-  }
+  allGoals.sort((a, b) => a._raw - b._raw)
+  return allGoals.map(({ name, minute, team }) => ({ name, minute, team: team ?? '' }))
 }
 
 function fifaSyncApi() {
@@ -163,25 +140,45 @@ function matchStatsApi() {
         return
       }
 
-      const url = `https://r.jina.ai/https://www.fifa.com/fr/match-centre/match/${path}`
-      const response = await fetch(url, {
-        headers: { 'user-agent': 'Mozilla/5.0', 'x-no-cache': 'true' },
+      const fifaUrl = `https://api.fifa.com/api/v3/live/football/${path}?language=fr-FR`
+      const response = await fetch(fifaUrl, {
+        headers: { 'user-agent': 'Mozilla/5.0 (compatible; fifabracket/1.0)' },
       })
 
       if (!response.ok) {
         res.statusCode = 502
         res.setHeader('Content-Type', 'application/json; charset=utf-8')
-        res.end(JSON.stringify({ error: 'FIFA page unavailable' }))
+        res.end(JSON.stringify({ error: 'FIFA API unavailable' }))
         return
       }
 
-      const text = await response.text()
-      const stats = parseMatchStats(text)
+      const data = await response.json() as FifaMatchData
+
+      const result = {
+        home: {
+          code: data.HomeTeam?.Abbreviation ?? null,
+          tactics: data.HomeTeam?.Tactics ?? null,
+          coach: data.HomeTeam?.Coaches?.find((c) => c.Role === 1)?.Name?.[0]?.Description
+            ?? data.HomeTeam?.Coaches?.[0]?.Name?.[0]?.Description
+            ?? null,
+          players: extractPlayersFromTeam(data.HomeTeam),
+        },
+        away: {
+          code: data.AwayTeam?.Abbreviation ?? null,
+          tactics: data.AwayTeam?.Tactics ?? null,
+          coach: data.AwayTeam?.Coaches?.find((c) => c.Role === 1)?.Name?.[0]?.Description
+            ?? data.AwayTeam?.Coaches?.[0]?.Name?.[0]?.Description
+            ?? null,
+          players: extractPlayersFromTeam(data.AwayTeam),
+        },
+        goals: extractGoalsFromData(data),
+        attendance: data.Stadium?.Attendance != null ? String(data.Stadium.Attendance) : null,
+      }
 
       res.statusCode = 200
       res.setHeader('Content-Type', 'application/json; charset=utf-8')
-      res.setHeader('Cache-Control', 'public, max-age=60')
-      res.end(JSON.stringify(stats))
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600')
+      res.end(JSON.stringify(result))
     } catch (error) {
       res.statusCode = 500
       res.setHeader('Content-Type', 'application/json; charset=utf-8')
