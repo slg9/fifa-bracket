@@ -1227,6 +1227,34 @@
   color: var(--text);
 }
 
+/* Winner / loser styling in daymatch cards */
+.daymatch__team.is-winner strong {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.daymatch__team.is-loser {
+  opacity: 0.45;
+}
+
+.daymatch__mini.is-winner span:not(.daymatch__flag) {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.daymatch__mini.is-loser {
+  opacity: 0.45;
+}
+
+/* Winner score highlight */
+.daymatch__score .is-winner-score {
+  color: var(--neon) !important;
+}
+
+.daymatch__mini--score b.is-winner-score {
+  color: var(--neon);
+}
+
 .daymatch__flag,
 .daymatch__flag-image {
   width: 24px;

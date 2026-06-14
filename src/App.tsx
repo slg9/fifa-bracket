@@ -1323,6 +1323,9 @@ function App() {
                 if (!homeTeam || !awayTeam) return null
                 const heroStatus = inferStatus(featuredDayMatch)
                 const heroHHMM = formatKickoffTime(featuredDayMatch)
+                const heroFinished = heroStatus === 'finished'
+                const heroHomeWin = heroFinished && featuredDayMatch.homeScore !== null && featuredDayMatch.awayScore !== null && featuredDayMatch.homeScore > featuredDayMatch.awayScore
+                const heroAwayWin = heroFinished && featuredDayMatch.homeScore !== null && featuredDayMatch.awayScore !== null && featuredDayMatch.awayScore > featuredDayMatch.homeScore
 
                 return (
                   <div
@@ -1341,7 +1344,7 @@ function App() {
                     </div>
 
                     <div className="daymatch__main">
-                      <div className="daymatch__team">
+                      <div className={`daymatch__team${heroHomeWin ? ' is-winner' : heroAwayWin ? ' is-loser' : ''}`}>
                         {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{homeTeam.flagEmoji}</span>}
                         <strong>{homeTeam.name}</strong>
                       </div>
@@ -1356,14 +1359,14 @@ function App() {
                           <div className="daymatch__score daymatch__score--time">{heroHHMM}</div>
                         ) : (
                           <div className="daymatch__score">
-                            <span>{featuredDayMatch.homeScore ?? '-'}</span>
+                            <span className={heroHomeWin ? 'is-winner-score' : ''}>{featuredDayMatch.homeScore ?? '-'}</span>
                             <i>:</i>
-                            <span>{featuredDayMatch.awayScore ?? '-'}</span>
+                            <span className={heroAwayWin ? 'is-winner-score' : ''}>{featuredDayMatch.awayScore ?? '-'}</span>
                           </div>
                         )}
                       </div>
 
-                      <div className="daymatch__team daymatch__team--right">
+                      <div className={`daymatch__team daymatch__team--right${heroAwayWin ? ' is-winner' : heroHomeWin ? ' is-loser' : ''}`}>
                         <strong>{awayTeam.name}</strong>
                         {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{awayTeam.flagEmoji}</span>}
                       </div>
@@ -1380,6 +1383,9 @@ function App() {
                 if (!homeTeam || !awayTeam) return null
                 const kickoffTime = formatKickoffTime(match)
                 const liveStatus = inferStatus(match)
+                const miniFinished = liveStatus === 'finished'
+                const miniHomeWin = miniFinished && match.homeScore !== null && match.awayScore !== null && match.homeScore > match.awayScore
+                const miniAwayWin = miniFinished && match.homeScore !== null && match.awayScore !== null && match.awayScore > match.homeScore
 
                 return (
                   <article
@@ -1399,7 +1405,7 @@ function App() {
                     </div>
 
                     <div className="daymatch__row">
-                      <div className="daymatch__mini">
+                      <div className={`daymatch__mini${miniHomeWin ? ' is-winner' : miniAwayWin ? ' is-loser' : ''}`}>
                         {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{homeTeam.flagEmoji}</span>}
                         <span>{homeTeam.shortName}</span>
                       </div>
@@ -1408,13 +1414,13 @@ function App() {
                           <time className="daymatch__mini-time">{kickoffTime}</time>
                         ) : (
                           <>
-                            <b>{match.homeScore ?? '-'}</b>
+                            <b className={miniHomeWin ? 'is-winner-score' : ''}>{match.homeScore ?? '-'}</b>
                             <span>:</span>
-                            <b>{match.awayScore ?? '-'}</b>
+                            <b className={miniAwayWin ? 'is-winner-score' : ''}>{match.awayScore ?? '-'}</b>
                           </>
                         )}
                       </div>
-                      <div className="daymatch__mini daymatch__mini--right">
+                      <div className={`daymatch__mini daymatch__mini--right${miniAwayWin ? ' is-winner' : miniHomeWin ? ' is-loser' : ''}`}>
                         <span>{awayTeam.shortName}</span>
                         {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{awayTeam.flagEmoji}</span>}
                       </div>
