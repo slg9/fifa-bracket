@@ -42,6 +42,25 @@ export async function syncLiveSnapshot(): Promise<LiveSnapshot> {
   return response.json() as Promise<LiveSnapshot>
 }
 
+export type MatchOdds = {
+  commenceTime: string
+  home: { code: string; avgOdds: number; prob: number }
+  draw: { avgOdds: number; prob: number }
+  away: { code: string; avgOdds: number; prob: number }
+}
+
+export type OddsSnapshot = Record<string, MatchOdds>
+
+export async function fetchOdds(): Promise<OddsSnapshot | null> {
+  try {
+    const response = await fetch('/api/odds', { cache: 'no-store' })
+    if (!response.ok) return null
+    return response.json() as Promise<OddsSnapshot>
+  } catch {
+    return null
+  }
+}
+
 export async function fetchMatchStats(fifaMatchPath: string): Promise<MatchStatsData | null> {
   try {
     const encoded = encodeURIComponent(fifaMatchPath)

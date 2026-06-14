@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats } from './lib/data'
-import type { MatchStatsData } from './lib/data'
+import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
+import type { MatchStatsData, MatchOdds, OddsSnapshot } from './lib/data'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -772,6 +772,7 @@ function App() {
   const [matchStatsModal, setMatchStatsModal] = useState<{ match: GroupMatch; homeTeam: Team; awayTeam: Team } | null>(null)
   const [matchStatsData, setMatchStatsData] = useState<MatchStatsData | null>(null)
   const [matchStatsLoading, setMatchStatsLoading] = useState(false)
+  const [oddsData, setOddsData] = useState<OddsSnapshot | null>(null)
 
   useEffect(() => {
     let active = true
@@ -819,6 +820,13 @@ function App() {
         }).catch(() => {
           // Sync failed — static data already shown, nothing to do
         })
+
+        // Fetch odds in background (cached 2h at CDN edge)
+        fetchOdds().then((odds) => {
+          if (!active || !odds) return
+          setOddsData(odds)
+        }).catch(() => {})
+
       } catch (caughtError) {
         if (!active) return
         setError(caughtError instanceof Error ? caughtError.message : 'Chargement impossible.')
@@ -1154,6 +1162,11 @@ function App() {
     setShowDayModal(false)
   }
 
+  function getMatchOdds(homeId: string, awayId: string): MatchOdds | null {
+    if (!oddsData) return null
+    return oddsData[`${homeId}-${awayId}`] ?? oddsData[`${awayId}-${homeId}`] ?? null
+  }
+
   async function openMatchStats(match: GroupMatch) {
     const homeTeam = teamsById.get(match.homeTeamId)
     const awayTeam = teamsById.get(match.awayTeamId)
@@ -1166,6 +1179,15 @@ function App() {
       setMatchStatsData(stats)
       setMatchStatsLoading(false)
     }
+  }
+
+  async function refreshMatchStats() {
+    if (!matchStatsModal || !matchStatsModal.match.fifaMatchPath) return
+    setMatchStatsLoading(true)
+    setMatchStatsData(null)
+    const stats = await fetchMatchStats(matchStatsModal.match.fifaMatchPath)
+    setMatchStatsData(stats)
+    setMatchStatsLoading(false)
   }
 
   function reopenDayModal() {
@@ -1931,6 +1953,41 @@ function App() {
                 </div>
               </div>
 
+              {/* Odds probability bar */}
+              {(() => {
+                const odds = getMatchOdds(match.homeTeamId, match.awayTeamId)
+                if (!odds) return null
+                const swapped = !oddsData![`${match.homeTeamId}-${match.awayTeamId}`]
+                const homeProb = swapped ? odds.away.prob : odds.home.prob
+                const awayProb = swapped ? odds.home.prob : odds.away.prob
+                const drawProb = odds.draw.prob
+                const homeOdds = swapped ? odds.away.avgOdds : odds.home.avgOdds
+                const awayOdds = swapped ? odds.home.avgOdds : odds.away.avgOdds
+                return (
+                  <div className="statsmodal__odds">
+                    <div className="statsmodal__odds-bar">
+                      <div className="statsmodal__odds-seg statsmodal__odds-seg--home" style={{ width: `${homeProb}%` }} />
+                      <div className="statsmodal__odds-seg statsmodal__odds-seg--draw" style={{ width: `${drawProb}%` }} />
+                      <div className="statsmodal__odds-seg statsmodal__odds-seg--away" style={{ width: `${awayProb}%` }} />
+                    </div>
+                    <div className="statsmodal__odds-labels">
+                      <span className="statsmodal__odds-pct statsmodal__odds-pct--home">
+                        <b>{homeProb}%</b>
+                        <span>{homeOdds.toFixed(2)}</span>
+                      </span>
+                      <span className="statsmodal__odds-pct statsmodal__odds-pct--draw">
+                        <b>{drawProb}%</b>
+                        <span>X {odds.draw.avgOdds.toFixed(2)}</span>
+                      </span>
+                      <span className="statsmodal__odds-pct statsmodal__odds-pct--away">
+                        <b>{awayProb}%</b>
+                        <span>{awayOdds.toFixed(2)}</span>
+                      </span>
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Body */}
               <div className="statsmodal__body">
                 {matchStatsLoading ? (
@@ -1950,7 +2007,10 @@ function App() {
                 ) : !match.fifaMatchPath ? (
                   <div className="statsmodal__empty">Stats disponibles après synchronisation.</div>
                 ) : !matchStatsData ? (
-                  <div className="statsmodal__empty">Stats indisponibles pour ce match.</div>
+                  <div className="statsmodal__empty">
+                    <div>Stats indisponibles pour ce match.</div>
+                    <button type="button" className="statsmodal__refresh-btn" onClick={() => void refreshMatchStats()}>Réessayer</button>
+                  </div>
                 ) : (
                   <>
                     {/* Possession bar */}
@@ -1989,9 +2049,18 @@ function App() {
                         {matchStatsData.scorers.map((s, i) => (
                           <div key={i} className="statsmodal__scorer">
                             <span>⚽ {s.name}</span>
-                            <span className="statsmodal__scorer-min">{s.minute}</span>
+                            {s.minute ? <span className="statsmodal__scorer-min">{s.minute}</span> : null}
                           </div>
                         ))}
+                      </div>
+                    ) : null}
+
+                    {/* No detailed stats but no scorers either */}
+                    {matchStatsData.possession === null && matchStatsData.shots === null && matchStatsData.scorers.length === 0 ? (
+                      <div className="statsmodal__empty" style={{ fontSize: 12 }}>
+                        Stats détaillées non disponibles — le moteur FIFA charge les données en direct.
+                        <br />
+                        <button type="button" className="statsmodal__refresh-btn" style={{ marginTop: 10 }} onClick={() => void refreshMatchStats()}>↻ Actualiser</button>
                       </div>
                     ) : null}
                   </>
@@ -1999,7 +2068,10 @@ function App() {
               </div>
 
               <div className="statsmodal__foot">
-                Groupe {match.groupId} · {match.venue}
+                <span>Groupe {match.groupId} · {match.venue}</span>
+                {match.fifaMatchPath && !matchStatsLoading ? (
+                  <button type="button" className="statsmodal__refresh-btn" onClick={() => void refreshMatchStats()} title="Actualiser les stats">↻</button>
+                ) : null}
               </div>
             </div>
           </div>

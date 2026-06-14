@@ -72,8 +72,9 @@ function parseMatchStats(text: string) {
   }
 
   function extractScorers() {
-    const scorers: Array<{ name: string; minute: string | null }> = []
+    // Strategy 1: FIFA player-stats "Buts Buts" doubled-label (GER/CUW style pages)
     const butsRe = /^Buts?\s+Buts?$/i
+    const scorers1: Array<{ name: string; minute: string | null }> = []
     for (let i = 3; i < lines.length; i++) {
       if (!butsRe.test(lines[i])) continue
       const lastRaw = lines[i - 2]
@@ -82,11 +83,25 @@ function parseMatchStats(text: string) {
       const lastName = dedup(lastRaw)
       const firstName = dedup(firstRaw)
       const name = `${firstName} ${lastName}`.trim()
-      if (name.length > 2) {
-        scorers.push({ name, minute: null })
-      }
+      if (name.length > 2) scorers1.push({ name, minute: null })
     }
-    return scorers
+    if (scorers1.length > 0) return scorers1
+
+    // Strategy 2: events section — Name line followed by minute line (NED/JPN style pages)
+    const minuteRe = /^\d{1,3}['\u2019\u02b9\u2032+]/
+    const skipRe = /^(https?:|www\.|Image|Coupe|FIFA|Groupe|Phase|APERÇU|STATS|COMPO|CLASSEM|INFOS|LIVE|Où|Télé|Pas|data |Fin |Mi-|En |Match|Politique|Télécharger)/i
+    const scorers2: Array<{ name: string; minute: string | null }> = []
+    for (let i = 0; i < lines.length - 1; i++) {
+      if (!minuteRe.test(lines[i + 1])) continue
+      const name = lines[i].trim()
+      if (name.length < 3 || name.length > 60) continue
+      if (skipRe.test(name)) continue
+      if (!/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(name)) continue
+      if (/^\d+$/.test(name)) continue
+      scorers2.push({ name, minute: lines[i + 1].replace(/['\u2019\u02b9\u2032]/g, "'") })
+      i++
+    }
+    return scorers2
   }
 
   return {
@@ -185,6 +200,94 @@ function matchStatsApi() {
   }
 }
 
+const ODDS_API_NAME_TO_FIFA: Record<string, string> = {
+  Algeria: 'ALG', Argentina: 'ARG', Australia: 'AUS', Austria: 'AUT',
+  Belgium: 'BEL', 'Bosnia & Herzegovina': 'BIH', Brazil: 'BRA', Canada: 'CAN',
+  'Cape Verde': 'CPV', Colombia: 'COL', Croatia: 'CRO', 'Curaçao': 'CUW',
+  'Czech Republic': 'CZE', 'DR Congo': 'COD', Ecuador: 'ECU', Egypt: 'EGY',
+  England: 'ENG', France: 'FRA', Germany: 'GER', Ghana: 'GHA',
+  Haiti: 'HAI', Iran: 'IRN', Iraq: 'IRQ', 'Ivory Coast': 'CIV',
+  Japan: 'JPN', Jordan: 'JOR', Mexico: 'MEX', Morocco: 'MAR',
+  Netherlands: 'NED', 'New Zealand': 'NZL', Norway: 'NOR', Panama: 'PAN',
+  Paraguay: 'PAR', Portugal: 'POR', Qatar: 'QAT', 'Saudi Arabia': 'KSA',
+  Scotland: 'SCO', Senegal: 'SEN', 'South Africa': 'RSA', 'South Korea': 'KOR',
+  Spain: 'ESP', Sweden: 'SWE', Switzerland: 'SUI', Tunisia: 'TUN',
+  Turkey: 'TUR', USA: 'USA', Uruguay: 'URU', Uzbekistan: 'UZB',
+}
+
+function oddsApi() {
+  const handler = async (_req: unknown, res: ApiResponse) => {
+    const apiKey = process.env.ODDS_API_KEY
+    if (!apiKey) {
+      res.statusCode = 500
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.end(JSON.stringify({ error: 'ODDS_API_KEY not configured' }))
+      return
+    }
+    try {
+      const url = `https://api.the-odds-api.com/v4/sports/soccer_fifa_world_cup/odds/?apiKey=${apiKey}&regions=eu&markets=h2h&oddsFormat=decimal`
+      const response = await fetch(url)
+      if (!response.ok) {
+        res.statusCode = 502
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        res.end(JSON.stringify({ error: 'Odds API unavailable' }))
+        return
+      }
+      const events = await response.json() as Array<{
+        home_team: string; away_team: string; commence_time: string
+        bookmakers: Array<{ markets: Array<{ key: string; outcomes: Array<{ name: string; price: number }> }> }>
+      }>
+
+      const result: Record<string, unknown> = {}
+      for (const event of events) {
+        const homeCode = ODDS_API_NAME_TO_FIFA[event.home_team]
+        const awayCode = ODDS_API_NAME_TO_FIFA[event.away_team]
+        if (!homeCode || !awayCode) continue
+        const prices = { home: [] as number[], draw: [] as number[], away: [] as number[] }
+        for (const bk of event.bookmakers) {
+          const h2h = bk.markets.find(m => m.key === 'h2h')
+          if (!h2h) continue
+          for (const outcome of h2h.outcomes) {
+            const code = ODDS_API_NAME_TO_FIFA[outcome.name]
+            if (code === homeCode) prices.home.push(outcome.price)
+            else if (code === awayCode) prices.away.push(outcome.price)
+            else if (outcome.name === 'Draw') prices.draw.push(outcome.price)
+          }
+        }
+        const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null
+        const homeAvg = avg(prices.home), drawAvg = avg(prices.draw), awayAvg = avg(prices.away)
+        if (!homeAvg || !drawAvg || !awayAvg) continue
+        const rH = 1 / homeAvg, rD = 1 / drawAvg, rA = 1 / awayAvg, total = rH + rD + rA
+        const r1 = (x: number) => Math.round(x * 10) / 10
+        result[`${homeCode}-${awayCode}`] = {
+          commenceTime: event.commence_time,
+          home: { code: homeCode, avgOdds: r1(homeAvg), prob: Math.round((rH / total) * 100) },
+          draw: { avgOdds: r1(drawAvg), prob: Math.round((rD / total) * 100) },
+          away: { code: awayCode, avgOdds: r1(awayAvg), prob: Math.round((rA / total) * 100) },
+        }
+      }
+      res.statusCode = 200
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader('Cache-Control', 'public, s-maxage=7200, stale-while-revalidate=14400')
+      res.end(JSON.stringify(result))
+    } catch (err) {
+      res.statusCode = 500
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'Odds unavailable' }))
+    }
+  }
+
+  return {
+    name: 'odds-api',
+    configureServer(server: { middlewares: { use: (path: string, callback: (req: unknown, res: ApiResponse) => void) => void } }) {
+      server.middlewares.use('/api/odds', handler)
+    },
+    configurePreviewServer(server: { middlewares: { use: (path: string, callback: (req: unknown, res: ApiResponse) => void) => void } }) {
+      server.middlewares.use('/api/odds', handler)
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), fifaSyncApi(), matchStatsApi()],
+  plugins: [react(), fifaSyncApi(), matchStatsApi(), oddsApi()],
 })

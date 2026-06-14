@@ -58,8 +58,9 @@ function parseMatchStats(text) {
   }
 
   function extractScorers() {
-    const scorers = []
+    // Strategy 1: FIFA player-stats "Buts Buts" doubled-label (works for GER/CUW style pages)
     const butsRe = /^Buts?\s+Buts?$/i
+    const scorers1 = []
     for (let i = 3; i < lines.length; i++) {
       if (!butsRe.test(lines[i])) continue
       const lastRaw = lines[i - 2]
@@ -68,11 +69,27 @@ function parseMatchStats(text) {
       const lastName = dedup(lastRaw)
       const firstName = dedup(firstRaw)
       const name = `${firstName} ${lastName}`.trim()
-      if (name.length > 2) {
-        scorers.push({ name, minute: null })
-      }
+      if (name.length > 2) scorers1.push({ name, minute: null })
     }
-    return scorers
+    if (scorers1.length > 0) return scorers1
+
+    // Strategy 2: events section — Name line followed by minute line (works for NED/JPN style pages)
+    const minuteRe = /^\d{1,3}['\u2019\u02b9\u2032+]/
+    // Skip lines that are clearly not player names
+    const skipRe = /^(https?:|www\.|Image|Coupe|FIFA|Groupe|Phase|APERÇU|STATS|COMPO|CLASSEM|INFOS|LIVE|Où|Télé|Pas|data |Fin |Mi-|En |Match|Politique|Télécharger)/i
+    const scorers2 = []
+    for (let i = 0; i < lines.length - 1; i++) {
+      if (!minuteRe.test(lines[i + 1])) continue
+      const name = lines[i].trim()
+      if (name.length < 3 || name.length > 60) continue
+      if (skipRe.test(name)) continue
+      if (!/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(name)) continue
+      // Must look like a name: not a URL, not a pure number, not a label
+      if (/^\d+$/.test(name)) continue
+      scorers2.push({ name, minute: lines[i + 1].replace(/['\u2019\u02b9\u2032]/g, "'") })
+      i++ // skip the minute line
+    }
+    return scorers2
   }
 
   return {

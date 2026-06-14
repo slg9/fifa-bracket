@@ -3020,6 +3020,10 @@
 }
 
 .statsmodal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   padding: 12px 20px;
   border-top: 1px solid var(--line);
   color: var(--muted-2);
@@ -3029,3 +3033,90 @@
   letter-spacing: 0.5px;
   flex-shrink: 0;
 }
+
+.statsmodal__refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.statsmodal__refresh-btn:hover {
+  color: var(--cyan);
+  border-color: rgba(25, 211, 255, 0.35);
+}
+
+/* Odds probability bar */
+.statsmodal__odds {
+  padding: 14px 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+}
+
+.statsmodal__odds-bar {
+  display: flex;
+  height: 7px;
+  border-radius: 5px;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.statsmodal__odds-seg {
+  border-radius: 3px;
+  min-width: 4px;
+}
+
+.statsmodal__odds-seg--home {
+  background: var(--neon);
+  opacity: 0.85;
+}
+
+.statsmodal__odds-seg--draw {
+  background: var(--muted-2);
+  opacity: 0.65;
+}
+
+.statsmodal__odds-seg--away {
+  background: var(--cyan);
+  opacity: 0.85;
+}
+
+.statsmodal__odds-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.statsmodal__odds-pct {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.statsmodal__odds-pct span {
+  color: var(--muted-2);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.statsmodal__odds-pct--home b { color: var(--neon); }
+.statsmodal__odds-pct--draw { text-align: center; }
+.statsmodal__odds-pct--draw b { color: var(--muted); }
+.statsmodal__odds-pct--away { text-align: right; }
+.statsmodal__odds-pct--away b { color: var(--cyan); }
