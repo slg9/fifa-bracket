@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync } from './lib/data'
+import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats } from './lib/data'
+import type { MatchStatsData } from './lib/data'
 import { computePlayerStats } from './lib/players'
 import {
   buildGroupOrderOverrides,
@@ -769,6 +770,9 @@ function App() {
   const [selectedDayKey, setSelectedDayKey] = useState(() => localDateStr())
   const [menuOpen, setMenuOpen] = useState(false)
   const [matchModalGroupId, setMatchModalGroupId] = useState<string | null>(null)
+  const [matchStatsModal, setMatchStatsModal] = useState<{ match: GroupMatch; homeTeam: Team; awayTeam: Team } | null>(null)
+  const [matchStatsData, setMatchStatsData] = useState<MatchStatsData | null>(null)
+  const [matchStatsLoading, setMatchStatsLoading] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -852,7 +856,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!showDayModal && !matchModalGroupId) return
+    if (!showDayModal && !matchModalGroupId && !matchStatsModal) return
 
     const previousOverflow = document.body.style.overflow
     const previousOverscroll = document.body.style.overscrollBehavior
@@ -863,7 +867,7 @@ function App() {
       document.body.style.overflow = previousOverflow
       document.body.style.overscrollBehavior = previousOverscroll
     }
-  }, [showDayModal, matchModalGroupId])
+  }, [showDayModal, matchModalGroupId, matchStatsModal])
 
   useEffect(() => {
     if (!seed) {
@@ -1152,6 +1156,20 @@ function App() {
     setShowDayModal(false)
   }
 
+  async function openMatchStats(match: GroupMatch) {
+    const homeTeam = teamsById.get(match.homeTeamId)
+    const awayTeam = teamsById.get(match.awayTeamId)
+    if (!homeTeam || !awayTeam) return
+    setMatchStatsModal({ match, homeTeam, awayTeam })
+    setMatchStatsData(null)
+    if (match.fifaMatchPath) {
+      setMatchStatsLoading(true)
+      const stats = await fetchMatchStats(match.fifaMatchPath)
+      setMatchStatsData(stats)
+      setMatchStatsLoading(false)
+    }
+  }
+
   function reopenDayModal() {
     setSelectedDayKey(localDateStr())
     setShowDayModal(true)
@@ -1330,10 +1348,10 @@ function App() {
                 return (
                   <div
                     className={`daymatch daymatch--hero daymatch--clickable${heroStatus === 'live' ? ' is-live' : heroStatus === 'scheduled' ? ' is-upcoming' : ''}`}
-                    onClick={() => { closeDayModal(); setMatchModalGroupId(featuredDayMatch.groupId) }}
+                    onClick={() => { closeDayModal(); void openMatchStats(featuredDayMatch) }}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { closeDayModal(); setMatchModalGroupId(featuredDayMatch.groupId) } }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { closeDayModal(); void openMatchStats(featuredDayMatch) } }}
                   >
                     <div className="daymatch__meta">
                       <span>Groupe {featuredDayMatch.groupId}</span>
@@ -1391,10 +1409,10 @@ function App() {
                   <article
                     key={match.id}
                     className={`daymatch daymatch--clickable${liveStatus === 'live' ? ' is-live' : liveStatus === 'scheduled' ? ' is-upcoming' : ''}`}
-                    onClick={() => { closeDayModal(); setMatchModalGroupId(match.groupId) }}
+                    onClick={() => { closeDayModal(); void openMatchStats(match) }}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { closeDayModal(); setMatchModalGroupId(match.groupId) } }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { closeDayModal(); void openMatchStats(match) } }}
                   >
                     <div className="daymatch__meta">
                       <span>Groupe {match.groupId}</span>
@@ -1509,7 +1527,12 @@ function App() {
                     : null
 
                   return (
-                    <div key={match.id} className={`gmrow${isLive ? ' is-live' : ''}${isMatchToday(match) ? ' is-today' : ''}`}>
+                    <div
+                      key={match.id}
+                      className={`gmrow${isLive ? ' is-live' : ''}${isMatchToday(match) ? ' is-today' : ''}${isDone || isLive ? ' is-clickable' : ''}`}
+                      onClick={isDone || isLive ? () => void openMatchStats(match) : undefined}
+                      style={isDone || isLive ? { cursor: 'pointer' } : undefined}
+                    >
 
                       {/* Date / status row */}
                       <div className="gmrow__header">
@@ -1908,6 +1931,102 @@ function App() {
           </div>
         </aside>
       </div>
+      {matchStatsModal ? (() => {
+        const { match, homeTeam, awayTeam } = matchStatsModal
+        const effectiveStatus = inferStatus(match)
+        const msHomeWin = effectiveStatus === 'finished' && match.homeScore !== null && match.awayScore !== null && match.homeScore > match.awayScore
+        const msAwayWin = effectiveStatus === 'finished' && match.homeScore !== null && match.awayScore !== null && match.awayScore > match.homeScore
+
+        return (
+          <div className="statsmodal" role="dialog" aria-modal="true">
+            <div className="statsmodal__scrim" onClick={() => setMatchStatsModal(null)} />
+            <div className="statsmodal__panel">
+              <button type="button" className="statsmodal__close" onClick={() => setMatchStatsModal(null)} aria-label="Fermer">×</button>
+
+              {/* Header */}
+              <div className="statsmodal__header">
+                <div className={`statsmodal__team${msHomeWin ? ' is-winner' : msAwayWin ? ' is-loser' : ''}`}>
+                  {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{homeTeam.flagEmoji}</span>}
+                  <span>{homeTeam.name}</span>
+                </div>
+                <div className="statsmodal__score">
+                  <div className="statsmodal__status">
+                    {effectiveStatus === 'live' ? formatLiveMinute(match.liveMinute, liveSource.syncedAt).toUpperCase() : effectiveStatus === 'finished' ? 'TERMINÉ' : 'BIENTÔT'}
+                  </div>
+                  <div className="statsmodal__digits">
+                    <span className={msHomeWin ? 'is-winner-score' : ''}>{match.homeScore ?? '–'}</span>
+                    <i>:</i>
+                    <span className={msAwayWin ? 'is-winner-score' : ''}>{match.awayScore ?? '–'}</span>
+                  </div>
+                </div>
+                <div className={`statsmodal__team statsmodal__team--right${msAwayWin ? ' is-winner' : msHomeWin ? ' is-loser' : ''}`}>
+                  <span>{awayTeam.name}</span>
+                  {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{awayTeam.flagEmoji}</span>}
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="statsmodal__body">
+                {matchStatsLoading ? (
+                  <div className="statsmodal__loading">Chargement des stats…</div>
+                ) : !match.fifaMatchPath ? (
+                  <div className="statsmodal__empty">Stats disponibles après synchronisation.</div>
+                ) : !matchStatsData ? (
+                  <div className="statsmodal__empty">Stats indisponibles pour ce match.</div>
+                ) : (
+                  <>
+                    {/* Possession bar */}
+                    {matchStatsData.possession ? (
+                      <div className="statrow statrow--possession">
+                        <span className="statrow__val">{matchStatsData.possession.home}%</span>
+                        <div className="statrow__label">Possession</div>
+                        <span className="statrow__val statrow__val--right">{matchStatsData.possession.away}%</span>
+                        <div className="statrow__bar" style={{ gridColumn: '1/-1' }}>
+                          <div className="statrow__fill--home" style={{ width: `${matchStatsData.possession.home}%` }} />
+                          <div className="statrow__fill--away" style={{ width: `${matchStatsData.possession.away}%` }} />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Stats table */}
+                    {([
+                      { label: 'Tirs', data: matchStatsData.shots },
+                      { label: 'Tirs cadrés', data: matchStatsData.shotsOnTarget },
+                      { label: 'Corners', data: matchStatsData.corners },
+                      { label: 'Fautes', data: matchStatsData.fouls },
+                      { label: 'Cartons jaunes', data: matchStatsData.yellowCards },
+                      { label: 'Cartons rouges', data: matchStatsData.redCards },
+                    ] as const).filter(s => s.data !== null).map(s => (
+                      <div key={s.label} className="statrow">
+                        <span className="statrow__val">{s.data!.home}</span>
+                        <span className="statrow__label">{s.label}</span>
+                        <span className="statrow__val statrow__val--right">{s.data!.away}</span>
+                      </div>
+                    ))}
+
+                    {/* Scorers */}
+                    {matchStatsData.scorers.length > 0 ? (
+                      <div className="statsmodal__scorers">
+                        <div className="statsmodal__scorers-title">Buteurs</div>
+                        {matchStatsData.scorers.map((s, i) => (
+                          <div key={i} className="statsmodal__scorer">
+                            <span>⚽ {s.name}</span>
+                            <span className="statsmodal__scorer-min">{s.minute}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </div>
+
+              <div className="statsmodal__foot">
+                Groupe {match.groupId} · {match.venue}
+              </div>
+            </div>
+          </div>
+        )
+      })() : null}
     </div>
   )
 }

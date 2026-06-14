@@ -115,7 +115,9 @@ function parseFixtures(text) {
 
     const parsed = parseFixtureEntry(entry)
     if (parsed) {
-      fixtures.push({ ...parsed, utcDate: currentUtcDate })
+      const nextChunk = chunks[index + 1] ?? ''
+      const fifaMatchPath = nextChunk.match(/^([^\s)\n]+)/)?.[1] ?? null
+      fixtures.push({ ...parsed, utcDate: currentUtcDate, fifaMatchPath })
     }
   }
 
@@ -236,6 +238,7 @@ export async function buildFifaLiveSnapshot(seed) {
       kickoffTime: null,
       kickoffIso,
       liveMinute: fixture.status === 'live' ? fixture.rawStatusToken : null,
+      fifaMatchPath: fixture.fifaMatchPath ?? null,
     })
   }
 
