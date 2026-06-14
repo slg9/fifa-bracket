@@ -1400,28 +1400,33 @@ function App() {
                       <span>Groupe {match.groupId}</span>
                       <div className="daymatch__meta-right">
                         <BroadcasterBadge matchId={match.id} />
-                        {liveStatus === 'live' ? <span>{formatLiveMinute(match.liveMinute, liveSource.syncedAt)}</span> : null}
+                        <span>{match.venue}</span>
                       </div>
                     </div>
 
-                    <div className="daymatch__row">
-                      <div className={`daymatch__mini${miniHomeWin ? ' is-winner' : miniAwayWin ? ' is-loser' : ''}`}>
+                    <div className="daymatch__main">
+                      <div className={`daymatch__team${miniHomeWin ? ' is-winner' : miniAwayWin ? ' is-loser' : ''}`}>
                         {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{homeTeam.flagEmoji}</span>}
-                        <span>{homeTeam.shortName}</span>
+                        <strong>{homeTeam.name}</strong>
                       </div>
-                      <div className="daymatch__mini daymatch__mini--score">
+                      <div className="daymatch__scoreblock">
+                        <div className="daymatch__status">
+                          {liveStatus === 'live'
+                            ? formatLiveMinute(match.liveMinute, liveSource.syncedAt).toUpperCase()
+                            : liveStatus === 'finished' ? 'TERMINÉ' : 'BIENTÔT'}
+                        </div>
                         {liveStatus === 'scheduled' && kickoffTime ? (
-                          <time className="daymatch__mini-time">{kickoffTime}</time>
+                          <div className="daymatch__score daymatch__score--time">{kickoffTime}</div>
                         ) : (
-                          <>
-                            <b className={miniHomeWin ? 'is-winner-score' : ''}>{match.homeScore ?? '-'}</b>
-                            <span>:</span>
-                            <b className={miniAwayWin ? 'is-winner-score' : ''}>{match.awayScore ?? '-'}</b>
-                          </>
+                          <div className="daymatch__score">
+                            <span className={miniHomeWin ? 'is-winner-score' : ''}>{match.homeScore ?? '-'}</span>
+                            <i>:</i>
+                            <span className={miniAwayWin ? 'is-winner-score' : ''}>{match.awayScore ?? '-'}</span>
+                          </div>
                         )}
                       </div>
-                      <div className={`daymatch__mini daymatch__mini--right${miniAwayWin ? ' is-winner' : miniHomeWin ? ' is-loser' : ''}`}>
-                        <span>{awayTeam.shortName}</span>
+                      <div className={`daymatch__team daymatch__team--right${miniAwayWin ? ' is-winner' : miniHomeWin ? ' is-loser' : ''}`}>
+                        <strong>{awayTeam.name}</strong>
                         {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{awayTeam.flagEmoji}</span>}
                       </div>
                     </div>
@@ -1447,10 +1452,6 @@ function App() {
                         })()}
                       </div>
                     ) : null}
-
-                    <div className="daymatch__foot">
-                      <span>{match.venue}</span>
-                    </div>
                   </article>
                 )
               })}
