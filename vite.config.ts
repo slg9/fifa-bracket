@@ -60,13 +60,30 @@ function parseMatchStats(text: string) {
     return values.length === 2 ? { home: values[0], away: values[1] } : null
   }
 
+  function dedup(s: string): string {
+    const parts = s.trim().split(/\s+/)
+    const half = Math.floor(parts.length / 2)
+    if (half > 0) {
+      const first = parts.slice(0, half).join(' ')
+      const second = parts.slice(half).join(' ')
+      if (first === second) return first
+    }
+    return s.trim()
+  }
+
   function extractScorers() {
-    const scorers: Array<{ name: string; minute: string }> = []
-    const minuteRe = /^\d+[''\u2019\u02b9\u2032]/
-    for (let i = 0; i < lines.length - 1; i++) {
-      if (minuteRe.test(lines[i + 1]) && /^[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝ\s\-']+$/.test(lines[i]) && lines[i].length > 2) {
-        scorers.push({ name: lines[i], minute: lines[i + 1] })
-        i++
+    const scorers: Array<{ name: string; minute: string | null }> = []
+    const butsRe = /^Buts?\s+Buts?$/i
+    for (let i = 3; i < lines.length; i++) {
+      if (!butsRe.test(lines[i])) continue
+      const lastRaw = lines[i - 2]
+      const firstRaw = lines[i - 3]
+      if (!lastRaw || !firstRaw) continue
+      const lastName = dedup(lastRaw)
+      const firstName = dedup(firstRaw)
+      const name = `${firstName} ${lastName}`.trim()
+      if (name.length > 2) {
+        scorers.push({ name, minute: null })
       }
     }
     return scorers

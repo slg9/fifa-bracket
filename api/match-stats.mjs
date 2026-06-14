@@ -44,15 +44,32 @@ function parseMatchStats(text) {
     return values.length === 2 ? { home: values[0], away: values[1] } : null
   }
 
-  // Scorers: look for goal events. FIFA pages show player names near minute markers.
-  // Pattern: uppercase player name line, followed by minute like "45'" or "45'+2'"
+  // Scorers: FIFA player-stats section doubles every token ("LARIN LARIN", "Buts Buts").
+  // Pattern: lines[i]="Buts Buts", lines[i-1]=goal count, lines[i-2]="LASTNAME LASTNAME", lines[i-3]="Firstname Firstname"
+  function dedup(s) {
+    const parts = s.trim().split(/\s+/)
+    const half = Math.floor(parts.length / 2)
+    if (half > 0) {
+      const first = parts.slice(0, half).join(' ')
+      const second = parts.slice(half).join(' ')
+      if (first === second) return first
+    }
+    return s.trim()
+  }
+
   function extractScorers() {
     const scorers = []
-    const minuteRe = /^\d+[''\u2019\u02b9\u2032]/
-    for (let i = 0; i < lines.length - 1; i++) {
-      if (minuteRe.test(lines[i + 1]) && /^[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝ\s\-']+$/.test(lines[i]) && lines[i].length > 2) {
-        scorers.push({ name: lines[i], minute: lines[i + 1] })
-        i++
+    const butsRe = /^Buts?\s+Buts?$/i
+    for (let i = 3; i < lines.length; i++) {
+      if (!butsRe.test(lines[i])) continue
+      const lastRaw = lines[i - 2]
+      const firstRaw = lines[i - 3]
+      if (!lastRaw || !firstRaw) continue
+      const lastName = dedup(lastRaw)
+      const firstName = dedup(firstRaw)
+      const name = `${firstName} ${lastName}`.trim()
+      if (name.length > 2) {
+        scorers.push({ name, minute: null })
       }
     }
     return scorers

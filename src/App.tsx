@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats } from './lib/data'
 import type { MatchStatsData } from './lib/data'
-import { computePlayerStats } from './lib/players'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -999,7 +998,6 @@ function App() {
   const groupBracket = buildKnockoutBracket(standings)
   const activeKnockoutPicks = mode === 'simulation' ? knockoutPicks : {}
   const displayBracket = resolveDisplayBracket(groupBracket, activeKnockoutPicks)
-  const playerStats = computePlayerStats(seed.teams, mergedMatches)
   const projectedQualifiedIds = new Set<string>()
 
   Object.values(standings).forEach((rows) => {
@@ -1897,38 +1895,6 @@ function App() {
             </div>
           </div>
 
-          <div className="panel">
-            <div className="panel__head">
-              <div>
-                <div className="panel__title">Stats joueurs</div>
-                <div className="panel__sub">Classement des buteurs à partir des matchs joués</div>
-              </div>
-            </div>
-            <div className="scorers">
-              {playerStats.slice(0, 10).map((stat, index) => {
-                const team = teamsById.get(stat.teamId)
-
-                return (
-                  <div key={`${stat.teamId}:${stat.name}`} className={`scorerrow${index === 0 ? ' is-top' : ''}`}>
-                    <span className="scorerrow__rank">{index + 1}</span>
-                    {team ? (
-                      flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>
-                    ) : (
-                      <span className="flag-emoji">•</span>
-                    )}
-                    <span className="scorerrow__name">{stat.name}</span>
-                    <span className="scorerrow__team">{team?.fifaCode ?? ''}</span>
-                    <span className="scorerrow__goals">
-                      <b>{stat.goals}</b>
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="panel__foot">
-              Basé sur les scores du mode actif
-            </div>
-          </div>
         </aside>
       </div>
       {matchStatsModal ? (() => {
@@ -1968,7 +1934,19 @@ function App() {
               {/* Body */}
               <div className="statsmodal__body">
                 {matchStatsLoading ? (
-                  <div className="statsmodal__loading">Chargement des stats…</div>
+                  <div className="statsmodal__loading">
+                    <svg className="boot-loader__mark" style={{ width: 64, height: 64 }} viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <circle className="boot-loader__orbit boot-loader__orbit--outer" cx="60" cy="60" r="50" />
+                      <circle className="boot-loader__orbit boot-loader__orbit--inner" cx="60" cy="60" r="39" />
+                      <g className="boot-loader__ball">
+                        <circle cx="60" cy="60" r="24" fill="#eef3ff" />
+                        <polygon points="60,45 71,53 67,67 53,67 49,53" fill="#0a1020" />
+                        <path d="M60 45 60 36M71 53 80 49M67 67 73 76M53 67 47 76M49 53 40 49" stroke="#0a1020" strokeWidth="3" strokeLinecap="round" />
+                        <path d="M60 36A24 24 0 0 1 80 49M73 76A24 24 0 0 1 47 76M40 49A24 24 0 0 1 60 36" stroke="#0a1020" strokeWidth="3" fill="none" />
+                      </g>
+                    </svg>
+                    <span className="boot-loader__label" style={{ fontSize: 11 }}>Chargement des stats</span>
+                  </div>
                 ) : !match.fifaMatchPath ? (
                   <div className="statsmodal__empty">Stats disponibles après synchronisation.</div>
                 ) : !matchStatsData ? (

@@ -9,7 +9,7 @@ export type MatchStatsData = {
   yellowCards: { home: number; away: number } | null
   redCards: { home: number; away: number } | null
   passes: { home: number; away: number } | null
-  scorers: Array<{ name: string; minute: string }>
+  scorers: Array<{ name: string; minute: string | null }>
 }
 
 export async function loadSeed(): Promise<TournamentSeed> {
