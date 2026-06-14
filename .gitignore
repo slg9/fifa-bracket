@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables (contain secrets)
+.env
+.env.*
+!.env.example
+
+# Claude Code internals
+.claude/
