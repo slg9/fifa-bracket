@@ -1,10 +1,19 @@
 import type { LiveSnapshot, TournamentSeed } from '../types'
 
+export type TeamMatchStats = {
+  shots: number
+  corners: number
+  fouls: number
+  yellowCards: number
+  redCards: number
+}
+
 export type MatchEventsData = {
   home: { code: string; tactics: string | null; coach: string | null; players: Array<{ shirt: number; name: string; starter: boolean }> }
   away: { code: string; tactics: string | null; coach: string | null; players: Array<{ shirt: number; name: string; starter: boolean }> }
   goals: Array<{ name: string; minute: string; team: string }>
   attendance: string | null
+  stats: { home: TeamMatchStats; away: TeamMatchStats } | null
 }
 
 export async function loadSeed(): Promise<TournamentSeed> {

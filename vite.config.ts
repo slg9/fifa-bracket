@@ -38,6 +38,7 @@ type FifaGoal = {
 }
 
 type FifaTeam = {
+  IdTeam?: string
   Abbreviation?: string
   Tactics?: string
   Players?: FifaPlayer[]
@@ -48,7 +49,32 @@ type FifaTeam = {
 type FifaMatchData = {
   HomeTeam?: FifaTeam
   AwayTeam?: FifaTeam
+  Attendance?: number
   Stadium?: { Attendance?: number }
+}
+
+type FifaTimelineEvent = {
+  Type?: number
+  IdTeam?: string
+}
+
+type FifaTimeline = {
+  Event?: FifaTimelineEvent[]
+}
+
+const EV_YELLOW = 2, EV_RED = 3, EV_SHOT = 12, EV_CORNER = 16, EV_FOUL = 18
+
+function extractStatsFromTimeline(timelineData: FifaTimeline | null, homeTeamId: string | undefined, awayTeamId: string | undefined) {
+  if (!homeTeamId || !awayTeamId) return null
+  const events = timelineData?.Event ?? []
+  const counts = (teamId: string) => ({
+    shots: events.filter(e => e.Type === EV_SHOT && e.IdTeam === teamId).length,
+    corners: events.filter(e => e.Type === EV_CORNER && e.IdTeam === teamId).length,
+    fouls: events.filter(e => e.Type === EV_FOUL && e.IdTeam === teamId).length,
+    yellowCards: events.filter(e => e.Type === EV_YELLOW && e.IdTeam === teamId).length,
+    redCards: events.filter(e => e.Type === EV_RED && e.IdTeam === teamId).length,
+  })
+  return { home: counts(homeTeamId), away: counts(awayTeamId) }
 }
 
 function extractPlayersFromTeam(teamData: FifaTeam | undefined): Array<{ shirt: number; name: string; starter: boolean }> {
@@ -140,10 +166,11 @@ function matchStatsApi() {
         return
       }
 
-      const fifaUrl = `https://api.fifa.com/api/v3/live/football/${path}?language=fr-FR`
-      const response = await fetch(fifaUrl, {
-        headers: { 'user-agent': 'Mozilla/5.0 (compatible; fifabracket/1.0)' },
-      })
+      const FIFA_HDR = { 'user-agent': 'Mozilla/5.0 (compatible; fifabracket/1.0)' }
+      const [response, tlResponse] = await Promise.all([
+        fetch(`https://api.fifa.com/api/v3/live/football/${path}?language=fr-FR`, { headers: FIFA_HDR }),
+        fetch(`https://api.fifa.com/api/v3/timelines/${path}?language=fr-FR`, { headers: FIFA_HDR }).catch(() => null),
+      ])
 
       if (!response.ok) {
         res.statusCode = 502
@@ -153,6 +180,7 @@ function matchStatsApi() {
       }
 
       const data = await response.json() as FifaMatchData
+      const timelineData: FifaTimeline | null = (tlResponse?.ok ? await tlResponse.json() : null)
 
       const result = {
         home: {
@@ -172,7 +200,8 @@ function matchStatsApi() {
           players: extractPlayersFromTeam(data.AwayTeam),
         },
         goals: extractGoalsFromData(data),
-        attendance: data.Stadium?.Attendance != null ? String(data.Stadium.Attendance) : null,
+        attendance: data.Attendance != null ? String(data.Attendance) : null,
+        stats: extractStatsFromTimeline(timelineData, data.HomeTeam?.IdTeam, data.AwayTeam?.IdTeam),
       }
 
       res.statusCode = 200

@@ -2032,6 +2032,30 @@ function App() {
                   </div>
                 ) : (
                   <>
+                    {/* Match stats table */}
+                    {matchStatsData.stats ? (() => {
+                      const s = matchStatsData.stats
+                      const rows: Array<{ label: string; home: number; away: number }> = [
+                        { label: 'Tirs', home: s.home.shots, away: s.away.shots },
+                        { label: 'Corners', home: s.home.corners, away: s.away.corners },
+                        { label: 'Fautes', home: s.home.fouls, away: s.away.fouls },
+                        { label: 'Jaunes', home: s.home.yellowCards, away: s.away.yellowCards },
+                        { label: 'Rouges', home: s.home.redCards, away: s.away.redCards },
+                      ].filter(r => r.home > 0 || r.away > 0)
+                      if (!rows.length) return null
+                      return (
+                        <div className="statsmodal__statstable">
+                          {rows.map((r, i) => (
+                            <div key={i} className="statsmodal__statsrow">
+                              <span className="statsmodal__statsval statsmodal__statsval--home">{r.home}</span>
+                              <span className="statsmodal__statslabel">{r.label}</span>
+                              <span className="statsmodal__statsval statsmodal__statsval--away">{r.away}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })() : null}
+
                     {/* Goals */}
                     {matchStatsData.goals.length > 0 ? (
                       <div className="statsmodal__goals-section">
