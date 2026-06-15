@@ -180,7 +180,7 @@ function matchStatsApi() {
       }
 
       const data = await response.json() as FifaMatchData
-      const timelineData: FifaTimeline | null = (tlResponse?.ok ? await tlResponse.json() : null)
+      const timelineData: FifaTimeline | null = (tlResponse?.ok ? await tlResponse.json() as FifaTimeline : null)
 
       const result = {
         home: {
