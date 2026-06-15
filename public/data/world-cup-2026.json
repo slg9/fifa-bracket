@@ -8,163 +8,1665 @@
     }
   },
   "groups": [
-    { "id": "A", "name": "Groupe A" },
-    { "id": "B", "name": "Groupe B" },
-    { "id": "C", "name": "Groupe C" },
-    { "id": "D", "name": "Groupe D" },
-    { "id": "E", "name": "Groupe E" },
-    { "id": "F", "name": "Groupe F" },
-    { "id": "G", "name": "Groupe G" },
-    { "id": "H", "name": "Groupe H" },
-    { "id": "I", "name": "Groupe I" },
-    { "id": "J", "name": "Groupe J" },
-    { "id": "K", "name": "Groupe K" },
-    { "id": "L", "name": "Groupe L" }
+    {
+      "id": "A",
+      "name": "Groupe A"
+    },
+    {
+      "id": "B",
+      "name": "Groupe B"
+    },
+    {
+      "id": "C",
+      "name": "Groupe C"
+    },
+    {
+      "id": "D",
+      "name": "Groupe D"
+    },
+    {
+      "id": "E",
+      "name": "Groupe E"
+    },
+    {
+      "id": "F",
+      "name": "Groupe F"
+    },
+    {
+      "id": "G",
+      "name": "Groupe G"
+    },
+    {
+      "id": "H",
+      "name": "Groupe H"
+    },
+    {
+      "id": "I",
+      "name": "Groupe I"
+    },
+    {
+      "id": "J",
+      "name": "Groupe J"
+    },
+    {
+      "id": "K",
+      "name": "Groupe K"
+    },
+    {
+      "id": "L",
+      "name": "Groupe L"
+    }
   ],
   "teams": [
-    { "id": "MEX", "name": "Mexique", "shortName": "Mexique", "fifaCode": "MEX", "iso2": "mx", "flagEmoji": "🇲🇽", "groupId": "A", "players": ["Santiago Gimenez", "Raul Jimenez", "Hirving Lozano"] },
-    { "id": "RSA", "name": "Afrique du Sud", "shortName": "Afsud", "fifaCode": "RSA", "iso2": "za", "flagEmoji": "🇿🇦", "groupId": "A", "players": ["Lyle Foster", "Percy Tau", "Themba Zwane"] },
-    { "id": "KOR", "name": "Corée du Sud", "shortName": "Corée", "fifaCode": "KOR", "iso2": "kr", "flagEmoji": "🇰🇷", "groupId": "A", "players": ["Son Heung-min", "Lee Kang-in", "Hwang Hee-chan"] },
-    { "id": "CZE", "name": "Tchéquie", "shortName": "Tchéquie", "fifaCode": "CZE", "iso2": "cz", "flagEmoji": "🇨🇿", "groupId": "A", "players": ["Patrik Schick", "Adam Hlozek", "Tomas Soucek"] },
-
-    { "id": "CAN", "name": "Canada", "shortName": "Canada", "fifaCode": "CAN", "iso2": "ca", "flagEmoji": "🇨🇦", "groupId": "B", "players": ["Jonathan David", "Alphonso Davies", "Cyle Larin"] },
-    { "id": "BIH", "name": "Bosnie-Herzégovine", "shortName": "Bosnie", "fifaCode": "BIH", "iso2": "ba", "flagEmoji": "🇧🇦", "groupId": "B", "players": ["Edin Dzeko", "Ermedin Demirovic", "Amar Dedic"] },
-    { "id": "QAT", "name": "Qatar", "shortName": "Qatar", "fifaCode": "QAT", "iso2": "qa", "flagEmoji": "🇶🇦", "groupId": "B", "players": ["Akram Afif", "Almoez Ali", "Hassan Al-Haydos"] },
-    { "id": "SUI", "name": "Suisse", "shortName": "Suisse", "fifaCode": "SUI", "iso2": "ch", "flagEmoji": "🇨🇭", "groupId": "B", "players": ["Breel Embolo", "Dan Ndoye", "Granit Xhaka"] },
-
-    { "id": "BRA", "name": "Brésil", "shortName": "Brésil", "fifaCode": "BRA", "iso2": "br", "flagEmoji": "🇧🇷", "groupId": "C", "players": ["Vinicius Junior", "Rodrygo", "Endrick"] },
-    { "id": "MAR", "name": "Maroc", "shortName": "Maroc", "fifaCode": "MAR", "iso2": "ma", "flagEmoji": "🇲🇦", "groupId": "C", "players": ["Youssef En-Nesyri", "Brahim Diaz", "Achraf Hakimi"] },
-    { "id": "HAI", "name": "Haïti", "shortName": "Haïti", "fifaCode": "HAI", "iso2": "ht", "flagEmoji": "🇭🇹", "groupId": "C", "players": ["Duckens Nazon", "Frantzdy Pierrot", "Louicius Don Deedson"] },
-    { "id": "SCO", "name": "Écosse", "shortName": "Écosse", "fifaCode": "SCO", "iso2": "gb-sct", "flagEmoji": "🏴", "groupId": "C", "players": ["Scott McTominay", "John McGinn", "Che Adams"] },
-
-    { "id": "USA", "name": "États-Unis", "shortName": "USA", "fifaCode": "USA", "iso2": "us", "flagEmoji": "🇺🇸", "groupId": "D", "players": ["Christian Pulisic", "Folarin Balogun", "Tim Weah"] },
-    { "id": "PAR", "name": "Paraguay", "shortName": "Paraguay", "fifaCode": "PAR", "iso2": "py", "flagEmoji": "🇵🇾", "groupId": "D", "players": ["Miguel Almiron", "Julio Enciso", "Antonio Sanabria"] },
-    { "id": "AUS", "name": "Australie", "shortName": "Australie", "fifaCode": "AUS", "iso2": "au", "flagEmoji": "🇦🇺", "groupId": "D", "players": ["Mitchell Duke", "Craig Goodwin", "Riley McGree"] },
-    { "id": "TUR", "name": "Turquie", "shortName": "Turquie", "fifaCode": "TUR", "iso2": "tr", "flagEmoji": "🇹🇷", "groupId": "D", "players": ["Arda Guler", "Kerem Akturkoglu", "Baris Yilmaz"] },
-
-    { "id": "GER", "name": "Allemagne", "shortName": "Allemagne", "fifaCode": "GER", "iso2": "de", "flagEmoji": "🇩🇪", "groupId": "E", "players": ["Jamal Musiala", "Florian Wirtz", "Kai Havertz"] },
-    { "id": "CIV", "name": "Côte d'Ivoire", "shortName": "Côte d'Ivoire", "fifaCode": "CIV", "iso2": "ci", "flagEmoji": "🇨🇮", "groupId": "E", "players": ["Sebastien Haller", "Nicolas Pepe", "Oumar Diakite"] },
-    { "id": "ECU", "name": "Équateur", "shortName": "Équateur", "fifaCode": "ECU", "iso2": "ec", "flagEmoji": "🇪🇨", "groupId": "E", "players": ["Enner Valencia", "Moises Caicedo", "Kendry Paez"] },
-    { "id": "CUW", "name": "Curaçao", "shortName": "Curaçao", "fifaCode": "CUW", "iso2": "cw", "flagEmoji": "🇨🇼", "groupId": "E", "players": ["Rangelo Janga", "Leandro Bacuna", "Juninho Bacuna"] },
-
-    { "id": "NED", "name": "Pays-Bas", "shortName": "Pays-Bas", "fifaCode": "NED", "iso2": "nl", "flagEmoji": "🇳🇱", "groupId": "F", "players": ["Cody Gakpo", "Memphis Depay", "Xavi Simons"] },
-    { "id": "JPN", "name": "Japon", "shortName": "Japon", "fifaCode": "JPN", "iso2": "jp", "flagEmoji": "🇯🇵", "groupId": "F", "players": ["Takefusa Kubo", "Kaoru Mitoma", "Ayase Ueda"] },
-    { "id": "SWE", "name": "Suède", "shortName": "Suède", "fifaCode": "SWE", "iso2": "se", "flagEmoji": "🇸🇪", "groupId": "F", "players": ["Alexander Isak", "Viktor Gyokeres", "Dejan Kulusevski"] },
-    { "id": "TUN", "name": "Tunisie", "shortName": "Tunisie", "fifaCode": "TUN", "iso2": "tn", "flagEmoji": "🇹🇳", "groupId": "F", "players": ["Youssef Msakni", "Wahbi Khazri", "Haythem Jouini"] },
-
-    { "id": "BEL", "name": "Belgique", "shortName": "Belgique", "fifaCode": "BEL", "iso2": "be", "flagEmoji": "🇧🇪", "groupId": "G", "players": ["Romelu Lukaku", "Jeremy Doku", "Kevin De Bruyne"] },
-    { "id": "EGY", "name": "Égypte", "shortName": "Égypte", "fifaCode": "EGY", "iso2": "eg", "flagEmoji": "🇪🇬", "groupId": "G", "players": ["Mohamed Salah", "Omar Marmoush", "Mostafa Mohamed"] },
-    { "id": "IRN", "name": "Iran", "shortName": "Iran", "fifaCode": "IRN", "iso2": "ir", "flagEmoji": "🇮🇷", "groupId": "G", "players": ["Mehdi Taremi", "Sardar Azmoun", "Alireza Jahanbakhsh"] },
-    { "id": "NZL", "name": "Nouvelle-Zélande", "shortName": "NZélande", "fifaCode": "NZL", "iso2": "nz", "flagEmoji": "🇳🇿", "groupId": "G", "players": ["Chris Wood", "Ben Waine", "Marko Stamenic"] },
-
-    { "id": "URU", "name": "Uruguay", "shortName": "Uruguay", "fifaCode": "URU", "iso2": "uy", "flagEmoji": "🇺🇾", "groupId": "H", "players": ["Darwin Nunez", "Federico Valverde", "Facundo Pellistri"] },
-    { "id": "ESP", "name": "Espagne", "shortName": "Espagne", "fifaCode": "ESP", "iso2": "es", "flagEmoji": "🇪🇸", "groupId": "H", "players": ["Lamine Yamal", "Nico Williams", "Alvaro Morata"] },
-    { "id": "CPV", "name": "Cap-Vert", "shortName": "Cap-Vert", "fifaCode": "CPV", "iso2": "cv", "flagEmoji": "🇨🇻", "groupId": "H", "players": ["Ryan Mendes", "Bebe", "Gilson Tavares"] },
-    { "id": "KSA", "name": "Arabie saoudite", "shortName": "Arabie S.", "fifaCode": "KSA", "iso2": "sa", "flagEmoji": "🇸🇦", "groupId": "H", "players": ["Salem Al-Dawsari", "Firas Al-Buraikan", "Saleh Al-Shehri"] },
-
-    { "id": "FRA", "name": "France", "shortName": "France", "fifaCode": "FRA", "iso2": "fr", "flagEmoji": "🇫🇷", "groupId": "I", "players": ["Kylian Mbappe", "Ousmane Dembele", "Marcus Thuram"] },
-    { "id": "SEN", "name": "Sénégal", "shortName": "Sénégal", "fifaCode": "SEN", "iso2": "sn", "flagEmoji": "🇸🇳", "groupId": "I", "players": ["Sadio Mane", "Nicolas Jackson", "Ismaila Sarr"] },
-    { "id": "IRQ", "name": "Irak", "shortName": "Irak", "fifaCode": "IRQ", "iso2": "iq", "flagEmoji": "🇮🇶", "groupId": "I", "players": ["Aymen Hussein", "Ali Jasim", "Ibrahim Bayesh"] },
-    { "id": "NOR", "name": "Norvège", "shortName": "Norvège", "fifaCode": "NOR", "iso2": "no", "flagEmoji": "🇳🇴", "groupId": "I", "players": ["Erling Haaland", "Martin Odegaard", "Alexander Sorloth"] },
-
-    { "id": "ARG", "name": "Argentine", "shortName": "Argentine", "fifaCode": "ARG", "iso2": "ar", "flagEmoji": "🇦🇷", "groupId": "J", "players": ["Lionel Messi", "Julian Alvarez", "Lautaro Martinez"] },
-    { "id": "ALG", "name": "Algérie", "shortName": "Algérie", "fifaCode": "ALG", "iso2": "dz", "flagEmoji": "🇩🇿", "groupId": "J", "players": ["Riyad Mahrez", "Mohamed Amoura", "Ismael Bennacer"] },
-    { "id": "AUT", "name": "Autriche", "shortName": "Autriche", "fifaCode": "AUT", "iso2": "at", "flagEmoji": "🇦🇹", "groupId": "J", "players": ["Marcel Sabitzer", "Michael Gregoritsch", "Christoph Baumgartner"] },
-    { "id": "JOR", "name": "Jordanie", "shortName": "Jordanie", "fifaCode": "JOR", "iso2": "jo", "flagEmoji": "🇯🇴", "groupId": "J", "players": ["Mousa Al-Tamari", "Yazan Al-Naimat", "Ali Olwan"] },
-
-    { "id": "POR", "name": "Portugal", "shortName": "Portugal", "fifaCode": "POR", "iso2": "pt", "flagEmoji": "🇵🇹", "groupId": "K", "players": ["Cristiano Ronaldo", "Bruno Fernandes", "Rafael Leao"] },
-    { "id": "COD", "name": "RD Congo", "shortName": "RD Congo", "fifaCode": "COD", "iso2": "cd", "flagEmoji": "🇨🇩", "groupId": "K", "players": ["Cedric Bakambu", "Yoane Wissa", "Meschack Elia"] },
-    { "id": "UZB", "name": "Ouzbékistan", "shortName": "Ouzbék.", "fifaCode": "UZB", "iso2": "uz", "flagEmoji": "🇺🇿", "groupId": "K", "players": ["Eldor Shomurodov", "Abbosbek Fayzullaev", "Jaloliddin Masharipov"] },
-    { "id": "COL", "name": "Colombie", "shortName": "Colombie", "fifaCode": "COL", "iso2": "co", "flagEmoji": "🇨🇴", "groupId": "K", "players": ["Luis Diaz", "James Rodriguez", "Jhon Duran"] },
-
-    { "id": "ENG", "name": "Angleterre", "shortName": "Angleterre", "fifaCode": "ENG", "iso2": "gb-eng", "flagEmoji": "🏴", "groupId": "L", "players": ["Harry Kane", "Jude Bellingham", "Phil Foden"] },
-    { "id": "CRO", "name": "Croatie", "shortName": "Croatie", "fifaCode": "CRO", "iso2": "hr", "flagEmoji": "🇭🇷", "groupId": "L", "players": ["Luka Modric", "Andrej Kramaric", "Ante Budimir"] },
-    { "id": "GHA", "name": "Ghana", "shortName": "Ghana", "fifaCode": "GHA", "iso2": "gh", "flagEmoji": "🇬🇭", "groupId": "L", "players": ["Mohammed Kudus", "Inaki Williams", "Antoine Semenyo"] },
-    { "id": "PAN", "name": "Panama", "shortName": "Panama", "fifaCode": "PAN", "iso2": "pa", "flagEmoji": "🇵🇦", "groupId": "L", "players": ["Ismael Diaz", "Cecilio Waterman", "Jose Fajardo"] }
+    {
+      "id": "MEX",
+      "name": "Mexique",
+      "shortName": "Mexique",
+      "fifaCode": "MEX",
+      "iso2": "mx",
+      "flagEmoji": "🇲🇽",
+      "groupId": "A",
+      "players": [
+        "Santiago Gimenez",
+        "Raul Jimenez",
+        "Hirving Lozano"
+      ]
+    },
+    {
+      "id": "RSA",
+      "name": "Afrique du Sud",
+      "shortName": "Afsud",
+      "fifaCode": "RSA",
+      "iso2": "za",
+      "flagEmoji": "🇿🇦",
+      "groupId": "A",
+      "players": [
+        "Lyle Foster",
+        "Percy Tau",
+        "Themba Zwane"
+      ]
+    },
+    {
+      "id": "KOR",
+      "name": "Corée du Sud",
+      "shortName": "Corée",
+      "fifaCode": "KOR",
+      "iso2": "kr",
+      "flagEmoji": "🇰🇷",
+      "groupId": "A",
+      "players": [
+        "Son Heung-min",
+        "Lee Kang-in",
+        "Hwang Hee-chan"
+      ]
+    },
+    {
+      "id": "CZE",
+      "name": "Tchéquie",
+      "shortName": "Tchéquie",
+      "fifaCode": "CZE",
+      "iso2": "cz",
+      "flagEmoji": "🇨🇿",
+      "groupId": "A",
+      "players": [
+        "Patrik Schick",
+        "Adam Hlozek",
+        "Tomas Soucek"
+      ]
+    },
+    {
+      "id": "CAN",
+      "name": "Canada",
+      "shortName": "Canada",
+      "fifaCode": "CAN",
+      "iso2": "ca",
+      "flagEmoji": "🇨🇦",
+      "groupId": "B",
+      "players": [
+        "Jonathan David",
+        "Alphonso Davies",
+        "Cyle Larin"
+      ]
+    },
+    {
+      "id": "BIH",
+      "name": "Bosnie-Herzégovine",
+      "shortName": "Bosnie",
+      "fifaCode": "BIH",
+      "iso2": "ba",
+      "flagEmoji": "🇧🇦",
+      "groupId": "B",
+      "players": [
+        "Edin Dzeko",
+        "Ermedin Demirovic",
+        "Amar Dedic"
+      ]
+    },
+    {
+      "id": "QAT",
+      "name": "Qatar",
+      "shortName": "Qatar",
+      "fifaCode": "QAT",
+      "iso2": "qa",
+      "flagEmoji": "🇶🇦",
+      "groupId": "B",
+      "players": [
+        "Akram Afif",
+        "Almoez Ali",
+        "Hassan Al-Haydos"
+      ]
+    },
+    {
+      "id": "SUI",
+      "name": "Suisse",
+      "shortName": "Suisse",
+      "fifaCode": "SUI",
+      "iso2": "ch",
+      "flagEmoji": "🇨🇭",
+      "groupId": "B",
+      "players": [
+        "Breel Embolo",
+        "Dan Ndoye",
+        "Granit Xhaka"
+      ]
+    },
+    {
+      "id": "BRA",
+      "name": "Brésil",
+      "shortName": "Brésil",
+      "fifaCode": "BRA",
+      "iso2": "br",
+      "flagEmoji": "🇧🇷",
+      "groupId": "C",
+      "players": [
+        "Vinicius Junior",
+        "Rodrygo",
+        "Endrick"
+      ]
+    },
+    {
+      "id": "MAR",
+      "name": "Maroc",
+      "shortName": "Maroc",
+      "fifaCode": "MAR",
+      "iso2": "ma",
+      "flagEmoji": "🇲🇦",
+      "groupId": "C",
+      "players": [
+        "Youssef En-Nesyri",
+        "Brahim Diaz",
+        "Achraf Hakimi"
+      ]
+    },
+    {
+      "id": "HAI",
+      "name": "Haïti",
+      "shortName": "Haïti",
+      "fifaCode": "HAI",
+      "iso2": "ht",
+      "flagEmoji": "🇭🇹",
+      "groupId": "C",
+      "players": [
+        "Duckens Nazon",
+        "Frantzdy Pierrot",
+        "Louicius Don Deedson"
+      ]
+    },
+    {
+      "id": "SCO",
+      "name": "Écosse",
+      "shortName": "Écosse",
+      "fifaCode": "SCO",
+      "iso2": "gb-sct",
+      "flagEmoji": "🏴",
+      "groupId": "C",
+      "players": [
+        "Scott McTominay",
+        "John McGinn",
+        "Che Adams"
+      ]
+    },
+    {
+      "id": "USA",
+      "name": "États-Unis",
+      "shortName": "USA",
+      "fifaCode": "USA",
+      "iso2": "us",
+      "flagEmoji": "🇺🇸",
+      "groupId": "D",
+      "players": [
+        "Christian Pulisic",
+        "Folarin Balogun",
+        "Tim Weah"
+      ]
+    },
+    {
+      "id": "PAR",
+      "name": "Paraguay",
+      "shortName": "Paraguay",
+      "fifaCode": "PAR",
+      "iso2": "py",
+      "flagEmoji": "🇵🇾",
+      "groupId": "D",
+      "players": [
+        "Miguel Almiron",
+        "Julio Enciso",
+        "Antonio Sanabria"
+      ]
+    },
+    {
+      "id": "AUS",
+      "name": "Australie",
+      "shortName": "Australie",
+      "fifaCode": "AUS",
+      "iso2": "au",
+      "flagEmoji": "🇦🇺",
+      "groupId": "D",
+      "players": [
+        "Mitchell Duke",
+        "Craig Goodwin",
+        "Riley McGree"
+      ]
+    },
+    {
+      "id": "TUR",
+      "name": "Turquie",
+      "shortName": "Turquie",
+      "fifaCode": "TUR",
+      "iso2": "tr",
+      "flagEmoji": "🇹🇷",
+      "groupId": "D",
+      "players": [
+        "Arda Guler",
+        "Kerem Akturkoglu",
+        "Baris Yilmaz"
+      ]
+    },
+    {
+      "id": "GER",
+      "name": "Allemagne",
+      "shortName": "Allemagne",
+      "fifaCode": "GER",
+      "iso2": "de",
+      "flagEmoji": "🇩🇪",
+      "groupId": "E",
+      "players": [
+        "Jamal Musiala",
+        "Florian Wirtz",
+        "Kai Havertz"
+      ]
+    },
+    {
+      "id": "CIV",
+      "name": "Côte d'Ivoire",
+      "shortName": "Côte d'Ivoire",
+      "fifaCode": "CIV",
+      "iso2": "ci",
+      "flagEmoji": "🇨🇮",
+      "groupId": "E",
+      "players": [
+        "Sebastien Haller",
+        "Nicolas Pepe",
+        "Oumar Diakite"
+      ]
+    },
+    {
+      "id": "ECU",
+      "name": "Équateur",
+      "shortName": "Équateur",
+      "fifaCode": "ECU",
+      "iso2": "ec",
+      "flagEmoji": "🇪🇨",
+      "groupId": "E",
+      "players": [
+        "Enner Valencia",
+        "Moises Caicedo",
+        "Kendry Paez"
+      ]
+    },
+    {
+      "id": "CUW",
+      "name": "Curaçao",
+      "shortName": "Curaçao",
+      "fifaCode": "CUW",
+      "iso2": "cw",
+      "flagEmoji": "🇨🇼",
+      "groupId": "E",
+      "players": [
+        "Rangelo Janga",
+        "Leandro Bacuna",
+        "Juninho Bacuna"
+      ]
+    },
+    {
+      "id": "NED",
+      "name": "Pays-Bas",
+      "shortName": "Pays-Bas",
+      "fifaCode": "NED",
+      "iso2": "nl",
+      "flagEmoji": "🇳🇱",
+      "groupId": "F",
+      "players": [
+        "Cody Gakpo",
+        "Memphis Depay",
+        "Xavi Simons"
+      ]
+    },
+    {
+      "id": "JPN",
+      "name": "Japon",
+      "shortName": "Japon",
+      "fifaCode": "JPN",
+      "iso2": "jp",
+      "flagEmoji": "🇯🇵",
+      "groupId": "F",
+      "players": [
+        "Takefusa Kubo",
+        "Kaoru Mitoma",
+        "Ayase Ueda"
+      ]
+    },
+    {
+      "id": "SWE",
+      "name": "Suède",
+      "shortName": "Suède",
+      "fifaCode": "SWE",
+      "iso2": "se",
+      "flagEmoji": "🇸🇪",
+      "groupId": "F",
+      "players": [
+        "Alexander Isak",
+        "Viktor Gyokeres",
+        "Dejan Kulusevski"
+      ]
+    },
+    {
+      "id": "TUN",
+      "name": "Tunisie",
+      "shortName": "Tunisie",
+      "fifaCode": "TUN",
+      "iso2": "tn",
+      "flagEmoji": "🇹🇳",
+      "groupId": "F",
+      "players": [
+        "Youssef Msakni",
+        "Wahbi Khazri",
+        "Haythem Jouini"
+      ]
+    },
+    {
+      "id": "BEL",
+      "name": "Belgique",
+      "shortName": "Belgique",
+      "fifaCode": "BEL",
+      "iso2": "be",
+      "flagEmoji": "🇧🇪",
+      "groupId": "G",
+      "players": [
+        "Romelu Lukaku",
+        "Jeremy Doku",
+        "Kevin De Bruyne"
+      ]
+    },
+    {
+      "id": "EGY",
+      "name": "Égypte",
+      "shortName": "Égypte",
+      "fifaCode": "EGY",
+      "iso2": "eg",
+      "flagEmoji": "🇪🇬",
+      "groupId": "G",
+      "players": [
+        "Mohamed Salah",
+        "Omar Marmoush",
+        "Mostafa Mohamed"
+      ]
+    },
+    {
+      "id": "IRN",
+      "name": "Iran",
+      "shortName": "Iran",
+      "fifaCode": "IRN",
+      "iso2": "ir",
+      "flagEmoji": "🇮🇷",
+      "groupId": "G",
+      "players": [
+        "Mehdi Taremi",
+        "Sardar Azmoun",
+        "Alireza Jahanbakhsh"
+      ]
+    },
+    {
+      "id": "NZL",
+      "name": "Nouvelle-Zélande",
+      "shortName": "NZélande",
+      "fifaCode": "NZL",
+      "iso2": "nz",
+      "flagEmoji": "🇳🇿",
+      "groupId": "G",
+      "players": [
+        "Chris Wood",
+        "Ben Waine",
+        "Marko Stamenic"
+      ]
+    },
+    {
+      "id": "URU",
+      "name": "Uruguay",
+      "shortName": "Uruguay",
+      "fifaCode": "URU",
+      "iso2": "uy",
+      "flagEmoji": "🇺🇾",
+      "groupId": "H",
+      "players": [
+        "Darwin Nunez",
+        "Federico Valverde",
+        "Facundo Pellistri"
+      ]
+    },
+    {
+      "id": "ESP",
+      "name": "Espagne",
+      "shortName": "Espagne",
+      "fifaCode": "ESP",
+      "iso2": "es",
+      "flagEmoji": "🇪🇸",
+      "groupId": "H",
+      "players": [
+        "Lamine Yamal",
+        "Nico Williams",
+        "Alvaro Morata"
+      ]
+    },
+    {
+      "id": "CPV",
+      "name": "Cap-Vert",
+      "shortName": "Cap-Vert",
+      "fifaCode": "CPV",
+      "iso2": "cv",
+      "flagEmoji": "🇨🇻",
+      "groupId": "H",
+      "players": [
+        "Ryan Mendes",
+        "Bebe",
+        "Gilson Tavares"
+      ]
+    },
+    {
+      "id": "KSA",
+      "name": "Arabie saoudite",
+      "shortName": "Arabie S.",
+      "fifaCode": "KSA",
+      "iso2": "sa",
+      "flagEmoji": "🇸🇦",
+      "groupId": "H",
+      "players": [
+        "Salem Al-Dawsari",
+        "Firas Al-Buraikan",
+        "Saleh Al-Shehri"
+      ]
+    },
+    {
+      "id": "FRA",
+      "name": "France",
+      "shortName": "France",
+      "fifaCode": "FRA",
+      "iso2": "fr",
+      "flagEmoji": "🇫🇷",
+      "groupId": "I",
+      "players": [
+        "Kylian Mbappe",
+        "Ousmane Dembele",
+        "Marcus Thuram"
+      ]
+    },
+    {
+      "id": "SEN",
+      "name": "Sénégal",
+      "shortName": "Sénégal",
+      "fifaCode": "SEN",
+      "iso2": "sn",
+      "flagEmoji": "🇸🇳",
+      "groupId": "I",
+      "players": [
+        "Sadio Mane",
+        "Nicolas Jackson",
+        "Ismaila Sarr"
+      ]
+    },
+    {
+      "id": "IRQ",
+      "name": "Irak",
+      "shortName": "Irak",
+      "fifaCode": "IRQ",
+      "iso2": "iq",
+      "flagEmoji": "🇮🇶",
+      "groupId": "I",
+      "players": [
+        "Aymen Hussein",
+        "Ali Jasim",
+        "Ibrahim Bayesh"
+      ]
+    },
+    {
+      "id": "NOR",
+      "name": "Norvège",
+      "shortName": "Norvège",
+      "fifaCode": "NOR",
+      "iso2": "no",
+      "flagEmoji": "🇳🇴",
+      "groupId": "I",
+      "players": [
+        "Erling Haaland",
+        "Martin Odegaard",
+        "Alexander Sorloth"
+      ]
+    },
+    {
+      "id": "ARG",
+      "name": "Argentine",
+      "shortName": "Argentine",
+      "fifaCode": "ARG",
+      "iso2": "ar",
+      "flagEmoji": "🇦🇷",
+      "groupId": "J",
+      "players": [
+        "Lionel Messi",
+        "Julian Alvarez",
+        "Lautaro Martinez"
+      ]
+    },
+    {
+      "id": "ALG",
+      "name": "Algérie",
+      "shortName": "Algérie",
+      "fifaCode": "ALG",
+      "iso2": "dz",
+      "flagEmoji": "🇩🇿",
+      "groupId": "J",
+      "players": [
+        "Riyad Mahrez",
+        "Mohamed Amoura",
+        "Ismael Bennacer"
+      ]
+    },
+    {
+      "id": "AUT",
+      "name": "Autriche",
+      "shortName": "Autriche",
+      "fifaCode": "AUT",
+      "iso2": "at",
+      "flagEmoji": "🇦🇹",
+      "groupId": "J",
+      "players": [
+        "Marcel Sabitzer",
+        "Michael Gregoritsch",
+        "Christoph Baumgartner"
+      ]
+    },
+    {
+      "id": "JOR",
+      "name": "Jordanie",
+      "shortName": "Jordanie",
+      "fifaCode": "JOR",
+      "iso2": "jo",
+      "flagEmoji": "🇯🇴",
+      "groupId": "J",
+      "players": [
+        "Mousa Al-Tamari",
+        "Yazan Al-Naimat",
+        "Ali Olwan"
+      ]
+    },
+    {
+      "id": "POR",
+      "name": "Portugal",
+      "shortName": "Portugal",
+      "fifaCode": "POR",
+      "iso2": "pt",
+      "flagEmoji": "🇵🇹",
+      "groupId": "K",
+      "players": [
+        "Cristiano Ronaldo",
+        "Bruno Fernandes",
+        "Rafael Leao"
+      ]
+    },
+    {
+      "id": "COD",
+      "name": "RD Congo",
+      "shortName": "RD Congo",
+      "fifaCode": "COD",
+      "iso2": "cd",
+      "flagEmoji": "🇨🇩",
+      "groupId": "K",
+      "players": [
+        "Cedric Bakambu",
+        "Yoane Wissa",
+        "Meschack Elia"
+      ]
+    },
+    {
+      "id": "UZB",
+      "name": "Ouzbékistan",
+      "shortName": "Ouzbék.",
+      "fifaCode": "UZB",
+      "iso2": "uz",
+      "flagEmoji": "🇺🇿",
+      "groupId": "K",
+      "players": [
+        "Eldor Shomurodov",
+        "Abbosbek Fayzullaev",
+        "Jaloliddin Masharipov"
+      ]
+    },
+    {
+      "id": "COL",
+      "name": "Colombie",
+      "shortName": "Colombie",
+      "fifaCode": "COL",
+      "iso2": "co",
+      "flagEmoji": "🇨🇴",
+      "groupId": "K",
+      "players": [
+        "Luis Diaz",
+        "James Rodriguez",
+        "Jhon Duran"
+      ]
+    },
+    {
+      "id": "ENG",
+      "name": "Angleterre",
+      "shortName": "Angleterre",
+      "fifaCode": "ENG",
+      "iso2": "gb-eng",
+      "flagEmoji": "🏴",
+      "groupId": "L",
+      "players": [
+        "Harry Kane",
+        "Jude Bellingham",
+        "Phil Foden"
+      ]
+    },
+    {
+      "id": "CRO",
+      "name": "Croatie",
+      "shortName": "Croatie",
+      "fifaCode": "CRO",
+      "iso2": "hr",
+      "flagEmoji": "🇭🇷",
+      "groupId": "L",
+      "players": [
+        "Luka Modric",
+        "Andrej Kramaric",
+        "Ante Budimir"
+      ]
+    },
+    {
+      "id": "GHA",
+      "name": "Ghana",
+      "shortName": "Ghana",
+      "fifaCode": "GHA",
+      "iso2": "gh",
+      "flagEmoji": "🇬🇭",
+      "groupId": "L",
+      "players": [
+        "Mohammed Kudus",
+        "Inaki Williams",
+        "Antoine Semenyo"
+      ]
+    },
+    {
+      "id": "PAN",
+      "name": "Panama",
+      "shortName": "Panama",
+      "fifaCode": "PAN",
+      "iso2": "pa",
+      "flagEmoji": "🇵🇦",
+      "groupId": "L",
+      "players": [
+        "Ismael Diaz",
+        "Cecilio Waterman",
+        "Jose Fajardo"
+      ]
+    }
   ],
   "matches": [
-    { "id": "A1", "groupId": "A", "matchday": 1, "homeTeamId": "MEX", "awayTeamId": "RSA", "kickoffDate": "2026-06-11", "venue": "Mexico City Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "A2", "groupId": "A", "matchday": 1, "homeTeamId": "KOR", "awayTeamId": "CZE", "kickoffDate": "2026-06-11", "venue": "Estadio Guadalajara", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "A3", "groupId": "A", "matchday": 2, "homeTeamId": "CZE", "awayTeamId": "RSA", "kickoffDate": "2026-06-18", "venue": "Atlanta Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "A4", "groupId": "A", "matchday": 2, "homeTeamId": "MEX", "awayTeamId": "KOR", "kickoffDate": "2026-06-18", "venue": "Estadio Guadalajara", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "A5", "groupId": "A", "matchday": 3, "homeTeamId": "CZE", "awayTeamId": "MEX", "kickoffDate": "2026-06-24", "venue": "Mexico City Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "A6", "groupId": "A", "matchday": 3, "homeTeamId": "RSA", "awayTeamId": "KOR", "kickoffDate": "2026-06-24", "venue": "Estadio Monterrey", "homeScore": null, "awayScore": null, "status": "scheduled" },
-
-    { "id": "B1", "groupId": "B", "matchday": 1, "homeTeamId": "CAN", "awayTeamId": "BIH", "kickoffDate": "2026-06-12", "venue": "Toronto Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "B2", "groupId": "B", "matchday": 1, "homeTeamId": "QAT", "awayTeamId": "SUI", "kickoffDate": "2026-06-13", "venue": "San Francisco Bay Area Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "B3", "groupId": "B", "matchday": 2, "homeTeamId": "SUI", "awayTeamId": "BIH", "kickoffDate": "2026-06-18", "venue": "Los Angeles Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "B4", "groupId": "B", "matchday": 2, "homeTeamId": "CAN", "awayTeamId": "QAT", "kickoffDate": "2026-06-18", "venue": "BC Place Vancouver", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "B5", "groupId": "B", "matchday": 3, "homeTeamId": "SUI", "awayTeamId": "CAN", "kickoffDate": "2026-06-24", "venue": "BC Place Vancouver", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "B6", "groupId": "B", "matchday": 3, "homeTeamId": "BIH", "awayTeamId": "QAT", "kickoffDate": "2026-06-24", "venue": "Seattle Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-
-    { "id": "C1", "groupId": "C", "matchday": 1, "homeTeamId": "HAI", "awayTeamId": "SCO", "kickoffDate": "2026-06-13", "venue": "Boston Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "C2", "groupId": "C", "matchday": 1, "homeTeamId": "BRA", "awayTeamId": "MAR", "kickoffDate": "2026-06-13", "venue": "New York New Jersey Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "C3", "groupId": "C", "matchday": 2, "homeTeamId": "BRA", "awayTeamId": "HAI", "kickoffDate": "2026-06-19", "venue": "Philadelphia Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "C4", "groupId": "C", "matchday": 2, "homeTeamId": "SCO", "awayTeamId": "MAR", "kickoffDate": "2026-06-19", "venue": "Boston Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "C5", "groupId": "C", "matchday": 3, "homeTeamId": "SCO", "awayTeamId": "BRA", "kickoffDate": "2026-06-24", "venue": "Miami Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "C6", "groupId": "C", "matchday": 3, "homeTeamId": "MAR", "awayTeamId": "HAI", "kickoffDate": "2026-06-24", "venue": "Atlanta Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-
-    { "id": "D1", "groupId": "D", "matchday": 1, "homeTeamId": "USA", "awayTeamId": "PAR", "kickoffDate": "2026-06-12", "venue": "Los Angeles Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "D2", "groupId": "D", "matchday": 1, "homeTeamId": "AUS", "awayTeamId": "TUR", "kickoffDate": "2026-06-13", "venue": "BC Place Vancouver", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "D3", "groupId": "D", "matchday": 2, "homeTeamId": "TUR", "awayTeamId": "PAR", "kickoffDate": "2026-06-19", "venue": "San Francisco Bay Area Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "D4", "groupId": "D", "matchday": 2, "homeTeamId": "USA", "awayTeamId": "AUS", "kickoffDate": "2026-06-19", "venue": "Seattle Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "D5", "groupId": "D", "matchday": 3, "homeTeamId": "TUR", "awayTeamId": "USA", "kickoffDate": "2026-06-25", "venue": "Los Angeles Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "D6", "groupId": "D", "matchday": 3, "homeTeamId": "PAR", "awayTeamId": "AUS", "kickoffDate": "2026-06-25", "venue": "San Francisco Bay Area Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-
-    { "id": "E1", "groupId": "E", "matchday": 1, "homeTeamId": "CIV", "awayTeamId": "ECU", "kickoffDate": "2026-06-14", "venue": "Philadelphia Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "E2", "groupId": "E", "matchday": 1, "homeTeamId": "GER", "awayTeamId": "CUW", "kickoffDate": "2026-06-14", "venue": "Houston Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "E3", "groupId": "E", "matchday": 2, "homeTeamId": "GER", "awayTeamId": "CIV", "kickoffDate": "2026-06-20", "venue": "Toronto Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "E4", "groupId": "E", "matchday": 2, "homeTeamId": "ECU", "awayTeamId": "CUW", "kickoffDate": "2026-06-20", "venue": "Kansas City Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "E5", "groupId": "E", "matchday": 3, "homeTeamId": "CUW", "awayTeamId": "CIV", "kickoffDate": "2026-06-25", "venue": "Philadelphia Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "E6", "groupId": "E", "matchday": 3, "homeTeamId": "ECU", "awayTeamId": "GER", "kickoffDate": "2026-06-25", "venue": "New York New Jersey Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-
-    { "id": "F1", "groupId": "F", "matchday": 1, "homeTeamId": "NED", "awayTeamId": "JPN", "kickoffDate": "2026-06-14", "venue": "Dallas Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "F2", "groupId": "F", "matchday": 1, "homeTeamId": "SWE", "awayTeamId": "TUN", "kickoffDate": "2026-06-14", "venue": "Estadio Monterrey", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "F3", "groupId": "F", "matchday": 2, "homeTeamId": "NED", "awayTeamId": "SWE", "kickoffDate": "2026-06-20", "venue": "Houston Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "F4", "groupId": "F", "matchday": 2, "homeTeamId": "TUN", "awayTeamId": "JPN", "kickoffDate": "2026-06-20", "venue": "Estadio Monterrey", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "F5", "groupId": "F", "matchday": 3, "homeTeamId": "JPN", "awayTeamId": "SWE", "kickoffDate": "2026-06-25", "venue": "Dallas Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "F6", "groupId": "F", "matchday": 3, "homeTeamId": "TUN", "awayTeamId": "NED", "kickoffDate": "2026-06-25", "venue": "Kansas City Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-
-    { "id": "G1", "groupId": "G", "matchday": 1, "homeTeamId": "IRN", "awayTeamId": "NZL", "kickoffDate": "2026-06-15", "venue": "Los Angeles Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "G2", "groupId": "G", "matchday": 1, "homeTeamId": "BEL", "awayTeamId": "EGY", "kickoffDate": "2026-06-15", "venue": "Seattle Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "G3", "groupId": "G", "matchday": 2, "homeTeamId": "BEL", "awayTeamId": "IRN", "kickoffDate": "2026-06-21", "venue": "Los Angeles Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "G4", "groupId": "G", "matchday": 2, "homeTeamId": "NZL", "awayTeamId": "EGY", "kickoffDate": "2026-06-21", "venue": "BC Place Vancouver", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "G5", "groupId": "G", "matchday": 3, "homeTeamId": "EGY", "awayTeamId": "IRN", "kickoffDate": "2026-06-26", "venue": "Seattle Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "G6", "groupId": "G", "matchday": 3, "homeTeamId": "NZL", "awayTeamId": "BEL", "kickoffDate": "2026-06-26", "venue": "BC Place Vancouver", "homeScore": null, "awayScore": null, "status": "scheduled" },
-
-    { "id": "H1", "groupId": "H", "matchday": 1, "homeTeamId": "KSA", "awayTeamId": "URU", "kickoffDate": "2026-06-15", "venue": "Miami Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "H2", "groupId": "H", "matchday": 1, "homeTeamId": "ESP", "awayTeamId": "CPV", "kickoffDate": "2026-06-15", "venue": "Atlanta Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "H3", "groupId": "H", "matchday": 2, "homeTeamId": "URU", "awayTeamId": "CPV", "kickoffDate": "2026-06-21", "venue": "Miami Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "H4", "groupId": "H", "matchday": 2, "homeTeamId": "ESP", "awayTeamId": "KSA", "kickoffDate": "2026-06-21", "venue": "Atlanta Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "H5", "groupId": "H", "matchday": 3, "homeTeamId": "CPV", "awayTeamId": "KSA", "kickoffDate": "2026-06-26", "venue": "Houston Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "H6", "groupId": "H", "matchday": 3, "homeTeamId": "URU", "awayTeamId": "ESP", "kickoffDate": "2026-06-26", "venue": "Estadio Guadalajara", "homeScore": null, "awayScore": null, "status": "scheduled" },
-
-    { "id": "I1", "groupId": "I", "matchday": 1, "homeTeamId": "FRA", "awayTeamId": "SEN", "kickoffDate": "2026-06-16", "venue": "New York New Jersey Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "I2", "groupId": "I", "matchday": 1, "homeTeamId": "IRQ", "awayTeamId": "NOR", "kickoffDate": "2026-06-16", "venue": "Boston Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "I3", "groupId": "I", "matchday": 2, "homeTeamId": "NOR", "awayTeamId": "SEN", "kickoffDate": "2026-06-22", "venue": "New York New Jersey Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "I4", "groupId": "I", "matchday": 2, "homeTeamId": "FRA", "awayTeamId": "IRQ", "kickoffDate": "2026-06-22", "venue": "Philadelphia Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "I5", "groupId": "I", "matchday": 3, "homeTeamId": "NOR", "awayTeamId": "FRA", "kickoffDate": "2026-06-26", "venue": "Boston Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "I6", "groupId": "I", "matchday": 3, "homeTeamId": "SEN", "awayTeamId": "IRQ", "kickoffDate": "2026-06-26", "venue": "Toronto Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-
-    { "id": "J1", "groupId": "J", "matchday": 1, "homeTeamId": "ARG", "awayTeamId": "ALG", "kickoffDate": "2026-06-16", "venue": "Kansas City Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "J2", "groupId": "J", "matchday": 1, "homeTeamId": "AUT", "awayTeamId": "JOR", "kickoffDate": "2026-06-16", "venue": "San Francisco Bay Area Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "J3", "groupId": "J", "matchday": 2, "homeTeamId": "ARG", "awayTeamId": "AUT", "kickoffDate": "2026-06-22", "venue": "Dallas Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "J4", "groupId": "J", "matchday": 2, "homeTeamId": "JOR", "awayTeamId": "ALG", "kickoffDate": "2026-06-22", "venue": "San Francisco Bay Area Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "J5", "groupId": "J", "matchday": 3, "homeTeamId": "ALG", "awayTeamId": "AUT", "kickoffDate": "2026-06-27", "venue": "Kansas City Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "J6", "groupId": "J", "matchday": 3, "homeTeamId": "JOR", "awayTeamId": "ARG", "kickoffDate": "2026-06-27", "venue": "Dallas Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-
-    { "id": "K1", "groupId": "K", "matchday": 1, "homeTeamId": "POR", "awayTeamId": "COD", "kickoffDate": "2026-06-17", "venue": "Houston Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "K2", "groupId": "K", "matchday": 1, "homeTeamId": "UZB", "awayTeamId": "COL", "kickoffDate": "2026-06-17", "venue": "Mexico City Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "K3", "groupId": "K", "matchday": 2, "homeTeamId": "POR", "awayTeamId": "UZB", "kickoffDate": "2026-06-23", "venue": "Houston Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "K4", "groupId": "K", "matchday": 2, "homeTeamId": "COL", "awayTeamId": "COD", "kickoffDate": "2026-06-23", "venue": "Estadio Guadalajara", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "K5", "groupId": "K", "matchday": 3, "homeTeamId": "COL", "awayTeamId": "POR", "kickoffDate": "2026-06-27", "venue": "Miami Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "K6", "groupId": "K", "matchday": 3, "homeTeamId": "COD", "awayTeamId": "UZB", "kickoffDate": "2026-06-27", "venue": "Atlanta Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-
-    { "id": "L1", "groupId": "L", "matchday": 1, "homeTeamId": "GHA", "awayTeamId": "PAN", "kickoffDate": "2026-06-17", "venue": "Toronto Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "L2", "groupId": "L", "matchday": 1, "homeTeamId": "ENG", "awayTeamId": "CRO", "kickoffDate": "2026-06-17", "venue": "Dallas Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "L3", "groupId": "L", "matchday": 2, "homeTeamId": "ENG", "awayTeamId": "GHA", "kickoffDate": "2026-06-23", "venue": "Boston Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "L4", "groupId": "L", "matchday": 2, "homeTeamId": "PAN", "awayTeamId": "CRO", "kickoffDate": "2026-06-23", "venue": "Toronto Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "L5", "groupId": "L", "matchday": 3, "homeTeamId": "PAN", "awayTeamId": "ENG", "kickoffDate": "2026-06-27", "venue": "New York New Jersey Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" },
-    { "id": "L6", "groupId": "L", "matchday": 3, "homeTeamId": "CRO", "awayTeamId": "GHA", "kickoffDate": "2026-06-27", "venue": "Philadelphia Stadium", "homeScore": null, "awayScore": null, "status": "scheduled" }
+    {
+      "id": "A1",
+      "groupId": "A",
+      "matchday": 1,
+      "homeTeamId": "MEX",
+      "awayTeamId": "RSA",
+      "kickoffDate": "2026-06-11",
+      "venue": "Mexico City Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-11T19:00:00Z"
+    },
+    {
+      "id": "A2",
+      "groupId": "A",
+      "matchday": 1,
+      "homeTeamId": "KOR",
+      "awayTeamId": "CZE",
+      "kickoffDate": "2026-06-11",
+      "venue": "Estadio Guadalajara",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-12T02:00:00Z"
+    },
+    {
+      "id": "A3",
+      "groupId": "A",
+      "matchday": 2,
+      "homeTeamId": "CZE",
+      "awayTeamId": "RSA",
+      "kickoffDate": "2026-06-18",
+      "venue": "Atlanta Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-18T16:00:00Z"
+    },
+    {
+      "id": "A4",
+      "groupId": "A",
+      "matchday": 2,
+      "homeTeamId": "MEX",
+      "awayTeamId": "KOR",
+      "kickoffDate": "2026-06-18",
+      "venue": "Estadio Guadalajara",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-19T01:00:00Z"
+    },
+    {
+      "id": "A5",
+      "groupId": "A",
+      "matchday": 3,
+      "homeTeamId": "CZE",
+      "awayTeamId": "MEX",
+      "kickoffDate": "2026-06-24",
+      "venue": "Mexico City Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-25T01:00:00Z"
+    },
+    {
+      "id": "A6",
+      "groupId": "A",
+      "matchday": 3,
+      "homeTeamId": "RSA",
+      "awayTeamId": "KOR",
+      "kickoffDate": "2026-06-24",
+      "venue": "Estadio Monterrey",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-25T01:00:00Z"
+    },
+    {
+      "id": "B1",
+      "groupId": "B",
+      "matchday": 1,
+      "homeTeamId": "CAN",
+      "awayTeamId": "BIH",
+      "kickoffDate": "2026-06-12",
+      "venue": "Toronto Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-12T19:00:00Z"
+    },
+    {
+      "id": "B2",
+      "groupId": "B",
+      "matchday": 1,
+      "homeTeamId": "QAT",
+      "awayTeamId": "SUI",
+      "kickoffDate": "2026-06-13",
+      "venue": "San Francisco Bay Area Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-13T19:00:00Z"
+    },
+    {
+      "id": "B3",
+      "groupId": "B",
+      "matchday": 2,
+      "homeTeamId": "SUI",
+      "awayTeamId": "BIH",
+      "kickoffDate": "2026-06-18",
+      "venue": "Los Angeles Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-18T19:00:00Z"
+    },
+    {
+      "id": "B4",
+      "groupId": "B",
+      "matchday": 2,
+      "homeTeamId": "CAN",
+      "awayTeamId": "QAT",
+      "kickoffDate": "2026-06-18",
+      "venue": "BC Place Vancouver",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-18T22:00:00Z"
+    },
+    {
+      "id": "B5",
+      "groupId": "B",
+      "matchday": 3,
+      "homeTeamId": "SUI",
+      "awayTeamId": "CAN",
+      "kickoffDate": "2026-06-24",
+      "venue": "BC Place Vancouver",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-24T19:00:00Z"
+    },
+    {
+      "id": "B6",
+      "groupId": "B",
+      "matchday": 3,
+      "homeTeamId": "BIH",
+      "awayTeamId": "QAT",
+      "kickoffDate": "2026-06-24",
+      "venue": "Seattle Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-24T19:00:00Z"
+    },
+    {
+      "id": "C1",
+      "groupId": "C",
+      "matchday": 1,
+      "homeTeamId": "HAI",
+      "awayTeamId": "SCO",
+      "kickoffDate": "2026-06-13",
+      "venue": "Boston Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-14T01:00:00Z"
+    },
+    {
+      "id": "C2",
+      "groupId": "C",
+      "matchday": 1,
+      "homeTeamId": "BRA",
+      "awayTeamId": "MAR",
+      "kickoffDate": "2026-06-13",
+      "venue": "New York New Jersey Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-13T22:00:00Z"
+    },
+    {
+      "id": "C3",
+      "groupId": "C",
+      "matchday": 2,
+      "homeTeamId": "BRA",
+      "awayTeamId": "HAI",
+      "kickoffDate": "2026-06-19",
+      "venue": "Philadelphia Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-20T00:30:00Z"
+    },
+    {
+      "id": "C4",
+      "groupId": "C",
+      "matchday": 2,
+      "homeTeamId": "SCO",
+      "awayTeamId": "MAR",
+      "kickoffDate": "2026-06-19",
+      "venue": "Boston Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-19T22:00:00Z"
+    },
+    {
+      "id": "C5",
+      "groupId": "C",
+      "matchday": 3,
+      "homeTeamId": "SCO",
+      "awayTeamId": "BRA",
+      "kickoffDate": "2026-06-24",
+      "venue": "Miami Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-24T22:00:00Z"
+    },
+    {
+      "id": "C6",
+      "groupId": "C",
+      "matchday": 3,
+      "homeTeamId": "MAR",
+      "awayTeamId": "HAI",
+      "kickoffDate": "2026-06-24",
+      "venue": "Atlanta Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-24T22:00:00Z"
+    },
+    {
+      "id": "D1",
+      "groupId": "D",
+      "matchday": 1,
+      "homeTeamId": "USA",
+      "awayTeamId": "PAR",
+      "kickoffDate": "2026-06-12",
+      "venue": "Los Angeles Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-13T01:00:00Z"
+    },
+    {
+      "id": "D2",
+      "groupId": "D",
+      "matchday": 1,
+      "homeTeamId": "AUS",
+      "awayTeamId": "TUR",
+      "kickoffDate": "2026-06-13",
+      "venue": "BC Place Vancouver",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-14T04:00:00Z"
+    },
+    {
+      "id": "D3",
+      "groupId": "D",
+      "matchday": 2,
+      "homeTeamId": "TUR",
+      "awayTeamId": "PAR",
+      "kickoffDate": "2026-06-19",
+      "venue": "San Francisco Bay Area Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-20T03:00:00Z"
+    },
+    {
+      "id": "D4",
+      "groupId": "D",
+      "matchday": 2,
+      "homeTeamId": "USA",
+      "awayTeamId": "AUS",
+      "kickoffDate": "2026-06-19",
+      "venue": "Seattle Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-19T19:00:00Z"
+    },
+    {
+      "id": "D5",
+      "groupId": "D",
+      "matchday": 3,
+      "homeTeamId": "TUR",
+      "awayTeamId": "USA",
+      "kickoffDate": "2026-06-25",
+      "venue": "Los Angeles Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-26T02:00:00Z"
+    },
+    {
+      "id": "D6",
+      "groupId": "D",
+      "matchday": 3,
+      "homeTeamId": "PAR",
+      "awayTeamId": "AUS",
+      "kickoffDate": "2026-06-25",
+      "venue": "San Francisco Bay Area Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-26T02:00:00Z"
+    },
+    {
+      "id": "E1",
+      "groupId": "E",
+      "matchday": 1,
+      "homeTeamId": "CIV",
+      "awayTeamId": "ECU",
+      "kickoffDate": "2026-06-14",
+      "venue": "Philadelphia Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-14T23:00:00Z"
+    },
+    {
+      "id": "E2",
+      "groupId": "E",
+      "matchday": 1,
+      "homeTeamId": "GER",
+      "awayTeamId": "CUW",
+      "kickoffDate": "2026-06-14",
+      "venue": "Houston Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-14T17:00:00Z"
+    },
+    {
+      "id": "E3",
+      "groupId": "E",
+      "matchday": 2,
+      "homeTeamId": "GER",
+      "awayTeamId": "CIV",
+      "kickoffDate": "2026-06-20",
+      "venue": "Toronto Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-20T20:00:00Z"
+    },
+    {
+      "id": "E4",
+      "groupId": "E",
+      "matchday": 2,
+      "homeTeamId": "ECU",
+      "awayTeamId": "CUW",
+      "kickoffDate": "2026-06-20",
+      "venue": "Kansas City Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-21T00:00:00Z"
+    },
+    {
+      "id": "E5",
+      "groupId": "E",
+      "matchday": 3,
+      "homeTeamId": "CUW",
+      "awayTeamId": "CIV",
+      "kickoffDate": "2026-06-25",
+      "venue": "Philadelphia Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-25T20:00:00Z"
+    },
+    {
+      "id": "E6",
+      "groupId": "E",
+      "matchday": 3,
+      "homeTeamId": "ECU",
+      "awayTeamId": "GER",
+      "kickoffDate": "2026-06-25",
+      "venue": "New York New Jersey Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-25T20:00:00Z"
+    },
+    {
+      "id": "F1",
+      "groupId": "F",
+      "matchday": 1,
+      "homeTeamId": "NED",
+      "awayTeamId": "JPN",
+      "kickoffDate": "2026-06-14",
+      "venue": "Dallas Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-14T20:00:00Z"
+    },
+    {
+      "id": "F2",
+      "groupId": "F",
+      "matchday": 1,
+      "homeTeamId": "SWE",
+      "awayTeamId": "TUN",
+      "kickoffDate": "2026-06-14",
+      "venue": "Estadio Monterrey",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-15T02:00:00Z"
+    },
+    {
+      "id": "F3",
+      "groupId": "F",
+      "matchday": 2,
+      "homeTeamId": "NED",
+      "awayTeamId": "SWE",
+      "kickoffDate": "2026-06-20",
+      "venue": "Houston Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-20T17:00:00Z"
+    },
+    {
+      "id": "F4",
+      "groupId": "F",
+      "matchday": 2,
+      "homeTeamId": "TUN",
+      "awayTeamId": "JPN",
+      "kickoffDate": "2026-06-20",
+      "venue": "Estadio Monterrey",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-21T04:00:00Z"
+    },
+    {
+      "id": "F5",
+      "groupId": "F",
+      "matchday": 3,
+      "homeTeamId": "JPN",
+      "awayTeamId": "SWE",
+      "kickoffDate": "2026-06-25",
+      "venue": "Dallas Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-25T23:00:00Z"
+    },
+    {
+      "id": "F6",
+      "groupId": "F",
+      "matchday": 3,
+      "homeTeamId": "TUN",
+      "awayTeamId": "NED",
+      "kickoffDate": "2026-06-25",
+      "venue": "Kansas City Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-25T23:00:00Z"
+    },
+    {
+      "id": "G1",
+      "groupId": "G",
+      "matchday": 1,
+      "homeTeamId": "IRN",
+      "awayTeamId": "NZL",
+      "kickoffDate": "2026-06-15",
+      "venue": "Los Angeles Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-16T01:00:00Z"
+    },
+    {
+      "id": "G2",
+      "groupId": "G",
+      "matchday": 1,
+      "homeTeamId": "BEL",
+      "awayTeamId": "EGY",
+      "kickoffDate": "2026-06-15",
+      "venue": "Seattle Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-15T19:00:00Z"
+    },
+    {
+      "id": "G3",
+      "groupId": "G",
+      "matchday": 2,
+      "homeTeamId": "BEL",
+      "awayTeamId": "IRN",
+      "kickoffDate": "2026-06-21",
+      "venue": "Los Angeles Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-21T19:00:00Z"
+    },
+    {
+      "id": "G4",
+      "groupId": "G",
+      "matchday": 2,
+      "homeTeamId": "NZL",
+      "awayTeamId": "EGY",
+      "kickoffDate": "2026-06-21",
+      "venue": "BC Place Vancouver",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-22T01:00:00Z"
+    },
+    {
+      "id": "G5",
+      "groupId": "G",
+      "matchday": 3,
+      "homeTeamId": "EGY",
+      "awayTeamId": "IRN",
+      "kickoffDate": "2026-06-26",
+      "venue": "Seattle Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-27T03:00:00Z"
+    },
+    {
+      "id": "G6",
+      "groupId": "G",
+      "matchday": 3,
+      "homeTeamId": "NZL",
+      "awayTeamId": "BEL",
+      "kickoffDate": "2026-06-26",
+      "venue": "BC Place Vancouver",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-27T03:00:00Z"
+    },
+    {
+      "id": "H1",
+      "groupId": "H",
+      "matchday": 1,
+      "homeTeamId": "KSA",
+      "awayTeamId": "URU",
+      "kickoffDate": "2026-06-15",
+      "venue": "Miami Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-15T22:00:00Z"
+    },
+    {
+      "id": "H2",
+      "groupId": "H",
+      "matchday": 1,
+      "homeTeamId": "ESP",
+      "awayTeamId": "CPV",
+      "kickoffDate": "2026-06-15",
+      "venue": "Atlanta Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-15T16:00:00Z"
+    },
+    {
+      "id": "H3",
+      "groupId": "H",
+      "matchday": 2,
+      "homeTeamId": "URU",
+      "awayTeamId": "CPV",
+      "kickoffDate": "2026-06-21",
+      "venue": "Miami Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-21T22:00:00Z"
+    },
+    {
+      "id": "H4",
+      "groupId": "H",
+      "matchday": 2,
+      "homeTeamId": "ESP",
+      "awayTeamId": "KSA",
+      "kickoffDate": "2026-06-21",
+      "venue": "Atlanta Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-21T16:00:00Z"
+    },
+    {
+      "id": "H5",
+      "groupId": "H",
+      "matchday": 3,
+      "homeTeamId": "CPV",
+      "awayTeamId": "KSA",
+      "kickoffDate": "2026-06-26",
+      "venue": "Houston Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-27T00:00:00Z"
+    },
+    {
+      "id": "H6",
+      "groupId": "H",
+      "matchday": 3,
+      "homeTeamId": "URU",
+      "awayTeamId": "ESP",
+      "kickoffDate": "2026-06-26",
+      "venue": "Estadio Guadalajara",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-27T00:00:00Z"
+    },
+    {
+      "id": "I1",
+      "groupId": "I",
+      "matchday": 1,
+      "homeTeamId": "FRA",
+      "awayTeamId": "SEN",
+      "kickoffDate": "2026-06-16",
+      "venue": "New York New Jersey Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-16T19:00:00Z"
+    },
+    {
+      "id": "I2",
+      "groupId": "I",
+      "matchday": 1,
+      "homeTeamId": "IRQ",
+      "awayTeamId": "NOR",
+      "kickoffDate": "2026-06-16",
+      "venue": "Boston Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-16T22:00:00Z"
+    },
+    {
+      "id": "I3",
+      "groupId": "I",
+      "matchday": 2,
+      "homeTeamId": "NOR",
+      "awayTeamId": "SEN",
+      "kickoffDate": "2026-06-22",
+      "venue": "New York New Jersey Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-23T00:00:00Z"
+    },
+    {
+      "id": "I4",
+      "groupId": "I",
+      "matchday": 2,
+      "homeTeamId": "FRA",
+      "awayTeamId": "IRQ",
+      "kickoffDate": "2026-06-22",
+      "venue": "Philadelphia Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-22T21:00:00Z"
+    },
+    {
+      "id": "I5",
+      "groupId": "I",
+      "matchday": 3,
+      "homeTeamId": "NOR",
+      "awayTeamId": "FRA",
+      "kickoffDate": "2026-06-26",
+      "venue": "Boston Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-26T19:00:00Z"
+    },
+    {
+      "id": "I6",
+      "groupId": "I",
+      "matchday": 3,
+      "homeTeamId": "SEN",
+      "awayTeamId": "IRQ",
+      "kickoffDate": "2026-06-26",
+      "venue": "Toronto Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-26T19:00:00Z"
+    },
+    {
+      "id": "J1",
+      "groupId": "J",
+      "matchday": 1,
+      "homeTeamId": "ARG",
+      "awayTeamId": "ALG",
+      "kickoffDate": "2026-06-16",
+      "venue": "Kansas City Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-17T01:00:00Z"
+    },
+    {
+      "id": "J2",
+      "groupId": "J",
+      "matchday": 1,
+      "homeTeamId": "AUT",
+      "awayTeamId": "JOR",
+      "kickoffDate": "2026-06-16",
+      "venue": "San Francisco Bay Area Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-17T04:00:00Z"
+    },
+    {
+      "id": "J3",
+      "groupId": "J",
+      "matchday": 2,
+      "homeTeamId": "ARG",
+      "awayTeamId": "AUT",
+      "kickoffDate": "2026-06-22",
+      "venue": "Dallas Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-22T17:00:00Z"
+    },
+    {
+      "id": "J4",
+      "groupId": "J",
+      "matchday": 2,
+      "homeTeamId": "JOR",
+      "awayTeamId": "ALG",
+      "kickoffDate": "2026-06-22",
+      "venue": "San Francisco Bay Area Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-23T03:00:00Z"
+    },
+    {
+      "id": "J5",
+      "groupId": "J",
+      "matchday": 3,
+      "homeTeamId": "ALG",
+      "awayTeamId": "AUT",
+      "kickoffDate": "2026-06-27",
+      "venue": "Kansas City Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-28T02:00:00Z"
+    },
+    {
+      "id": "J6",
+      "groupId": "J",
+      "matchday": 3,
+      "homeTeamId": "JOR",
+      "awayTeamId": "ARG",
+      "kickoffDate": "2026-06-27",
+      "venue": "Dallas Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-28T02:00:00Z"
+    },
+    {
+      "id": "K1",
+      "groupId": "K",
+      "matchday": 1,
+      "homeTeamId": "POR",
+      "awayTeamId": "COD",
+      "kickoffDate": "2026-06-17",
+      "venue": "Houston Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-17T17:00:00Z"
+    },
+    {
+      "id": "K2",
+      "groupId": "K",
+      "matchday": 1,
+      "homeTeamId": "UZB",
+      "awayTeamId": "COL",
+      "kickoffDate": "2026-06-17",
+      "venue": "Mexico City Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-18T02:00:00Z"
+    },
+    {
+      "id": "K3",
+      "groupId": "K",
+      "matchday": 2,
+      "homeTeamId": "POR",
+      "awayTeamId": "UZB",
+      "kickoffDate": "2026-06-23",
+      "venue": "Houston Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-23T17:00:00Z"
+    },
+    {
+      "id": "K4",
+      "groupId": "K",
+      "matchday": 2,
+      "homeTeamId": "COL",
+      "awayTeamId": "COD",
+      "kickoffDate": "2026-06-23",
+      "venue": "Estadio Guadalajara",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-24T02:00:00Z"
+    },
+    {
+      "id": "K5",
+      "groupId": "K",
+      "matchday": 3,
+      "homeTeamId": "COL",
+      "awayTeamId": "POR",
+      "kickoffDate": "2026-06-27",
+      "venue": "Miami Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-27T23:30:00Z"
+    },
+    {
+      "id": "K6",
+      "groupId": "K",
+      "matchday": 3,
+      "homeTeamId": "COD",
+      "awayTeamId": "UZB",
+      "kickoffDate": "2026-06-27",
+      "venue": "Atlanta Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-27T23:30:00Z"
+    },
+    {
+      "id": "L1",
+      "groupId": "L",
+      "matchday": 1,
+      "homeTeamId": "GHA",
+      "awayTeamId": "PAN",
+      "kickoffDate": "2026-06-17",
+      "venue": "Toronto Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-17T23:00:00Z"
+    },
+    {
+      "id": "L2",
+      "groupId": "L",
+      "matchday": 1,
+      "homeTeamId": "ENG",
+      "awayTeamId": "CRO",
+      "kickoffDate": "2026-06-17",
+      "venue": "Dallas Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-17T20:00:00Z"
+    },
+    {
+      "id": "L3",
+      "groupId": "L",
+      "matchday": 2,
+      "homeTeamId": "ENG",
+      "awayTeamId": "GHA",
+      "kickoffDate": "2026-06-23",
+      "venue": "Boston Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-23T20:00:00Z"
+    },
+    {
+      "id": "L4",
+      "groupId": "L",
+      "matchday": 2,
+      "homeTeamId": "PAN",
+      "awayTeamId": "CRO",
+      "kickoffDate": "2026-06-23",
+      "venue": "Toronto Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-23T23:00:00Z"
+    },
+    {
+      "id": "L5",
+      "groupId": "L",
+      "matchday": 3,
+      "homeTeamId": "PAN",
+      "awayTeamId": "ENG",
+      "kickoffDate": "2026-06-27",
+      "venue": "New York New Jersey Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-27T21:00:00Z"
+    },
+    {
+      "id": "L6",
+      "groupId": "L",
+      "matchday": 3,
+      "homeTeamId": "CRO",
+      "awayTeamId": "GHA",
+      "kickoffDate": "2026-06-27",
+      "venue": "Philadelphia Stadium",
+      "homeScore": null,
+      "awayScore": null,
+      "status": "scheduled",
+      "kickoffIso": "2026-06-27T21:00:00Z"
+    }
   ]
 }
