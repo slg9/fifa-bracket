@@ -2060,12 +2060,26 @@ function App() {
                     {matchStatsData.goals.length > 0 ? (
                       <div className="statsmodal__goals-section">
                         <div className="statsmodal__scorers-title">Buts</div>
-                        {matchStatsData.goals.map((g, i) => (
-                          <div key={i} className="statsmodal__scorer">
-                            <span>⚽ {g.name}</span>
-                            <span className="statsmodal__scorer-min">{g.minute}</span>
-                          </div>
-                        ))}
+                        {matchStatsData.goals.map((g, i) => {
+                          const isHome = g.team === (matchStatsData.home.code ?? homeTeam.fifaCode)
+                          return (
+                            <div key={i} className={`statsmodal__scorer statsmodal__scorer--${isHome ? 'home' : 'away'}`}>
+                              {isHome ? (
+                                <>
+                                  <span className="statsmodal__scorer-name">⚽ {g.name}</span>
+                                  <span className="statsmodal__scorer-min">{g.minute}</span>
+                                  <span />
+                                </>
+                              ) : (
+                                <>
+                                  <span />
+                                  <span className="statsmodal__scorer-min">{g.minute}</span>
+                                  <span className="statsmodal__scorer-name statsmodal__scorer-name--away">⚽ {g.name}</span>
+                                </>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     ) : null}
 
