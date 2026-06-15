@@ -2399,6 +2399,7 @@
 
   .board__side {
     position: static;
+    order: -1;
     flex-direction: row;
     flex-wrap: wrap;
   }
