@@ -993,6 +993,7 @@ function App() {
   }
 
   const teamsById = new Map(seed.teams.map((team) => [team.id, team]))
+  const teamsByFifaCode = new Map(seed.teams.map((team) => [team.fifaCode, team]))
   const mergedMatches = mergeScores(seed.matches, liveSource.matches, overrides, mode)
   const computedStandings = computeStandings(seed.teams, mergedMatches)
   const officialStandings = liveSource.standings.reduce<Record<string, RankedStandingRow[]>>((groups, row) => {
@@ -1925,14 +1926,17 @@ function App() {
                 <div className="panel__title">Top buteurs</div>
               </div>
               <div className="scorers">
-                {liveSource.topScorers.map((scorer, index) => (
-                  <div key={`${scorer.name}-${scorer.teamCode}`} className={`scorerrow${index === 0 ? ' is-top' : ''}`}>
-                    <span className="scorerrow__rank">{index + 1}</span>
-                    <span className="scorerrow__name">{scorer.name}</span>
-                    <span className="scorerrow__team">{scorer.teamCode}</span>
-                    <span className="scorerrow__goals"><b>{scorer.goals}</b></span>
-                  </div>
-                ))}
+                {liveSource.topScorers.map((scorer, index) => {
+                  const team = teamsByFifaCode.get(scorer.teamCode)
+                  return (
+                    <div key={`${scorer.name}-${scorer.teamCode}`} className={`scorerrow${index === 0 ? ' is-top' : ''}`}>
+                      <span className="scorerrow__rank">{index + 1}</span>
+                      {team ? (flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>) : null}
+                      <span className="scorerrow__name">{scorer.name}</span>
+                      <span className="scorerrow__goals"><b>{scorer.goals}</b></span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           ) : null}
