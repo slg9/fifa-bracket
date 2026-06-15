@@ -125,7 +125,7 @@ export default async function handler(req, res) {
   }
 
   const isFinished = status === 'finished'
-  const blobKey = `match-events/${path.replace(/\//g, '-')}.json`
+  const blobKey = `match-events/v2/${path.replace(/\//g, '-')}.json`
   const maxAge = isFinished ? FINISHED_MAX_AGE : LIVE_MAX_AGE
 
   // 1. Try blob cache first
