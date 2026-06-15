@@ -46,6 +46,7 @@ function mergeLiveSnapshot(current: LiveState, snapshot: LiveSnapshot): LiveStat
     matches: hasMatches ? snapshot.matches : current.matches,
     standings: hasStandings ? snapshot.standings : current.standings,
     predictions: snapshot.predictions?.length ? snapshot.predictions : current.predictions,
+    topScorers: snapshot.topScorers?.length ? snapshot.topScorers : current.topScorers,
   }
 }
 
