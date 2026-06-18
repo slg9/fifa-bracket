@@ -1221,6 +1221,41 @@
   letter-spacing: -0.5px;
 }
 
+.daymatch__score--loading {
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 84px;
+}
+
+.daymatch__score--loading span {
+  width: 8px;
+  height: 28px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(25, 211, 255, 0.9), rgba(43, 255, 154, 0.35));
+  box-shadow: 0 0 18px rgba(25, 211, 255, 0.22);
+  animation: daymatch-score-wave 1s ease-in-out infinite;
+}
+
+.daymatch__score--loading span:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.daymatch__score--loading span:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+@keyframes daymatch-score-wave {
+  0%, 100% {
+    transform: scaleY(0.45);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
 /* Time in mini grid card score cell */
 .daymatch__mini-time {
   font-family: var(--numbers);

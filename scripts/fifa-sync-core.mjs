@@ -1,7 +1,13 @@
-const standingsUrl =
-  'https://r.jina.ai/https://www.fifa.com/fr/tournaments/mens/worldcup/canadamexicousa2026/standings'
-const fixturesUrl =
-  'https://r.jina.ai/https://www.fifa.com/fr/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures?country=FR&wtw-filter=ALL'
+const FIFA_COMPETITION_ID = '17'
+const FIFA_SEASON_ID = '285023'
+const FIFA_LANGUAGE = 'fr'
+const FIFA_API_HEADERS = { 'user-agent': 'Mozilla/5.0 (compatible; fifabracket/1.0)' }
+const fifaStagesUrl =
+  `https://api.fifa.com/api/v3/stages?idSeason=${FIFA_SEASON_ID}&language=${FIFA_LANGUAGE}`
+
+function buildStandingUrl(stageId) {
+  return `https://api.fifa.com/api/v3/calendar/${FIFA_COMPETITION_ID}/${FIFA_SEASON_ID}/${stageId}/standing?language=${FIFA_LANGUAGE}&count=200`
+}
 
 function stripImages(text) {
   return text.replace(/!\[Image[^\]]*\]\([^)]*\)/g, '')
@@ -268,82 +274,162 @@ function buildFallbackStandings(seed, matches) {
   return standings
 }
 
+function parseGroupId(groupDescriptions = []) {
+  for (const entry of groupDescriptions) {
+    const description = entry?.Description ?? ''
+    const match = description.match(/Groupe\s+([A-L])/i)
+    if (match) {
+      return match[1].toUpperCase()
+    }
+  }
+  return null
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url, { headers: FIFA_API_HEADERS })
+  if (!response.ok) {
+    throw new Error(`Source FIFA indisponible (${response.status})`)
+  }
+  return response.json()
+}
+
+async function fetchGroupStageId() {
+  const payload = await fetchJson(fifaStagesUrl)
+  const stages = payload?.Results ?? []
+  const groupStage = stages.find((stage) => {
+    const name = stage?.Name?.find((item) => item?.Locale?.startsWith('fr'))?.Description
+      ?? stage?.Name?.[0]?.Description
+      ?? ''
+    return stage?.Type === 1 || /phase de groupes/i.test(name)
+  })
+
+  if (!groupStage?.IdStage) {
+    throw new Error('Stage FIFA de phase de groupes introuvable.')
+  }
+
+  return groupStage.IdStage
+}
+
+function buildStandingsFromApiRows(seed, rows, warnings) {
+  const codeToTeamId = new Map(seed.teams.map((team) => [team.fifaCode, team.id]))
+  const numericTeamIdToCode = new Map()
+  const standings = []
+
+  for (const row of rows) {
+    const teamCode = row?.Team?.Abbreviation ?? null
+    const groupId = parseGroupId(row?.Group)
+
+    if (row?.Team?.IdTeam && teamCode) {
+      numericTeamIdToCode.set(String(row.Team.IdTeam), teamCode)
+    }
+
+    if (!teamCode || !groupId) {
+      continue
+    }
+
+    const teamId = codeToTeamId.get(teamCode)
+    if (!teamId) {
+      warnings.push(`Equipe FIFA non mappee dans le classement: ${teamCode}.`)
+      continue
+    }
+
+    standings.push({
+      groupId,
+      teamId,
+      rank: Number(row.Position ?? 0),
+      played: Number(row.Played ?? 0),
+      wins: Number(row.Won ?? 0),
+      draws: Number(row.Drawn ?? 0),
+      losses: Number(row.Lost ?? 0),
+      points: Number(row.Points ?? 0),
+      goalDifference: Number(row.GoalsDiference ?? 0),
+      goalsFor: Number(row.For ?? 0),
+      goalsAgainst: Number(row.Against ?? 0),
+    })
+  }
+
+  return { standings, numericTeamIdToCode }
+}
+
+function normalizeMatchStatus(resultCode, homeScore, awayScore) {
+  if (homeScore === null || awayScore === null) {
+    return 'scheduled'
+  }
+
+  const liveCodes = new Set([1, 2, 5, 6, 7, 8])
+  if (liveCodes.has(Number(resultCode))) {
+    return 'live'
+  }
+
+  return 'finished'
+}
+
+function inferLiveMinute(matchResult) {
+  const minute = matchResult?.Minute
+    ?? matchResult?.MatchMinute
+    ?? matchResult?.LivePeriod
+    ?? null
+  return minute === null || minute === undefined ? null : String(minute)
+}
+
+function buildMatchesFromApiRows(seed, rows, numericTeamIdToCode, stageId, warnings) {
+  const matchLookup = buildMatchLookup(seed)
+  const fixtureByMatchId = new Map()
+
+  for (const row of rows) {
+    const groupId = parseGroupId(row?.Group)
+    if (!groupId) {
+      continue
+    }
+
+    for (const result of row?.MatchResults ?? []) {
+      const homeCode = numericTeamIdToCode.get(String(result.HomeTeamId))
+      const awayCode = numericTeamIdToCode.get(String(result.AwayTeamId))
+
+      if (!homeCode || !awayCode) {
+        continue
+      }
+
+      const match = matchLookup.get(`${groupId}:${homeCode}:${awayCode}`)
+      if (!match) {
+        warnings.push(`Match FIFA non mappe: ${groupId} ${homeCode}-${awayCode}.`)
+        continue
+      }
+
+      if (fixtureByMatchId.has(match.id)) {
+        continue
+      }
+
+      const homeScore = result.HomeTeamScore ?? null
+      const awayScore = result.AwayTeamScore ?? null
+      fixtureByMatchId.set(match.id, {
+        id: match.id,
+        homeScore,
+        awayScore,
+        status: normalizeMatchStatus(result.Result, homeScore, awayScore),
+        kickoffTime: null,
+        kickoffIso: result.StartTime ?? null,
+        liveMinute: inferLiveMinute(result),
+        fifaMatchPath: result.IdMatch ? `${FIFA_COMPETITION_ID}/${FIFA_SEASON_ID}/${stageId}/${result.IdMatch}` : null,
+      })
+    }
+  }
+
+  return Array.from(fixtureByMatchId.values())
+}
+
 export async function buildFifaLiveSnapshot(seed) {
   const warnings = []
-  const codeToTeamId = new Map(seed.teams.map((team) => [team.fifaCode, team.id]))
-  const matchLookup = buildMatchLookup(seed)
+  const stageId = await fetchGroupStageId()
+  const standingsPayload = await fetchJson(buildStandingUrl(stageId))
+  const standingRows = standingsPayload?.Results ?? []
 
-  const jinaHeaders = { 'user-agent': 'Mozilla/5.0', 'x-no-cache': 'true' }
-  const [standingsResponse, fixturesResponse] = await Promise.all([
-    fetch(standingsUrl, { headers: jinaHeaders }),
-    fetch(fixturesUrl, { headers: jinaHeaders }),
-  ])
+  const {
+    standings: officialStandings,
+    numericTeamIdToCode,
+  } = buildStandingsFromApiRows(seed, standingRows, warnings)
 
-  if (!standingsResponse.ok || !fixturesResponse.ok) {
-    throw new Error(`Sources FIFA indisponibles (${standingsResponse.status}/${fixturesResponse.status}).`)
-  }
-
-  const [standingsText, fixturesText] = await Promise.all([
-    standingsResponse.text(),
-    fixturesResponse.text(),
-  ])
-
-  const parsedFixtures = parseFixtures(fixturesText)
-  const parsedStandings = parseStandings(standingsText)
-
-  const matches = []
-  for (const fixture of parsedFixtures) {
-    const match = matchLookup.get(`${fixture.groupId}:${fixture.homeCode}:${fixture.awayCode}`)
-
-    if (!match) {
-      warnings.push(`Match FIFA non mappe: ${fixture.groupId} ${fixture.homeCode}-${fixture.awayCode}.`)
-      continue
-    }
-
-    // Jina renders FIFA fixture times in UTC. Store that absolute instant as ISO;
-    // the browser converts it to the client's timezone when displaying it.
-    let kickoffIso = null
-    if (fixture.kickoffTime && fixture.utcDate) {
-      const dt = new Date(`${fixture.utcDate}T${fixture.kickoffTime}:00Z`)
-      if (!Number.isNaN(dt.getTime())) {
-        kickoffIso = dt.toISOString()
-      }
-    }
-
-    matches.push({
-      id: match.id,
-      homeScore: fixture.homeScore,
-      awayScore: fixture.awayScore,
-      status: fixture.status,
-      kickoffTime: null,
-      kickoffIso,
-      liveMinute: fixture.status === 'live' ? fixture.rawStatusToken : null,
-      fifaMatchPath: fixture.fifaMatchPath ?? null,
-    })
-  }
-
-  const officialStandings = []
-  for (const row of parsedStandings) {
-    const teamId = codeToTeamId.get(row.teamCode)
-    if (!teamId) {
-      warnings.push(`Equipe FIFA non mappee dans le classement: ${row.teamCode}.`)
-      continue
-    }
-
-    officialStandings.push({
-      groupId: row.groupId,
-      teamId,
-      rank: row.rank,
-      played: row.played,
-      wins: row.wins,
-      draws: row.draws,
-      losses: row.losses,
-      points: row.points,
-      goalDifference: row.goalDifference,
-      goalsFor: row.goalsFor,
-      goalsAgainst: row.goalsAgainst,
-    })
-  }
+  const matches = buildMatchesFromApiRows(seed, standingRows, numericTeamIdToCode, stageId, warnings)
 
   let standings = officialStandings
   if (officialStandings.length !== seed.teams.length) {

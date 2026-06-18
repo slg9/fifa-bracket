@@ -54,6 +54,16 @@ function hasRenderableScore(match: Pick<GroupMatch, 'homeScore' | 'awayScore'>):
   return match.homeScore !== null && match.awayScore !== null
 }
 
+function ScoreLoading() {
+  return (
+    <div className="daymatch__score daymatch__score--loading" aria-label="Chargement du score" role="status">
+      <span />
+      <span />
+      <span />
+    </div>
+  )
+}
+
 type DisplayMatch = {
   id: string
   stage: string
@@ -1453,7 +1463,7 @@ function App() {
                             <span className={heroAwayWin ? 'is-winner-score' : ''}>{featuredDayMatch.awayScore}</span>
                           </div>
                         ) : (
-                          <div className="daymatch__score daymatch__score--time">Chargement</div>
+                          <ScoreLoading />
                         )}
                       </div>
 
@@ -1516,7 +1526,7 @@ function App() {
                             <span className={miniAwayWin ? 'is-winner-score' : ''}>{match.awayScore}</span>
                           </div>
                         ) : (
-                          <div className="daymatch__score daymatch__score--time">Chargement</div>
+                          <ScoreLoading />
                         )}
                       </div>
                       <div className={`daymatch__team daymatch__team--right${miniAwayWin ? ' is-winner' : miniHomeWin ? ' is-loser' : ''}`}>
