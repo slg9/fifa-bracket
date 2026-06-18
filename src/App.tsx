@@ -50,6 +50,10 @@ function mergeLiveSnapshot(current: LiveState, snapshot: LiveSnapshot): LiveStat
   }
 }
 
+function hasRenderableScore(match: Pick<GroupMatch, 'homeScore' | 'awayScore'>): boolean {
+  return match.homeScore !== null && match.awayScore !== null
+}
+
 type DisplayMatch = {
   id: string
   stage: string
@@ -768,6 +772,7 @@ function App() {
   const [isCompactGroups, setIsCompactGroups] = useState(() => window.innerWidth <= 680)
   const [selectedGroupId, setSelectedGroupId] = useState('A')
   const [showDayModal, setShowDayModal] = useState(false)
+  const [initialDayModalLoading, setInitialDayModalLoading] = useState(false)
   const [selectedDayKey, setSelectedDayKey] = useState(() => localDateStr())
   const [menuOpen, setMenuOpen] = useState(false)
   const [matchModalGroupId, setMatchModalGroupId] = useState<string | null>(null)
@@ -775,6 +780,8 @@ function App() {
   const [matchStatsData, setMatchStatsData] = useState<MatchEventsData | null>(null)
   const [matchStatsLoading, setMatchStatsLoading] = useState(false)
   const [oddsData, setOddsData] = useState<OddsSnapshot | null>(null)
+  const dayModalAutoOpenedRef = useRef(false)
+  const initialSyncBaselineRef = useRef<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -814,6 +821,8 @@ function App() {
           })
         }
         setLoading(false)
+        setInitialDayModalLoading(true)
+        initialSyncBaselineRef.current = staticSnapshot?.syncedAt ?? null
 
         // Then fetch fresh scores from FIFA.com in background
         requestLiveSync().then((liveSnapshot) => {
@@ -865,6 +874,23 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!initialDayModalLoading) {
+      return
+    }
+
+    if (liveSource.syncedAt && liveSource.syncedAt !== initialSyncBaselineRef.current) {
+      setInitialDayModalLoading(false)
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setInitialDayModalLoading(false)
+    }, 8000)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [initialDayModalLoading, liveSource.syncedAt])
+
+  useEffect(() => {
     if (!showDayModal && !matchModalGroupId && !matchStatsModal) return
 
     const previousOverflow = document.body.style.overflow
@@ -879,7 +905,7 @@ function App() {
   }, [showDayModal, matchModalGroupId, matchStatsModal])
 
   useEffect(() => {
-    if (!seed) {
+    if (!seed || dayModalAutoOpenedRef.current) {
       return
     }
 
@@ -892,7 +918,9 @@ function App() {
       return
     }
 
+    setSelectedDayKey(localDateStr())
     setShowDayModal(true)
+    dayModalAutoOpenedRef.current = true
   }, [liveSource.matches, seed])
 
   async function handleSyncLiveSnapshot() {
@@ -1284,7 +1312,7 @@ function App() {
         ) : null}
       </header>
 
-      {showDayModal && featuredDayMatch ? (
+      {showDayModal && (featuredDayMatch || initialDayModalLoading) ? (
         <div className="daymodal" role="dialog" aria-modal="true" aria-labelledby="daymodal-title">
           <div className="daymodal__scrim" onClick={closeDayModal} />
           <div className="daymodal__panel">
@@ -1292,6 +1320,25 @@ function App() {
               ×
             </button>
 
+            {initialDayModalLoading ? (
+              <div className="daymodal__loading">
+                <svg className="boot-loader__mark" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <circle className="boot-loader__orbit boot-loader__orbit--outer" cx="60" cy="60" r="50" />
+                  <circle className="boot-loader__orbit boot-loader__orbit--inner" cx="60" cy="60" r="39" />
+                  <g className="boot-loader__ball">
+                    <circle cx="60" cy="60" r="24" fill="#eef3ff" />
+                    <polygon points="60,45 71,53 67,67 53,67 49,53" fill="#0a1020" />
+                    <path d="M60 45 60 36M71 53 80 49M67 67 73 76M53 67 47 76M49 53 40 49" stroke="#0a1020" strokeWidth="3" strokeLinecap="round" />
+                    <path d="M60 36A24 24 0 0 1 80 49M73 76A24 24 0 0 1 47 76M40 49A24 24 0 0 1 60 36" stroke="#0a1020" strokeWidth="3" fill="none" />
+                  </g>
+                </svg>
+                <div className="daymodal__loading-copy">
+                  <span className="boot-loader__label">Récupération FIFA</span>
+                  <span className="boot-loader__status">Chargement des scores et classements du jour</span>
+                </div>
+              </div>
+            ) : featuredDayMatch ? (
+              <>
             <div className="daymodal__hero">
               <div className="daymodal__eyebrow">
                 {liveNowMatches.length > 0 ? (
@@ -1364,9 +1411,10 @@ function App() {
                 if (!homeTeam || !awayTeam) return null
                 const heroStatus = inferStatus(featuredDayMatch)
                 const heroHHMM = formatKickoffTime(featuredDayMatch)
+                const heroHasScore = hasRenderableScore(featuredDayMatch)
                 const heroFinished = heroStatus === 'finished'
-                const heroHomeWin = heroFinished && featuredDayMatch.homeScore !== null && featuredDayMatch.awayScore !== null && featuredDayMatch.homeScore > featuredDayMatch.awayScore
-                const heroAwayWin = heroFinished && featuredDayMatch.homeScore !== null && featuredDayMatch.awayScore !== null && featuredDayMatch.awayScore > featuredDayMatch.homeScore
+                const heroHomeWin = heroFinished && heroHasScore && featuredDayMatch.homeScore! > featuredDayMatch.awayScore!
+                const heroAwayWin = heroFinished && heroHasScore && featuredDayMatch.awayScore! > featuredDayMatch.homeScore!
 
                 return (
                   <div
@@ -1398,12 +1446,14 @@ function App() {
                         </div>
                         {heroStatus === 'scheduled' && heroHHMM ? (
                           <div className="daymatch__score daymatch__score--time">{heroHHMM}</div>
-                        ) : (
+                        ) : heroHasScore ? (
                           <div className="daymatch__score">
-                            <span className={heroHomeWin ? 'is-winner-score' : ''}>{featuredDayMatch.homeScore ?? '-'}</span>
+                            <span className={heroHomeWin ? 'is-winner-score' : ''}>{featuredDayMatch.homeScore}</span>
                             <i>:</i>
-                            <span className={heroAwayWin ? 'is-winner-score' : ''}>{featuredDayMatch.awayScore ?? '-'}</span>
+                            <span className={heroAwayWin ? 'is-winner-score' : ''}>{featuredDayMatch.awayScore}</span>
                           </div>
+                        ) : (
+                          <div className="daymatch__score daymatch__score--time">Chargement</div>
                         )}
                       </div>
 
@@ -1424,9 +1474,10 @@ function App() {
                 if (!homeTeam || !awayTeam) return null
                 const kickoffTime = formatKickoffTime(match)
                 const liveStatus = inferStatus(match)
+                const miniHasScore = hasRenderableScore(match)
                 const miniFinished = liveStatus === 'finished'
-                const miniHomeWin = miniFinished && match.homeScore !== null && match.awayScore !== null && match.homeScore > match.awayScore
-                const miniAwayWin = miniFinished && match.homeScore !== null && match.awayScore !== null && match.awayScore > match.homeScore
+                const miniHomeWin = miniFinished && miniHasScore && match.homeScore! > match.awayScore!
+                const miniAwayWin = miniFinished && miniHasScore && match.awayScore! > match.homeScore!
 
                 return (
                   <article
@@ -1458,12 +1509,14 @@ function App() {
                         </div>
                         {liveStatus === 'scheduled' && kickoffTime ? (
                           <div className="daymatch__score daymatch__score--time">{kickoffTime}</div>
-                        ) : (
+                        ) : miniHasScore ? (
                           <div className="daymatch__score">
-                            <span className={miniHomeWin ? 'is-winner-score' : ''}>{match.homeScore ?? '-'}</span>
+                            <span className={miniHomeWin ? 'is-winner-score' : ''}>{match.homeScore}</span>
                             <i>:</i>
-                            <span className={miniAwayWin ? 'is-winner-score' : ''}>{match.awayScore ?? '-'}</span>
+                            <span className={miniAwayWin ? 'is-winner-score' : ''}>{match.awayScore}</span>
                           </div>
+                        ) : (
+                          <div className="daymatch__score daymatch__score--time">Chargement</div>
                         )}
                       </div>
                       <div className={`daymatch__team daymatch__team--right${miniAwayWin ? ' is-winner' : miniHomeWin ? ' is-loser' : ''}`}>
@@ -1497,6 +1550,8 @@ function App() {
                 )
               })}
             </div>
+              </>
+            ) : null}
           </div>
         </div>
       ) : null}

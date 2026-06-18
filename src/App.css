@@ -886,6 +886,21 @@
   padding: 28px 28px 18px;
 }
 
+.daymodal__loading {
+  min-height: 420px;
+  display: grid;
+  place-items: center;
+  gap: 16px;
+  padding: 40px 28px;
+  text-align: center;
+}
+
+.daymodal__loading-copy {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
 .daymodal__eyebrow {
   display: flex;
   align-items: center;

@@ -188,6 +188,86 @@ function buildMatchLookup(seed) {
   return lookup
 }
 
+function buildFallbackStandings(seed, matches) {
+  const rowsByTeamId = new Map(
+    seed.teams.map((team) => [team.id, {
+      groupId: team.groupId,
+      teamId: team.id,
+      played: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      goalDifference: 0,
+      points: 0,
+    }]),
+  )
+
+  const matchById = new Map(matches.map((match) => [match.id, match]))
+
+  for (const seedMatch of seed.matches) {
+    const liveMatch = matchById.get(seedMatch.id)
+    if (!liveMatch || liveMatch.homeScore === null || liveMatch.awayScore === null) {
+      continue
+    }
+
+    const homeRow = rowsByTeamId.get(seedMatch.homeTeamId)
+    const awayRow = rowsByTeamId.get(seedMatch.awayTeamId)
+    if (!homeRow || !awayRow) {
+      continue
+    }
+
+    homeRow.played += 1
+    awayRow.played += 1
+    homeRow.goalsFor += liveMatch.homeScore
+    homeRow.goalsAgainst += liveMatch.awayScore
+    awayRow.goalsFor += liveMatch.awayScore
+    awayRow.goalsAgainst += liveMatch.homeScore
+
+    if (liveMatch.homeScore > liveMatch.awayScore) {
+      homeRow.wins += 1
+      awayRow.losses += 1
+      homeRow.points += 3
+    } else if (liveMatch.homeScore < liveMatch.awayScore) {
+      awayRow.wins += 1
+      homeRow.losses += 1
+      awayRow.points += 3
+    } else {
+      homeRow.draws += 1
+      awayRow.draws += 1
+      homeRow.points += 1
+      awayRow.points += 1
+    }
+  }
+
+  const standings = []
+  for (const group of seed.groups) {
+    const rows = seed.teams
+      .filter((team) => team.groupId === group.id)
+      .map((team) => {
+        const row = rowsByTeamId.get(team.id)
+        row.goalDifference = row.goalsFor - row.goalsAgainst
+        return row
+      })
+      .sort((a, b) => (
+        b.points - a.points ||
+        b.goalDifference - a.goalDifference ||
+        b.goalsFor - a.goalsFor ||
+        a.teamId.localeCompare(b.teamId)
+      ))
+
+    rows.forEach((row, index) => {
+      standings.push({
+        ...row,
+        rank: index + 1,
+      })
+    })
+  }
+
+  return standings
+}
+
 export async function buildFifaLiveSnapshot(seed) {
   const warnings = []
   const codeToTeamId = new Map(seed.teams.map((team) => [team.fifaCode, team.id]))
@@ -242,7 +322,7 @@ export async function buildFifaLiveSnapshot(seed) {
     })
   }
 
-  const standings = []
+  const officialStandings = []
   for (const row of parsedStandings) {
     const teamId = codeToTeamId.get(row.teamCode)
     if (!teamId) {
@@ -250,7 +330,7 @@ export async function buildFifaLiveSnapshot(seed) {
       continue
     }
 
-    standings.push({
+    officialStandings.push({
       groupId: row.groupId,
       teamId,
       rank: row.rank,
@@ -263,6 +343,12 @@ export async function buildFifaLiveSnapshot(seed) {
       goalsFor: row.goalsFor,
       goalsAgainst: row.goalsAgainst,
     })
+  }
+
+  let standings = officialStandings
+  if (officialStandings.length !== seed.teams.length) {
+    warnings.push('Classements FIFA incomplets, classement recalcule depuis les resultats de match.')
+    standings = buildFallbackStandings(seed, matches)
   }
 
   if (matches.length === 0) {
