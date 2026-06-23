@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { toBlob } from 'html-to-image'
 import './App.css'
 import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
 import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
@@ -286,24 +287,74 @@ function flagUrl(team: Team): string {
   return `https://flagcdn.com/w80/${team.iso2}.png`
 }
 
+function getEntrantTeamId(entrant: KnockoutEntrant): string | null {
+  return entrant.kind === 'team' ? entrant.teamId : null
+}
+
+function buildConnectorPath(x1: number, y1: number, x2: number, y2: number): string {
+  const midX = (x1 + x2) / 2
+  const horizontalDirection = x2 >= x1 ? 1 : -1
+  const deltaY = y2 - y1
+  const radius = Math.min(18, Math.abs(deltaY) / 2, Math.abs(midX - x1))
+
+  if (radius < 1) {
+    return `M ${x1} ${y1} H ${x2}`
+  }
+
+  const turnInX = midX - horizontalDirection * radius
+  const turnOutX = midX + horizontalDirection * radius
+  const turnInY = y1 + Math.sign(deltaY) * radius
+  const turnOutY = y2 - Math.sign(deltaY) * radius
+
+  return [
+    `M ${x1} ${y1}`,
+    `H ${turnInX}`,
+    `Q ${midX} ${y1} ${midX} ${turnInY}`,
+    `V ${turnOutY}`,
+    `Q ${midX} ${y2} ${turnOutX} ${y2}`,
+    `H ${x2}`,
+  ].join(' ')
+}
+
+function normalizeFilePart(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+const mobileRoundTabs = [
+  { key: 'R32', label: 'R32', stage: 'Round of 32' },
+  { key: 'R16', label: 'R16', stage: 'Round of 16' },
+  { key: 'QF', label: 'QF', stage: 'Quarter-final' },
+  { key: 'SF', label: 'SF', stage: 'Semi-final' },
+  { key: 'F', label: 'Finale', stage: 'Finale' },
+] as const
+
 function KnockoutTeamBadge({
   entrant,
   teamsById,
   isWinner,
   isLoser,
   isFocus,
+  isActivePath,
   side,
   isInteractive,
   onPick,
+  onPreview,
 }: {
   entrant: KnockoutEntrant
   teamsById: Map<string, Team>
   isWinner: boolean
   isLoser: boolean
   isFocus: boolean
+  isActivePath: boolean
   side: 'left' | 'center' | 'right'
   isInteractive: boolean
   onPick?: (teamId: string) => void
+  onPreview?: (teamId: string | null) => void
 }) {
   if (entrant.kind === 'placeholder') {
     return (
@@ -318,7 +369,7 @@ function KnockoutTeamBadge({
   if (!team) {
     return (
       <div className="bm__team bm__team--placeholder">
-        <span className="bm__name">Équipe inconnue</span>
+        <span className="bm__name">Equipe inconnue</span>
       </div>
     )
   }
@@ -334,24 +385,109 @@ function KnockoutTeamBadge({
         isWinner ? 'is-win' : '',
         isLoser ? 'is-lose' : '',
         isFocus ? 'is-focus' : '',
+        isActivePath ? 'is-active-path' : '',
       ].filter(Boolean).join(' ')}
       disabled={!isInteractive}
       onClick={() => onPick?.(team.id)}
+      onMouseEnter={() => onPreview?.(team.id)}
+      onMouseLeave={() => onPreview?.(null)}
+      onFocus={() => onPreview?.(team.id)}
+      onBlur={() => onPreview?.(null)}
     >
       {side === 'right' ? (
         <>
           <span className="bm__name">{team.name}</span>
-          {src ? <img src={src} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
+          {isWinner ? <span className="bm__tick" aria-hidden="true">x</span> : null}
+          {src ? <img src={src} alt="" className="flag-image" crossOrigin="anonymous" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
         </>
       ) : (
         <>
-          {src ? <img src={src} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
+          {src ? <img src={src} alt="" className="flag-image" crossOrigin="anonymous" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
           <span className="bm__name">{team.name}</span>
+          {isWinner ? <span className="bm__tick" aria-hidden="true">x</span> : null}
         </>
       )}
     </button>
   )
 }
+
+const MatchCard = memo(function MatchCard({
+  match,
+  teamsById,
+  side,
+  simulationEnabled,
+  isActive,
+  isDimmed,
+  isFinalCard,
+  focusId,
+  registerRef,
+  onPick,
+  onClear,
+  onPreview,
+}: {
+  match: DisplayMatch
+  teamsById: Map<string, Team>
+  side: 'left' | 'center' | 'right'
+  simulationEnabled: boolean
+  isActive: boolean
+  isDimmed: boolean
+  isFinalCard: boolean
+  focusId: string | null
+  registerRef: (node: HTMLDivElement | null) => void
+  onPick: (matchId: string, teamId: string) => void
+  onClear: (matchId: string) => void
+  onPreview: (teamId: string | null) => void
+}) {
+  const homeTeamId = getEntrantTeamId(match.home)
+  const awayTeamId = getEntrantTeamId(match.away)
+
+  return (
+    <article
+      className={[
+        'bm',
+        isActive ? 'is-active' : '',
+        isDimmed ? 'is-dimmed' : '',
+        isFinalCard ? 'bm--final' : '',
+      ].filter(Boolean).join(' ')}
+      ref={registerRef}
+      data-match-id={match.id}
+    >
+      <div className="bm__meta">
+        <span>{match.label.toUpperCase()}</span>
+        <span>{match.dateLabel.toUpperCase()}</span>
+      </div>
+      <KnockoutTeamBadge
+        entrant={match.home}
+        teamsById={teamsById}
+        isWinner={match.winnerId === homeTeamId}
+        isLoser={match.played && Boolean(homeTeamId) && match.winnerId !== homeTeamId}
+        isFocus={focusId === homeTeamId}
+        isActivePath={isActive}
+        side={side}
+        isInteractive={simulationEnabled}
+        onPick={simulationEnabled ? (teamId) => onPick(match.id, teamId) : undefined}
+        onPreview={onPreview}
+      />
+      <KnockoutTeamBadge
+        entrant={match.away}
+        teamsById={teamsById}
+        isWinner={match.winnerId === awayTeamId}
+        isLoser={match.played && Boolean(awayTeamId) && match.winnerId !== awayTeamId}
+        isFocus={focusId === awayTeamId}
+        isActivePath={isActive}
+        side={side}
+        isInteractive={simulationEnabled}
+        onPick={simulationEnabled ? (teamId) => onPick(match.id, teamId) : undefined}
+        onPreview={onPreview}
+      />
+      {simulationEnabled && match.played ? (
+        <div className="bm__actions match-card-actions">
+          <button type="button" className="bm__clear" onClick={() => onClear(match.id)} aria-label={`Effacer ${match.label}`}>x</button>
+        </div>
+      ) : null}
+    </article>
+  )
+})
 
 function resolveDisplayBracket(
   groupBracket: ReturnType<typeof buildKnockoutBracket>,
@@ -418,6 +554,7 @@ function BracketBoard({
   simulationEnabled,
   onPick,
   onClear,
+  onFocusChange,
 }: {
   matches: DisplayMatch[]
   teamsById: Map<string, Team>
@@ -426,51 +563,101 @@ function BracketBoard({
   simulationEnabled: boolean
   onPick: (matchId: string, teamId: string) => void
   onClear: (matchId: string) => void
+  onFocusChange: (teamId: string | null) => void
 }) {
-  const fitRef = useRef<HTMLDivElement | null>(null)
-  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const exportRef = useRef<HTMLDivElement | null>(null)
+  const boardRef = useRef<HTMLDivElement | null>(null)
   const refs = useRef<Record<string, HTMLDivElement | null>>({})
   const fullscreenRef = useRef<HTMLDivElement | null>(null)
-  const [scale, setScale] = useState(1)
   const [box, setBox] = useState({ width: 0, height: 0 })
   const [lines, setLines] = useState<Array<{ id: string; d: string; active: boolean }>>([])
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isLandscape, setIsLandscape] = useState(() => window.innerWidth >= window.innerHeight)
+  const [previewTeamId, setPreviewTeamId] = useState<string | null>(null)
+  const [activeMobileRound, setActiveMobileRound] = useState<(typeof mobileRoundTabs)[number]['key']>('R32')
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportFeedback, setExportFeedback] = useState<string | null>(null)
 
   const matchMap = useMemo(() => new Map(matches.map((match) => [match.id, match])), [matches])
+  const parentLookup = useMemo(() => {
+    const lookup = new Map<string, string>()
+    for (const template of knockoutTemplates) {
+      if (template.home.type === 'winnerOf') {
+        lookup.set(template.home.matchId, template.id)
+      }
+      if (template.away.type === 'winnerOf') {
+        lookup.set(template.away.matchId, template.id)
+      }
+    }
+    return lookup
+  }, [])
+  const allTeams = useMemo(() => {
+    const teamIds = new Set<string>()
+    for (const match of matches) {
+      const homeTeamId = getEntrantTeamId(match.home)
+      const awayTeamId = getEntrantTeamId(match.away)
+      if (homeTeamId) teamIds.add(homeTeamId)
+      if (awayTeamId) teamIds.add(awayTeamId)
+    }
+
+    return [...teamIds]
+      .map((teamId) => teamsById.get(teamId))
+      .filter((team): team is Team => Boolean(team))
+      .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+  }, [matches, teamsById])
+  const focusTeamId = previewTeamId ?? focusId
+  const defaultActiveMatchIds = useMemo(() => new Set(['M101', 'M102', 'M103'].filter((id) => matchMap.has(id))), [matchMap])
+  const activeMatchIds = useMemo(() => {
+    if (!focusTeamId) {
+      return defaultActiveMatchIds
+    }
+
+    const highlighted = new Set<string>()
+    for (const match of matches) {
+      if ([match.home, match.away].some((entrant) => entrant.kind === 'team' && entrant.teamId === focusTeamId)) {
+        highlighted.add(match.id)
+      }
+    }
+    return highlighted
+  }, [defaultActiveMatchIds, focusTeamId, matches])
+  const activeLineIds = useMemo(() => {
+    if (!focusTeamId) {
+      return new Set(['M101', 'M102'])
+    }
+
+    const highlighted = new Set<string>()
+    for (const [childId, parentId] of parentLookup.entries()) {
+      if (activeMatchIds.has(childId) && activeMatchIds.has(parentId)) {
+        highlighted.add(childId)
+      }
+    }
+    return highlighted
+  }, [activeMatchIds, focusTeamId, parentLookup])
+  const finalMatch = matchMap.get('M103') ?? null
+  const championTeam = finalMatch?.winnerId ? teamsById.get(finalMatch.winnerId) ?? null : null
+  const mobileRoundMatches = useMemo(() => {
+    const grouped = new Map<string, DisplayMatch[]>()
+    for (const tab of mobileRoundTabs) {
+      grouped.set(tab.key, matches.filter((match) => match.stage === tab.stage))
+    }
+    return grouped
+  }, [matches])
+  const focusedPathMatches = useMemo(() => {
+    if (!focusTeamId) return []
+    return knockoutTemplates
+      .map((template) => matchMap.get(template.id))
+      .filter((match): match is DisplayMatch => Boolean(match))
+      .filter((match) => activeMatchIds.has(match.id))
+  }, [activeMatchIds, focusTeamId, matchMap])
 
   useEffect(() => {
-    const fit = () => {
-      if (!fitRef.current || !wrapRef.current) {
-        return
-      }
-
-      const naturalWidth = wrapRef.current.scrollWidth
-      const naturalHeight = wrapRef.current.scrollHeight
-      const availableWidth = fitRef.current.clientWidth
-      const availableHeight = isFullscreen ? Math.max(fullscreenRef.current?.clientHeight ?? 0, fitRef.current.clientHeight) : 0
-      const widthScale = naturalWidth > 0 ? availableWidth / naturalWidth : 1
-      const heightScale = naturalHeight > 0 && availableHeight > 0 ? availableHeight / naturalHeight : 1
-      const nextScale = Math.min(1, widthScale, heightScale)
-
-      setScale((current) => (Math.abs(current - nextScale) < 0.001 ? current : nextScale))
-      setBox({ width: naturalWidth, height: naturalHeight })
+    if (!exportFeedback) {
+      return
     }
 
-    fit()
-
-    const resizeObserver = new ResizeObserver(fit)
-    if (fitRef.current) {
-      resizeObserver.observe(fitRef.current)
-    }
-
-    window.addEventListener('resize', fit)
-
-    return () => {
-      resizeObserver.disconnect()
-      window.removeEventListener('resize', fit)
-    }
-  }, [isFullscreen, isLandscape, matches, picks])
+    const timeout = window.setTimeout(() => setExportFeedback(null), 2800)
+    return () => window.clearTimeout(timeout)
+  }, [exportFeedback])
 
   useEffect(() => {
     const syncViewportState = () => {
@@ -489,6 +676,68 @@ function BracketBoard({
       window.removeEventListener('orientationchange', syncViewportState)
     }
   }, [])
+
+  useEffect(() => {
+    const updateGeometry = () => {
+      if (!boardRef.current) {
+        return
+      }
+
+      const boardRect = boardRef.current.getBoundingClientRect()
+      const nextLines: Array<{ id: string; d: string; active: boolean }> = []
+
+      setBox({
+        width: Math.ceil(boardRef.current.scrollWidth),
+        height: Math.ceil(boardRef.current.scrollHeight),
+      })
+
+      for (const match of matches) {
+        const parentId = parentLookup.get(match.id)
+        const node = refs.current[match.id]
+        const parentNode = parentId ? refs.current[parentId] : null
+
+        if (!node || !parentNode) {
+          continue
+        }
+
+        const matchRect = node.getBoundingClientRect()
+        const parentRect = parentNode.getBoundingClientRect()
+        const matchColumn = roundColumns.find((column) => column.ids.includes(match.id))
+        const side = matchColumn?.side ?? 'left'
+        const x1 = side === 'right' ? matchRect.left - boardRect.left : matchRect.right - boardRect.left
+        const x2 = side === 'right' ? parentRect.right - boardRect.left : parentRect.left - boardRect.left
+        const y1 = matchRect.top + matchRect.height / 2 - boardRect.top
+        const y2 = parentRect.top + parentRect.height / 2 - boardRect.top
+
+        nextLines.push({
+          id: match.id,
+          d: buildConnectorPath(x1, y1, x2, y2),
+          active: activeLineIds.has(match.id),
+        })
+      }
+
+      setLines(nextLines)
+    }
+
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(updateGeometry)
+    })
+
+    if (boardRef.current) {
+      observer.observe(boardRef.current)
+    }
+
+    const frame = requestAnimationFrame(updateGeometry)
+    const timeout = window.setTimeout(updateGeometry, 90)
+    window.addEventListener('resize', updateGeometry)
+
+    return () => {
+      observer.disconnect()
+      cancelAnimationFrame(frame)
+      window.clearTimeout(timeout)
+      window.removeEventListener('resize', updateGeometry)
+    }
+  }, [activeLineIds, matches, parentLookup, picks])
 
   async function toggleFullscreen() {
     const node = fullscreenRef.current
@@ -513,235 +762,315 @@ function BracketBoard({
     }
   }
 
-  useEffect(() => {
-    const parentLookup = new Map<string, string>()
-    for (const template of knockoutTemplates) {
-      if (template.home.type === 'winnerOf') {
-        parentLookup.set(template.home.matchId, template.id)
-      }
-      if (template.away.type === 'winnerOf') {
-        parentLookup.set(template.away.matchId, template.id)
-      }
+  async function generateBracketBlob() {
+    if (!exportRef.current) {
+      throw new Error("Zone d'export introuvable.")
     }
 
-    const computeLines = () => {
-      if (!wrapRef.current) {
+    setIsExporting(true)
+    exportRef.current.classList.add('is-exporting')
+
+    try {
+      const blob = await toBlob(exportRef.current, {
+        cacheBust: true,
+        pixelRatio: Math.min(3, Math.max(2, window.devicePixelRatio || 1)),
+        backgroundColor: '#050b16',
+      })
+
+      if (!blob) {
+        throw new Error("La generation de l'image a echoue.")
+      }
+
+      return blob
+    } finally {
+      exportRef.current.classList.remove('is-exporting')
+      setIsExporting(false)
+    }
+  }
+
+  function getBracketFileName() {
+    const homeTeamId = finalMatch ? getEntrantTeamId(finalMatch.home) : null
+    const awayTeamId = finalMatch ? getEntrantTeamId(finalMatch.away) : null
+    const homeTeam = homeTeamId ? teamsById.get(homeTeamId) : null
+    const awayTeam = awayTeamId ? teamsById.get(awayTeamId) : null
+
+    if (homeTeam && awayTeam) {
+      return `fifa-bracket-${normalizeFilePart(homeTeam.name)}-vs-${normalizeFilePart(awayTeam.name)}.png`
+    }
+
+    const date = new Date().toISOString().slice(0, 10)
+    return `fifa-bracket-${date}.png`
+  }
+
+  function downloadGeneratedBlob(blob: Blob) {
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.href = url
+    link.download = getBracketFileName()
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  }
+
+  async function handleDownload() {
+    try {
+      setExportFeedback("Generation de l'image...")
+      const blob = await generateBracketBlob()
+      downloadGeneratedBlob(blob)
+      setExportFeedback('Image telechargee.')
+    } catch (error) {
+      console.error('Bracket image download failed:', error)
+      setExportFeedback("Impossible de generer l'image pour le moment.")
+    }
+  }
+
+  async function handleShare() {
+    let blob: Blob | null = null
+
+    try {
+      setExportFeedback("Generation de l'image...")
+      blob = await generateBracketBlob()
+      const file = new File([blob], getBracketFileName(), { type: 'image/png' })
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'FIFA Bracket',
+          text: 'Voici mon bracket FIFA',
+          files: [file],
+        })
+        setExportFeedback("Image prete a etre partagee.")
         return
       }
 
-      const boardRect = wrapRef.current.getBoundingClientRect()
-      const nextLines: Array<{ id: string; d: string; active: boolean }> = []
-
-      for (const match of matches) {
-        const parentId = parentLookup.get(match.id)
-        const node = refs.current[match.id]
-        const parentNode = parentId ? refs.current[parentId] : null
-
-        if (!node || !parentNode) {
-          continue
-        }
-
-        const matchRect = node.getBoundingClientRect()
-        const parentRect = parentNode.getBoundingClientRect()
-        const matchColumn = roundColumns.find((column) => column.ids.includes(match.id))
-        const side = matchColumn?.side ?? 'left'
-        const x1 =
-          side === 'right'
-            ? (matchRect.left - boardRect.left) / scale
-            : (matchRect.right - boardRect.left) / scale
-        const x2 =
-          side === 'right'
-            ? (parentRect.right - boardRect.left) / scale
-            : (parentRect.left - boardRect.left) / scale
-        const y1 = (matchRect.top + matchRect.height / 2 - boardRect.top) / scale
-        const y2 = (parentRect.top + parentRect.height / 2 - boardRect.top) / scale
-        const midX = (x1 + x2) / 2
-        const active = Boolean(
-          focusId &&
-            match.winnerId === focusId &&
-            [match.home, match.away].some(
-              (entrant) => entrant.kind === 'team' && entrant.teamId === focusId,
-            ),
-        )
-
-        nextLines.push({
-          id: match.id,
-          d: `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`,
-          active,
-        })
+      downloadGeneratedBlob(blob)
+      setExportFeedback('Telechargement lance.')
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setExportFeedback(null)
+        return
       }
 
-      setLines(nextLines)
+      console.error('Bracket image share failed:', error)
+
+      if (blob) {
+        downloadGeneratedBlob(blob)
+        setExportFeedback('Partage non disponible, telechargement lance.')
+        return
+      }
+
+      try {
+        const fallbackBlob = await generateBracketBlob()
+        downloadGeneratedBlob(fallbackBlob)
+        setExportFeedback('Partage non disponible, telechargement lance.')
+      } catch (fallbackError) {
+        console.error('Bracket share fallback failed:', fallbackError)
+        setExportFeedback("Impossible de generer l'image pour le moment.")
+      }
     }
-
-    const frame = requestAnimationFrame(computeLines)
-    const timeout = setTimeout(computeLines, 120)
-
-    return () => {
-      cancelAnimationFrame(frame)
-      clearTimeout(timeout)
-    }
-  }, [matches, focusId, scale])
-
-  const champion = matches.find((match) => match.id === 'M103')?.winnerId
-  const championTeam = champion ? teamsById.get(champion) : null
+  }
 
   return (
     <div className={`bracket-shell${isFullscreen ? ' is-fullscreen' : ''}`} ref={fullscreenRef}>
       <div className="bracket-shell__toolbar">
-        <div className="bracket-shell__hint">
-          {isFullscreen && !isLandscape ? 'Tourne sur le cote pour profiter du bracket en paysage.' : 'Le tableau s ajuste a la largeur de ton ecran.'}
+        <div className="bracket-shell__copy">
+          <div className="bracket-shell__title">Tableau final</div>
+          <div className="bracket-shell__hint">
+            {focusTeamId
+              ? `Parcours mis en avant: ${teamsById.get(focusTeamId)?.name ?? 'Equipe'}`
+              : 'Le centre souligne naturellement la route vers la finale.'}
+          </div>
         </div>
-        <button type="button" className="chip-btn bracket-shell__fullscreen" onClick={() => void toggleFullscreen()}>
-          {isFullscreen ? 'Quitter plein ecran' : 'Plein ecran'}
-        </button>
+
+        <div className="bracket-toolbar">
+          <label className="bracket-select">
+            <span>Equipe</span>
+            <select value={focusId ?? ''} onChange={(event) => onFocusChange(event.target.value || null)}>
+              <option value="">Parcours finalistes</option>
+              {allTeams.map((team) => (
+                <option key={team.id} value={team.id}>{team.name}</option>
+              ))}
+            </select>
+          </label>
+
+          {focusId ? (
+            <button type="button" className="chip-btn chip-btn--sm" onClick={() => onFocusChange(null)}>
+              Reinitialiser le focus
+            </button>
+          ) : null}
+
+          <button type="button" className="chip-btn chip-btn--sm" disabled={isExporting} onClick={() => void handleShare()}>
+            {isExporting ? "Generation de l'image..." : 'Partager'}
+          </button>
+
+          <button type="button" className="chip-btn chip-btn--sm" disabled={isExporting} onClick={() => void handleDownload()}>
+            {isExporting ? "Generation de l'image..." : 'Telecharger'}
+          </button>
+
+          <button type="button" className="chip-btn chip-btn--sm bracket-shell__fullscreen" onClick={() => void toggleFullscreen()}>
+            {isFullscreen ? 'Quitter plein ecran' : 'Plein ecran'}
+          </button>
+        </div>
       </div>
+
+      {exportFeedback ? <div className="bracket-shell__feedback">{exportFeedback}</div> : null}
 
       {isFullscreen && !isLandscape ? (
         <div className="bracket-rotate">
-          <div className="bracket-rotate__icon" aria-hidden="true">
-            ↺
-          </div>
-          <div className="bracket-rotate__title">Tourne sur le cote</div>
-          <p>Le plein ecran est lance. Passe le telephone en paysage pour voir tout le tableau comme une video.</p>
+          <div className="bracket-rotate__icon" aria-hidden="true">R</div>
+          <div className="bracket-rotate__title">Passe en paysage</div>
+          <p>Le bracket complet est plus lisible en mode horizontal pendant le plein ecran.</p>
         </div>
       ) : null}
 
-      <div className="bracket-fit" ref={fitRef} style={{ height: box.height ? Math.ceil(box.height * scale) : undefined }}>
-        <div
-          className="bracket"
-          ref={wrapRef}
-          style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}
-        >
-        <svg className="bracket__links" width={box.width} height={box.height} aria-hidden="true">
-          {lines.map((line) => (
-            <path key={line.id} d={line.d} className={line.active ? 'link link--lit' : 'link'} />
-          ))}
-        </svg>
-
-        {roundColumns.map((column) => (
-          <div key={column.key} className={`bcol bcol--${column.side}`}>
-            <div className="bcol__label">{column.stage}</div>
-            <div className="bcol__matches">
-              {column.side === 'center' ? (
-                <div className="finalwrap">
-                  {column.ids.map((id) => {
-                    const match = matchMap.get(id)
-                    if (!match) return null
-
-                    return (
-                      <div
-                        key={match.id}
-                        className={`bm${focusId && [match.home, match.away].some((entrant) => entrant.kind === 'team' && entrant.teamId === focusId) ? ' is-onpath' : ''}`}
-                        ref={(node) => {
-                          refs.current[match.id] = node
-                        }}
-                      >
-                        <KnockoutTeamBadge
-                          entrant={match.home}
-                          teamsById={teamsById}
-                          isWinner={match.winnerId === (match.home.kind === 'team' ? match.home.teamId : '')}
-                          isLoser={match.played && match.winnerId !== (match.home.kind === 'team' ? match.home.teamId : '')}
-                          isFocus={focusId === (match.home.kind === 'team' ? match.home.teamId : '')}
-                          side="center"
-                          isInteractive={simulationEnabled}
-                          onPick={simulationEnabled ? (teamId) => onPick(match.id, teamId) : undefined}
-                        />
-                        <div className="bm__meta">
-                          <span>{match.label}</span>
-                          <span>{match.dateLabel}</span>
-                        </div>
-                        <KnockoutTeamBadge
-                          entrant={match.away}
-                          teamsById={teamsById}
-                          isWinner={match.winnerId === (match.away.kind === 'team' ? match.away.teamId : '')}
-                          isLoser={match.played && match.winnerId !== (match.away.kind === 'team' ? match.away.teamId : '')}
-                          isFocus={focusId === (match.away.kind === 'team' ? match.away.teamId : '')}
-                          side="center"
-                          isInteractive={simulationEnabled}
-                          onPick={simulationEnabled ? (teamId) => onPick(match.id, teamId) : undefined}
-                        />
-                        {simulationEnabled && match.played ? (
-                          <button type="button" className="bm__clear" onClick={() => onClear(match.id)}>
-                            ×
-                          </button>
-                        ) : null}
-                      </div>
-                    )
-                  })}
-
-                  <div className={`champ${championTeam ? ' is-set' : ''}`}>
-                    <div className="champ__trophy">🏆</div>
-                    {championTeam ? (
-                      <>
-                        {flagUrl(championTeam) ? (
-                          <img src={flagUrl(championTeam)} alt="" className="champ__flag-image" />
-                        ) : (
-                          <div className="champ__flag">{championTeam.flagEmoji}</div>
-                        )}
-                        <div className="champ__name">{championTeam.name}</div>
-                        <div className="champ__cap">Champion provisoire</div>
-                      </>
-                    ) : (
-                      <div className="champ__cap champ__cap--tbd">Le champion s'affiche ici</div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                column.ids.map((id) => {
-                  const match = matchMap.get(id)
-                  if (!match) return null
-                  const isOnPath = Boolean(
-                    focusId &&
-                      [match.home, match.away].some(
-                        (entrant) => entrant.kind === 'team' && entrant.teamId === focusId,
-                      ),
-                  )
-
-                  return (
-                    <div
-                      key={match.id}
-                      className={`bm${isOnPath ? ' is-onpath' : ''}`}
-                      ref={(node) => {
-                        refs.current[match.id] = node
-                      }}
-                    >
-                      <KnockoutTeamBadge
-                        entrant={match.home}
-                        teamsById={teamsById}
-                        isWinner={match.winnerId === (match.home.kind === 'team' ? match.home.teamId : '')}
-                        isLoser={match.played && match.winnerId !== (match.home.kind === 'team' ? match.home.teamId : '')}
-                        isFocus={focusId === (match.home.kind === 'team' ? match.home.teamId : '')}
-                        side={column.side}
-                        isInteractive={simulationEnabled}
-                        onPick={simulationEnabled ? (teamId) => onPick(match.id, teamId) : undefined}
-                      />
-                      <div className="bm__meta">
-                        <span>{match.label}</span>
-                        <span>{match.dateLabel}</span>
-                      </div>
-                      <KnockoutTeamBadge
-                        entrant={match.away}
-                        teamsById={teamsById}
-                        isWinner={match.winnerId === (match.away.kind === 'team' ? match.away.teamId : '')}
-                        isLoser={match.played && match.winnerId !== (match.away.kind === 'team' ? match.away.teamId : '')}
-                        isFocus={focusId === (match.away.kind === 'team' ? match.away.teamId : '')}
-                        side={column.side}
-                        isInteractive={simulationEnabled}
-                        onPick={simulationEnabled ? (teamId) => onPick(match.id, teamId) : undefined}
-                      />
-                      {simulationEnabled && match.played ? (
-                        <button type="button" className="bm__clear" onClick={() => onClear(match.id)}>
-                          ×
-                        </button>
-                      ) : null}
-                    </div>
-                  )
-                })
-              )}
+      <div className="bracket-mobile-shell">
+        {focusTeamId ? (
+          <section className="bracket-mobile-path">
+            <div className="bracket-mobile-path__head">
+              <strong>{teamsById.get(focusTeamId)?.name}</strong>
+              <span>Parcours selectionne</span>
             </div>
+            <div className="bracket-mobile-path__list">
+              {focusedPathMatches.map((match) => (
+                <div key={match.id} className="bracket-mobile-path__item">
+                  <span>{match.stage}</span>
+                  <b>
+                    {match.home.kind === 'team' ? teamsById.get(match.home.teamId)?.name : match.home.label}
+                    {' vs '}
+                    {match.away.kind === 'team' ? teamsById.get(match.away.teamId)?.name : match.away.label}
+                  </b>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <div className="bracket-mobile-tabs" role="tablist" aria-label="Rounds du bracket">
+          {mobileRoundTabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={activeMobileRound === tab.key}
+              className={`bracket-mobile-tab${activeMobileRound === tab.key ? ' is-active' : ''}`}
+              onClick={() => setActiveMobileRound(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="bracket-mobile-round">
+          {(mobileRoundMatches.get(activeMobileRound) ?? []).map((match) => (
+            <MatchCard
+              key={match.id}
+              match={match}
+              teamsById={teamsById}
+              side="center"
+              simulationEnabled={simulationEnabled}
+              isActive={activeMatchIds.has(match.id)}
+              isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
+              isFinalCard={match.id === 'M103'}
+              focusId={focusId}
+              registerRef={() => undefined}
+              onPick={onPick}
+              onClear={onClear}
+              onPreview={setPreviewTeamId}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="bracket-fit">
+        <div className={`bracket-export-wrapper${isExporting ? ' is-exporting' : ''}`} ref={exportRef}>
+          <div className="bracket-board" ref={boardRef}>
+            <svg className="bracket__links" width={box.width} height={box.height} aria-hidden="true">
+              {lines.map((line) => (
+                <path key={line.id} d={line.d} className={line.active ? 'link link--lit' : 'link'} />
+              ))}
+            </svg>
+
+            {roundColumns.map((column) => (
+              <div key={column.key} className={`bcol bcol--${column.side}`}>
+                <div className="bcol__label">{column.stage}</div>
+                <div className="bcol__matches">
+                  {column.side === 'center' ? (
+                    <div className="finalwrap">
+                      {column.ids.map((id) => {
+                        const match = matchMap.get(id)
+                        if (!match) return null
+
+                        return (
+                          <div key={match.id} className="bracket-final">
+                            <MatchCard
+                              match={match}
+                              teamsById={teamsById}
+                              side="center"
+                              simulationEnabled={simulationEnabled}
+                              isActive={activeMatchIds.has(match.id)}
+                              isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
+                              isFinalCard
+                              focusId={focusId}
+                              registerRef={(node) => {
+                                refs.current[match.id] = node
+                              }}
+                              onPick={onPick}
+                              onClear={onClear}
+                              onPreview={setPreviewTeamId}
+                            />
+                            <div className="finale__caption">FINALE / 19 JUL</div>
+                          </div>
+                        )
+                      })}
+
+                      <div className={`champ${championTeam ? ' is-set' : ''}`}>
+                        <div className="champ__eyebrow">Champion</div>
+                        {championTeam ? (
+                          <>
+                            {flagUrl(championTeam) ? (
+                              <img src={flagUrl(championTeam)} alt="" className="champ__flag-image" crossOrigin="anonymous" />
+                            ) : (
+                              <div className="champ__flag">{championTeam.flagEmoji}</div>
+                            )}
+                            <div className="champ__name">{championTeam.name}</div>
+                            <div className="champ__cap">Le trophee prend forme ici</div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="champ__trophy">CUP</div>
+                            <div className="champ__cap champ__cap--tbd">Le champion s'affiche ici</div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    column.ids.map((id) => {
+                      const match = matchMap.get(id)
+                      if (!match) return null
+
+                      return (
+                        <MatchCard
+                          key={match.id}
+                          match={match}
+                          teamsById={teamsById}
+                          side={column.side}
+                          simulationEnabled={simulationEnabled}
+                          isActive={activeMatchIds.has(match.id)}
+                          isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
+                          isFinalCard={false}
+                          focusId={focusId}
+                          registerRef={(node) => {
+                            refs.current[match.id] = node
+                          }}
+                          onPick={onPick}
+                          onClear={onClear}
+                          onPreview={setPreviewTeamId}
+                        />
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
         </div>
       </div>
     </div>
@@ -1920,6 +2249,7 @@ function App() {
               simulationEnabled={mode === 'simulation'}
               onPick={handlePickWinner}
               onClear={handleClearWinner}
+              onFocusChange={setFocusId}
             />
           )}
         </main>
