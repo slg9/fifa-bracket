@@ -2356,18 +2356,6 @@
   letter-spacing: 0.4px;
 }
 
-.bm__clear {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 20px;
-  height: 20px;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: #10172a;
-  color: var(--muted-2);
-  transform: translate(-50%, -50%);
-}
 
 .finalwrap {
   display: flex;
@@ -3347,30 +3335,31 @@
 }
 
 .bracket-fit {
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 24px;
   background:
     radial-gradient(circle at 50% 0%, rgba(25, 211, 255, 0.08), transparent 32%),
     linear-gradient(180deg, rgba(5, 11, 22, 0.95), rgba(5, 11, 22, 0.72));
-  scrollbar-gutter: stable both-edges;
 }
 
-.bracket-fit::-webkit-scrollbar {
-  height: 10px;
+.bracket-fit__stage {
+  position: relative;
+  width: 100%;
+  min-height: 560px;
+  padding: 22px 22px 18px;
+  overflow: hidden;
 }
 
-.bracket-fit::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
+.bracket-fit__transform {
+  transform-origin: top left;
+  will-change: transform;
 }
 
 .bracket-export-wrapper {
   width: max-content;
   min-width: 100%;
-  padding: 22px;
   overflow: visible;
 }
 
@@ -3537,11 +3526,28 @@
 
 .bm__clear {
   position: static;
+  display: inline-grid;
+  place-items: center;
   width: 26px;
   height: 26px;
-  transform: none;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
-  background: rgba(8, 13, 24, 0.9);
+  background: rgba(8, 13, 24, 0.94);
+  color: #d8e2f9;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+
+.bm__clear:hover,
+.bm__clear:focus-visible {
+  border-color: rgba(255, 77, 109, 0.35);
+  color: #ffffff;
+  background: rgba(52, 17, 26, 0.96);
+  outline: none;
 }
 
 .bm__team--placeholder .bm__name {
@@ -3730,5 +3736,10 @@
     overflow: hidden;
     opacity: 0;
     pointer-events: none;
+  }
+
+  .bracket-fit__stage {
+    min-height: 0;
+    padding: 0;
   }
 }

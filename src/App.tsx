@@ -482,7 +482,9 @@ const MatchCard = memo(function MatchCard({
       />
       {simulationEnabled && match.played ? (
         <div className="bm__actions match-card-actions">
-          <button type="button" className="bm__clear" onClick={() => onClear(match.id)} aria-label={`Effacer ${match.label}`}>x</button>
+          <button type="button" className="bm__clear" onClick={() => onClear(match.id)} aria-label={`Effacer ${match.label}`}>
+            ?
+          </button>
         </div>
       ) : null}
     </article>
@@ -565,11 +567,13 @@ function BracketBoard({
   onClear: (matchId: string) => void
   onFocusChange: (teamId: string | null) => void
 }) {
+  const viewportRef = useRef<HTMLDivElement | null>(null)
   const exportRef = useRef<HTMLDivElement | null>(null)
   const boardRef = useRef<HTMLDivElement | null>(null)
   const refs = useRef<Record<string, HTMLDivElement | null>>({})
   const fullscreenRef = useRef<HTMLDivElement | null>(null)
   const [box, setBox] = useState({ width: 0, height: 0 })
+  const [visualScale, setVisualScale] = useState(1)
   const [lines, setLines] = useState<Array<{ id: string; d: string; active: boolean }>>([])
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isLandscape, setIsLandscape] = useState(() => window.innerWidth >= window.innerHeight)
@@ -683,13 +687,21 @@ function BracketBoard({
         return
       }
 
+      const nextWidth = Math.ceil(boardRef.current.scrollWidth)
+      const nextHeight = Math.ceil(boardRef.current.scrollHeight)
+      const viewportWidth = viewportRef.current?.clientWidth ?? 0
+      const nextScale = viewportWidth > 0 && nextWidth > 0
+        ? Math.min(1, Math.max(0.58, (viewportWidth - 24) / nextWidth))
+        : 1
       const boardRect = boardRef.current.getBoundingClientRect()
+      const safeScale = nextScale || 1
       const nextLines: Array<{ id: string; d: string; active: boolean }> = []
 
       setBox({
-        width: Math.ceil(boardRef.current.scrollWidth),
-        height: Math.ceil(boardRef.current.scrollHeight),
+        width: nextWidth,
+        height: nextHeight,
       })
+      setVisualScale(nextScale)
 
       for (const match of matches) {
         const parentId = parentLookup.get(match.id)
@@ -704,10 +716,10 @@ function BracketBoard({
         const parentRect = parentNode.getBoundingClientRect()
         const matchColumn = roundColumns.find((column) => column.ids.includes(match.id))
         const side = matchColumn?.side ?? 'left'
-        const x1 = side === 'right' ? matchRect.left - boardRect.left : matchRect.right - boardRect.left
-        const x2 = side === 'right' ? parentRect.right - boardRect.left : parentRect.left - boardRect.left
-        const y1 = matchRect.top + matchRect.height / 2 - boardRect.top
-        const y2 = parentRect.top + parentRect.height / 2 - boardRect.top
+        const x1 = (side === 'right' ? matchRect.left - boardRect.left : matchRect.right - boardRect.left) / safeScale
+        const x2 = (side === 'right' ? parentRect.right - boardRect.left : parentRect.left - boardRect.left) / safeScale
+        const y1 = (matchRect.top + matchRect.height / 2 - boardRect.top) / safeScale
+        const y2 = (parentRect.top + parentRect.height / 2 - boardRect.top) / safeScale
 
         nextLines.push({
           id: match.id,
@@ -725,6 +737,9 @@ function BracketBoard({
 
     if (boardRef.current) {
       observer.observe(boardRef.current)
+    }
+    if (viewportRef.current) {
+      observer.observe(viewportRef.current)
     }
 
     const frame = requestAnimationFrame(updateGeometry)
@@ -979,9 +994,17 @@ function BracketBoard({
         </div>
       </div>
 
-      <div className="bracket-fit">
-        <div className={`bracket-export-wrapper${isExporting ? ' is-exporting' : ''}`} ref={exportRef}>
-          <div className="bracket-board" ref={boardRef}>
+      <div className="bracket-fit" ref={viewportRef}>
+        <div className="bracket-fit__stage" style={{ height: box.height ? Math.ceil(box.height * visualScale) + 44 : undefined }}>
+          <div
+            className="bracket-fit__transform"
+            style={{
+              width: box.width || undefined,
+              transform: visualScale < 0.999 ? `scale(${visualScale})` : undefined,
+            }}
+          >
+            <div className={`bracket-export-wrapper${isExporting ? ' is-exporting' : ''}`} ref={exportRef}>
+              <div className="bracket-board" ref={boardRef}>
             <svg className="bracket__links" width={box.width} height={box.height} aria-hidden="true">
               {lines.map((line) => (
                 <path key={line.id} d={line.d} className={line.active ? 'link link--lit' : 'link'} />
@@ -1070,6 +1093,8 @@ function BracketBoard({
                 </div>
               </div>
             ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
