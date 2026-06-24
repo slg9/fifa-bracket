@@ -39,9 +39,11 @@ export function GoalSave({ ballCount, difficulty, onResult }: GoalSaveProps) {
   const [particles, setParticles] = useState<{ id: number; x: number; y: number }[]>([])
   const [resultLabel, setResultLabel] = useState<string | null>(null)
   const endedRef = useRef(false)
-  const resolvedRef = useRef(new Set<number>())
   const ballsRef = useRef(balls)
   ballsRef.current = balls
+  // keep latest onResult without making it a dep of the resolution effect
+  const onResultRef = useRef(onResult)
+  onResultRef.current = onResult
 
   // auto-resolve balls that reach goal
   useEffect(() => {
@@ -49,8 +51,11 @@ export function GoalSave({ ballCount, difficulty, onResult }: GoalSaveProps) {
     balls.forEach((ball) => {
       // after delay + duration, if still flying → scored
       const t = setTimeout(() => {
-        setBalls((prev) => prev.map((b) => b.id === ball.id && b.state === 'flying' ? { ...b, state: 'scored' as const } : b))
-        resolvedRef.current.add(ball.id)
+        setBalls((prev) => {
+          const target = prev.find((b) => b.id === ball.id)
+          if (!target || target.state !== 'flying') return prev // no change → same ref, no re-render
+          return prev.map((b) => b.id === ball.id ? { ...b, state: 'scored' as const } : b)
+        })
       }, ball.delay + ball.duration + 50)
       timers.push(t)
     })
@@ -58,7 +63,7 @@ export function GoalSave({ ballCount, difficulty, onResult }: GoalSaveProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // check resolution
+  // check resolution — only depends on balls so onResult reference changes don't cancel the timeout
   useEffect(() => {
     if (endedRef.current) return
     const allResolved = balls.every((b) => b.state !== 'flying')
@@ -66,17 +71,23 @@ export function GoalSave({ ballCount, difficulty, onResult }: GoalSaveProps) {
     const saved = balls.every((b) => b.state === 'intercepted')
     endedRef.current = true
     setResultLabel(saved ? 'ARRÊTÉ !' : 'BUT !')
-    const t = setTimeout(() => onResult(saved), 900)
+    const t = setTimeout(() => onResultRef.current(saved), 900)
     return () => clearTimeout(t)
-  }, [balls, onResult])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [balls])
 
   const interceptBall = (id: number, clientX: number, clientY: number, containerRect: DOMRect) => {
     if (endedRef.current) return
-    setBalls((prev) => prev.map((b) => b.id === id && b.state === 'flying' ? { ...b, state: 'intercepted' as const } : b))
+    setBalls((prev) => {
+      const target = prev.find((b) => b.id === id)
+      if (!target || target.state !== 'flying') return prev // same ref → no re-render
+      return prev.map((b) => b.id === id ? { ...b, state: 'intercepted' as const } : b)
+    })
     const px = (clientX - containerRect.left) / containerRect.width * 100
     const py = (clientY - containerRect.top) / containerRect.height * 100
-    setParticles((prev) => [...prev, { id: Date.now() + id, x: px, y: py }])
-    setTimeout(() => setParticles((prev) => prev.filter((p) => p.id !== Date.now() + id)), 600)
+    const particleId = Date.now() + id
+    setParticles((prev) => [...prev, { id: particleId, x: px, y: py }])
+    setTimeout(() => setParticles((prev) => prev.filter((p) => p.id !== particleId)), 600)
   }
 
   const containerRef = useRef<HTMLDivElement>(null)
