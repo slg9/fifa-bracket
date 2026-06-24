@@ -18,7 +18,7 @@ const DEFENSE_CFG = {
 type BallItem = {
   id: string
   x: number          // 0–100%
-  spawnDelay: number // ms
+  spawnDelay: number // ms relative to RAF start
   speed: number      // % per second
   state: 'waiting' | 'active' | 'destroyed' | 'passed'
   y: number          // current % position (animated via RAF)
@@ -48,6 +48,10 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
   const cfg = DEFENSE_CFG[difficulty]
   const totalBalls = cfg.waveCount * cfg.balloonsPerWave
 
+  const [tutorialDone, setTutorialDone] = useState(false)
+  const [tutorialCountdown, setTutorialCountdown] = useState(15)
+  const [tutorialReady, setTutorialReady] = useState(false)
+
   const [phase, setPhase] = useState<'invaders' | 'goal_save'>('invaders')
   const [balls, setBalls] = useState<BallItem[]>(() => createBalls(cfg))
   const [remainingSeconds, setRemainingSeconds] = useState(cfg.timer)
@@ -65,6 +69,25 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
   const goalSaveTriggeredRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef(0)
+  const startTimeRef = useRef<number | null>(null)
+
+  // Tutorial countdown
+  useEffect(() => {
+    if (tutorialDone) return
+    if (tutorialCountdown <= 0) {
+      setTutorialReady(true)
+      return
+    }
+    const timer = setTimeout(() => {
+      setTutorialCountdown((c) => c - 1)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [tutorialDone, tutorialCountdown])
+
+  const handleTutorialStart = () => {
+    if (!tutorialReady) return
+    setTutorialDone(true)
+  }
 
   const finish = useCallback((outcome: DefenseOutcome) => {
     if (endedRef.current) return
@@ -83,13 +106,17 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
 
   // Main animation loop
   useEffect(() => {
-    if (phase !== 'invaders') return
+    if (phase !== 'invaders' || !tutorialDone) return
     let prev: number | null = null
     const tick = (now: number) => {
       if (prev === null) prev = now
       const delta = Math.min(50, now - prev)
       prev = now
       if (endedRef.current) return
+
+      // Record RAF start time for relative spawn delay comparison
+      if (startTimeRef.current === null) startTimeRef.current = now
+      const relativeNow = now - startTimeRef.current
 
       remainingMsRef.current = Math.max(0, remainingMsRef.current - delta)
       const seconds = remainingMsRef.current / 1000
@@ -98,8 +125,8 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
       const nextBalls = ballsRef.current.map((ball): BallItem => {
         if (ball.state === 'destroyed' || ball.state === 'passed') return ball
         if (ball.state === 'waiting') {
-          // check if spawn time reached
-          if (now >= ball.spawnDelay) {
+          // check if spawn time reached using RELATIVE time
+          if (relativeNow >= ball.spawnDelay) {
             return { ...ball, state: 'active', startedAt: now }
           }
           return ball
@@ -155,7 +182,7 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
     }
     frameRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frameRef.current)
-  }, [phase, cfg, totalBalls, finish, triggerGoalSave])
+  }, [phase, cfg, totalBalls, finish, triggerGoalSave, tutorialDone])
 
   const destroyBall = (id: string) => {
     if (endedRef.current || phaseRef.current !== 'invaders') return
@@ -212,6 +239,55 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
           overflow: hidden;
           position: relative;
         }
+        /* Tutorial overlay */
+        .def-tutorial {
+          position: absolute;
+          inset: 0;
+          z-index: 50;
+          background: rgba(5,11,22,0.88);
+          backdrop-filter: blur(3px);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+          padding: 24px;
+        }
+        .def-tutorial__title {
+          font: 900 clamp(32px,10vw,56px) 'Barlow Condensed', sans-serif;
+          letter-spacing: .2em;
+          color: #FF4455;
+          text-shadow: 0 0 32px rgba(255,68,85,.6);
+          text-transform: uppercase;
+        }
+        .def-tutorial__instruction {
+          font: 600 clamp(13px,4vw,17px) 'Barlow Condensed', sans-serif;
+          color: rgba(255,255,255,.85);
+          text-align: center;
+          max-width: 320px;
+          line-height: 1.4;
+        }
+        .def-tutorial__btn {
+          margin-top: 8px;
+          padding: 12px 28px;
+          border-radius: 10px;
+          border: 2px solid rgba(255,68,85,.4);
+          background: rgba(255,68,85,.08);
+          color: rgba(255,255,255,.45);
+          font: 800 16px 'Barlow Condensed', sans-serif;
+          letter-spacing: .1em;
+          cursor: default;
+          transition: background .2s, border-color .2s, color .2s;
+          pointer-events: none;
+        }
+        .def-tutorial__btn.is-ready {
+          background: #1a0608;
+          border-color: #2bff9a;
+          color: #2bff9a;
+          cursor: pointer;
+          pointer-events: auto;
+          box-shadow: 0 0 16px rgba(43,255,154,.35);
+        }
         /* Countdown */
         .def-clock {
           display: flex;
@@ -260,10 +336,12 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
           position: absolute;
           transform: translate(-50%, -50%);
           z-index: 8;
-          cursor: pointer;
           touch-action: none;
         }
-        .def-ball.is-active { pointer-events: auto; }
+        .def-ball.is-active {
+          pointer-events: auto;
+          cursor: pointer;
+        }
         .def-ball.is-destroyed { pointer-events: none; animation: defBurst .4s ease-out forwards; }
         .def-ball.is-passed { pointer-events: none; opacity: 0; }
         .def-ball.is-waiting { pointer-events: none; opacity: 0; }
@@ -333,6 +411,23 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
         }
       `}</style>
 
+      {/* Tutorial overlay */}
+      {!tutorialDone && (
+        <div className="def-tutorial">
+          <div className="def-tutorial__title">DÉFENSE</div>
+          <div className="def-tutorial__instruction">
+            Cliquez / tapez sur les ballons pour les détruire avant qu'ils franchissent la ligne ! Si 3 passent, vous devez arrêter les tirs sur le but !
+          </div>
+          <button
+            type="button"
+            className={`def-tutorial__btn${tutorialReady ? ' is-ready' : ''}`}
+            onClick={handleTutorialStart}
+          >
+            {tutorialReady ? 'OK — Jouer !' : `Démarrer (${tutorialCountdown})`}
+          </button>
+        </div>
+      )}
+
       {/* TOP 5% — countdown */}
       <div className="def-clock">
         <div className="def-clock__track">
@@ -358,7 +453,7 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
           <div key={ball.id}>
             {burstIds.has(ball.id) && (
               <div className="def-burst-ring" style={{ left: `${ball.x}%`, top: `${ball.y}%` }}>
-                <svg viewBox="0 0 80 80" width="80" height="80">
+                <svg viewBox="0 0 80 80" width="80" height="80" style={{ pointerEvents: 'none' }}>
                   {Array.from({ length: 8 }, (_, i) => {
                     const angle = (i / 8) * Math.PI * 2
                     return <circle key={i} cx={40 + Math.cos(angle) * 28} cy={40 + Math.sin(angle) * 28} r="5" fill="#FFB800" opacity="0.9" />
@@ -375,7 +470,7 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
                 destroyBall(ball.id)
               }}
             >
-              <svg viewBox="0 0 80 80" width="52" height="52">
+              <svg viewBox="0 0 80 80" width="52" height="52" style={{ pointerEvents: 'none' }}>
                 <circle cx="40" cy="40" r="34" fill="#f7f9fc" stroke="#101827" strokeWidth="4" />
                 <path d="M40 19 53 28 48 45H32L27 28Z" fill="none" stroke="#101827" strokeWidth="3" />
                 <line x1="40" y1="6" x2="40" y2="19" stroke="#101827" strokeWidth="2" strokeLinecap="round" />

@@ -17,20 +17,42 @@ const ATTACK_CFG = {
   hard:   { slalomTimer: 4.5, rowCount: 7, gapCount: 2, gapWidth: 16, pulseSpeed: 0.60, perfectRange: 5, keeperSpeed: 85 },
 }
 
+const SLALOM_COMMENTS = [
+  'Beau dribble !', 'Bien joué !', 'Incroyable !', 'Quel geste !',
+  'Il les passe tous !', 'Magnifique !', 'Élégant !', 'En pleine course !',
+]
+
 type SlalomRow = { y: number; gaps: { x: number; w: number }[] }
 
 function generateRows(cfg: typeof ATTACK_CFG['easy']): SlalomRow[] {
   const rows: SlalomRow[] = []
   const { rowCount, gapCount, gapWidth } = cfg
+
+  // Rows go from bottom (near player) to top (near goal)
+  // y positions: bottom rows first (high y%), top rows last (low y%)
   for (let i = 0; i < rowCount; i++) {
-    const y = 18 + (i / (rowCount - 1)) * 65  // 18% to 83%
+    // Distribute rows from y=80% down to y=18% (player goes bottom→top)
+    const y = 80 - (i / (rowCount - 1)) * 62  // 80% to 18%
+
     const gaps: { x: number; w: number }[] = []
-    const sectionWidth = 100 / gapCount
-    for (let g = 0; g < gapCount; g++) {
-      const sectionStart = g * sectionWidth
-      const maxX = sectionWidth - gapWidth
-      const x = sectionStart + Math.random() * Math.max(0, maxX)
-      gaps.push({ x, w: gapWidth })
+    if (gapCount === 1) {
+      // Single gap — alternate sides to force S-curve
+      const side = i % 2 === 0 ? 0 : 1
+      const margin = 5
+      const maxX = 100 - gapWidth - margin
+      const minX = margin + side * (maxX / 2)
+      const maxXSide = minX + maxX / 2 - gapWidth
+      gaps.push({ x: minX + Math.random() * Math.max(0, maxXSide - minX), w: gapWidth })
+    } else {
+      // Multiple gaps — space them out and offset alternately
+      const sectionWidth = 100 / gapCount
+      for (let g = 0; g < gapCount; g++) {
+        const sectionStart = g * sectionWidth
+        // Alternate: even rows gap toward start of section, odd toward end
+        const offset = i % 2 === 0 ? 0.15 : 0.55
+        const x = sectionStart + offset * (sectionWidth - gapWidth)
+        gaps.push({ x: Math.max(2, Math.min(100 - gapWidth - 2, x)), w: gapWidth })
+      }
     }
     rows.push({ y, gaps })
   }
@@ -46,10 +68,13 @@ function isInGap(playerX: number, gaps: { x: number; w: number }[]): boolean {
 
 export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _awayTeamId, onRoundEnd }: AttackPhaseProps) {
   const cfg = ATTACK_CFG[difficulty]
+  const [tutorialDone, setTutorialDone] = useState(false)
+  const [tutorialCountdown, setTutorialCountdown] = useState(15)
+  const [tutorialReady, setTutorialReady] = useState(false)
   const [phase, setPhase] = useState<'slalom' | 'pulse'>('slalom')
   const [rows] = useState<SlalomRow[]>(() => generateRows(cfg))
   const [playerX, setPlayerX] = useState(50)
-  const [playerY, setPlayerY] = useState(5)
+  const [playerY, setPlayerY] = useState(88)
   const [remainingSeconds, setRemainingSeconds] = useState(cfg.slalomTimer)
   const [keeperX, setKeeperX] = useState(50)
   const [pulseRadius, setPulseRadius] = useState(26)
@@ -57,16 +82,39 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
   const [resultLabel, setResultLabel] = useState<string | null>(null)
   const [collisionFlash, setCollisionFlash] = useState(false)
   const [pulsePhase, setPulsePhase] = useState<'idle' | 'result'>('idle')
+  const [rowComment, setRowComment] = useState<string | null>(null)
 
   const endedRef = useRef(false)
   const playerXRef = useRef(50)
-  const playerYRef = useRef(5)
+  const playerYRef = useRef(88)
   const remainingMsRef = useRef(cfg.slalomTimer * 1000)
   const containerRef = useRef<HTMLDivElement>(null)
   const phaseRef = useRef<'slalom' | 'pulse'>('slalom')
   const pulseTimeRef = useRef(0)
   const keeperXRef = useRef(50)
   const pulseResultSentRef = useRef(false)
+  const passedRowsRef = useRef(new Set<number>())
+  const lastCommentTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const tutorialDoneRef = useRef(false)
+
+  // Tutorial countdown
+  useEffect(() => {
+    if (tutorialDone) return
+    if (tutorialCountdown <= 0) {
+      setTutorialReady(true)
+      return
+    }
+    const timer = setTimeout(() => {
+      setTutorialCountdown((c) => c - 1)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [tutorialDone, tutorialCountdown])
+
+  const handleTutorialStart = () => {
+    if (!tutorialReady) return
+    tutorialDoneRef.current = true
+    setTutorialDone(true)
+  }
 
   const finish = useCallback((isGoal: boolean, reason: AttackEndReason) => {
     if (endedRef.current) return
@@ -76,7 +124,7 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
 
   // Slalom RAF loop
   useEffect(() => {
-    if (phase !== 'slalom') return
+    if (phase !== 'slalom' || !tutorialDone) return
     let frame = 0
     let prev: number | null = null
     const tick = (now: number) => {
@@ -89,43 +137,54 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
       const seconds = remainingMsRef.current / 1000
       setRemainingSeconds(seconds)
 
-      if (seconds <= 0) {
-        finish(false, 'timeout')
-        return
-      }
-
-      // Descend player from 5% to 88% over slalomTimer seconds
+      // Player moves BOTTOM to TOP: starts at 88%, goal at 5%
       const totalMs = cfg.slalomTimer * 1000
       const elapsed = totalMs - remainingMsRef.current
       const progress = Math.min(1, elapsed / totalMs)
-      const newY = 5 + progress * 83  // 5% → 88%
+      const newY = 88 - progress * 83  // 88% → 5%
       playerYRef.current = newY
       setPlayerY(newY)
 
-      // Collision check — when player is within ±4% of a row y
-      const px = playerXRef.current
-      for (const row of rows) {
-        if (Math.abs(newY - row.y) < 4) {
-          if (!isInGap(px, row.gaps)) {
-            setCollisionFlash(true)
-            finish(false, 'intercepted')
-            return
-          }
-        }
-      }
-
-      if (newY >= 88) {
+      // CRITICAL: check goal FIRST, then timeout
+      if (newY <= 5) {
         // Reached the goal — transition to pulse
         phaseRef.current = 'pulse'
         setPhase('pulse')
         return
       }
 
+      if (seconds <= 0) {
+        finish(false, 'timeout')
+        return
+      }
+
+      // Collision check — when player is within ±4% of a row y
+      const px = playerXRef.current
+      for (let ri = 0; ri < rows.length; ri++) {
+        const row = rows[ri]
+        if (Math.abs(newY - row.y) < 4) {
+          if (!isInGap(px, row.gaps)) {
+            setCollisionFlash(true)
+            finish(false, 'intercepted')
+            return
+          } else {
+            // Player is in gap — show comment if not already shown for this row
+            if (!passedRowsRef.current.has(ri)) {
+              passedRowsRef.current.add(ri)
+              const comment = SLALOM_COMMENTS[Math.floor(Math.random() * SLALOM_COMMENTS.length)]
+              setRowComment(comment)
+              if (lastCommentTimeoutRef.current) clearTimeout(lastCommentTimeoutRef.current)
+              lastCommentTimeoutRef.current = setTimeout(() => setRowComment(null), 800)
+            }
+          }
+        }
+      }
+
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [phase, cfg.slalomTimer, rows, finish])
+  }, [phase, cfg.slalomTimer, rows, finish, tutorialDone])
 
   // Pointer control for slalom
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -223,6 +282,80 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
           overflow: hidden;
           position: relative;
         }
+        /* Tutorial overlay */
+        .atk-tutorial {
+          position: absolute;
+          inset: 0;
+          z-index: 50;
+          background: rgba(5,11,22,0.88);
+          backdrop-filter: blur(3px);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+          padding: 24px;
+        }
+        .atk-tutorial__title {
+          font: 900 clamp(32px,10vw,56px) 'Barlow Condensed', sans-serif;
+          letter-spacing: .2em;
+          color: #FFB800;
+          text-shadow: 0 0 32px rgba(255,184,0,.6);
+          text-transform: uppercase;
+        }
+        .atk-tutorial__instruction {
+          font: 600 clamp(13px,4vw,17px) 'Barlow Condensed', sans-serif;
+          color: rgba(255,255,255,.85);
+          text-align: center;
+          max-width: 320px;
+          line-height: 1.4;
+        }
+        .atk-tutorial__arrow {
+          font-size: 28px;
+          animation: atkArrowLR 0.8s ease-in-out infinite alternate;
+          display: inline-block;
+        }
+        @keyframes atkArrowLR {
+          from { transform: translateX(-12px); }
+          to   { transform: translateX(12px); }
+        }
+        .atk-tutorial__btn {
+          margin-top: 8px;
+          padding: 12px 28px;
+          border-radius: 10px;
+          border: 2px solid rgba(255,184,0,.4);
+          background: rgba(255,184,0,.08);
+          color: rgba(255,255,255,.45);
+          font: 800 16px 'Barlow Condensed', sans-serif;
+          letter-spacing: .1em;
+          cursor: default;
+          transition: background .2s, border-color .2s, color .2s;
+          pointer-events: none;
+        }
+        .atk-tutorial__btn.is-ready {
+          background: #1a4d2e;
+          border-color: #2bff9a;
+          color: #2bff9a;
+          cursor: pointer;
+          pointer-events: auto;
+          box-shadow: 0 0 16px rgba(43,255,154,.35);
+        }
+        /* Row comment */
+        .atk-row-comment {
+          position: absolute;
+          top: 40%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          font: 900 clamp(16px,6vw,26px) 'Barlow Condensed', sans-serif;
+          letter-spacing: .12em;
+          color: #2bff9a;
+          text-shadow: 0 0 16px rgba(43,255,154,.7);
+          pointer-events: none;
+          z-index: 30;
+          white-space: nowrap;
+          animation: atkCommentPop .15s ease-out both;
+        }
+        @keyframes atkCommentPop { from { transform: translate(-50%,-50%) scale(0.7); opacity: 0; } to { transform: translate(-50%,-50%) scale(1); opacity: 1; } }
         /* Countdown */
         .atk-clock {
           display: flex;
@@ -353,7 +486,6 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
           box-shadow: 0 0 10px rgba(245,200,66,.5), inset 0 0 10px rgba(245,200,66,.2);
           pointer-events: none;
           z-index: 8;
-          /* ring at R=26 in SVG space of 120px diameter, scale to container */
           width: 72px;
           height: 72px;
         }
@@ -369,6 +501,8 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
           animation: atkResultIn .25s ease-out both;
           z-index: 20;
           pointer-events: none;
+          padding: 0 8px;
+          text-align: center;
         }
         /* Info bar */
         .atk-info {
@@ -380,6 +514,7 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
           background: linear-gradient(180deg, #0a2618, #061a10);
           box-sizing: border-box;
           z-index: 5;
+          overflow: hidden;
         }
         .atk-info-phase {
           padding: 4px 10px;
@@ -389,11 +524,15 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
           font: 800 11px 'Barlow Condensed', sans-serif;
           letter-spacing: .12em;
           color: #FFB800;
+          flex-shrink: 0;
         }
         .atk-info-label {
-          font: 700 12px 'Barlow Condensed', sans-serif;
+          font: 700 11px 'Barlow Condensed', sans-serif;
           color: rgba(255,255,255,.6);
           letter-spacing: .06em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         @keyframes atkCollide {
           0%,100% { transform: translate(-50%,-50%) scale(1); }
@@ -402,6 +541,24 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
         @keyframes atkFadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes atkResultIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
       `}</style>
+
+      {/* Tutorial overlay */}
+      {!tutorialDone && (
+        <div className="atk-tutorial">
+          <div className="atk-tutorial__title">SLALOM</div>
+          <div className="atk-tutorial__instruction">
+            Glisse ton doigt / bouge la souris horizontalement pour guider le ballon entre les défenseurs !
+          </div>
+          <span className="atk-tutorial__arrow">↔</span>
+          <button
+            type="button"
+            className={`atk-tutorial__btn${tutorialReady ? ' is-ready' : ''}`}
+            onClick={handleTutorialStart}
+          >
+            {tutorialReady ? 'OK — Jouer !' : `Démarrer (${tutorialCountdown})`}
+          </button>
+        </div>
+      )}
 
       {/* TOP 5% — countdown (slalom only) */}
       <div className="atk-clock">
@@ -464,6 +621,11 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
               className={`atk-player${collisionFlash ? ' is-flash' : ''}`}
               style={{ left: `${playerX}%`, top: `${playerY}%` }}
             />
+
+            {/* Row comment */}
+            {rowComment && (
+              <div className="atk-row-comment">{rowComment}</div>
+            )}
           </div>
         ) : (
           /* Pulse phase */

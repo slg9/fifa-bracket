@@ -46,6 +46,8 @@ export function BattleEngine({ match, teamsById, onComplete }: BattleEngineProps
   const awayTeam = teamsById.get(awayTeamId)
   const homeFlag = homeTeam?.flagEmoji ?? ''
   const awayFlag = awayTeam?.flagEmoji ?? ''
+  const [selectedSide, setSelectedSide] = useState<'home' | 'away' | null>(null)
+  const [showTeamToast, setShowTeamToast] = useState(false)
   const [state, setState] = useState<BattleMatchState>(() => ({
     roundIndex: 0,
     rounds: [...STANDARD_ROUNDS],
@@ -153,28 +155,102 @@ export function BattleEngine({ match, teamsById, onComplete }: BattleEngineProps
     <div className="battle-engine" role="dialog" aria-modal="true" aria-label={`Combat ${match.label}`} onContextMenu={(e) => e.preventDefault()}>
 
       {state.phase === 'intro' ? <section className="battle-intro">
+        <style>{`
+          .battle-intro__team-select {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            justify-content: center;
+            margin: 12px 0 4px;
+          }
+          .battle-intro__team-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 2px solid rgba(255,255,255,.18);
+            background: rgba(255,255,255,.04);
+            transition: border-color .15s, box-shadow .15s, background .15s;
+            min-width: 80px;
+          }
+          .battle-intro__team-card:hover {
+            border-color: rgba(255,184,0,.5);
+            background: rgba(255,184,0,.06);
+          }
+          .battle-intro__team-card.is-selected {
+            border-color: #FFB800;
+            background: rgba(255,184,0,.13);
+            box-shadow: 0 0 16px rgba(255,184,0,.45), 0 0 32px rgba(255,184,0,.18);
+          }
+          .battle-intro__team-card strong {
+            font: 800 13px 'Barlow Condensed', sans-serif;
+            letter-spacing: .1em;
+            color: #fff;
+          }
+          .battle-intro__select-label {
+            font: 700 11px 'Barlow Condensed', sans-serif;
+            letter-spacing: .14em;
+            color: rgba(255,255,255,.45);
+            text-transform: uppercase;
+            text-align: center;
+            margin-bottom: 2px;
+          }
+          .battle-intro__select-vs {
+            font: 900 18px 'Barlow Condensed', sans-serif;
+            color: rgba(255,255,255,.25);
+            flex-shrink: 0;
+          }
+          .battle-intro__team-toast {
+            color: #FF4455;
+            font: 700 12px 'Barlow Condensed', sans-serif;
+            letter-spacing: .08em;
+            text-align: center;
+            margin-top: 6px;
+            animation: introToastIn .2s ease-out both;
+          }
+          @keyframes introToastIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        `}</style>
         <div className="battle-intro__meta">{match.stage} · {match.label} · {match.dateLabel}</div>
-        <div className="battle-intro__matchup">
-          <div className="battle-intro__team">
+        <div className="battle-intro__select-label">Choisir ton équipe</div>
+        <div className="battle-intro__team-select">
+          <div
+            className={`battle-intro__team-card${selectedSide === 'home' ? ' is-selected' : ''}`}
+            onClick={() => setSelectedSide('home')}
+          >
             <div className="battle-intro__badge is-home">{homeFlag ? <span style={{ fontSize: 36 }}>{homeFlag}</span> : homeTeamId.slice(0, 3).toUpperCase()}</div>
             <strong>{homeTeamId.toUpperCase()}</strong>
           </div>
-          <div className="battle-intro__vs">VS</div>
-          <div className="battle-intro__team is-away">
+          <div className="battle-intro__select-vs">VS</div>
+          <div
+            className={`battle-intro__team-card${selectedSide === 'away' ? ' is-selected' : ''}`}
+            onClick={() => setSelectedSide('away')}
+          >
             <div className="battle-intro__badge">{awayFlag ? <span style={{ fontSize: 36 }}>{awayFlag}</span> : awayTeamId.slice(0, 3).toUpperCase()}</div>
             <strong>{awayTeamId.toUpperCase()}</strong>
           </div>
         </div>
+        {showTeamToast && <div className="battle-intro__team-toast">Veuillez choisir une équipe !</div>}
         <div className="battle-intro__playing-for">
           <span>Tu joues pour :</span>
           <div className="battle-intro__playing-for-badge">
-            {homeFlag ? <span style={{ fontSize: 22 }}>{homeFlag}</span> : null}
-            <span>{homeTeamId.toUpperCase()}</span>
+            {(selectedSide === 'away' ? awayFlag : homeFlag) ? <span style={{ fontSize: 22 }}>{selectedSide === 'away' ? awayFlag : homeFlag}</span> : null}
+            <span>{(selectedSide === 'away' ? awayTeamId : homeTeamId).toUpperCase()}</span>
           </div>
         </div>
         <div className="battle-intro__spacer" />
         <div className="battle-intro__sequence">{STANDARD_ROUNDS.map((round, index) => <div key={index}><b>{round === 'attack' ? '⚽' : '🛡️'}</b><small>{round === 'attack' ? 'ATT' : 'DEF'}</small></div>)}</div>
-        <button type="button" className="battle-intro__cta" onClick={() => { sfx.battle(); setState((current) => ({ ...current, phase: 'round_start' })) }}>⚔️ Jouer ce match</button>
+        <button type="button" className="battle-intro__cta" onClick={() => {
+          if (!selectedSide) {
+            setShowTeamToast(true)
+            setTimeout(() => setShowTeamToast(false), 2000)
+            return
+          }
+          sfx.battle()
+          setState((current) => ({ ...current, phase: 'playing' }))
+        }}>⚔️ Jouer ce match</button>
       </section> : null}
 
       {state.phase === 'round_start' ? <section className="battle-round-start" key={state.roundIndex}>
