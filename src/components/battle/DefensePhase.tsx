@@ -48,7 +48,7 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
   const cfg = DEFENSE_CFG[difficulty]
   const totalBalls = cfg.waveCount * cfg.balloonsPerWave
 
-  const [tutorialDone, setTutorialDone] = useState(false)
+  const [tutorialDone, setTutorialDone] = useState(() => sessionStorage.getItem('brakup:tut:def') === '1')
   const [tutorialCountdown, setTutorialCountdown] = useState(15)
   const [tutorialReady, setTutorialReady] = useState(false)
 
@@ -86,6 +86,7 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
 
   const handleTutorialStart = () => {
     if (!tutorialReady) return
+    sessionStorage.setItem('brakup:tut:def', '1')
     setTutorialDone(true)
   }
 

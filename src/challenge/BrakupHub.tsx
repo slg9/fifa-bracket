@@ -71,6 +71,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
   const [picks, setPicks] = useState<Record<string, string>>(() => {
     try { return JSON.parse(localStorage.getItem('brakup:draft') ?? '{}') as Record<string, string> } catch { return {} }
   })
+  const [activeSide, setActiveSide] = useState<'home' | 'away'>('home')
   const [battleBonuses, setBattleBonuses] = useState(0)
   const [brackets, setBrackets] = useState<ChallengeEntry[]>([])
   const [activeBracketId, setActiveBracketId] = useState<string | null>(null)
@@ -105,7 +106,14 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
   }
 
   const handlePick = (matchId: string, teamId: string) => setPicks((current) => ({ ...current, [matchId]: teamId }))
-  const handlePlay = (matchId: string) => navigate('battle', matchId)
+  const handlePlay = (matchId: string, teamId?: string) => {
+    if (teamId) {
+      const m = matches.find((mx) => mx.id === matchId)
+      const side: 'home' | 'away' = m?.home.kind === 'team' && m.home.teamId === teamId ? 'home' : 'away'
+      setActiveSide(side)
+    }
+    navigate('battle', matchId)
+  }
   const handleBattleComplete = (result: BattleResult) => {
     handlePick(activeMatchId ?? '', result.winnerId)
     setBattleBonuses((current) => Math.min(40, current + Math.max(1, Math.round(result.playerScore / 20))))
@@ -138,7 +146,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
         </nav>
         <a href="/" className="brakup-exit">Simulateur ↗</a>
       </header>
-      {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} /> : null}
+      {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} /> : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
         {/* Primary: swipeable match flow for all screen sizes */}

@@ -68,7 +68,7 @@ function isInGap(playerX: number, gaps: { x: number; w: number }[]): boolean {
 
 export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _awayTeamId, onRoundEnd }: AttackPhaseProps) {
   const cfg = ATTACK_CFG[difficulty]
-  const [tutorialDone, setTutorialDone] = useState(false)
+  const [tutorialDone, setTutorialDone] = useState(() => sessionStorage.getItem('brakup:tut:atk') === '1')
   const [tutorialCountdown, setTutorialCountdown] = useState(15)
   const [tutorialReady, setTutorialReady] = useState(false)
   const [phase, setPhase] = useState<'slalom' | 'pulse'>('slalom')
@@ -113,6 +113,7 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
 
   const handleTutorialStart = () => {
     if (!tutorialReady) return
+    sessionStorage.setItem('brakup:tut:atk', '1')
     tutorialDoneRef.current = true
     setTutorialDone(true)
   }
