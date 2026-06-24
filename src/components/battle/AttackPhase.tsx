@@ -25,9 +25,35 @@ type DefenderSeed = {
   spawnDelay?: number
 }
 
+// 3 waves per difficulty, each progressively harder
+const WAVES: Record<BattleDifficulty, DefenderSeed[][]> = {
+  easy: [
+    [{ type: 'normal', hits: 1, speed: 70 }, { type: 'costaud', hits: 2, speed: 50 }],
+    [{ type: 'agile', hits: 1, speed: 95 }, { type: 'costaud', hits: 2, speed: 58 }, { type: 'normal', hits: 1, speed: 75 }],
+    [{ type: 'sonic', hits: 1, speed: 240 }, { type: 'costaud', hits: 2, speed: 65 }, { type: 'agile', hits: 1, speed: 100 }],
+  ],
+  medium: [
+    [{ type: 'normal', hits: 1, speed: 90 }, { type: 'costaud', hits: 3, speed: 62 }, { type: 'agile', hits: 1, speed: 105 }],
+    [{ type: 'costaud', hits: 3, speed: 75 }, { type: 'agile', hits: 1, speed: 120 }, { type: 'sonic', hits: 1, speed: 310 }, { type: 'normal', hits: 1, speed: 95 }],
+    [{ type: 'costaud', hits: 3, speed: 88 }, { type: 'sonic', hits: 1, speed: 360 }, { type: 'agile', hits: 1, speed: 135 }, { type: 'costaud', hits: 2, speed: 78 }],
+  ],
+  hard: [
+    [{ type: 'costaud', hits: 3, speed: 135 }, { type: 'agile', hits: 1, speed: 150 }, { type: 'sonic', hits: 1, speed: 380 }, { type: 'normal', hits: 1, speed: 125 }],
+    [{ type: 'costaud', hits: 4, speed: 148 }, { type: 'sonic', hits: 1, speed: 430 }, { type: 'agile', hits: 1, speed: 165 }, { type: 'costaud', hits: 3, speed: 135 }, { type: 'sonic', hits: 1, speed: 400 }],
+    [{ type: 'sonic', hits: 1, speed: 480 }, { type: 'costaud', hits: 4, speed: 158 }, { type: 'agile', hits: 1, speed: 178 }, { type: 'sonic', hits: 1, speed: 460 }, { type: 'costaud', hits: 3, speed: 148 }],
+  ],
+}
+
+// Ring target diameter in px — ball must match this size to score
+const RING_DIAMETER = 44
+// Auto-fire+miss threshold
+const OVERSHOOT_DIAMETER = 60
+// Perfect zone ± tolerance
+const PERFECT_MIN = 34
+const PERFECT_MAX = 54
+
 type AttackDifficultyConfig = {
   countdown: number
-  defenders: DefenderSeed[]
   agileSwipeStrict: boolean
 }
 
@@ -48,33 +74,9 @@ const PLAYER_NUMBERS = [7, 11, 9]
 
 function getDifficultyConfig(difficulty: BattleDifficulty): AttackDifficultyConfig {
   const configs: Record<BattleDifficulty, AttackDifficultyConfig> = {
-    easy: {
-      countdown: 12,
-      defenders: [
-        { type: 'normal', hits: 1, speed: 70 },
-        { type: 'costaud', hits: 2, speed: 50 },
-      ],
-      agileSwipeStrict: false,
-    },
-    medium: {
-      countdown: 9,
-      defenders: [
-        { type: 'normal', hits: 1, speed: 90 },
-        { type: 'costaud', hits: 3, speed: 60 },
-        { type: 'agile', hits: 1, speed: 100 },
-      ],
-      agileSwipeStrict: true,
-    },
-    hard: {
-      countdown: 6,
-      defenders: [
-        { type: 'costaud', hits: 3, speed: 130 },
-        { type: 'costaud', hits: 3, speed: 110 },
-        { type: 'agile', hits: 1, speed: 140 },
-        { type: 'normal', hits: 1, speed: 120, spawnDelay: 1500 },
-      ],
-      agileSwipeStrict: true,
-    },
+    easy: { countdown: 18, agileSwipeStrict: false },
+    medium: { countdown: 14, agileSwipeStrict: true },
+    hard: { countdown: 10, agileSwipeStrict: true },
   }
   return configs[difficulty]
 }
@@ -86,35 +88,34 @@ function randomInt(max: number) {
 }
 
 function defenderSize(type: DefenderType, hitsRemaining: number, initialHits: number) {
+  if (type === 'sonic') return 36
   if (type === 'normal') return 48
   if (type === 'agile') return 44
   const hitsTaken = initialHits - hitsRemaining
   return hitsTaken <= 0 ? 80 : hitsTaken === 1 ? 60 : 40
 }
 
-function createDefender(seed: DefenderSeed, index: number, incarnation = 0): RuntimeDefender {
-  const baseX = 15 + randomInt(71)
-  return {
-    id: crypto.randomUUID(),
-    type: seed.type,
-    x: baseX,
-    baseX,
-    y: -9,
-    hitsRemaining: seed.hits,
-    size: defenderSize(seed.type, seed.hits, seed.hits),
-    direction: 1,
-    speed: seed.speed,
-    spawnDelay: seed.spawnDelay ?? Math.min(index * 220, 650),
-    age: 0,
-    state: 'active',
-    hitAt: null,
-    removeAt: null,
-    incarnation,
-  }
-}
-
-function createInitialDefenders(config: AttackDifficultyConfig) {
-  return config.defenders.map((seed, index) => createDefender(seed, index))
+function createWaveDefenders(seeds: DefenderSeed[], waveIdx: number): RuntimeDefender[] {
+  return seeds.map((seed, index) => {
+    const baseX = 12 + randomInt(77)
+    return {
+      id: crypto.randomUUID(),
+      type: seed.type,
+      x: baseX,
+      baseX,
+      y: -9,
+      hitsRemaining: seed.hits,
+      size: defenderSize(seed.type, seed.hits, seed.hits),
+      direction: 1,
+      speed: seed.speed,
+      spawnDelay: seed.spawnDelay ?? Math.min(index * 180, 550),
+      age: 0,
+      state: 'active' as const,
+      hitAt: null,
+      removeAt: null,
+      incarnation: waveIdx * 10 + index,
+    }
+  })
 }
 
 function colorFromTeam(teamId: string) {
@@ -135,28 +136,35 @@ function AttackDefenderSprite({ defender, color, frozen, recentlyHit, appearing 
   appearing: boolean
 }) {
   const spawned = defender.age >= defender.spawnDelay
-  const bgColor = defender.type === 'costaud' ? '#FF4455' : defender.type === 'agile' ? '#3B82F6' : color
-  const borderColor = 'rgba(255,255,255,.85)'
+  const bgColor = defender.type === 'sonic'
+    ? '#00DDCC'
+    : defender.type === 'costaud'
+      ? '#FF4455'
+      : defender.type === 'agile'
+        ? '#3B82F6'
+        : color
+  const borderColor = defender.type === 'sonic' ? 'rgba(0,255,220,.9)' : 'rgba(255,255,255,.85)'
   const borderWidth = defender.type === 'costaud' ? 6 : 4
-  return <svg viewBox="0 0 100 125" className={`battle-p16-defender${defender.state === 'removing' ? ' is-removing' : ''}${recentlyHit && defender.state === 'active' ? ' is-hit' : ''}${appearing ? ' is-appearing' : ''}`} style={{ left: `${defender.x}%`, top: `${defender.y}%`, width: defender.size, height: defender.size * 1.25, opacity: spawned ? 1 : 0, pointerEvents: 'none' }}>
-    {/* Shadow / trail rings for spawning */}
+  return <svg viewBox="0 0 100 125" className={`battle-p16-defender${defender.state === 'removing' ? ' is-removing' : ''}${recentlyHit && defender.state === 'active' ? ' is-hit' : ''}${appearing ? ' is-appearing' : ''}${defender.type === 'sonic' ? ' is-sonic' : ''}`} style={{ left: `${defender.x}%`, top: `${defender.y}%`, width: defender.size, height: defender.size * 1.25, opacity: spawned ? 1 : 0, pointerEvents: 'none' }}>
     {appearing ? <>
       <circle cx="50" cy="58" r="38" fill="rgba(255,255,255,.06)" />
       <circle cx="50" cy="58" r="44" fill="rgba(255,255,255,.1)" />
     </> : null}
     <circle cx="50" cy="58" r="43" fill={bgColor} stroke={borderColor} strokeWidth={borderWidth} />
-    {/* Costaud damage zigzag */}
     {defender.type === 'costaud' ? <path d="M20 25 l6 14 -10 8 12 6 -6 16" stroke="rgba(0,0,0,.3)" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null}
-    {/* Agile direction arrow */}
     {defender.type === 'agile' ? <path d="M20 17 8 31M80 17 92 31" fill="none" stroke="#60a5fa" strokeWidth="6" strokeLinecap="round" /> : null}
-    <text x="50" y="70" textAnchor="middle" fontSize="32" fontWeight="900">{defender.hitsRemaining}</text>
+    {defender.type === 'sonic' ? <>
+      <path d="M62 18 46 50h14L38 94 55 54H42Z" fill="rgba(0,0,0,.45)" stroke="rgba(255,255,255,.9)" strokeWidth="2.5" strokeLinejoin="round" />
+    </> : null}
+    {defender.type !== 'sonic' && <text x="50" y="70" textAnchor="middle" fontSize="32" fontWeight="900">{defender.hitsRemaining}</text>}
     {recentlyHit && defender.hitsRemaining > 0 ? <text className="alert" x="50" y="20" textAnchor="middle">!</text> : null}
-    {frozen && defender.hitsRemaining > 0 ? <text className="pause" x="50" y="66" textAnchor="middle">⏸</text> : null}
+    {frozen && defender.hitsRemaining > 0 && defender.type !== 'sonic' ? <text className="pause" x="50" y="66" textAnchor="middle">⏸</text> : null}
   </svg>
 }
 
 export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: AttackPhaseProps) {
   const config = useMemo(() => getDifficultyConfig(difficulty), [difficulty])
+  const waves = useMemo(() => WAVES[difficulty], [difficulty])
   const pitchRef = useRef<HTMLDivElement | null>(null)
   const lastTouchAtRef = useRef(-1000)
   const remainingMsRef = useRef(config.countdown * 1000)
@@ -166,7 +174,11 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
   const keeperDirectionRef = useRef<1 | -1>(1)
   const shotResolveAtRef = useRef<number | null>(null)
   const shotOutcomeRef = useRef<{ goal: boolean; reason: AttackEndReason } | null>(null)
-  const [defenders, setDefenders] = useState<RuntimeDefender[]>(() => createInitialDefenders(config))
+  const waveIndexRef = useRef(0)
+  const waveClearingRef = useRef(false)
+  const [waveIndex, setWaveIndex] = useState(0)
+  const [waveBanner, setWaveBanner] = useState<string | null>(null)
+  const [defenders, setDefenders] = useState<RuntimeDefender[]>(() => createWaveDefenders(waves[0], 0))
   const defendersRef = useRef(defenders)
   const [remainingSeconds, setRemainingSeconds] = useState(config.countdown)
   const [shootingWindow, setShootingWindow] = useState(false)
@@ -180,6 +192,7 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
   const [keeperX, setKeeperX] = useState(50)
   const [charging, setCharging] = useState(false)
   const [chargeDiameter, setChargeDiameter] = useState(20)
+  const chargeDiameterRef = useRef(20)
   const [flight, setFlight] = useState<BallFlight | null>(null)
   const [shotResolved, setShotResolved] = useState(false)
   const [clockNow, setClockNow] = useState(0)
@@ -187,11 +200,12 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
   const pitchPointerDownRef = useRef<{ x: number; y: number } | null>(null)
   const pitchLastPointerRef = useRef<{ x: number; y: number } | null>(null)
   const defenderColor = useMemo(() => colorFromTeam(awayTeamId), [awayTeamId])
-  void useMemo(() => colorFromTeam(homeTeamId), [homeTeamId]) // reserved for future player-side color
+  void useMemo(() => colorFromTeam(homeTeamId), [homeTeamId])
   const initialHitsByType = useMemo<Record<DefenderType, number>>(() => ({
     normal: 1,
     agile: 1,
-    costaud: difficulty === 'easy' ? 2 : 3,
+    sonic: 1,
+    costaud: difficulty === 'easy' ? 2 : difficulty === 'medium' ? 3 : 4,
   }), [difficulty])
 
   const finish = useCallback((goal: boolean, reason: AttackEndReason) => {
@@ -205,6 +219,31 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
     shootingWindowRef.current = true
     setShootingWindow(true)
   }, [])
+
+  // Advance to next wave or open shooting window when current wave is cleared
+  const advanceWave = useCallback((now: number) => {
+    if (waveClearingRef.current || shootingWindowRef.current || endedRef.current) return
+    const nextWaveIndex = waveIndexRef.current + 1
+    if (nextWaveIndex >= waves.length) {
+      // All waves cleared → open shooting window
+      openShootingWindow()
+      return
+    }
+    waveClearingRef.current = true
+    const bannerText = nextWaveIndex === waves.length - 1 ? `VAGUE FINALE !` : `VAGUE ${nextWaveIndex + 1} / ${waves.length}`
+    setWaveBanner(bannerText)
+    window.setTimeout(() => {
+      if (endedRef.current) return
+      const nextDefenders = createWaveDefenders(waves[nextWaveIndex], nextWaveIndex)
+      defendersRef.current = nextDefenders
+      setDefenders(nextDefenders)
+      waveIndexRef.current = nextWaveIndex
+      setWaveIndex(nextWaveIndex)
+      waveClearingRef.current = false
+      setWaveBanner(null)
+    }, 900)
+    void now
+  }, [waves, openShootingWindow])
 
   useEffect(() => {
     let frame = 0
@@ -227,7 +266,7 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
           return
         }
 
-        if (!shootingWindowRef.current) {
+        if (!shootingWindowRef.current && !waveClearingRef.current) {
           const pitchHeight = pitchRef.current?.clientHeight ?? 420
           let intercepted = false
           const nextDefenders = defendersRef.current
@@ -236,7 +275,8 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
               if (defender.state === 'removing') return defender
               const age = defender.age + delta
               if (age < defender.spawnDelay) return { ...defender, age }
-              const y = defender.y + defender.speed * delta / 1000 / pitchHeight * 100
+              const speedFactor = defender.type === 'sonic' ? 1 : 1
+              const y = defender.y + defender.speed * speedFactor * delta / 1000 / pitchHeight * 100
               if (y >= 92) intercepted = true
               if (defender.type !== 'agile') return { ...defender, age, y }
               const wave = (age - defender.spawnDelay) / 360 + defender.incarnation
@@ -249,7 +289,12 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
             finish(false, 'intercepted')
             return
           }
-        } else {
+          // Check if wave is cleared
+          const allDefeated = nextDefenders.every((d) => d.hitsRemaining <= 0)
+          if (allDefeated && nextDefenders.length > 0) {
+            advanceWave(now)
+          }
+        } else if (shootingWindowRef.current) {
           const nextDefenders = defendersRef.current.filter((defender) => defender.removeAt === null || now < defender.removeAt)
           defendersRef.current = nextDefenders
           setDefenders(nextDefenders)
@@ -268,7 +313,7 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [finish, openShootingWindow])
+  }, [finish, openShootingWindow, advanceWave])
 
   useEffect(() => {
     if (!shootingWindow || endedRef.current) return
@@ -279,11 +324,14 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
       if (previous === null) previous = now
       const delta = Math.min(50, now - previous)
       previous = now
-      if (difficulty === 'hard' && now - directionChangedAt >= 800) {
+      if (difficulty === 'hard' && now - directionChangedAt >= 600) {
+        keeperDirectionRef.current = randomInt(2) === 0 ? -1 : 1
+        directionChangedAt = now
+      } else if (difficulty === 'medium' && now - directionChangedAt >= 900) {
         keeperDirectionRef.current = randomInt(2) === 0 ? -1 : 1
         directionChangedAt = now
       }
-      const speed = difficulty === 'easy' ? 60 : difficulty === 'medium' ? 100 : 150
+      const speed = difficulty === 'easy' ? 140 : difficulty === 'medium' ? 200 : 280
       const slowMotion = target ? .25 : 1
       const next = keeperRef.current + keeperDirectionRef.current * speed * slowMotion * delta / 1000 / 5.1
       if (next <= 12.5 || next >= 87.5) keeperDirectionRef.current = keeperDirectionRef.current === 1 ? -1 : 1
@@ -295,20 +343,34 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
     return () => cancelAnimationFrame(frame)
   }, [difficulty, shootingWindow, target])
 
+  // Charge grow loop — auto-fires miss when overshooting
   useEffect(() => {
     if (!charging) return
     let frame = 0
     let started: number | null = null
+    const chargeTimeMs = difficulty === 'easy' ? 900 : difficulty === 'medium' ? 800 : 700
+    const maxDiameter = 72
     const grow = (now: number) => {
       if (started === null) started = now
-      const progress = Math.min(1, (now - started) / 2000)
+      const progress = Math.min(1, (now - started) / chargeTimeMs)
       const eased = progress * progress * (3 - 2 * progress)
-      setChargeDiameter(20 + eased * 40)
+      const diameter = 20 + eased * (maxDiameter - 20)
+      chargeDiameterRef.current = diameter
+      setChargeDiameter(diameter)
+      // Auto-fire miss when overshoot
+      if (diameter >= OVERSHOOT_DIAMETER && !shotOutcomeRef.current && target) {
+        setCharging(false)
+        setFlight({ id: Math.round(now), target, state: 'saved', duration: 250 })
+        setShotResolved(true)
+        shotOutcomeRef.current = { goal: false, reason: 'miss' }
+        shotResolveAtRef.current = clockNowRef.current + 280
+        return
+      }
       if (progress < 1) frame = requestAnimationFrame(grow)
     }
     frame = requestAnimationFrame(grow)
     return () => cancelAnimationFrame(frame)
-  }, [charging])
+  }, [charging, difficulty, target])
 
   const handlePitchPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (shootingWindowRef.current) return
@@ -366,7 +428,7 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
   }
 
   const pass = (time: number) => {
-    if (endedRef.current) return
+    if (endedRef.current || shootingWindowRef.current) return
     remainingMsRef.current = Math.max(1000, remainingMsRef.current - 2000)
     setRemainingSeconds(remainingMsRef.current / 1000)
     setPassFeedbackUntil(time + 700)
@@ -374,8 +436,11 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
     setPreviousPlayer(activePlayer)
     setPlayerTransitionUntil(time + 200)
     setActivePlayer((current) => (current + 1) % PLAYER_NUMBERS.length)
-    const seed = config.defenders[randomInt(config.defenders.length)]
-    const nextDefenders = [...defendersRef.current, createDefender({ ...seed, spawnDelay: 0 }, defendersRef.current.length, passes + 1)]
+    // Spawn a bonus defender from current wave
+    const waveSeeds = waves[waveIndexRef.current]
+    const seed = waveSeeds[randomInt(waveSeeds.length)]
+    const extra = { ...createWaveDefenders([{ ...seed, spawnDelay: 0 }], waveIndexRef.current)[0] }
+    const nextDefenders = [...defendersRef.current, extra]
     defendersRef.current = nextDefenders
     setDefenders(nextDefenders)
     if (remainingMsRef.current <= 3000) openShootingWindow()
@@ -383,6 +448,7 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
 
   const startCharge = () => {
     if (!target || shotOutcomeRef.current || endedRef.current) return
+    chargeDiameterRef.current = 20
     setChargeDiameter(20)
     setCharging(true)
   }
@@ -390,10 +456,11 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
   const releaseShot = (time: number) => {
     if (!charging || !target || shotOutcomeRef.current) return
     setCharging(false)
-    const sizeDelta = Math.abs(chargeDiameter - 40)
+    const diameter = chargeDiameterRef.current
     const keeperClear = Math.abs(keeperRef.current - target.x) > 16
-    const goal = sizeDelta <= 16 && keeperClear
-    const reason: AttackEndReason = goal ? 'goal' : sizeDelta > 16 ? 'miss' : 'saved'
+    const perfect = diameter >= PERFECT_MIN && diameter <= PERFECT_MAX
+    const goal = perfect && keeperClear
+    const reason: AttackEndReason = goal ? 'goal' : !perfect ? 'miss' : 'saved'
     setFlight({ id: Math.round(time), target, state: goal ? 'goal' : 'saved', duration: 250 })
     setShotResolved(true)
     shotOutcomeRef.current = { goal, reason }
@@ -402,6 +469,9 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
 
   const countdownRatio = clamp(remainingSeconds / config.countdown, 0, 1)
   const countdownColor = countdownRatio > .45 ? `hsl(${Math.round(5 + countdownRatio * 38)} 100% 50%)` : '#ff334d'
+
+  const inPerfectZone = chargeDiameter >= PERFECT_MIN && chargeDiameter <= PERFECT_MAX
+  const overshot = chargeDiameter > PERFECT_MAX
 
   return (
     <section className={`battle-attack battle-attack--p16${shootingWindow ? ' is-shooting' : ''}`}>
@@ -426,6 +496,8 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
         .battle-p16-defender.is-removing{animation:p16SpinOut .3s ease-out forwards;pointer-events:none}
         .battle-p16-defender.is-hit{animation:p16Shake .2s linear, p16RedFlash .2s linear}
         .battle-p16-defender.is-appearing{animation:p16Appear .2s ease-out both}
+        .battle-p16-defender.is-sonic{filter:drop-shadow(0 0 8px rgba(0,221,204,.8)) drop-shadow(0 8px 7px rgba(0,0,0,.5));animation:p16SonicPulse .4s ease-in-out infinite alternate}
+        .battle-p16-defender.is-sonic.is-removing{animation:p16SpinOut .3s ease-out forwards}
         .battle-p16-defender text{fill:#fff;font-weight:950;text-shadow:0 2px 2px #000;pointer-events:none;font-family:'Barlow Condensed',sans-serif}
         .battle-p16-defender .pause{font-size:21px}.battle-p16-defender .alert{fill:#FF4455;font-size:28px;animation:p16Alert .35s both;font-family:'Barlow Condensed',sans-serif}
         /* Swipe trails */
@@ -454,15 +526,22 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
         .battle-p16-score-sep{color:rgba(255,255,255,.4)}
         .battle-p16-score-away{color:#FF4455}
         .battle-p16-rounds{display:flex;gap:6px;align-items:center}
+        /* Wave badge */
+        .battle-p16-wave{position:absolute;top:8px;right:10px;z-index:20;padding:3px 8px;border-radius:6px;background:rgba(255,184,0,.15);border:1px solid rgba(255,184,0,.5);font:800 11px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:#FFB800}
+        /* Wave banner overlay */
+        .battle-p16-wave-banner{position:absolute;inset:0;z-index:50;display:grid;place-items:center;background:rgba(0,0,0,.55);animation:p16WaveBannerIn .15s ease-out both}
+        .battle-p16-wave-banner span{font:900 clamp(32px,12vw,56px) 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#FFB800;text-shadow:0 0 36px rgba(255,184,0,.7);animation:bk-charge .5s ease-in-out infinite}
         /* Ball charge */
-        .battle-p16-ball{position:absolute;z-index:20;left:50%;top:44%;width:72px;height:72px;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:rgba(255,184,0,.08);border:2px solid rgba(255,184,0,.5);transform:translate(-50%,-50%);touch-action:none;cursor:pointer;box-shadow:0 0 24px rgba(255,184,0,.3)}
+        .battle-p16-ball{position:absolute;z-index:20;left:50%;top:44%;width:80px;height:80px;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:rgba(255,184,0,.06);transform:translate(-50%,-50%);touch-action:none;cursor:pointer}
         .battle-p16-ball:not(.is-charging){animation:p16BallPulse 1.2s ease-in-out infinite}
-        .battle-p16-ball.is-charging{box-shadow:0 0 40px rgba(255,184,0,.6);border-color:#FFB800}
+        .battle-p16-ball.is-charging.is-perfect{box-shadow:0 0 48px rgba(43,255,154,.8)}
+        .battle-p16-ball.is-charging.is-overshot{box-shadow:0 0 40px rgba(255,68,85,.7)}
         .battle-p16-ball svg{filter:drop-shadow(0 4px 8px rgba(0,0,0,.7))}
-        .battle-p16-ball circle{fill:#f4f7ff;stroke:#0b1422;stroke-width:2}
+        .battle-p16-ball circle.ball-body{fill:#f4f7ff;stroke:#0b1422;stroke-width:2}
         .battle-p16-ball path{fill:none;stroke:#0b1422;stroke-width:2;stroke-linejoin:round}
+        .battle-p16-ball circle.ring-guide{fill:none;stroke-width:2.5;transition:stroke .1s}
         .battle-p16-ball__label{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font:900 10px 'Barlow Condensed',sans-serif;letter-spacing:.14em;color:#FFB800;white-space:nowrap;pointer-events:none;text-shadow:0 0 10px rgba(255,184,0,.6)}
-        @keyframes p16BallPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,184,0,.5),0 0 24px rgba(255,184,0,.2)}60%{box-shadow:0 0 0 10px rgba(255,184,0,0),0 0 32px rgba(255,184,0,.4)}}
+        @keyframes p16BallPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,184,0,.5)}60%{box-shadow:0 0 0 10px rgba(255,184,0,0)}}
         @keyframes p16SpinOut{to{transform:translate(-50%,-50%) rotate(360deg) scale(.1);opacity:0}}
         @keyframes p16Shake{0%,100%{margin-left:0}16%{margin-left:-5px}32%{margin-left:5px}48%{margin-left:-5px}64%{margin-left:5px}80%{margin-left:-5px}}
         @keyframes p16RedFlash{50%{filter:drop-shadow(0 0 18px #FF4455) saturate(2)}}
@@ -472,6 +551,8 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
         @keyframes p16PlayerIn{from{transform:translateX(-90px);opacity:0}to{transform:none;opacity:1}}
         @keyframes p16PlayerOut{to{transform:translateX(-90px);opacity:0}}
         @keyframes p16Float{to{transform:translateY(-18px);opacity:0}}
+        @keyframes p16SonicPulse{from{filter:drop-shadow(0 0 6px rgba(0,221,204,.6)) drop-shadow(0 8px 7px rgba(0,0,0,.5))}to{filter:drop-shadow(0 0 14px rgba(0,221,204,1)) drop-shadow(0 8px 7px rgba(0,0,0,.5))}}
+        @keyframes p16WaveBannerIn{from{opacity:0;transform:scale(1.1)}to{opacity:1;transform:none}}
       `}</style>
 
       {/* TOP 5% — countdown bar */}
@@ -488,7 +569,7 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
         {!shootingWindow && <div className="battle-p16-goal-inactive-label">Fenêtre de tir fermée</div>}
         {shootingWindow && !target && <div className="battle-p16-goal-shoot-prompt">CLIQUE DANS LE BUT !</div>}
         {shootingWindow && target && !charging && !shotResolved && <div className="battle-p16-goal-shoot-prompt" style={{ color: '#2bff9a', fontSize: '16px' }}>MAINTENIR LE BALLON {'\u2193'}</div>}
-        {charging && <div className="battle-p16-goal-shoot-prompt" style={{ color: '#2bff9a' }}>RELACHER !</div>}
+        {charging && <div className="battle-p16-goal-shoot-prompt" style={{ color: inPerfectZone ? '#2bff9a' : overshot ? '#FF4455' : '#FFB800' }}>{inPerfectZone ? 'RELACHER !' : overshot ? 'TROP FORT !' : 'CHARGER...'}</div>}
         <GoalView difficulty={difficulty} keeperX={keeperX} target={target} ballFlight={flight} interactive={shootingWindow && !shotResolved} slowMotion={Boolean(target)} onTarget={(nextTarget) => !target && setTarget(nextTarget)} />
       </div>
 
@@ -505,6 +586,8 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
             <line x1="0" y1="230" x2="375" y2="230" /><line x1="0" y1="310" x2="375" y2="310" />
           </g>
         </svg>
+        {/* Wave badge */}
+        {!shootingWindow && <div className="battle-p16-wave">V{waveIndex + 1}/{waves.length}</div>}
         {defenders.map((defender) => {
           const recentlyHit = defender.hitAt !== null && clockNow - defender.hitAt < 200
           const appearing = defender.age >= defender.spawnDelay && defender.age - defender.spawnDelay < 200
@@ -513,10 +596,12 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
         <svg className="battle-p16-trails" viewBox="0 0 100 100" preserveAspectRatio="none">
           {trails.map((trail) => <line key={trail.id} x1={trail.x1} y1={trail.y1} x2={trail.x2} y2={trail.y2} />)}
         </svg>
+        {/* Wave banner */}
+        {waveBanner ? <div className="battle-p16-wave-banner"><span>{waveBanner}</span></div> : null}
         {shootingWindow && target && !shotResolved ? (
           <button
             type="button"
-            className={`battle-p16-ball${charging ? ' is-charging' : ''}`}
+            className={`battle-p16-ball${charging ? ` is-charging${inPerfectZone ? ' is-perfect' : overshot ? ' is-overshot' : ''}` : ''}`}
             onContextMenu={(e) => e.preventDefault()}
             onTouchStart={(event) => { event.preventDefault(); lastTouchAtRef.current = event.timeStamp; startCharge() }}
             onTouchEnd={(event) => { event.preventDefault(); lastTouchAtRef.current = event.timeStamp; releaseShot(event.timeStamp) }}
@@ -525,12 +610,14 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
             onMouseLeave={(event) => { if (charging && event.timeStamp - lastTouchAtRef.current > 500) releaseShot(event.timeStamp) }}
             aria-label="Maintenir pour charger le tir">
             {!charging && <span className="battle-p16-ball__label">MAINTENIR</span>}
-            <svg viewBox="0 0 60 60" style={{ width: chargeDiameter, height: chargeDiameter }}>
-              <circle cx="30" cy="30" r="26" />
-              <path d="M30 16 l9 6.5 -3.5 11 -11 0 -3.5 -11z" />
-              <g fill="none" stroke="#0b1422" strokeWidth="1.3">
-                <path d="M30 9 v7 M48 22 l-6 3 M12 22 l6 3 M19 50 l4 -6 M41 50 l-4 -6" />
-              </g>
+            <svg viewBox="0 0 80 80" style={{ width: 80, height: 80 }}>
+              {/* Ring guide at RING_DIAMETER */}
+              <circle className="ring-guide" cx="40" cy="40" r={RING_DIAMETER / 2}
+                stroke={inPerfectZone ? '#2bff9a' : overshot ? '#FF4455' : 'rgba(255,184,0,.5)'}
+                strokeDasharray={inPerfectZone ? 'none' : '5 3'} />
+              {/* Ball grows */}
+              <circle className="ball-body" cx="40" cy="40" r={chargeDiameter / 2} />
+              <path d={`M40 ${40 - chargeDiameter * 0.38} l${chargeDiameter * 0.22} ${chargeDiameter * 0.155} -${chargeDiameter * 0.085} ${chargeDiameter * 0.258} h-${chargeDiameter * 0.27} l-${chargeDiameter * 0.085} -${chargeDiameter * 0.258}z`} />
             </svg>
           </button>
         ) : null}
@@ -564,7 +651,7 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
           <span className="battle-p16-player-label">Joueur {PLAYER_NUMBERS[activePlayer]}</span>
         </div>
 
-        {/* Score pill + round dots */}
+        {/* Score pill + wave indicator */}
         <div className="battle-p16-score-wrap">
           <div className="battle-p16-score">
             <span className="battle-p16-score-home">{0}</span>
@@ -572,11 +659,9 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
             <span className="battle-p16-score-away">{0}</span>
           </div>
           <div className="battle-p16-rounds">
-            <i style={{ width: 7, height: 7, borderRadius: '50%', background: '#2bff9a', display: 'inline-block' }} />
-            <i style={{ width: 9, height: 9, borderRadius: '50%', background: '#FFB800', boxShadow: '0 0 8px rgba(255,184,0,.7)', display: 'inline-block' }} />
-            <i style={{ width: 7, height: 7, borderRadius: '50%', background: 'rgba(255,255,255,.18)', display: 'inline-block' }} />
-            <i style={{ width: 7, height: 7, borderRadius: '50%', background: 'rgba(255,255,255,.18)', display: 'inline-block' }} />
-            <i style={{ width: 7, height: 7, borderRadius: '50%', background: 'rgba(255,255,255,.18)', display: 'inline-block' }} />
+            {waves.map((_, i) => (
+              <i key={i} style={{ width: i <= waveIndex ? 9 : 7, height: i <= waveIndex ? 9 : 7, borderRadius: '50%', background: i < waveIndex ? '#2bff9a' : i === waveIndex ? '#FFB800' : 'rgba(255,255,255,.18)', boxShadow: i === waveIndex ? '0 0 8px rgba(255,184,0,.7)' : 'none', display: 'inline-block', transition: 'all .2s' }} />
+            ))}
           </div>
         </div>
       </div>

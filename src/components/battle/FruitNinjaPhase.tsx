@@ -7,7 +7,7 @@ type FruitNinjaPhaseProps = {
   onResult: (saved: boolean) => void
 }
 
-type NinjaKind = 'ball' | 'card' | 'cone'
+type NinjaKind = 'ball' | 'card' | 'cone' | 'sonic'
 type NinjaState = 'waiting' | 'active' | 'intercepted' | 'missed'
 
 type NinjaObject = {
@@ -47,9 +47,11 @@ function randomPath() {
 
 function createObjects(attackersInZone: number, difficulty: BattleDifficulty) {
   const ballCount = attackersInZone === 1 ? 3 : attackersInZone === 2 ? 5 : 7
+  const sonicCount = difficulty === 'easy' ? 0 : difficulty === 'medium' ? 1 : 2
   const kinds: NinjaKind[] = [
     ...Array.from({ length: ballCount }, () => 'ball' as const),
     ...(attackersInZone >= 3 ? ['card' as const, 'cone' as const] : []),
+    ...Array.from({ length: sonicCount }, () => 'sonic' as const),
   ]
   for (let index = kinds.length - 1; index > 0; index -= 1) {
     const swapIndex = Math.floor(randomUnit() * (index + 1))
@@ -72,11 +74,12 @@ function createObjects(attackersInZone: number, difficulty: BattleDifficulty) {
 
   return kinds.map<NinjaObject>((kind, index) => {
     const path = randomPath()
+    const sonicDuration = difficulty === 'easy' ? 900 : difficulty === 'medium' ? 700 : 550
     return {
       id: crypto.randomUUID(),
       kind,
       delay: rawDelays[index] * scale,
-      duration: zoneDuration * difficultyFactor * randomRange(.9, 1.1),
+      duration: kind === 'sonic' ? sonicDuration : zoneDuration * difficultyFactor * randomRange(.9, 1.1),
       ...path,
       x: path.startX,
       y: path.startY,
@@ -97,7 +100,7 @@ function distanceToSegment(px: number, py: number, x1: number, y1: number, x2: n
 // Pure visual — no event handlers (slashing is tracked globally on the arena)
 function NinjaObjectVisual({ object, now }: { object: NinjaObject; now: number }) {
   const burstVisible = object.state === 'intercepted' && object.hitAt !== null && now - object.hitAt < 250
-  const diameter = object.kind === 'ball' ? 58 : 52
+  const diameter = object.kind === 'ball' ? 58 : object.kind === 'sonic' ? 44 : 52
   const hidden = object.state === 'waiting' || (object.state === 'intercepted' && !burstVisible) || object.state === 'missed'
   return (
     <svg
@@ -124,10 +127,16 @@ function NinjaObjectVisual({ object, now }: { object: NinjaObject; now: number }
           <rect x="9" y="63" width="62" height="9" rx="4" fill="#ff8a16" />
         </>
       ) : null}
+      {object.kind === 'sonic' ? (
+        <>
+          <circle cx="40" cy="40" r="34" fill="#00DDCC" stroke="rgba(0,255,220,.9)" strokeWidth="4" />
+          <path d="M52 14 36 42h16L28 70 44 44H30Z" fill="rgba(0,0,0,.4)" stroke="rgba(255,255,255,.9)" strokeWidth="2.5" strokeLinejoin="round" />
+        </>
+      ) : null}
       {burstVisible ? (
         <g className="fruit-ninja-burst">
           {Array.from({ length: 8 }, (_, index) => (
-            <circle key={index} cx={40 + Math.cos(index * Math.PI / 4) * 26} cy={40 + Math.sin(index * Math.PI / 4) * 26} r="5" fill="#ffcf32" />
+            <circle key={index} cx={40 + Math.cos(index * Math.PI / 4) * 26} cy={40 + Math.sin(index * Math.PI / 4) * 26} r="5" fill={object.kind === 'sonic' ? '#00FFCC' : '#ffcf32'} />
           ))}
         </g>
       ) : null}
@@ -287,6 +296,7 @@ export function FruitNinjaPhase({ attackersInZone, difficulty, onResult }: Fruit
         .fruit-ninja-burst circle{transform-origin:40px 40px;animation:fnParticle .25s both}
         .fruit-ninja-trails{position:absolute;z-index:15;inset:0;width:100%;height:100%;pointer-events:none}
         .fruit-ninja-trails line{stroke:#fff;stroke-width:5;stroke-linecap:round;filter:drop-shadow(0 0 10px rgba(255,255,255,.9));animation:fnSlash .35s both}
+        .fruit-ninja-object.is-sonic{filter:drop-shadow(0 0 10px rgba(0,221,204,.9)) drop-shadow(0 8px 8px rgba(0,0,0,.6));animation:fnSonicPulse .3s ease-in-out infinite alternate}
         .fruit-ninja-flash{position:absolute;z-index:30;inset:0;background:rgba(255,20,45,.48);pointer-events:none;animation:fnFlash .2s both}
         .fruit-ninja-result{position:absolute;z-index:40;inset:0;display:grid;place-items:center;align-content:center;background:rgba(2,7,14,.82);animation:fnResultIn .2s both}
         .fruit-ninja-result h2{margin:0;font:900 clamp(60px,20vw,120px) 'Barlow Condensed',sans-serif;letter-spacing:.02em;line-height:.9}
@@ -298,6 +308,7 @@ export function FruitNinjaPhase({ attackersInZone, difficulty, onResult }: Fruit
         @keyframes fnObjectBurst{to{transform:translate(-50%,-50%) scale(1.8);opacity:0}}
         @keyframes fnParticle{to{transform:scale(2.5);opacity:0}}
         @keyframes fnResultIn{from{opacity:0;transform:scale(1.1)}to{opacity:1;transform:none}}
+        @keyframes fnSonicPulse{from{filter:drop-shadow(0 0 6px rgba(0,221,204,.6)) drop-shadow(0 8px 8px rgba(0,0,0,.6))}to{filter:drop-shadow(0 0 16px rgba(0,255,220,1)) drop-shadow(0 8px 8px rgba(0,0,0,.6))}}
       `}</style>
 
       {/* Faint grid lines */}

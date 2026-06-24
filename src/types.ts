@@ -159,7 +159,7 @@ export type CommentaryPhase =
 
 export type BattleDifficulty = 'easy' | 'medium' | 'hard'
 
-export type DefenderType = 'normal' | 'costaud' | 'agile'
+export type DefenderType = 'normal' | 'costaud' | 'agile' | 'sonic'
 
 export type Defender = {
   id: string

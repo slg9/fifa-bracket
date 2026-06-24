@@ -9,9 +9,9 @@ export type DifficultyConfig = {
 }
 
 const CONFIG: Record<BattleDifficulty, DifficultyConfig> = {
-  easy: { defenderCount: 1, defenderSpeed: 80, gkSpeed: 60, chargeTime: 2, countdown: 6 },
-  medium: { defenderCount: 2, defenderSpeed: 110, gkSpeed: 100, chargeTime: 1.8, countdown: 5 },
-  hard: { defenderCount: 3, defenderSpeed: 150, gkSpeed: 150, chargeTime: 1.5, countdown: 4 },
+  easy: { defenderCount: 2, defenderSpeed: 80, gkSpeed: 140, chargeTime: 0.9, countdown: 8 },
+  medium: { defenderCount: 3, defenderSpeed: 120, gkSpeed: 200, chargeTime: 0.8, countdown: 7 },
+  hard: { defenderCount: 4, defenderSpeed: 160, gkSpeed: 280, chargeTime: 0.7, countdown: 6 },
 }
 
 export function getDifficultyConfig(difficulty: BattleDifficulty): DifficultyConfig {
