@@ -119,15 +119,15 @@ type StoredSimulation = {
 }
 
 const roundColumns: Array<{ key: string; stage: string; side: 'left' | 'center' | 'right'; ids: string[] }> = [
-  { key: 'R32L', stage: 'Round of 32', side: 'left', ids: ['M73', 'M74', 'M75', 'M76', 'M77', 'M78', 'M79', 'M80'] },
-  { key: 'R16L', stage: 'Round of 16', side: 'left', ids: ['M89', 'M90', 'M91', 'M92'] },
-  { key: 'QFL', stage: 'Quarter-final', side: 'left', ids: ['M97', 'M99'] },
+  { key: 'R32L', stage: 'Round of 32', side: 'left', ids: ['M74', 'M77', 'M73', 'M75', 'M83', 'M84', 'M81', 'M82'] },
+  { key: 'R16L', stage: 'Round of 16', side: 'left', ids: ['M89', 'M90', 'M93', 'M94'] },
+  { key: 'QFL', stage: 'Quarter-final', side: 'left', ids: ['M97', 'M98'] },
   { key: 'SFL', stage: 'Semi-final', side: 'left', ids: ['M101'] },
-  { key: 'F', stage: 'Finale', side: 'center', ids: ['M103'] },
+  { key: 'F', stage: 'Finale', side: 'center', ids: ['M103', 'M104'] },
   { key: 'SFR', stage: 'Semi-final', side: 'right', ids: ['M102'] },
-  { key: 'QFR', stage: 'Quarter-final', side: 'right', ids: ['M98', 'M100'] },
-  { key: 'R16R', stage: 'Round of 16', side: 'right', ids: ['M93', 'M94', 'M95', 'M96'] },
-  { key: 'R32R', stage: 'Round of 32', side: 'right', ids: ['M81', 'M82', 'M83', 'M84', 'M85', 'M86', 'M87', 'M88'] },
+  { key: 'QFR', stage: 'Quarter-final', side: 'right', ids: ['M99', 'M100'] },
+  { key: 'R16R', stage: 'Round of 16', side: 'right', ids: ['M91', 'M92', 'M95', 'M96'] },
+  { key: 'R32R', stage: 'Round of 32', side: 'right', ids: ['M76', 'M78', 'M79', 'M80', 'M86', 'M88', 'M85', 'M87'] },
 ]
 
 const watchOptionsByCountry: Record<string, WatchOption[]> = {
@@ -344,6 +344,7 @@ function KnockoutTeamBadge({
   isInteractive,
   onPick,
   onPreview,
+  onStandingsHover,
 }: {
   entrant: KnockoutEntrant
   teamsById: Map<string, Team>
@@ -355,6 +356,7 @@ function KnockoutTeamBadge({
   isInteractive: boolean
   onPick?: (teamId: string) => void
   onPreview?: (teamId: string | null) => void
+  onStandingsHover?: (teamId: string | null, event: React.MouseEvent) => void
 }) {
   if (entrant.kind === 'placeholder') {
     return (
@@ -389,10 +391,10 @@ function KnockoutTeamBadge({
       ].filter(Boolean).join(' ')}
       disabled={!isInteractive}
       onClick={() => onPick?.(team.id)}
-      onMouseEnter={() => onPreview?.(team.id)}
-      onMouseLeave={() => onPreview?.(null)}
-      onFocus={() => onPreview?.(team.id)}
-      onBlur={() => onPreview?.(null)}
+      onMouseEnter={(e) => { onPreview?.(team.id); onStandingsHover?.(team.id, e) }}
+      onMouseLeave={(e) => { onPreview?.(null); onStandingsHover?.(null, e) }}
+      onFocus={(e) => { onPreview?.(team.id); onStandingsHover?.(team.id, e) }}
+      onBlur={(e) => { onPreview?.(null); onStandingsHover?.(null, e) }}
     >
       {side === 'right' ? (
         <>
@@ -424,6 +426,7 @@ const MatchCard = memo(function MatchCard({
   onPick,
   onClear,
   onPreview,
+  onStandingsHover,
 }: {
   match: DisplayMatch
   teamsById: Map<string, Team>
@@ -437,6 +440,7 @@ const MatchCard = memo(function MatchCard({
   onPick: (matchId: string, teamId: string) => void
   onClear: (matchId: string) => void
   onPreview: (teamId: string | null) => void
+  onStandingsHover?: (teamId: string | null, event: React.MouseEvent) => void
 }) {
   const homeTeamId = getEntrantTeamId(match.home)
   const awayTeamId = getEntrantTeamId(match.away)
@@ -467,6 +471,7 @@ const MatchCard = memo(function MatchCard({
         isInteractive={simulationEnabled}
         onPick={simulationEnabled ? (teamId) => onPick(match.id, teamId) : undefined}
         onPreview={onPreview}
+        onStandingsHover={onStandingsHover}
       />
       <KnockoutTeamBadge
         entrant={match.away}
@@ -479,6 +484,7 @@ const MatchCard = memo(function MatchCard({
         isInteractive={simulationEnabled}
         onPick={simulationEnabled ? (teamId) => onPick(match.id, teamId) : undefined}
         onPreview={onPreview}
+        onStandingsHover={onStandingsHover}
       />
       {simulationEnabled && match.played ? (
         <div className="bm__actions match-card-actions">
@@ -513,7 +519,20 @@ function resolveDisplayBracket(
               ? ({ kind: 'team', teamId: prev.winnerId } satisfies KnockoutEntrant)
               : ({ kind: 'placeholder', label: `Vainqueur ${template.home.matchId}` } satisfies KnockoutEntrant)
           })()
-        : source.home
+        : template.home.type === 'loserOf'
+          ? (() => {
+              const prev = display.get(template.home.matchId)
+              if (prev?.winnerId) {
+                const loser = [prev.home, prev.away].find(
+                  (e) => e.kind === 'team' && e.teamId !== prev.winnerId,
+                )
+                return loser?.kind === 'team'
+                  ? ({ kind: 'team', teamId: loser.teamId } satisfies KnockoutEntrant)
+                  : ({ kind: 'placeholder', label: `Perdant ${template.home.matchId}` } satisfies KnockoutEntrant)
+              }
+              return { kind: 'placeholder', label: `Perdant ${template.home.matchId}` } satisfies KnockoutEntrant
+            })()
+          : source.home
 
     const resolvedAway =
       template.away.type === 'winnerOf'
@@ -523,7 +542,20 @@ function resolveDisplayBracket(
               ? ({ kind: 'team', teamId: prev.winnerId } satisfies KnockoutEntrant)
               : ({ kind: 'placeholder', label: `Vainqueur ${template.away.matchId}` } satisfies KnockoutEntrant)
           })()
-        : source.away
+        : template.away.type === 'loserOf'
+          ? (() => {
+              const prev = display.get(template.away.matchId)
+              if (prev?.winnerId) {
+                const loser = [prev.home, prev.away].find(
+                  (e) => e.kind === 'team' && e.teamId !== prev.winnerId,
+                )
+                return loser?.kind === 'team'
+                  ? ({ kind: 'team', teamId: loser.teamId } satisfies KnockoutEntrant)
+                  : ({ kind: 'placeholder', label: `Perdant ${template.away.matchId}` } satisfies KnockoutEntrant)
+              }
+              return { kind: 'placeholder', label: `Perdant ${template.away.matchId}` } satisfies KnockoutEntrant
+            })()
+          : source.away
 
     const pickedWinnerId = picks[source.id]
     const validPick =
@@ -554,6 +586,7 @@ function BracketBoard({
   focusId,
   picks,
   simulationEnabled,
+  standings,
   onPick,
   onClear,
   onFocusChange,
@@ -563,6 +596,7 @@ function BracketBoard({
   focusId: string | null
   picks: Record<string, string>
   simulationEnabled: boolean
+  standings: Record<string, RankedStandingRow[]>
   onPick: (matchId: string, teamId: string) => void
   onClear: (matchId: string) => void
   onFocusChange: (teamId: string | null) => void
@@ -581,6 +615,8 @@ function BracketBoard({
   const [activeMobileRound, setActiveMobileRound] = useState<(typeof mobileRoundTabs)[number]['key']>('R32')
   const [isExporting, setIsExporting] = useState(false)
   const [exportFeedback, setExportFeedback] = useState<string | null>(null)
+  const [standingsPopup, setStandingsPopup] = useState<{ teamId: string; x: number; y: number } | null>(null)
+  const isFullscreenRef = useRef(false)
 
   const matchMap = useMemo(() => new Map(matches.map((match) => [match.id, match])), [matches])
   const parentLookup = useMemo(() => {
@@ -610,7 +646,7 @@ function BracketBoard({
       .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   }, [matches, teamsById])
   const focusTeamId = previewTeamId ?? focusId
-  const defaultActiveMatchIds = useMemo(() => new Set(['M101', 'M102', 'M103'].filter((id) => matchMap.has(id))), [matchMap])
+  const defaultActiveMatchIds = useMemo(() => new Set(['M101', 'M102', 'M103', 'M104'].filter((id) => matchMap.has(id))), [matchMap])
   const activeMatchIds = useMemo(() => {
     if (!focusTeamId) {
       return defaultActiveMatchIds
@@ -637,7 +673,7 @@ function BracketBoard({
     }
     return highlighted
   }, [activeMatchIds, focusTeamId, parentLookup])
-  const finalMatch = matchMap.get('M103') ?? null
+  const finalMatch = matchMap.get('M104') ?? null
   const championTeam = finalMatch?.winnerId ? teamsById.get(finalMatch.winnerId) ?? null : null
   const mobileRoundMatches = useMemo(() => {
     const grouped = new Map<string, DisplayMatch[]>()
@@ -662,6 +698,10 @@ function BracketBoard({
     const timeout = window.setTimeout(() => setExportFeedback(null), 2800)
     return () => window.clearTimeout(timeout)
   }, [exportFeedback])
+
+  useEffect(() => {
+    isFullscreenRef.current = isFullscreen
+  }, [isFullscreen])
 
   useEffect(() => {
     const syncViewportState = () => {
@@ -690,9 +730,12 @@ function BracketBoard({
       const nextWidth = Math.ceil(boardRef.current.scrollWidth)
       const nextHeight = Math.ceil(boardRef.current.scrollHeight)
       const viewportWidth = viewportRef.current?.clientWidth ?? 0
-      const nextScale = viewportWidth > 0 && nextWidth > 0
-        ? Math.min(1, Math.max(0.58, (viewportWidth - 24) / nextWidth))
+      const viewportHeight = viewportRef.current?.clientHeight ?? 0
+      const scaleByWidth = viewportWidth > 0 && nextWidth > 0 ? (viewportWidth - 24) / nextWidth : 1
+      const scaleByHeight = isFullscreenRef.current && viewportHeight > 0 && nextHeight > 0
+        ? (viewportHeight - 40) / nextHeight
         : 1
+      const nextScale = Math.min(1, Math.max(0.35, Math.min(scaleByWidth, scaleByHeight)))
       const boardRect = boardRef.current.getBoundingClientRect()
       const safeScale = nextScale || 1
       const nextLines: Array<{ id: string; d: string; active: boolean }> = []
@@ -901,7 +944,7 @@ function BracketBoard({
             <select value={focusId ?? ''} onChange={(event) => onFocusChange(event.target.value || null)}>
               <option value="">Parcours finalistes</option>
               {allTeams.map((team) => (
-                <option key={team.id} value={team.id}>{team.name}</option>
+                <option key={team.id} value={team.id}>{team.flagEmoji} {team.name}</option>
               ))}
             </select>
           </label>
@@ -983,7 +1026,7 @@ function BracketBoard({
               simulationEnabled={simulationEnabled}
               isActive={activeMatchIds.has(match.id)}
               isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
-              isFinalCard={match.id === 'M103'}
+              isFinalCard={match.id === 'M104'}
               focusId={focusId}
               registerRef={() => undefined}
               onPick={onPick}
@@ -1030,7 +1073,7 @@ function BracketBoard({
                               simulationEnabled={simulationEnabled}
                               isActive={activeMatchIds.has(match.id)}
                               isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
-                              isFinalCard
+                              isFinalCard={match.id === 'M104'}
                               focusId={focusId}
                               registerRef={(node) => {
                                 refs.current[match.id] = node
@@ -1039,7 +1082,9 @@ function BracketBoard({
                               onClear={onClear}
                               onPreview={setPreviewTeamId}
                             />
-                            <div className="finale__caption">FINALE / 19 JUL</div>
+                            <div className="finale__caption">
+                              {match.id === 'M103' ? '3E PLACE / 19 JUL' : 'FINALE / 19 JUL'}
+                            </div>
                           </div>
                         )
                       })}
@@ -1086,6 +1131,10 @@ function BracketBoard({
                           onPick={onPick}
                           onClear={onClear}
                           onPreview={setPreviewTeamId}
+                          onStandingsHover={column.stage === 'Round of 16' ? (teamId, event) => {
+                            if (teamId) setStandingsPopup({ teamId, x: event.clientX, y: event.clientY })
+                            else setStandingsPopup(null)
+                          } : undefined}
                         />
                       )
                     })
@@ -1098,6 +1147,55 @@ function BracketBoard({
           </div>
         </div>
       </div>
+
+      {standingsPopup && (() => {
+        const popupTeam = teamsById.get(standingsPopup.teamId)
+        if (!popupTeam) return null
+        const groupRows = standings[popupTeam.groupId] ?? []
+        const teamRow = groupRows.find((r) => r.teamId === standingsPopup.teamId)
+        if (!teamRow) return null
+        const popupX = Math.min(standingsPopup.x + 12, window.innerWidth - 220)
+        const popupY = Math.min(standingsPopup.y - 8, window.innerHeight - 220)
+        return (
+          <div
+            className="standings-popup"
+            style={{ left: popupX, top: popupY }}
+            onMouseLeave={() => setStandingsPopup(null)}
+          >
+            <div className="standings-popup__header">
+              {flagUrl(popupTeam)
+                ? <img src={flagUrl(popupTeam)} alt="" className="standings-popup__flag" crossOrigin="anonymous" />
+                : <span className="standings-popup__emoji">{popupTeam.flagEmoji}</span>
+              }
+              <span className="standings-popup__name">{popupTeam.name}</span>
+              <span className="standings-popup__group">Grp {popupTeam.groupId}</span>
+            </div>
+            <table className="standings-popup__table">
+              <thead>
+                <tr>
+                  <th>J</th><th>G</th><th>N</th><th>P</th><th>+/-</th><th>Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupRows.map((row) => {
+                  const rowTeam = teamsById.get(row.teamId)
+                  return (
+                    <tr key={row.teamId} className={row.teamId === standingsPopup.teamId ? 'standings-popup__row--highlight' : ''}>
+                      <td>{row.rank}. {rowTeam?.shortName ?? row.teamId}</td>
+                      <td>{row.played}</td>
+                      <td>{row.wins}</td>
+                      <td>{row.draws}</td>
+                      <td>{row.losses}</td>
+                      <td>{row.goalDifference > 0 ? '+' : ''}{row.goalDifference}</td>
+                      <td className="standings-popup__pts">{row.points}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -1124,7 +1222,10 @@ function App() {
     predictions: [],
   })
   const [mode, setMode] = useState<Mode>('real')
-  const [view, setView] = useState<View>('groups')
+  const simulatorMode = useMemo(() => new URLSearchParams(window.location.search).has('simulator'), [])
+  const [view, setView] = useState<View>(() =>
+    new URLSearchParams(window.location.search).has('simulator') ? 'bracket' : 'groups'
+  )
   const [overrides, setOverrides] = useState<Record<string, MatchOverride>>({})
   const [knockoutPicks, setKnockoutPicks] = useState<Record<string, string>>({})
   const [focusId, setFocusId] = useState<string | null>(null)
@@ -1591,7 +1692,7 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${simulatorMode ? ' is-simulator' : ''}`}>
       {menuOpen ? <div className="menu-scrim" onClick={() => setMenuOpen(false)} /> : null}
       <div className="floods" aria-hidden="true">
         <i />
@@ -2079,6 +2180,7 @@ function App() {
       })() : null}
 
       <div className="controls">
+        {simulatorMode ? null : (
         <div className="seg">
           <button type="button" className={`seg__btn${view === 'groups' ? ' is-active' : ''}`} onClick={() => setView('groups')}>
             ▦ Groupes
@@ -2088,6 +2190,7 @@ function App() {
           </button>
           <div className={`seg__thumb seg__thumb--${view}`} />
         </div>
+        )}
 
         <div className="controls__modeseg">
           <div className="seg seg--mode">
@@ -2272,6 +2375,7 @@ function App() {
               focusId={focusId}
               picks={activeKnockoutPicks}
               simulationEnabled={mode === 'simulation'}
+              standings={standings}
               onPick={handlePickWinner}
               onClear={handleClearWinner}
               onFocusChange={setFocusId}

@@ -18,45 +18,48 @@ type KnockoutTemplate = {
     | { type: 'runnerUp'; groupId: string }
     | { type: 'third'; candidateGroups: string[] }
     | { type: 'winnerOf'; matchId: string }
+    | { type: 'loserOf'; matchId: string }
   away:
     | { type: 'winner'; groupId: string }
     | { type: 'runnerUp'; groupId: string }
     | { type: 'third'; candidateGroups: string[] }
     | { type: 'winnerOf'; matchId: string }
+    | { type: 'loserOf'; matchId: string }
 }
 
 export const knockoutTemplates: KnockoutTemplate[] = [
   { id: 'M73', stage: 'Round of 32', label: 'Match 73', dateLabel: '28 Jun', home: { type: 'runnerUp', groupId: 'A' }, away: { type: 'runnerUp', groupId: 'B' } },
-  { id: 'M74', stage: 'Round of 32', label: 'Match 74', dateLabel: '28 Jun', home: { type: 'winner', groupId: 'E' }, away: { type: 'third', candidateGroups: ['A', 'B', 'C', 'D', 'F'] } },
-  { id: 'M75', stage: 'Round of 32', label: 'Match 75', dateLabel: '28 Jun', home: { type: 'winner', groupId: 'F' }, away: { type: 'runnerUp', groupId: 'C' } },
-  { id: 'M76', stage: 'Round of 32', label: 'Match 76', dateLabel: '28 Jun', home: { type: 'winner', groupId: 'C' }, away: { type: 'runnerUp', groupId: 'F' } },
-  { id: 'M77', stage: 'Round of 32', label: 'Match 77', dateLabel: '29 Jun', home: { type: 'winner', groupId: 'I' }, away: { type: 'third', candidateGroups: ['C', 'D', 'F', 'G', 'H'] } },
-  { id: 'M78', stage: 'Round of 32', label: 'Match 78', dateLabel: '29 Jun', home: { type: 'runnerUp', groupId: 'E' }, away: { type: 'runnerUp', groupId: 'I' } },
-  { id: 'M79', stage: 'Round of 32', label: 'Match 79', dateLabel: '29 Jun', home: { type: 'winner', groupId: 'A' }, away: { type: 'third', candidateGroups: ['C', 'E', 'F', 'H', 'I'] } },
-  { id: 'M80', stage: 'Round of 32', label: 'Match 80', dateLabel: '29 Jun', home: { type: 'winner', groupId: 'L' }, away: { type: 'third', candidateGroups: ['E', 'H', 'I', 'J', 'K'] } },
-  { id: 'M81', stage: 'Round of 32', label: 'Match 81', dateLabel: '30 Jun', home: { type: 'winner', groupId: 'D' }, away: { type: 'third', candidateGroups: ['B', 'E', 'F', 'I', 'J'] } },
-  { id: 'M82', stage: 'Round of 32', label: 'Match 82', dateLabel: '30 Jun', home: { type: 'winner', groupId: 'G' }, away: { type: 'third', candidateGroups: ['A', 'E', 'H', 'I', 'J'] } },
-  { id: 'M83', stage: 'Round of 32', label: 'Match 83', dateLabel: '30 Jun', home: { type: 'runnerUp', groupId: 'K' }, away: { type: 'runnerUp', groupId: 'L' } },
-  { id: 'M84', stage: 'Round of 32', label: 'Match 84', dateLabel: '30 Jun', home: { type: 'winner', groupId: 'H' }, away: { type: 'runnerUp', groupId: 'J' } },
-  { id: 'M85', stage: 'Round of 32', label: 'Match 85', dateLabel: '1 Jul', home: { type: 'winner', groupId: 'B' }, away: { type: 'third', candidateGroups: ['E', 'F', 'G', 'I', 'J'] } },
-  { id: 'M86', stage: 'Round of 32', label: 'Match 86', dateLabel: '1 Jul', home: { type: 'winner', groupId: 'J' }, away: { type: 'runnerUp', groupId: 'H' } },
-  { id: 'M87', stage: 'Round of 32', label: 'Match 87', dateLabel: '1 Jul', home: { type: 'winner', groupId: 'K' }, away: { type: 'third', candidateGroups: ['D', 'E', 'I', 'J', 'L'] } },
-  { id: 'M88', stage: 'Round of 32', label: 'Match 88', dateLabel: '1 Jul', home: { type: 'runnerUp', groupId: 'D' }, away: { type: 'runnerUp', groupId: 'G' } },
-  { id: 'M89', stage: 'Round of 16', label: 'Match 89', dateLabel: '3 Jul', home: { type: 'winnerOf', matchId: 'M73' }, away: { type: 'winnerOf', matchId: 'M75' } },
-  { id: 'M90', stage: 'Round of 16', label: 'Match 90', dateLabel: '3 Jul', home: { type: 'winnerOf', matchId: 'M74' }, away: { type: 'winnerOf', matchId: 'M77' } },
-  { id: 'M91', stage: 'Round of 16', label: 'Match 91', dateLabel: '4 Jul', home: { type: 'winnerOf', matchId: 'M76' }, away: { type: 'winnerOf', matchId: 'M78' } },
-  { id: 'M92', stage: 'Round of 16', label: 'Match 92', dateLabel: '4 Jul', home: { type: 'winnerOf', matchId: 'M79' }, away: { type: 'winnerOf', matchId: 'M80' } },
-  { id: 'M93', stage: 'Round of 16', label: 'Match 93', dateLabel: '5 Jul', home: { type: 'winnerOf', matchId: 'M83' }, away: { type: 'winnerOf', matchId: 'M84' } },
-  { id: 'M94', stage: 'Round of 16', label: 'Match 94', dateLabel: '5 Jul', home: { type: 'winnerOf', matchId: 'M81' }, away: { type: 'winnerOf', matchId: 'M82' } },
-  { id: 'M95', stage: 'Round of 16', label: 'Match 95', dateLabel: '6 Jul', home: { type: 'winnerOf', matchId: 'M86' }, away: { type: 'winnerOf', matchId: 'M88' } },
-  { id: 'M96', stage: 'Round of 16', label: 'Match 96', dateLabel: '6 Jul', home: { type: 'winnerOf', matchId: 'M85' }, away: { type: 'winnerOf', matchId: 'M87' } },
-  { id: 'M97', stage: 'Quarter-final', label: 'Match 97', dateLabel: '9 Jul', home: { type: 'winnerOf', matchId: 'M89' }, away: { type: 'winnerOf', matchId: 'M90' } },
-  { id: 'M98', stage: 'Quarter-final', label: 'Match 98', dateLabel: '9 Jul', home: { type: 'winnerOf', matchId: 'M93' }, away: { type: 'winnerOf', matchId: 'M94' } },
-  { id: 'M99', stage: 'Quarter-final', label: 'Match 99', dateLabel: '10 Jul', home: { type: 'winnerOf', matchId: 'M91' }, away: { type: 'winnerOf', matchId: 'M92' } },
-  { id: 'M100', stage: 'Quarter-final', label: 'Match 100', dateLabel: '10 Jul', home: { type: 'winnerOf', matchId: 'M95' }, away: { type: 'winnerOf', matchId: 'M96' } },
+  { id: 'M74', stage: 'Round of 32', label: 'Match 74', dateLabel: '30 Jun', home: { type: 'winner', groupId: 'E' }, away: { type: 'third', candidateGroups: ['A', 'B', 'C', 'D', 'F'] } },
+  { id: 'M75', stage: 'Round of 32', label: 'Match 75', dateLabel: '30 Jun', home: { type: 'winner', groupId: 'F' }, away: { type: 'runnerUp', groupId: 'C' } },
+  { id: 'M76', stage: 'Round of 32', label: 'Match 76', dateLabel: '29 Jun', home: { type: 'winner', groupId: 'C' }, away: { type: 'runnerUp', groupId: 'F' } },
+  { id: 'M77', stage: 'Round of 32', label: 'Match 77', dateLabel: '1 Jul', home: { type: 'winner', groupId: 'I' }, away: { type: 'third', candidateGroups: ['C', 'D', 'F', 'G', 'H'] } },
+  { id: 'M78', stage: 'Round of 32', label: 'Match 78', dateLabel: '30 Jun', home: { type: 'runnerUp', groupId: 'E' }, away: { type: 'runnerUp', groupId: 'I' } },
+  { id: 'M79', stage: 'Round of 32', label: 'Match 79', dateLabel: '1 Jul', home: { type: 'winner', groupId: 'A' }, away: { type: 'third', candidateGroups: ['C', 'E', 'F', 'H', 'I'] } },
+  { id: 'M80', stage: 'Round of 32', label: 'Match 80', dateLabel: '1 Jul', home: { type: 'winner', groupId: 'L' }, away: { type: 'third', candidateGroups: ['E', 'H', 'I', 'J', 'K'] } },
+  { id: 'M81', stage: 'Round of 32', label: 'Match 81', dateLabel: '2 Jul', home: { type: 'winner', groupId: 'D' }, away: { type: 'third', candidateGroups: ['B', 'E', 'F', 'I', 'J'] } },
+  { id: 'M82', stage: 'Round of 32', label: 'Match 82', dateLabel: '2 Jul', home: { type: 'winner', groupId: 'G' }, away: { type: 'third', candidateGroups: ['A', 'E', 'H', 'I', 'J'] } },
+  { id: 'M83', stage: 'Round of 32', label: 'Match 83', dateLabel: '3 Jul', home: { type: 'runnerUp', groupId: 'K' }, away: { type: 'runnerUp', groupId: 'L' } },
+  { id: 'M84', stage: 'Round of 32', label: 'Match 84', dateLabel: '2 Jul', home: { type: 'winner', groupId: 'H' }, away: { type: 'runnerUp', groupId: 'J' } },
+  { id: 'M85', stage: 'Round of 32', label: 'Match 85', dateLabel: '3 Jul', home: { type: 'winner', groupId: 'B' }, away: { type: 'third', candidateGroups: ['E', 'F', 'G', 'I', 'J'] } },
+  { id: 'M86', stage: 'Round of 32', label: 'Match 86', dateLabel: '4 Jul', home: { type: 'winner', groupId: 'J' }, away: { type: 'runnerUp', groupId: 'H' } },
+  { id: 'M87', stage: 'Round of 32', label: 'Match 87', dateLabel: '4 Jul', home: { type: 'winner', groupId: 'K' }, away: { type: 'third', candidateGroups: ['D', 'E', 'I', 'J', 'L'] } },
+  { id: 'M88', stage: 'Round of 32', label: 'Match 88', dateLabel: '3 Jul', home: { type: 'runnerUp', groupId: 'D' }, away: { type: 'runnerUp', groupId: 'G' } },
+  { id: 'M89', stage: 'Round of 16', label: 'Match 89', dateLabel: '5 Jul', home: { type: 'winnerOf', matchId: 'M74' }, away: { type: 'winnerOf', matchId: 'M77' } },
+  { id: 'M90', stage: 'Round of 16', label: 'Match 90', dateLabel: '4 Jul', home: { type: 'winnerOf', matchId: 'M73' }, away: { type: 'winnerOf', matchId: 'M75' } },
+  { id: 'M91', stage: 'Round of 16', label: 'Match 91', dateLabel: '6 Jul', home: { type: 'winnerOf', matchId: 'M76' }, away: { type: 'winnerOf', matchId: 'M78' } },
+  { id: 'M92', stage: 'Round of 16', label: 'Match 92', dateLabel: '6 Jul', home: { type: 'winnerOf', matchId: 'M79' }, away: { type: 'winnerOf', matchId: 'M80' } },
+  { id: 'M93', stage: 'Round of 16', label: 'Match 93', dateLabel: '6 Jul', home: { type: 'winnerOf', matchId: 'M83' }, away: { type: 'winnerOf', matchId: 'M84' } },
+  { id: 'M94', stage: 'Round of 16', label: 'Match 94', dateLabel: '7 Jul', home: { type: 'winnerOf', matchId: 'M81' }, away: { type: 'winnerOf', matchId: 'M82' } },
+  { id: 'M95', stage: 'Round of 16', label: 'Match 95', dateLabel: '7 Jul', home: { type: 'winnerOf', matchId: 'M86' }, away: { type: 'winnerOf', matchId: 'M88' } },
+  { id: 'M96', stage: 'Round of 16', label: 'Match 96', dateLabel: '8 Jul', home: { type: 'winnerOf', matchId: 'M85' }, away: { type: 'winnerOf', matchId: 'M87' } },
+  { id: 'M97', stage: 'Quarter-final', label: 'Match 97', dateLabel: '10 Jul', home: { type: 'winnerOf', matchId: 'M89' }, away: { type: 'winnerOf', matchId: 'M90' } },
+  { id: 'M98', stage: 'Quarter-final', label: 'Match 98', dateLabel: '10 Jul', home: { type: 'winnerOf', matchId: 'M93' }, away: { type: 'winnerOf', matchId: 'M94' } },
+  { id: 'M99', stage: 'Quarter-final', label: 'Match 99', dateLabel: '12 Jul', home: { type: 'winnerOf', matchId: 'M91' }, away: { type: 'winnerOf', matchId: 'M92' } },
+  { id: 'M100', stage: 'Quarter-final', label: 'Match 100', dateLabel: '12 Jul', home: { type: 'winnerOf', matchId: 'M95' }, away: { type: 'winnerOf', matchId: 'M96' } },
   { id: 'M101', stage: 'Semi-final', label: 'Match 101', dateLabel: '14 Jul', home: { type: 'winnerOf', matchId: 'M97' }, away: { type: 'winnerOf', matchId: 'M98' } },
   { id: 'M102', stage: 'Semi-final', label: 'Match 102', dateLabel: '15 Jul', home: { type: 'winnerOf', matchId: 'M99' }, away: { type: 'winnerOf', matchId: 'M100' } },
-  { id: 'M103', stage: 'Finale', label: 'Finale', dateLabel: '19 Jul', home: { type: 'winnerOf', matchId: 'M101' }, away: { type: 'winnerOf', matchId: 'M102' } },
+  { id: 'M103', stage: 'Finale', label: 'Petite Finale', dateLabel: '19 Jul', home: { type: 'loserOf', matchId: 'M101' }, away: { type: 'loserOf', matchId: 'M102' } },
+  { id: 'M104', stage: 'Finale', label: 'Finale', dateLabel: '19 Jul', home: { type: 'winnerOf', matchId: 'M101' }, away: { type: 'winnerOf', matchId: 'M102' } },
 ]
 
 function createBaseStandingRow(teamId: string, groupId: string): StandingRow {
@@ -401,6 +404,10 @@ function entrantFromTemplate(
 
   if (templateEntry.type === 'winnerOf') {
     return { kind: 'placeholder', label: `Vainqueur ${templateEntry.matchId}` }
+  }
+
+  if (templateEntry.type === 'loserOf') {
+    return { kind: 'placeholder', label: `Perdant ${templateEntry.matchId}` }
   }
 
   const assignedTeamId = assignments.get(`${matchId}:${side}`)

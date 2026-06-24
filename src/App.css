@@ -3743,3 +3743,117 @@
     padding: 0;
   }
 }
+
+/* ── Standings popup (R16 hover) ─────────────────────────────── */
+.standings-popup {
+  position: fixed;
+  z-index: 9999;
+  min-width: 200px;
+  padding: 10px 12px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 14, 28, 0.97);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(43, 255, 154, 0.08);
+  pointer-events: none;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.standings-popup__header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.standings-popup__flag {
+  width: 20px;
+  height: 14px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.standings-popup__emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.standings-popup__name {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  flex: 1;
+}
+
+.standings-popup__group {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--neon);
+  opacity: 0.8;
+}
+
+.standings-popup__table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 11px;
+}
+
+.standings-popup__table thead th {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
+  text-align: center;
+  padding: 0 4px 4px;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+}
+
+.standings-popup__table thead th:first-child {
+  text-align: left;
+}
+
+.standings-popup__table tbody td {
+  padding: 3px 4px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.standings-popup__table tbody td:first-child {
+  text-align: left;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+}
+
+.standings-popup__table tbody tr.standings-popup__row--highlight td {
+  color: #fff;
+  font-weight: 600;
+}
+
+.standings-popup__table tbody tr.standings-popup__row--highlight td:first-child {
+  color: var(--neon);
+}
+
+.standings-popup__pts {
+  font-weight: 700;
+  color: var(--neon) !important;
+}
+
+/* ── Simulator mode (/?simulator route) ──────────────────────── */
+.app-shell.is-simulator .topbar {
+  display: none;
+}
+
+.app-shell.is-simulator .controls {
+  padding-top: 8px;
+}
+
+.app-shell.is-simulator .board {
+  padding-top: 0;
+}
+
+.app-shell.is-simulator .bracket-fit {
+  min-height: calc(100vh - 60px);
+}
