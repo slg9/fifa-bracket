@@ -12,9 +12,9 @@ type AttackPhaseProps = {
 }
 
 const ATTACK_CFG = {
-  easy:   { slalomTimer: 8,   rowCount: 5, gapCount: 3, gapWidth: 26, pulseSpeed: 1.2, perfectRange: 14, keeperSpeed: 22 },
-  medium: { slalomTimer: 6,   rowCount: 6, gapCount: 2, gapWidth: 21, pulseSpeed: 0.85, perfectRange: 9, keeperSpeed: 50 },
-  hard:   { slalomTimer: 4.5, rowCount: 7, gapCount: 2, gapWidth: 16, pulseSpeed: 0.60, perfectRange: 5, keeperSpeed: 85 },
+  easy:   { slalomTimer: 9,   rowCount: 5, gapWidth: 28, slalomAmp: 8,  pulseSpeed: 1.2,  perfectRange: 14, keeperSpeed: 22 },
+  medium: { slalomTimer: 7,   rowCount: 6, gapWidth: 22, slalomAmp: 13, pulseSpeed: 0.85, perfectRange: 9,  keeperSpeed: 50 },
+  hard:   { slalomTimer: 5.5, rowCount: 7, gapWidth: 17, slalomAmp: 17, pulseSpeed: 0.60, perfectRange: 5,  keeperSpeed: 85 },
 }
 
 const SLALOM_COMMENTS = [
@@ -22,48 +22,42 @@ const SLALOM_COMMENTS = [
   'Il les passe tous !', 'Magnifique !', 'Élégant !', 'En pleine course !',
 ]
 
-type SlalomRow = { y: number; gaps: { x: number; w: number }[] }
+// Each row has a single oscillating gap that alternates strictly left↔right
+type SlalomRow = {
+  y: number         // vertical position (%)
+  gapW: number      // gap width (%)
+  baseX: number     // gap left-edge center around which it oscillates
+  amp: number       // oscillation amplitude (%)
+  speed: number     // oscillation speed (rad/s)
+  phaseOff: number  // starting phase offset
+}
 
 function generateRows(cfg: typeof ATTACK_CFG['easy']): SlalomRow[] {
   const rows: SlalomRow[] = []
-  const { rowCount, gapCount, gapWidth } = cfg
+  const { rowCount, gapWidth, slalomAmp } = cfg
 
-  // Rows go from bottom (near player) to top (near goal)
-  // y positions: bottom rows first (high y%), top rows last (low y%)
   for (let i = 0; i < rowCount; i++) {
-    // Distribute rows from y=80% down to y=18% (player goes bottom→top)
-    const y = 80 - (i / (rowCount - 1)) * 62  // 80% to 18%
+    const y = 80 - (i / (rowCount - 1)) * 62  // 80% → 18%
 
-    const gaps: { x: number; w: number }[] = []
-    if (gapCount === 1) {
-      // Single gap — alternate sides to force S-curve
-      const side = i % 2 === 0 ? 0 : 1
-      const margin = 5
-      const maxX = 100 - gapWidth - margin
-      const minX = margin + side * (maxX / 2)
-      const maxXSide = minX + maxX / 2 - gapWidth
-      gaps.push({ x: minX + Math.random() * Math.max(0, maxXSide - minX), w: gapWidth })
-    } else {
-      // Multiple gaps — space them out and offset alternately
-      const sectionWidth = 100 / gapCount
-      for (let g = 0; g < gapCount; g++) {
-        const sectionStart = g * sectionWidth
-        // Alternate: even rows gap toward start of section, odd toward end
-        const offset = i % 2 === 0 ? 0.15 : 0.55
-        const x = sectionStart + offset * (sectionWidth - gapWidth)
-        gaps.push({ x: Math.max(2, Math.min(100 - gapWidth - 2, x)), w: gapWidth })
-      }
-    }
-    rows.push({ y, gaps })
+    // Strictly alternate: left zone (center ~18%) vs right zone (center ~78%)
+    // This forces the player to move ~60% of screen width between rows
+    const isLeft = i % 2 === 0
+    const center = isLeft ? 18 : 78
+    const baseX = center - gapWidth / 2
+
+    // Different speed per row so rows don't synchronize
+    const speed = 0.6 + Math.random() * 1.4   // 0.6–2.0 rad/s
+    const phaseOff = Math.random() * Math.PI * 2
+
+    rows.push({ y, gapW: gapWidth, baseX, amp: slalomAmp, speed, phaseOff })
   }
   return rows
 }
 
-function isInGap(playerX: number, gaps: { x: number; w: number }[]): boolean {
-  for (const gap of gaps) {
-    if (playerX >= gap.x && playerX <= gap.x + gap.w) return true
-  }
-  return false
+/** Compute oscillated gap left-edge for a given elapsed time */
+function gapXAt(row: SlalomRow, elapsedSec: number): number {
+  const x = row.baseX + row.amp * Math.sin(elapsedSec * row.speed + row.phaseOff)
+  return Math.max(2, Math.min(100 - row.gapW - 2, x))
 }
 
 export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _awayTeamId, onRoundEnd }: AttackPhaseProps) {
@@ -84,6 +78,8 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
   const [pulsePhase, setPulsePhase] = useState<'idle' | 'result'>('idle')
   const [rowComment, setRowComment] = useState<string | null>(null)
   const [showPulseIntro, setShowPulseIntro] = useState(false)
+  // Current oscillated gap positions — updated every RAF tick for rendering
+  const [rowGapXs, setRowGapXs] = useState<number[]>(() => rows.map((r) => r.baseX))
 
   const endedRef = useRef(false)
   const playerXRef = useRef(50)
@@ -97,6 +93,8 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
   const passedRowsRef = useRef(new Set<number>())
   const lastCommentTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tutorialDoneRef = useRef(false)
+  // Ref copy of gap positions for collision detection inside RAF (avoids stale closure)
+  const rowGapXsRef = useRef<number[]>(rows.map((r) => r.baseX))
 
   // Tutorial countdown
   useEffect(() => {
@@ -139,7 +137,7 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
       const seconds = remainingMsRef.current / 1000
       setRemainingSeconds(seconds)
 
-      // Player moves BOTTOM to TOP: starts at 88%, goal at 5%
+      // Player moves BOTTOM → TOP driven by elapsed time
       const totalMs = cfg.slalomTimer * 1000
       const elapsed = totalMs - remainingMsRef.current
       const progress = Math.min(1, elapsed / totalMs)
@@ -147,9 +145,14 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
       playerYRef.current = newY
       setPlayerY(newY)
 
-      // CRITICAL: check goal FIRST, then timeout
+      // Compute oscillated gap positions for this frame
+      const elapsedSec = elapsed / 1000
+      const newGapXs = rows.map((row) => gapXAt(row, elapsedSec))
+      rowGapXsRef.current = newGapXs
+      setRowGapXs(newGapXs)
+
+      // CRITICAL: check goal arrival FIRST (before timeout)
       if (newY <= 5) {
-        // Reached the goal — show transition overlay before pulse
         setShowPulseIntro(true)
         return
       }
@@ -159,24 +162,25 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
         return
       }
 
-      // Collision check — when player is within ±4% of a row y
+      // Collision — check when player is within ±4% of a row y
       const px = playerXRef.current
       for (let ri = 0; ri < rows.length; ri++) {
         const row = rows[ri]
         if (Math.abs(newY - row.y) < 4) {
-          if (!isInGap(px, row.gaps)) {
+          const gapX = rowGapXsRef.current[ri]
+          const inGap = px >= gapX && px <= gapX + row.gapW
+          if (!inGap) {
             setCollisionFlash(true)
             finish(false, 'intercepted')
             return
-          } else {
-            // Player is in gap — show comment if not already shown for this row
-            if (!passedRowsRef.current.has(ri)) {
-              passedRowsRef.current.add(ri)
-              const comment = SLALOM_COMMENTS[Math.floor(Math.random() * SLALOM_COMMENTS.length)]
-              setRowComment(comment)
-              if (lastCommentTimeoutRef.current) clearTimeout(lastCommentTimeoutRef.current)
-              lastCommentTimeoutRef.current = setTimeout(() => setRowComment(null), 800)
-            }
+          }
+          // Player is in gap — show comment once per row
+          if (!passedRowsRef.current.has(ri)) {
+            passedRowsRef.current.add(ri)
+            const comment = SLALOM_COMMENTS[Math.floor(Math.random() * SLALOM_COMMENTS.length)]
+            setRowComment(comment)
+            if (lastCommentTimeoutRef.current) clearTimeout(lastCommentTimeoutRef.current)
+            lastCommentTimeoutRef.current = setTimeout(() => setRowComment(null), 800)
           }
         }
       }
@@ -411,19 +415,24 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
           position: absolute;
           left: 0;
           right: 0;
-          height: 7px;
-          display: flex;
+          height: 9px;
           pointer-events: none;
+          will-change: transform;
         }
         .atk-row-obstacle {
-          background: rgba(255, 68, 85, .75);
+          position: absolute;
+          top: 0;
           height: 100%;
-          border-radius: 2px;
-          box-shadow: 0 0 8px rgba(255,68,85,.5);
+          border-radius: 3px;
+          box-shadow: 0 0 10px rgba(255,68,85,.6);
         }
-        .atk-row-gap {
-          height: 100%;
-          background: transparent;
+        .atk-row-gap-indicator {
+          position: absolute;
+          top: -3px;
+          height: 15px;
+          border-radius: 3px;
+          border: 1.5px dashed rgba(43,255,154,.5);
+          pointer-events: none;
         }
         /* Player dot */
         .atk-player {
@@ -588,6 +597,17 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
         }
         @keyframes atkFadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes atkResultIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        /* Goal zone indicator */
+        .atk-goal-zone {
+          position: absolute;
+          top: 0;
+          left: 10%;
+          right: 10%;
+          height: 8px;
+          background: linear-gradient(90deg, transparent, rgba(43,255,154,.3), transparent);
+          border-bottom: 2px dashed rgba(43,255,154,.4);
+          pointer-events: none;
+        }
       `}</style>
 
       {/* Tutorial overlay */}
@@ -595,7 +615,7 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
         <div className="atk-tutorial">
           <div className="atk-tutorial__title">SLALOM</div>
           <div className="atk-tutorial__instruction">
-            Glisse ton doigt / bouge la souris horizontalement pour guider le ballon entre les défenseurs !
+            Glisse latéralement pour passer dans la brèche — elle bouge ! Alterne gauche et droite à chaque rang de défenseurs.
           </div>
           <span className="atk-tutorial__arrow">↔</span>
           <button
@@ -653,32 +673,45 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
               </g>
             </svg>
 
-            {/* Defender rows */}
-            {rows.map((row, rowIndex) => {
-              // Build obstacle segments from gaps
-              const segments: { x: number; w: number; isGap: boolean }[] = []
-              const sorted = [...row.gaps].sort((a, b) => a.x - b.x)
-              let cursor = 0
-              for (const gap of sorted) {
-                if (gap.x > cursor) segments.push({ x: cursor, w: gap.x - cursor, isGap: false })
-                segments.push({ x: gap.x, w: gap.w, isGap: true })
-                cursor = gap.x + gap.w
-              }
-              if (cursor < 100) segments.push({ x: cursor, w: 100 - cursor, isGap: false })
+            {/* Goal zone indicator at top */}
+            <div className="atk-goal-zone" />
 
+            {/* Defender rows — rendered with current oscillated gap positions */}
+            {rows.map((row, ri) => {
+              const gapX = rowGapXs[ri] ?? row.baseX
+              const gapEnd = gapX + row.gapW
+              // Left obstacle: 0 → gapX, Right obstacle: gapEnd → 100
+              // Color alternates slightly per row for visual distinction
+              const hue = ri % 2 === 0 ? '255,68,85' : '255,100,60'
               return (
-                <div
-                  key={rowIndex}
-                  className="atk-row"
-                  style={{ top: `${row.y}%` }}
-                >
-                  {segments.map((seg, si) => (
+                <div key={ri} className="atk-row" style={{ top: `${row.y}%` }}>
+                  {/* Left block */}
+                  {gapX > 2 && (
                     <div
-                      key={si}
-                      className={seg.isGap ? 'atk-row-gap' : 'atk-row-obstacle'}
-                      style={{ width: `${seg.w}%` }}
+                      className="atk-row-obstacle"
+                      style={{
+                        left: 0,
+                        width: `${gapX}%`,
+                        background: `rgba(${hue},.8)`,
+                      }}
                     />
-                  ))}
+                  )}
+                  {/* Gap indicator */}
+                  <div
+                    className="atk-row-gap-indicator"
+                    style={{ left: `${gapX}%`, width: `${row.gapW}%` }}
+                  />
+                  {/* Right block */}
+                  {gapEnd < 98 && (
+                    <div
+                      className="atk-row-obstacle"
+                      style={{
+                        left: `${gapEnd}%`,
+                        width: `${100 - gapEnd}%`,
+                        background: `rgba(${hue},.8)`,
+                      }}
+                    />
+                  )}
                 </div>
               )
             })}
@@ -755,7 +788,7 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
         </span>
         <span className="atk-info-label">
           {phase === 'slalom'
-            ? 'Passe dans les brèches !'
+            ? 'Passe dans la brèche — elle bouge !'
             : inPerfect
             ? '✓ ZONE PARFAITE'
             : 'Timing du tir'}
