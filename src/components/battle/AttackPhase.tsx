@@ -83,6 +83,7 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
   const [collisionFlash, setCollisionFlash] = useState(false)
   const [pulsePhase, setPulsePhase] = useState<'idle' | 'result'>('idle')
   const [rowComment, setRowComment] = useState<string | null>(null)
+  const [showPulseIntro, setShowPulseIntro] = useState(false)
 
   const endedRef = useRef(false)
   const playerXRef = useRef(50)
@@ -147,9 +148,8 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
 
       // CRITICAL: check goal FIRST, then timeout
       if (newY <= 5) {
-        // Reached the goal — transition to pulse
-        phaseRef.current = 'pulse'
-        setPhase('pulse')
+        // Reached the goal — show transition overlay before pulse
+        setShowPulseIntro(true)
         return
       }
 
@@ -198,7 +198,7 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
 
   // Pulse RAF loop
   useEffect(() => {
-    if (phase !== 'pulse') return
+    if (phase !== 'pulse' || showPulseIntro) return
     pulseTimeRef.current = 0
     let frame = 0
     let prev: number | null = null
@@ -235,7 +235,7 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [phase, cfg.pulseSpeed, cfg.perfectRange, finish])
+  }, [phase, showPulseIntro, cfg.pulseSpeed, cfg.perfectRange, finish])
 
   const handlePulseTap = () => {
     if (endedRef.current || pulseResultSentRef.current || phase !== 'pulse') return
@@ -534,6 +534,53 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
           overflow: hidden;
           text-overflow: ellipsis;
         }
+        /* Transition overlay (slalom → pulse) */
+        .atk-transition {
+          position: absolute;
+          inset: 0;
+          z-index: 40;
+          background: rgba(5,11,22,0.92);
+          backdrop-filter: blur(4px);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 28px 20px;
+          text-align: center;
+          animation: atkFadeIn .3s ease-out both;
+        }
+        .atk-transition__icon { font-size: 36px; }
+        .atk-transition__title {
+          font: 900 clamp(28px,9vw,48px) 'Barlow Condensed', sans-serif;
+          letter-spacing: .15em;
+          color: #2bff9a;
+          text-shadow: 0 0 28px rgba(43,255,154,.6);
+          text-transform: uppercase;
+        }
+        .atk-transition__sub {
+          font: 800 clamp(14px,5vw,20px) 'Barlow Condensed', sans-serif;
+          letter-spacing: .08em;
+          color: #FFB800;
+        }
+        .atk-transition__desc {
+          font: 500 clamp(12px,3.5vw,15px) 'Barlow Condensed', sans-serif;
+          color: rgba(255,255,255,.7);
+          max-width: 300px;
+          line-height: 1.45;
+        }
+        .atk-transition__btn {
+          margin-top: 10px;
+          padding: 13px 32px;
+          border-radius: 10px;
+          border: 2px solid #2bff9a;
+          background: rgba(43,255,154,.12);
+          color: #2bff9a;
+          font: 800 16px 'Barlow Condensed', sans-serif;
+          letter-spacing: .14em;
+          cursor: pointer;
+          box-shadow: 0 0 20px rgba(43,255,154,.3);
+        }
         @keyframes atkCollide {
           0%,100% { transform: translate(-50%,-50%) scale(1); }
           50% { transform: translate(-50%,-50%) scale(1.4); }
@@ -556,6 +603,25 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
             onClick={handleTutorialStart}
           >
             {tutorialReady ? 'OK — Jouer !' : `Démarrer (${tutorialCountdown})`}
+          </button>
+        </div>
+      )}
+
+      {/* Slalom → Pulse transition overlay */}
+      {showPulseIntro && (
+        <div className="atk-transition">
+          <div className="atk-transition__icon">⚽</div>
+          <div className="atk-transition__title">Bravo !</div>
+          <div className="atk-transition__sub">Tu entres dans la zone de tir</div>
+          <div className="atk-transition__desc">
+            Le ballon pulse et grossit. <b style={{color:'#FFB800'}}>Tape l&apos;écran quand le ballon est dans la zone dorée</b> pour décocher un tir parfait. Le gardien bouge — vise quand il est loin du centre !
+          </div>
+          <button
+            type="button"
+            className="atk-transition__btn"
+            onClick={() => { setShowPulseIntro(false); phaseRef.current = 'pulse'; setPhase('pulse') }}
+          >
+            ▶ Tirer !
           </button>
         </div>
       )}

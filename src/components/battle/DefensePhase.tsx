@@ -96,12 +96,14 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
     onRoundEnd(outcome)
   }, [onRoundEnd])
 
+  const [showGoalSaveIntro, setShowGoalSaveIntro] = useState(false)
+
   const triggerGoalSave = useCallback(() => {
     if (goalSaveTriggeredRef.current || endedRef.current) return
     goalSaveTriggeredRef.current = true
     cancelAnimationFrame(frameRef.current)
-    phaseRef.current = 'goal_save'
-    setPhase('goal_save')
+    // Show transition overlay before GoalSave
+    setShowGoalSaveIntro(true)
   }, [])
 
   // Main animation loop
@@ -195,6 +197,30 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
     const next = ballsRef.current.map((b) => b.id === id ? { ...b, state: 'destroyed' as const } : b)
     ballsRef.current = next
     setBalls(next)
+  }
+
+  if (showGoalSaveIntro) {
+    const safePassedCount = Math.min(3, Math.max(1, passedCountRef.current || 1))
+    return (
+      <section style={{ position:'relative', width:'100%', height:'100%', background:'#050b16', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, padding:'28px 20px', textAlign:'center', fontFamily:"'Barlow Condensed', sans-serif" }}>
+        <style>{`.def-trans-btn { margin-top:10px; padding:13px 32px; border-radius:10px; border:2px solid #FF4455; background:rgba(255,68,85,.12); color:#FF4455; font:800 16px 'Barlow Condensed',sans-serif; letter-spacing:.14em; cursor:pointer; box-shadow:0 0 20px rgba(255,68,85,.3); }`}</style>
+        <div style={{fontSize:36}}>⚠️</div>
+        <div style={{font:"900 clamp(26px,9vw,44px) 'Barlow Condensed',sans-serif", letterSpacing:'.12em', color:'#FF4455', textShadow:'0 0 28px rgba(255,68,85,.6)', textTransform:'uppercase'}}>Attention !</div>
+        <div style={{font:"800 clamp(14px,5vw,20px) 'Barlow Condensed',sans-serif", letterSpacing:'.08em', color:'#FFB800'}}>L&apos;adversaire entre dans la zone de tir</div>
+        <div style={{font:"500 clamp(12px,3.5vw,15px) 'Barlow Condensed',sans-serif", color:'rgba(255,255,255,.7)', maxWidth:300, lineHeight:1.45}}>
+          {safePassedCount} ballon{safePassedCount > 1 ? 's' : ''} fonce{safePassedCount > 1 ? 'nt' : ''} vers ton but !{' '}
+          <b style={{color:'#FF4455'}}>Touche ou balaye les ballons</b>{' '}
+          avant qu&apos;ils passent la ligne pour les arrêter. Si un seul passe — but encaissé !
+        </div>
+        <button
+          type="button"
+          className="def-trans-btn"
+          onClick={() => { setShowGoalSaveIntro(false); phaseRef.current = 'goal_save'; setPhase('goal_save') }}
+        >
+          🧤 Je défends !
+        </button>
+      </section>
+    )
   }
 
   if (phase === 'goal_save') {
