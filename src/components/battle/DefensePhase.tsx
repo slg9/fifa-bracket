@@ -43,22 +43,22 @@ type DefenseTrail = { id: string; x1: number; y1: number; x2: number; y2: number
 
 const SHOOTING_ZONE_Y = 80
 
-// 3 waves per difficulty
+// 3 waves per difficulty — agile from wave 1, 3+ attackers always
 const DEFENSE_WAVES: Record<BattleDifficulty, AttackerSeed[][]> = {
   easy: [
-    [{ type: 'normal', hits: 1 }, { type: 'costaud', hits: 2 }],
-    [{ type: 'agile', hits: 1 }, { type: 'costaud', hits: 2 }, { type: 'normal', hits: 1 }],
-    [{ type: 'sonic', hits: 1 }, { type: 'costaud', hits: 2 }, { type: 'agile', hits: 1 }],
+    [{ type: 'normal', hits: 1 }, { type: 'agile', hits: 1 }, { type: 'costaud', hits: 2 }],
+    [{ type: 'agile', hits: 1 }, { type: 'costaud', hits: 2 }, { type: 'normal', hits: 1 }, { type: 'agile', hits: 1 }],
+    [{ type: 'sonic', hits: 1 }, { type: 'costaud', hits: 2 }, { type: 'agile', hits: 1 }, { type: 'normal', hits: 1 }],
   ],
   medium: [
-    [{ type: 'normal', hits: 1 }, { type: 'costaud', hits: 3 }, { type: 'agile', hits: 1 }],
-    [{ type: 'costaud', hits: 3 }, { type: 'agile', hits: 1 }, { type: 'sonic', hits: 1 }, { type: 'normal', hits: 1 }],
-    [{ type: 'costaud', hits: 3 }, { type: 'sonic', hits: 1 }, { type: 'agile', hits: 1 }, { type: 'costaud', hits: 2 }],
+    [{ type: 'normal', hits: 1 }, { type: 'costaud', hits: 3 }, { type: 'agile', hits: 1 }, { type: 'normal', hits: 1 }],
+    [{ type: 'costaud', hits: 3 }, { type: 'agile', hits: 1 }, { type: 'sonic', hits: 1 }, { type: 'costaud', hits: 2 }, { type: 'agile', hits: 1 }],
+    [{ type: 'costaud', hits: 3 }, { type: 'sonic', hits: 1 }, { type: 'agile', hits: 1 }, { type: 'costaud', hits: 2 }, { type: 'sonic', hits: 1 }],
   ],
   hard: [
-    [{ type: 'costaud', hits: 3 }, { type: 'agile', hits: 1 }, { type: 'sonic', hits: 1 }, { type: 'normal', hits: 1 }],
-    [{ type: 'costaud', hits: 4 }, { type: 'sonic', hits: 1 }, { type: 'agile', hits: 1 }, { type: 'costaud', hits: 3 }, { type: 'sonic', hits: 1 }],
-    [{ type: 'sonic', hits: 1 }, { type: 'costaud', hits: 4 }, { type: 'sonic', hits: 1 }, { type: 'agile', hits: 1 }, { type: 'costaud', hits: 3 }],
+    [{ type: 'costaud', hits: 3 }, { type: 'agile', hits: 1 }, { type: 'sonic', hits: 1 }, { type: 'normal', hits: 1 }, { type: 'agile', hits: 1 }],
+    [{ type: 'costaud', hits: 4 }, { type: 'sonic', hits: 1 }, { type: 'agile', hits: 1 }, { type: 'costaud', hits: 3 }, { type: 'sonic', hits: 1 }, { type: 'agile', hits: 1 }],
+    [{ type: 'sonic', hits: 1 }, { type: 'costaud', hits: 4 }, { type: 'sonic', hits: 1 }, { type: 'agile', hits: 1 }, { type: 'costaud', hits: 3 }, { type: 'agile', hits: 1 }],
   ],
 }
 
@@ -182,26 +182,33 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId, 
 
   const advanceWave = useCallback((now: number) => {
     if (waveClearingRef.current || endedRef.current) return
+    waveClearingRef.current = true
     const nextWaveIndex = waveIndexRef.current + 1
     if (nextWaveIndex >= waves.length) {
-      // All waves cleared — clean sweep!
-      if (cleanSweepAtRef.current === null) cleanSweepAtRef.current = now + 300
-      return
+      // Final wave cleared → clean sweep after short pause
+      setWaveBanner('PROPRE !')
+      window.setTimeout(() => {
+        if (endedRef.current) return
+        setWaveBanner(null)
+        waveClearingRef.current = false
+        cleanSweepAtRef.current = now + 100
+      }, 700)
+    } else {
+      const bannerText = nextWaveIndex === waves.length - 1 ? 'VAGUE FINALE !' : `VAGUE ${nextWaveIndex + 1} / ${waves.length}`
+      setWaveBanner(bannerText)
+      window.setTimeout(() => {
+        if (endedRef.current) return
+        const nextAttackers = createWaveAttackers(waves[nextWaveIndex], config, nextWaveIndex)
+        attackersRef.current = nextAttackers
+        setAttackers(nextAttackers)
+        waveIndexRef.current = nextWaveIndex
+        setWaveIndex(nextWaveIndex)
+        waveClearingRef.current = false
+        setWaveBanner(null)
+        cleanSweepAtRef.current = null
+      }, 900)
     }
-    waveClearingRef.current = true
-    const bannerText = nextWaveIndex === waves.length - 1 ? `VAGUE FINALE !` : `VAGUE ${nextWaveIndex + 1} / ${waves.length}`
-    setWaveBanner(bannerText)
-    window.setTimeout(() => {
-      if (endedRef.current) return
-      const nextAttackers = createWaveAttackers(waves[nextWaveIndex], config, nextWaveIndex)
-      attackersRef.current = nextAttackers
-      setAttackers(nextAttackers)
-      waveIndexRef.current = nextWaveIndex
-      setWaveIndex(nextWaveIndex)
-      waveClearingRef.current = false
-      setWaveBanner(null)
-      cleanSweepAtRef.current = null
-    }, 900)
+    void now
   }, [waves, config])
 
   useEffect(() => {
@@ -241,25 +248,18 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId, 
       setAttackers(nextAttackers)
       if (enteredZone) setDangerUntil(now + 650)
 
-      const remainingThreats = nextAttackers.filter((attacker) => attacker.hitsRemaining > 0 && attacker.state !== 'locked')
-      const allSpawned = nextAttackers.every((a) => a.age >= a.spawnDelay)
+      const remainingThreats = nextAttackers.filter((a) => a.hitsRemaining > 0 && a.state !== 'locked' && a.state !== 'removing')
+      const allSpawned = nextAttackers.every((a) => a.age >= a.spawnDelay || a.hitsRemaining <= 0)
 
-      // Check if wave is cleared (no active threats left and all have spawned)
+      // Clean sweep via advanceWave (handles both inter-wave and final-wave → finish)
       if (remainingThreats.length === 0 && allSpawned && nextAttackers.length > 0 && !waveClearingRef.current) {
         advanceWave(now)
       }
 
-      // Clean sweep check
-      const allDefeated = nextAttackers.every((a) => a.hitsRemaining <= 0)
-      if (allDefeated && allSpawned && nextAttackers.length > 0) {
-        if (cleanSweepAtRef.current === null) cleanSweepAtRef.current = now + 300
-        if (now >= cleanSweepAtRef.current) {
-          finish({ path: 'clean_sweep' })
-          return
-        }
-      } else if (!allDefeated) {
-        // Only reset if wave is still in progress and not clearing
-        if (!waveClearingRef.current) cleanSweepAtRef.current = null
+      // Final: cleanSweepAtRef set by advanceWave after last wave
+      if (cleanSweepAtRef.current !== null && now >= cleanSweepAtRef.current) {
+        finish({ path: 'clean_sweep' })
+        return
       }
 
       const zoneCount = Math.min(3, nextAttackers.filter((attacker) => attacker.state === 'locked').length)

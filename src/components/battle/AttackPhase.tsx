@@ -25,27 +25,25 @@ type DefenderSeed = {
   spawnDelay?: number
 }
 
-// 3 waves per difficulty, each progressively harder
+// 3 waves per difficulty — agile from wave 1, 3+ defenders always
 const WAVES: Record<BattleDifficulty, DefenderSeed[][]> = {
   easy: [
-    [{ type: 'normal', hits: 1, speed: 70 }, { type: 'costaud', hits: 2, speed: 50 }],
-    [{ type: 'agile', hits: 1, speed: 95 }, { type: 'costaud', hits: 2, speed: 58 }, { type: 'normal', hits: 1, speed: 75 }],
-    [{ type: 'sonic', hits: 1, speed: 240 }, { type: 'costaud', hits: 2, speed: 65 }, { type: 'agile', hits: 1, speed: 100 }],
+    [{ type: 'normal', hits: 1, speed: 72 }, { type: 'agile', hits: 1, speed: 88 }, { type: 'costaud', hits: 2, speed: 52 }],
+    [{ type: 'agile', hits: 1, speed: 100 }, { type: 'costaud', hits: 2, speed: 60 }, { type: 'normal', hits: 1, speed: 78 }, { type: 'agile', hits: 1, speed: 94 }],
+    [{ type: 'sonic', hits: 1, speed: 260 }, { type: 'costaud', hits: 2, speed: 68 }, { type: 'agile', hits: 1, speed: 108 }, { type: 'normal', hits: 1, speed: 82 }],
   ],
   medium: [
-    [{ type: 'normal', hits: 1, speed: 90 }, { type: 'costaud', hits: 3, speed: 62 }, { type: 'agile', hits: 1, speed: 105 }],
-    [{ type: 'costaud', hits: 3, speed: 75 }, { type: 'agile', hits: 1, speed: 120 }, { type: 'sonic', hits: 1, speed: 310 }, { type: 'normal', hits: 1, speed: 95 }],
-    [{ type: 'costaud', hits: 3, speed: 88 }, { type: 'sonic', hits: 1, speed: 360 }, { type: 'agile', hits: 1, speed: 135 }, { type: 'costaud', hits: 2, speed: 78 }],
+    [{ type: 'normal', hits: 1, speed: 92 }, { type: 'costaud', hits: 3, speed: 65 }, { type: 'agile', hits: 1, speed: 110 }, { type: 'normal', hits: 1, speed: 88 }],
+    [{ type: 'costaud', hits: 3, speed: 78 }, { type: 'agile', hits: 1, speed: 125 }, { type: 'sonic', hits: 1, speed: 330 }, { type: 'costaud', hits: 2, speed: 72 }, { type: 'agile', hits: 1, speed: 118 }],
+    [{ type: 'costaud', hits: 3, speed: 92 }, { type: 'sonic', hits: 1, speed: 380 }, { type: 'agile', hits: 1, speed: 140 }, { type: 'costaud', hits: 2, speed: 82 }, { type: 'sonic', hits: 1, speed: 360 }],
   ],
   hard: [
-    [{ type: 'costaud', hits: 3, speed: 135 }, { type: 'agile', hits: 1, speed: 150 }, { type: 'sonic', hits: 1, speed: 380 }, { type: 'normal', hits: 1, speed: 125 }],
-    [{ type: 'costaud', hits: 4, speed: 148 }, { type: 'sonic', hits: 1, speed: 430 }, { type: 'agile', hits: 1, speed: 165 }, { type: 'costaud', hits: 3, speed: 135 }, { type: 'sonic', hits: 1, speed: 400 }],
-    [{ type: 'sonic', hits: 1, speed: 480 }, { type: 'costaud', hits: 4, speed: 158 }, { type: 'agile', hits: 1, speed: 178 }, { type: 'sonic', hits: 1, speed: 460 }, { type: 'costaud', hits: 3, speed: 148 }],
+    [{ type: 'costaud', hits: 3, speed: 140 }, { type: 'agile', hits: 1, speed: 158 }, { type: 'sonic', hits: 1, speed: 400 }, { type: 'normal', hits: 1, speed: 132 }, { type: 'agile', hits: 1, speed: 150 }],
+    [{ type: 'costaud', hits: 4, speed: 155 }, { type: 'sonic', hits: 1, speed: 450 }, { type: 'agile', hits: 1, speed: 172 }, { type: 'costaud', hits: 3, speed: 142 }, { type: 'sonic', hits: 1, speed: 420 }, { type: 'agile', hits: 1, speed: 162 }],
+    [{ type: 'sonic', hits: 1, speed: 500 }, { type: 'costaud', hits: 4, speed: 165 }, { type: 'sonic', hits: 1, speed: 480 }, { type: 'agile', hits: 1, speed: 185 }, { type: 'costaud', hits: 3, speed: 155 }, { type: 'agile', hits: 1, speed: 172 }],
   ],
 }
 
-// Ring target diameter in px — ball must match this size to score
-const RING_DIAMETER = 44
 // Auto-fire+miss threshold
 const OVERSHOOT_DIAMETER = 60
 // Perfect zone ± tolerance
@@ -220,28 +218,35 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
     setShootingWindow(true)
   }, [])
 
-  // Advance to next wave or open shooting window when current wave is cleared
+  // Advance to next wave or open shooting window when current wave is cleared.
+  // NOTE: must NOT check shootingWindowRef here — called before shooting window is set.
   const advanceWave = useCallback((now: number) => {
-    if (waveClearingRef.current || shootingWindowRef.current || endedRef.current) return
+    if (waveClearingRef.current || endedRef.current) return
+    waveClearingRef.current = true
     const nextWaveIndex = waveIndexRef.current + 1
     if (nextWaveIndex >= waves.length) {
-      // All waves cleared → open shooting window
-      openShootingWindow()
-      return
+      // Final wave cleared → brief "TIRER !" banner then open shooting window
+      setWaveBanner('TIRER !')
+      window.setTimeout(() => {
+        if (endedRef.current) return
+        setWaveBanner(null)
+        openShootingWindow()
+        waveClearingRef.current = false
+      }, 600)
+    } else {
+      const bannerText = nextWaveIndex === waves.length - 1 ? 'VAGUE FINALE !' : `VAGUE ${nextWaveIndex + 1} / ${waves.length}`
+      setWaveBanner(bannerText)
+      window.setTimeout(() => {
+        if (endedRef.current) return
+        const nextDefenders = createWaveDefenders(waves[nextWaveIndex], nextWaveIndex)
+        defendersRef.current = nextDefenders
+        setDefenders(nextDefenders)
+        waveIndexRef.current = nextWaveIndex
+        setWaveIndex(nextWaveIndex)
+        waveClearingRef.current = false
+        setWaveBanner(null)
+      }, 900)
     }
-    waveClearingRef.current = true
-    const bannerText = nextWaveIndex === waves.length - 1 ? `VAGUE FINALE !` : `VAGUE ${nextWaveIndex + 1} / ${waves.length}`
-    setWaveBanner(bannerText)
-    window.setTimeout(() => {
-      if (endedRef.current) return
-      const nextDefenders = createWaveDefenders(waves[nextWaveIndex], nextWaveIndex)
-      defendersRef.current = nextDefenders
-      setDefenders(nextDefenders)
-      waveIndexRef.current = nextWaveIndex
-      setWaveIndex(nextWaveIndex)
-      waveClearingRef.current = false
-      setWaveBanner(null)
-    }, 900)
     void now
   }, [waves, openShootingWindow])
 
@@ -324,16 +329,14 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
       if (previous === null) previous = now
       const delta = Math.min(50, now - previous)
       previous = now
-      if (difficulty === 'hard' && now - directionChangedAt >= 600) {
-        keeperDirectionRef.current = randomInt(2) === 0 ? -1 : 1
-        directionChangedAt = now
-      } else if (difficulty === 'medium' && now - directionChangedAt >= 900) {
+      const dirChangePeriod = difficulty === 'hard' ? 420 : difficulty === 'medium' ? 620 : 900
+      if (now - directionChangedAt >= dirChangePeriod) {
         keeperDirectionRef.current = randomInt(2) === 0 ? -1 : 1
         directionChangedAt = now
       }
-      const speed = difficulty === 'easy' ? 140 : difficulty === 'medium' ? 200 : 280
-      const slowMotion = target ? .25 : 1
-      const next = keeperRef.current + keeperDirectionRef.current * speed * slowMotion * delta / 1000 / 5.1
+      const speed = difficulty === 'easy' ? 260 : difficulty === 'medium' ? 380 : 520
+      const slowMotion = target ? .22 : 1
+      const next = keeperRef.current + keeperDirectionRef.current * speed * slowMotion * delta / 1000 / 4.2
       if (next <= 12.5 || next >= 87.5) keeperDirectionRef.current = keeperDirectionRef.current === 1 ? -1 : 1
       keeperRef.current = clamp(next, 12.5, 87.5)
       setKeeperX(keeperRef.current)
@@ -343,21 +346,22 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
     return () => cancelAnimationFrame(frame)
   }, [difficulty, shootingWindow, target])
 
-  // Charge grow loop — auto-fires miss when overshooting
+  // Charge grow loop — linear grow, auto-fires miss when overshooting ring
   useEffect(() => {
     if (!charging) return
     let frame = 0
     let started: number | null = null
-    const chargeTimeMs = difficulty === 'easy' ? 900 : difficulty === 'medium' ? 800 : 700
+    // Total time to grow 20→72: easy=700ms, medium=580ms, hard=460ms
+    const chargeTimeMs = difficulty === 'easy' ? 700 : difficulty === 'medium' ? 580 : 460
     const maxDiameter = 72
     const grow = (now: number) => {
       if (started === null) started = now
       const progress = Math.min(1, (now - started) / chargeTimeMs)
-      const eased = progress * progress * (3 - 2 * progress)
-      const diameter = 20 + eased * (maxDiameter - 20)
+      // Linear grow — easier to time
+      const diameter = 20 + progress * (maxDiameter - 20)
       chargeDiameterRef.current = diameter
       setChargeDiameter(diameter)
-      // Auto-fire miss when overshoot
+      // Auto-fire miss when ball clearly overshoots ring
       if (diameter >= OVERSHOOT_DIAMETER && !shotOutcomeRef.current && target) {
         setCharging(false)
         setFlight({ id: Math.round(now), target, state: 'saved', duration: 250 })
@@ -417,7 +421,7 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
     if (anyHit) {
       defendersRef.current = nextDefenders
       setDefenders(nextDefenders)
-      if (nextDefenders.every((d) => d.hitsRemaining <= 0)) openShootingWindow()
+      // Wave advancement handled by tick loop — do NOT call openShootingWindow() here
     }
     pitchLastPointerRef.current = { x, y }
   }
@@ -531,17 +535,14 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
         /* Wave banner overlay */
         .battle-p16-wave-banner{position:absolute;inset:0;z-index:50;display:grid;place-items:center;background:rgba(0,0,0,.55);animation:p16WaveBannerIn .15s ease-out both}
         .battle-p16-wave-banner span{font:900 clamp(32px,12vw,56px) 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#FFB800;text-shadow:0 0 36px rgba(255,184,0,.7);animation:bk-charge .5s ease-in-out infinite}
-        /* Ball charge */
-        .battle-p16-ball{position:absolute;z-index:20;left:50%;top:44%;width:80px;height:80px;display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:rgba(255,184,0,.06);transform:translate(-50%,-50%);touch-action:none;cursor:pointer}
-        .battle-p16-ball:not(.is-charging){animation:p16BallPulse 1.2s ease-in-out infinite}
-        .battle-p16-ball.is-charging.is-perfect{box-shadow:0 0 48px rgba(43,255,154,.8)}
-        .battle-p16-ball.is-charging.is-overshot{box-shadow:0 0 40px rgba(255,68,85,.7)}
-        .battle-p16-ball svg{filter:drop-shadow(0 4px 8px rgba(0,0,0,.7))}
-        .battle-p16-ball circle.ball-body{fill:#f4f7ff;stroke:#0b1422;stroke-width:2}
-        .battle-p16-ball path{fill:none;stroke:#0b1422;stroke-width:2;stroke-linejoin:round}
-        .battle-p16-ball circle.ring-guide{fill:none;stroke-width:2.5;transition:stroke .1s}
-        .battle-p16-ball__label{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font:900 10px 'Barlow Condensed',sans-serif;letter-spacing:.14em;color:#FFB800;white-space:nowrap;pointer-events:none;text-shadow:0 0 10px rgba(255,184,0,.6)}
-        @keyframes p16BallPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,184,0,.5)}60%{box-shadow:0 0 0 10px rgba(255,184,0,0)}}
+        /* Ball charge — arc power meter */
+        .battle-p16-ball{position:absolute;z-index:20;left:50%;top:44%;width:96px;height:96px;display:grid;place-items:center;padding:0;border:0;background:none;transform:translate(-50%,-50%);touch-action:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+        .battle-p16-ball:not(.is-charging){animation:p16BallPulse 1s ease-in-out infinite}
+        .battle-p16-ball.is-perfect .p16-arc-fill{filter:drop-shadow(0 0 6px #2bff9a)}
+        .battle-p16-ball.is-overshot .p16-arc-fill{filter:drop-shadow(0 0 6px #FF4455)}
+        .battle-p16-ball__label{position:absolute;top:-24px;left:50%;transform:translateX(-50%);font:900 11px 'Barlow Condensed',sans-serif;letter-spacing:.14em;color:#FFB800;white-space:nowrap;pointer-events:none;text-shadow:0 0 10px rgba(255,184,0,.7)}
+        .battle-p16-ball__state{position:absolute;bottom:-24px;left:50%;transform:translateX(-50%);font:900 12px 'Barlow Condensed',sans-serif;letter-spacing:.1em;white-space:nowrap;pointer-events:none}
+        @keyframes p16BallPulse{0%,100%{filter:drop-shadow(0 0 0px rgba(255,184,0,.3))}50%{filter:drop-shadow(0 0 12px rgba(255,184,0,.8))}}
         @keyframes p16SpinOut{to{transform:translate(-50%,-50%) rotate(360deg) scale(.1);opacity:0}}
         @keyframes p16Shake{0%,100%{margin-left:0}16%{margin-left:-5px}32%{margin-left:5px}48%{margin-left:-5px}64%{margin-left:5px}80%{margin-left:-5px}}
         @keyframes p16RedFlash{50%{filter:drop-shadow(0 0 18px #FF4455) saturate(2)}}
@@ -598,29 +599,56 @@ export function AttackPhase({ difficulty, homeTeamId, awayTeamId, onRoundEnd }: 
         </svg>
         {/* Wave banner */}
         {waveBanner ? <div className="battle-p16-wave-banner"><span>{waveBanner}</span></div> : null}
-        {shootingWindow && target && !shotResolved ? (
-          <button
-            type="button"
-            className={`battle-p16-ball${charging ? ` is-charging${inPerfectZone ? ' is-perfect' : overshot ? ' is-overshot' : ''}` : ''}`}
-            onContextMenu={(e) => e.preventDefault()}
-            onTouchStart={(event) => { event.preventDefault(); lastTouchAtRef.current = event.timeStamp; startCharge() }}
-            onTouchEnd={(event) => { event.preventDefault(); lastTouchAtRef.current = event.timeStamp; releaseShot(event.timeStamp) }}
-            onMouseDown={(event) => { event.preventDefault(); if (event.timeStamp - lastTouchAtRef.current > 500) startCharge() }}
-            onMouseUp={(event) => { if (event.timeStamp - lastTouchAtRef.current > 500) releaseShot(event.timeStamp) }}
-            onMouseLeave={(event) => { if (charging && event.timeStamp - lastTouchAtRef.current > 500) releaseShot(event.timeStamp) }}
-            aria-label="Maintenir pour charger le tir">
-            {!charging && <span className="battle-p16-ball__label">MAINTENIR</span>}
-            <svg viewBox="0 0 80 80" style={{ width: 80, height: 80 }}>
-              {/* Ring guide at RING_DIAMETER */}
-              <circle className="ring-guide" cx="40" cy="40" r={RING_DIAMETER / 2}
-                stroke={inPerfectZone ? '#2bff9a' : overshot ? '#FF4455' : 'rgba(255,184,0,.5)'}
-                strokeDasharray={inPerfectZone ? 'none' : '5 3'} />
-              {/* Ball grows */}
-              <circle className="ball-body" cx="40" cy="40" r={chargeDiameter / 2} />
-              <path d={`M40 ${40 - chargeDiameter * 0.38} l${chargeDiameter * 0.22} ${chargeDiameter * 0.155} -${chargeDiameter * 0.085} ${chargeDiameter * 0.258} h-${chargeDiameter * 0.27} l-${chargeDiameter * 0.085} -${chargeDiameter * 0.258}z`} />
-            </svg>
-          </button>
-        ) : null}
+        {shootingWindow && target && !shotResolved ? (() => {
+          // Arc power meter: progress 0→1 from first press to auto-miss
+          const arcProgress = clamp((chargeDiameter - 20) / (OVERSHOOT_DIAMETER - 20), 0, 1)
+          const R = 40  // arc radius in SVG units (viewBox 96×96, center 48,48)
+          const circ = 2 * Math.PI * R  // ≈ 251
+          const dashOffset = circ * (1 - arcProgress)
+          // Perfect zone arc: from perfectMin% to perfectMax%
+          const perfectStart = (PERFECT_MIN - 20) / (OVERSHOOT_DIAMETER - 20)  // ≈ 35%
+          const perfectEnd = (PERFECT_MAX - 20) / (OVERSHOOT_DIAMETER - 20)    // ≈ 85%
+          const perfectArcLen = (perfectEnd - perfectStart) * circ              // green zone length
+          const perfectArcOffset = circ * (1 - perfectEnd) + circ              // offset to position it correctly
+          const arcColor = inPerfectZone ? '#2bff9a' : overshot ? '#FF4455' : '#FFB800'
+          return (
+            <button
+              type="button"
+              className={`battle-p16-ball${charging ? ` is-charging${inPerfectZone ? ' is-perfect' : overshot ? ' is-overshot' : ''}` : ''}`}
+              onContextMenu={(e) => e.preventDefault()}
+              onTouchStart={(event) => { event.preventDefault(); lastTouchAtRef.current = event.timeStamp; startCharge() }}
+              onTouchEnd={(event) => { event.preventDefault(); lastTouchAtRef.current = event.timeStamp; releaseShot(event.timeStamp) }}
+              onMouseDown={(event) => { event.preventDefault(); if (event.timeStamp - lastTouchAtRef.current > 500) startCharge() }}
+              onMouseUp={(event) => { if (event.timeStamp - lastTouchAtRef.current > 500) releaseShot(event.timeStamp) }}
+              onMouseLeave={(event) => { if (charging && event.timeStamp - lastTouchAtRef.current > 500) releaseShot(event.timeStamp) }}
+              aria-label="Maintenir pour charger le tir">
+              {!charging && <span className="battle-p16-ball__label">APPUYER</span>}
+              {charging && <span className="battle-p16-ball__state" style={{ color: arcColor }}>{inPerfectZone ? 'LACHER !' : overshot ? 'TROP FORT' : '...'}</span>}
+              <svg viewBox="0 0 96 96" width="96" height="96" style={{ transform: 'rotate(-90deg)' }}>
+                {/* Background track */}
+                <circle cx="48" cy="48" r={R} fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.1)" strokeWidth="8" />
+                {/* Perfect zone arc (green zone guide) */}
+                <circle cx="48" cy="48" r={R} fill="none"
+                  stroke="rgba(43,255,154,.25)" strokeWidth="8"
+                  strokeDasharray={`${perfectArcLen} ${circ - perfectArcLen}`}
+                  strokeDashoffset={perfectArcOffset}
+                  strokeLinecap="round" />
+                {/* Fill arc */}
+                <circle className="p16-arc-fill" cx="48" cy="48" r={R} fill="none"
+                  stroke={arcColor} strokeWidth="8"
+                  strokeDasharray={`${circ}`}
+                  strokeDashoffset={dashOffset}
+                  strokeLinecap="round" />
+                {/* Ball icon center */}
+                <g transform="rotate(90 48 48)">
+                  <circle cx="48" cy="48" r="20" fill="#f4f7ff" stroke="#0b1422" strokeWidth="2.5" />
+                  <path d="M48 33 l7 5 -2.5 8h-9l-2.5-8z" fill="none" stroke="#0b1422" strokeWidth="2" strokeLinejoin="round" />
+                  <path d="M48 27v6M61 36l-4 3M35 36l4 3M39 58l3-4M57 58l-3-4" fill="none" stroke="#0b1422" strokeWidth="1.5" strokeLinecap="round" />
+                </g>
+              </svg>
+            </button>
+          )
+        })() : null}
       </div>
 
       {/* BOTTOM 15% — controls */}
