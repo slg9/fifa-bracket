@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { toBlob } from 'html-to-image'
 import './App.css'
+import BrakupHub from './challenge/BrakupHub'
 import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
 import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import {
@@ -356,7 +357,7 @@ function KnockoutTeamBadge({
   isInteractive: boolean
   onPick?: (teamId: string) => void
   onPreview?: (teamId: string | null) => void
-  onStandingsHover?: (teamId: string | null, event: React.MouseEvent) => void
+  onStandingsHover?: (teamId: string | null, event: React.MouseEvent | React.FocusEvent) => void
 }) {
   if (entrant.kind === 'placeholder') {
     return (
@@ -440,7 +441,7 @@ const MatchCard = memo(function MatchCard({
   onPick: (matchId: string, teamId: string) => void
   onClear: (matchId: string) => void
   onPreview: (teamId: string | null) => void
-  onStandingsHover?: (teamId: string | null, event: React.MouseEvent) => void
+  onStandingsHover?: (teamId: string | null, event: React.MouseEvent | React.FocusEvent) => void
 }) {
   const homeTeamId = getEntrantTeamId(match.home)
   const awayTeamId = getEntrantTeamId(match.away)
@@ -1132,7 +1133,10 @@ function BracketBoard({
                           onClear={onClear}
                           onPreview={setPreviewTeamId}
                           onStandingsHover={column.stage === 'Round of 16' ? (teamId, event) => {
-                            if (teamId) setStandingsPopup({ teamId, x: event.clientX, y: event.clientY })
+                            const rect = event.currentTarget.getBoundingClientRect()
+                            const x = 'clientX' in event ? event.clientX : rect.left + rect.width / 2
+                            const y = 'clientY' in event ? event.clientY : rect.bottom
+                            if (teamId) setStandingsPopup({ teamId, x, y })
                             else setStandingsPopup(null)
                           } : undefined}
                         />
@@ -1223,6 +1227,7 @@ function App() {
   })
   const [mode, setMode] = useState<Mode>('real')
   const simulatorMode = useMemo(() => new URLSearchParams(window.location.search).has('simulator'), [])
+  const challengeMode = useMemo(() => new URLSearchParams(window.location.search).has('challenge'), [])
   const [view, setView] = useState<View>(() =>
     new URLSearchParams(window.location.search).has('simulator') ? 'bracket' : 'groups'
   )
@@ -1356,6 +1361,7 @@ function App() {
   }, [initialDayModalLoading, liveSource.syncedAt])
 
   useEffect(() => {
+    if (challengeMode) return
     if (!showDayModal && !matchModalGroupId && !matchStatsModal) return
 
     const previousOverflow = document.body.style.overflow
@@ -1367,10 +1373,10 @@ function App() {
       document.body.style.overflow = previousOverflow
       document.body.style.overscrollBehavior = previousOverscroll
     }
-  }, [showDayModal, matchModalGroupId, matchStatsModal])
+  }, [challengeMode, showDayModal, matchModalGroupId, matchStatsModal])
 
   useEffect(() => {
-    if (!seed || dayModalAutoOpenedRef.current) {
+    if (challengeMode || !seed || dayModalAutoOpenedRef.current) {
       return
     }
 
@@ -1386,7 +1392,7 @@ function App() {
     setSelectedDayKey(localDateStr())
     setShowDayModal(true)
     dayModalAutoOpenedRef.current = true
-  }, [liveSource.matches, seed])
+  }, [challengeMode, liveSource.matches, seed])
 
   async function handleSyncLiveSnapshot() {
     setSyncing(true)
@@ -1689,6 +1695,10 @@ function App() {
   function reopenDayModal() {
     setSelectedDayKey(localDateStr())
     setShowDayModal(true)
+  }
+
+  if (challengeMode) {
+    return <BrakupHub seed={seed} liveSource={liveSource} standings={standings} teamsById={teamsById} />
   }
 
   return (

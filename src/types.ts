@@ -127,3 +127,81 @@ export type KnockoutMatch = {
   home: KnockoutEntrant
   away: KnockoutEntrant
 }
+
+export type ChallengeBreakdown = Record<string, {
+  points: number
+  correct: boolean
+  played: boolean
+  stage: string
+}>
+
+export interface ChallengeEntry {
+  id: string
+  emailHash: string
+  pseudo: string
+  bracketName: string
+  picks: Record<string, string>
+  score: number
+  rank: number | null
+  submittedAt: string | null
+  breakdown: ChallengeBreakdown
+  battleBonuses: number
+  createdAt: string
+}
+
+export type CommentaryPhase =
+  | 'pre_attack'
+  | 'attack_success'
+  | 'attack_fail'
+  | 'pre_defense'
+  | 'defense_success'
+  | 'defense_fail'
+
+export type BattleDifficulty = 'easy' | 'medium' | 'hard'
+
+export type DefenderType = 'normal' | 'costaud' | 'agile'
+
+export type Defender = {
+  id: string
+  type: DefenderType
+  x: number
+  y: number
+  hitsRemaining: number
+  size: number
+  direction: -1 | 1
+}
+
+export type DefenseOutcome =
+  | { path: 'clean_sweep' }
+  | { path: 'fruit_ninja'; attackersInZone: number; saved: boolean }
+
+export type BattleRoundType = 'attack' | 'defense'
+
+export type BattlePhase = 'intro' | 'round_start' | 'playing' | 'round_result' | 'match_result'
+
+export type BattleMatchState = {
+  roundIndex: number
+  rounds: BattleRoundType[]
+  playerScore: number
+  opponentScore: number
+  phase: BattlePhase
+  difficulty: BattleDifficulty
+  homeTeamId: string
+  awayTeamId: string
+}
+
+export type BattleRound = {
+  type: 'attack' | 'defense'
+  commentaryPhase: CommentaryPhase
+  balloonCount?: number
+  hasSonic?: boolean
+  difficulty: BattleDifficulty
+}
+
+export type BattleResult = {
+  homeScore: number
+  awayScore: number
+  winnerId: string
+  playerScore: number
+  rounds: Array<{ type: BattleRoundType; success: boolean; isGoal: boolean }>
+}
