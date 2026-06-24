@@ -10,58 +10,76 @@ type DefensePhaseProps = {
 }
 
 const DEFENSE_CFG = {
-  easy:   { timer: 12, ballSpeed: 70,  waveCount: 3, balloonsPerWave: 4 },
-  medium: { timer: 10, ballSpeed: 105, waveCount: 4, balloonsPerWave: 5 },
-  hard:   { timer: 8,  ballSpeed: 150, waveCount: 5, balloonsPerWave: 6 },
+  easy:   { timer: 14, ballSpeed: 60,  waveCount: 3, balloonsPerWave: 4 },
+  medium: { timer: 12, ballSpeed: 90,  waveCount: 4, balloonsPerWave: 5 },
+  hard:   { timer: 10, ballSpeed: 130, waveCount: 5, balloonsPerWave: 6 },
 }
+
+const BULLET_SPEED = 260 // % per second upward
 
 type BallItem = {
   id: string
-  x: number          // 0–100%
+  x: number          // 0–100% of game area
   spawnDelay: number // ms relative to RAF start
   speed: number      // % per second
   state: 'waiting' | 'active' | 'destroyed' | 'passed'
-  y: number          // current % position (animated via RAF)
+  y: number
   startedAt: number | null
 }
+
+type Bullet = { id: string; x: number; y: number }
 
 function createBalls(cfg: typeof DEFENSE_CFG['easy']): BallItem[] {
   const total = cfg.waveCount * cfg.balloonsPerWave
   const balls: BallItem[] = []
   let delay = 0
   for (let i = 0; i < total; i++) {
-    delay += i === 0 ? 200 : 300 + Math.random() * 400
+    delay += i === 0 ? 300 : 350 + Math.random() * 500
     balls.push({
       id: crypto.randomUUID(),
-      x: 5 + Math.random() * 90,
+      x: 8 + Math.random() * 84,
       spawnDelay: delay,
       speed: cfg.ballSpeed * (0.85 + Math.random() * 0.3),
       state: 'waiting',
-      y: -8,
+      y: -10,
       startedAt: null,
     })
   }
   return balls
 }
 
-export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _awayTeamId, onRoundEnd }: DefensePhaseProps) {
+export function DefensePhase({ difficulty, homeTeamId: _h, awayTeamId: _a, onRoundEnd }: DefensePhaseProps) {
   const cfg = DEFENSE_CFG[difficulty]
   const totalBalls = cfg.waveCount * cfg.balloonsPerWave
 
+  // ── Tutorial ────────────────────────────────────────
   const [tutorialDone, setTutorialDone] = useState(() => sessionStorage.getItem('brakup:tut:def') === '1')
   const [tutorialCountdown, setTutorialCountdown] = useState(15)
   const [tutorialReady, setTutorialReady] = useState(false)
 
+  useEffect(() => {
+    if (tutorialDone) return
+    if (tutorialCountdown <= 0) { setTutorialReady(true); return }
+    const t = setTimeout(() => setTutorialCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [tutorialDone, tutorialCountdown])
+
+  // ── Phase state ──────────────────────────────────────
   const [phase, setPhase] = useState<'invaders' | 'goal_save'>('invaders')
+  const [showGoalSaveIntro, setShowGoalSaveIntro] = useState(false)
   const [balls, setBalls] = useState<BallItem[]>(() => createBalls(cfg))
+  const [bullets, setBullets] = useState<Bullet[]>([])
   const [remainingSeconds, setRemainingSeconds] = useState(cfg.timer)
   const [burstIds, setBurstIds] = useState<Set<string>>(() => new Set())
   const [passedCount, setPassedCount] = useState(0)
   const [destroyedCount, setDestroyedCount] = useState(0)
+  const [shooterX, setShooterX] = useState(50)
 
+  // ── Refs ─────────────────────────────────────────────
   const endedRef = useRef(false)
   const ballsRef = useRef(balls)
   ballsRef.current = balls
+  const bulletsRef = useRef<Bullet[]>([])
   const remainingMsRef = useRef(cfg.timer * 1000)
   const passedCountRef = useRef(0)
   const destroyedCountRef = useRef(0)
@@ -70,26 +88,10 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
   const containerRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef(0)
   const startTimeRef = useRef<number | null>(null)
+  const shooterXRef = useRef(50)
+  const fireIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Tutorial countdown
-  useEffect(() => {
-    if (tutorialDone) return
-    if (tutorialCountdown <= 0) {
-      setTutorialReady(true)
-      return
-    }
-    const timer = setTimeout(() => {
-      setTutorialCountdown((c) => c - 1)
-    }, 1000)
-    return () => clearTimeout(timer)
-  }, [tutorialDone, tutorialCountdown])
-
-  const handleTutorialStart = () => {
-    if (!tutorialReady) return
-    sessionStorage.setItem('brakup:tut:def', '1')
-    setTutorialDone(true)
-  }
-
+  // ── Helpers ──────────────────────────────────────────
   const finish = useCallback((outcome: DefenseOutcome) => {
     if (endedRef.current) return
     endedRef.current = true
@@ -97,27 +99,31 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
     onRoundEnd(outcome)
   }, [onRoundEnd])
 
-  const [showGoalSaveIntro, setShowGoalSaveIntro] = useState(false)
-
   const triggerGoalSave = useCallback(() => {
     if (goalSaveTriggeredRef.current || endedRef.current) return
     goalSaveTriggeredRef.current = true
     cancelAnimationFrame(frameRef.current)
-    // Show transition overlay before GoalSave
     setShowGoalSaveIntro(true)
   }, [])
 
-  // Main animation loop
+  const fireBullet = useCallback(() => {
+    if (endedRef.current || phaseRef.current !== 'invaders') return
+    const bullet: Bullet = { id: crypto.randomUUID(), x: shooterXRef.current, y: 86 }
+    bulletsRef.current = [...bulletsRef.current, bullet]
+    setBullets([...bulletsRef.current])
+  }, [])
+
+  // ── RAF loop ─────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'invaders' || !tutorialDone) return
     let prev: number | null = null
+
     const tick = (now: number) => {
       if (prev === null) prev = now
       const delta = Math.min(50, now - prev)
       prev = now
       if (endedRef.current) return
 
-      // Record RAF start time for relative spawn delay comparison
       if (startTimeRef.current === null) startTimeRef.current = now
       const relativeNow = now - startTimeRef.current
 
@@ -125,59 +131,75 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
       const seconds = remainingMsRef.current / 1000
       setRemainingSeconds(seconds)
 
+      // ─ Move balls ─
       const nextBalls = ballsRef.current.map((ball): BallItem => {
         if (ball.state === 'destroyed' || ball.state === 'passed') return ball
         if (ball.state === 'waiting') {
-          // check if spawn time reached using RELATIVE time
-          if (relativeNow >= ball.spawnDelay) {
-            return { ...ball, state: 'active', startedAt: now }
-          }
+          if (relativeNow >= ball.spawnDelay) return { ...ball, state: 'active', startedAt: now }
           return ball
         }
-        // active
-        const elapsed = ball.startedAt !== null ? now - ball.startedAt : 0
         const newY = ball.y + ball.speed * delta / 1000
         if (newY > 92) {
           passedCountRef.current += 1
           setPassedCount(passedCountRef.current)
           return { ...ball, y: 92, state: 'passed' }
         }
-        void elapsed
         return { ...ball, y: newY }
       })
 
-      ballsRef.current = nextBalls
-      setBalls(nextBalls)
+      // ─ Move bullets ─
+      const movedBullets = bulletsRef.current
+        .map((b) => ({ ...b, y: b.y - BULLET_SPEED * delta / 1000 }))
+        .filter((b) => b.y > -5)
 
-      // Check if 3+ passed → trigger goal save immediately
+      // ─ Collision detection ─
+      const hitBallIds = new Set<string>()
+      const hitBulletIds = new Set<string>()
+      for (const bullet of movedBullets) {
+        for (const ball of nextBalls) {
+          if (ball.state !== 'active') continue
+          if (hitBallIds.has(ball.id) || hitBulletIds.has(bullet.id)) continue
+          // Generous hit box: ±11% horizontal, ±12% vertical
+          if (Math.abs(bullet.x - ball.x) < 11 && Math.abs(bullet.y - ball.y) < 12) {
+            hitBallIds.add(ball.id)
+            hitBulletIds.add(bullet.id)
+          }
+        }
+      }
+
+      // ─ Apply hits ─
+      const finalBalls = hitBallIds.size > 0
+        ? nextBalls.map((b) => hitBallIds.has(b.id) ? { ...b, state: 'destroyed' as const } : b)
+        : nextBalls
+      const finalBullets = movedBullets.filter((b) => !hitBulletIds.has(b.id))
+
+      if (hitBallIds.size > 0) {
+        destroyedCountRef.current += hitBallIds.size
+        setDestroyedCount(destroyedCountRef.current)
+        hitBallIds.forEach((id) => {
+          setBurstIds((prev) => new Set(prev).add(id))
+          setTimeout(() => setBurstIds((prev) => { const next = new Set(prev); next.delete(id); return next }), 500)
+        })
+      }
+
+      ballsRef.current = finalBalls
+      setBalls(finalBalls)
+      bulletsRef.current = finalBullets
+      setBullets(finalBullets)
+
+      // ─ End conditions ─
       if (passedCountRef.current >= 3 && !goalSaveTriggeredRef.current) {
-        triggerGoalSave()
-        return
+        triggerGoalSave(); return
       }
-
-      // Check all resolved
-      const allResolved = nextBalls.every((b) => b.state === 'destroyed' || b.state === 'passed')
+      const allResolved = finalBalls.every((b) => b.state === 'destroyed' || b.state === 'passed')
       if (allResolved && !goalSaveTriggeredRef.current) {
-        const passed = passedCountRef.current
-        if (passed >= 3) {
-          triggerGoalSave()
-        } else {
-          finish({ path: 'space_invaders', blocked: destroyedCountRef.current, total: totalBalls })
-        }
+        if (passedCountRef.current >= 3) triggerGoalSave()
+        else finish({ path: 'space_invaders', blocked: destroyedCountRef.current, total: totalBalls })
         return
       }
-
-      // Timer expired
       if (seconds <= 0) {
-        const passed = passedCountRef.current
-        if (passed >= 3) {
-          triggerGoalSave()
-        } else {
-          // Mark remaining active balls as passed
-          const finalPassed = nextBalls.filter((b) => b.state !== 'destroyed').length
-          finish({ path: 'space_invaders', blocked: destroyedCountRef.current, total: totalBalls })
-          void finalPassed
-        }
+        if (passedCountRef.current >= 3) triggerGoalSave()
+        else finish({ path: 'space_invaders', blocked: destroyedCountRef.current, total: totalBalls })
         return
       }
 
@@ -187,37 +209,48 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
     return () => cancelAnimationFrame(frameRef.current)
   }, [phase, cfg, totalBalls, finish, triggerGoalSave, tutorialDone])
 
-  const destroyBall = (id: string) => {
-    if (endedRef.current || phaseRef.current !== 'invaders') return
-    const ball = ballsRef.current.find((b) => b.id === id)
-    if (!ball || ball.state !== 'active') return
-    destroyedCountRef.current += 1
-    setDestroyedCount(destroyedCountRef.current)
-    setBurstIds((prev) => new Set(prev).add(id))
-    setTimeout(() => setBurstIds((prev) => { const next = new Set(prev); next.delete(id); return next }), 500)
-    const next = ballsRef.current.map((b) => b.id === id ? { ...b, state: 'destroyed' as const } : b)
-    ballsRef.current = next
-    setBalls(next)
+  // ── Pointer handlers ─────────────────────────────────
+  const getX = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return 50
+    return Math.max(5, Math.min(95, ((e.clientX - rect.left) / rect.width) * 100))
   }
 
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (phaseRef.current !== 'invaders' || endedRef.current || !tutorialDone) return
+    shooterXRef.current = getX(e)
+    setShooterX(shooterXRef.current)
+  }
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (phaseRef.current !== 'invaders' || endedRef.current || !tutorialDone) return
+    shooterXRef.current = getX(e)
+    setShooterX(shooterXRef.current)
+    fireBullet()
+    // Auto-fire while holding
+    if (fireIntervalRef.current) clearInterval(fireIntervalRef.current)
+    fireIntervalRef.current = setInterval(fireBullet, 220)
+  }
+
+  const handlePointerUp = () => {
+    if (fireIntervalRef.current) { clearInterval(fireIntervalRef.current); fireIntervalRef.current = null }
+  }
+
+  // ── Early returns for other phases ──────────────────
   if (showGoalSaveIntro) {
-    const safePassedCount = Math.min(3, Math.max(1, passedCountRef.current || 1))
+    const n = Math.min(3, Math.max(1, passedCountRef.current || 1))
     return (
-      <section style={{ position:'relative', width:'100%', height:'100%', background:'#050b16', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, padding:'28px 20px', textAlign:'center', fontFamily:"'Barlow Condensed', sans-serif" }}>
-        <style>{`.def-trans-btn { margin-top:10px; padding:13px 32px; border-radius:10px; border:2px solid #FF4455; background:rgba(255,68,85,.12); color:#FF4455; font:800 16px 'Barlow Condensed',sans-serif; letter-spacing:.14em; cursor:pointer; box-shadow:0 0 20px rgba(255,68,85,.3); }`}</style>
+      <section style={{ position:'relative', width:'100%', height:'100%', background:'#050b16', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, padding:'28px 20px', textAlign:'center', fontFamily:"'Barlow Condensed',sans-serif" }}>
+        <style>{`.def-trans-btn{margin-top:10px;padding:13px 32px;border-radius:10px;border:2px solid #FF4455;background:rgba(255,68,85,.12);color:#FF4455;font:800 16px 'Barlow Condensed',sans-serif;letter-spacing:.14em;cursor:pointer;box-shadow:0 0 20px rgba(255,68,85,.3)}`}</style>
         <div style={{fontSize:36}}>⚠️</div>
-        <div style={{font:"900 clamp(26px,9vw,44px) 'Barlow Condensed',sans-serif", letterSpacing:'.12em', color:'#FF4455', textShadow:'0 0 28px rgba(255,68,85,.6)', textTransform:'uppercase'}}>Attention !</div>
-        <div style={{font:"800 clamp(14px,5vw,20px) 'Barlow Condensed',sans-serif", letterSpacing:'.08em', color:'#FFB800'}}>L&apos;adversaire entre dans la zone de tir</div>
-        <div style={{font:"500 clamp(12px,3.5vw,15px) 'Barlow Condensed',sans-serif", color:'rgba(255,255,255,.7)', maxWidth:300, lineHeight:1.45}}>
-          {safePassedCount} ballon{safePassedCount > 1 ? 's' : ''} fonce{safePassedCount > 1 ? 'nt' : ''} vers ton but !{' '}
+        <div style={{font:"900 clamp(26px,9vw,44px) 'Barlow Condensed',sans-serif",letterSpacing:'.12em',color:'#FF4455',textShadow:'0 0 28px rgba(255,68,85,.6)',textTransform:'uppercase'}}>Attention !</div>
+        <div style={{font:"800 clamp(14px,5vw,20px) 'Barlow Condensed',sans-serif",letterSpacing:'.08em',color:'#FFB800'}}>L&apos;adversaire entre dans la zone de tir</div>
+        <div style={{font:"500 clamp(12px,3.5vw,15px) 'Barlow Condensed',sans-serif",color:'rgba(255,255,255,.7)',maxWidth:300,lineHeight:1.45}}>
+          {n} ballon{n>1?'s':''} fonce{n>1?'nt':''} vers ton but !{' '}
           <b style={{color:'#FF4455'}}>Touche ou balaye les ballons</b>{' '}
-          avant qu&apos;ils passent la ligne pour les arrêter. Si un seul passe — but encaissé !
+          avant qu&apos;ils passent la ligne. Un seul passe — but encaissé !
         </div>
-        <button
-          type="button"
-          className="def-trans-btn"
-          onClick={() => { setShowGoalSaveIntro(false); phaseRef.current = 'goal_save'; setPhase('goal_save') }}
-        >
+        <button type="button" className="def-trans-btn" onClick={() => { setShowGoalSaveIntro(false); phaseRef.current = 'goal_save'; setPhase('goal_save') }}>
           🧤 Je défends !
         </button>
       </section>
@@ -225,42 +258,40 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
   }
 
   if (phase === 'goal_save') {
-    const safePassedCount = Math.min(3, Math.max(1, passedCountRef.current || 1))
+    const n = Math.min(3, Math.max(1, passedCountRef.current || 1))
     return (
-      <section className="def-root" style={{ width: '100%', height: '100%' }}>
-        <style>{`
-          .def-root { display: flex; flex-direction: column; width: 100%; height: 100%; background: #050b16; font-family: 'Barlow Condensed', sans-serif; overflow: hidden; }
-          .def-gs-header { padding: 8px 16px; background: #1a0608; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-          .def-gs-header span { font: 900 14px 'Barlow Condensed', sans-serif; letter-spacing: .14em; color: #FF4455; text-transform: uppercase; }
-          .def-gs-body { flex: 1; min-height: 0; }
-        `}</style>
-        <div className="def-gs-header">
-          <span>⚠ GARDIEN ! {safePassedCount} ballon{safePassedCount > 1 ? 's' : ''} à arrêter</span>
+      <section style={{ display:'flex', flexDirection:'column', width:'100%', height:'100%', background:'#050b16', fontFamily:"'Barlow Condensed',sans-serif", overflow:'hidden' }}>
+        <div style={{ padding:'8px 16px', background:'#1a0608', display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+          <span style={{ font:"900 14px 'Barlow Condensed',sans-serif", letterSpacing:'.14em', color:'#FF4455', textTransform:'uppercase' }}>
+            ⚠ GARDIEN ! {n} ballon{n>1?'s':''} à arrêter
+          </span>
         </div>
-        <div className="def-gs-body">
-          <GoalSave
-            ballCount={safePassedCount}
-            difficulty={difficulty}
-            onResult={(saved) => finish({ path: 'goal_save', blocked: destroyedCountRef.current, total: totalBalls, saved })}
-          />
+        <div style={{ flex:1, minHeight:0 }}>
+          <GoalSave ballCount={n} difficulty={difficulty} onResult={(saved) => finish({ path:'goal_save', blocked:destroyedCountRef.current, total:totalBalls, saved })} />
         </div>
       </section>
     )
   }
 
+  // ── Main Space Invaders render ────────────────────────
   const countdownRatio = Math.max(0, Math.min(1, remainingSeconds / cfg.timer))
-  const countdownColor = countdownRatio > 0.45
-    ? `hsl(${Math.round(5 + countdownRatio * 38)} 100% 50%)`
-    : '#ff334d'
+  const countdownColor = countdownRatio > 0.45 ? `hsl(${Math.round(5 + countdownRatio * 38)} 100% 50%)` : '#ff334d'
 
   return (
-    <section className="def-root" ref={containerRef} style={{ touchAction: 'none', userSelect: 'none' }}>
+    <section
+      className="def-root"
+      ref={containerRef}
+      style={{ touchAction: 'none', userSelect: 'none' }}
+      onPointerMove={handlePointerMove}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
       <style>{`
         .def-root {
           display: grid;
           grid-template-rows: 5% 70% 25%;
-          width: 100%;
-          height: 100%;
+          width: 100%; height: 100%;
           background: #050b16;
           font-family: 'Barlow Condensed', sans-serif;
           overflow: hidden;
@@ -268,174 +299,124 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
         }
         /* Tutorial overlay */
         .def-tutorial {
-          position: absolute;
-          inset: 0;
-          z-index: 50;
-          background: rgba(5,11,22,0.88);
-          backdrop-filter: blur(3px);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 14px;
-          padding: 24px;
+          position: absolute; inset: 0; z-index: 50;
+          background: rgba(5,11,22,0.90); backdrop-filter: blur(3px);
+          display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 14px; padding: 24px;
         }
         .def-tutorial__title {
-          font: 900 clamp(32px,10vw,56px) 'Barlow Condensed', sans-serif;
-          letter-spacing: .2em;
-          color: #FF4455;
-          text-shadow: 0 0 32px rgba(255,68,85,.6);
-          text-transform: uppercase;
+          font: 900 clamp(32px,10vw,52px) 'Barlow Condensed', sans-serif;
+          letter-spacing: .2em; color: #FF4455;
+          text-shadow: 0 0 32px rgba(255,68,85,.6); text-transform: uppercase;
         }
         .def-tutorial__instruction {
-          font: 600 clamp(13px,4vw,17px) 'Barlow Condensed', sans-serif;
-          color: rgba(255,255,255,.85);
-          text-align: center;
-          max-width: 320px;
-          line-height: 1.4;
+          font: 600 clamp(13px,4vw,16px) 'Barlow Condensed', sans-serif;
+          color: rgba(255,255,255,.85); text-align: center;
+          max-width: 300px; line-height: 1.45;
         }
+        .def-tutorial__hint { font-size: 28px; animation: defHintBounce .7s ease-in-out infinite alternate; }
+        @keyframes defHintBounce { from { transform: translateY(4px); } to { transform: translateY(-4px); } }
         .def-tutorial__btn {
-          margin-top: 8px;
-          padding: 12px 28px;
-          border-radius: 10px;
-          border: 2px solid rgba(255,68,85,.4);
-          background: rgba(255,68,85,.08);
-          color: rgba(255,255,255,.45);
-          font: 800 16px 'Barlow Condensed', sans-serif;
-          letter-spacing: .1em;
-          cursor: default;
+          margin-top: 8px; padding: 12px 28px; border-radius: 10px;
+          border: 2px solid rgba(255,68,85,.4); background: rgba(255,68,85,.08);
+          color: rgba(255,255,255,.4); font: 800 16px 'Barlow Condensed', sans-serif;
+          letter-spacing: .1em; cursor: default; pointer-events: none;
           transition: background .2s, border-color .2s, color .2s;
-          pointer-events: none;
         }
         .def-tutorial__btn.is-ready {
-          background: #1a0608;
-          border-color: #2bff9a;
-          color: #2bff9a;
-          cursor: pointer;
-          pointer-events: auto;
+          background: rgba(43,255,154,.1); border-color: #2bff9a;
+          color: #2bff9a; cursor: pointer; pointer-events: auto;
           box-shadow: 0 0 16px rgba(43,255,154,.35);
         }
         /* Countdown */
         .def-clock {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 0 14px;
-          background: #1a0608;
-          box-sizing: border-box;
-          z-index: 10;
+          display: flex; align-items: center; gap: 8px;
+          padding: 0 14px; background: #1a0608; box-sizing: border-box; z-index: 10;
         }
         .def-clock__track {
-          flex: 1;
-          height: 7px;
-          border-radius: 99px;
-          background: rgba(255,255,255,.08);
-          overflow: hidden;
+          flex: 1; height: 7px; border-radius: 99px;
+          background: rgba(255,255,255,.08); overflow: hidden;
         }
-        .def-clock__fill {
-          display: block;
-          width: 100%;
-          height: 100%;
-          transform-origin: left;
-        }
+        .def-clock__fill { display: block; width: 100%; height: 100%; transform-origin: left; }
         .def-clock strong {
-          min-width: 28px;
-          font: 800 13px 'JetBrains Mono', monospace;
-          font-variant-numeric: tabular-nums;
-          text-align: right;
+          min-width: 28px; font: 800 13px 'JetBrains Mono', monospace;
+          font-variant-numeric: tabular-nums; text-align: right;
         }
         /* Game area */
         .def-game {
-          position: relative;
-          overflow: hidden;
-          background: linear-gradient(180deg, #050b16, #0a0c18);
+          position: relative; overflow: hidden;
+          background: linear-gradient(180deg, #050b16 0%, #0a0d1a 60%, #0f1525 100%);
+          cursor: crosshair;
         }
-        .def-game-lines {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          pointer-events: none;
-          opacity: .2;
-        }
-        /* Ball */
+        /* Balls */
         .def-ball {
-          position: absolute;
-          transform: translate(-50%, -50%);
-          z-index: 8;
-          touch-action: none;
+          position: absolute; transform: translate(-50%, -50%);
+          z-index: 8; pointer-events: none;
         }
-        .def-ball.is-active {
-          pointer-events: auto;
-          cursor: pointer;
+        .def-ball.is-destroyed { animation: defBurst .4s ease-out forwards; }
+        .def-ball.is-passed { opacity: 0; }
+        .def-ball.is-waiting { opacity: 0; }
+        /* Bullets */
+        .def-bullet {
+          position: absolute; transform: translate(-50%, -50%);
+          width: 8px; height: 20px; border-radius: 4px;
+          background: linear-gradient(180deg, #FFB800, #ff7a00);
+          box-shadow: 0 0 10px rgba(255,184,0,.9), 0 0 20px rgba(255,184,0,.5);
+          pointer-events: none; z-index: 12;
         }
-        .def-ball.is-destroyed { pointer-events: none; animation: defBurst .4s ease-out forwards; }
-        .def-ball.is-passed { pointer-events: none; opacity: 0; }
-        .def-ball.is-waiting { pointer-events: none; opacity: 0; }
+        /* Shooter */
+        .def-shooter {
+          position: absolute; transform: translate(-50%, -50%);
+          z-index: 15; pointer-events: none;
+          filter: drop-shadow(0 0 8px rgba(43,255,154,.7));
+          transition: left .04s linear;
+        }
+        /* Burst ring */
         .def-burst-ring {
-          position: absolute;
-          transform: translate(-50%, -50%);
-          pointer-events: none;
-          z-index: 15;
+          position: absolute; transform: translate(-50%, -50%);
+          pointer-events: none; z-index: 20;
           animation: defBurstRing .5s ease-out forwards;
+        }
+        /* Danger line */
+        .def-danger-line {
+          position: absolute; left: 0; right: 0;
+          height: 3px; background: rgba(255,68,85,.35);
+          top: 88%; pointer-events: none; z-index: 5;
+          box-shadow: 0 0 8px rgba(255,68,85,.5);
         }
         /* Info bar */
         .def-info {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 8px 20px;
-          background: linear-gradient(180deg, #1a0608, #0d0405);
-          box-sizing: border-box;
-          z-index: 5;
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 8px 20px; background: linear-gradient(180deg, #1a0608, #0d0405);
+          box-sizing: border-box; z-index: 5;
         }
-        .def-info-stat {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 2px;
-        }
-        .def-info-stat span {
-          font: 900 18px 'JetBrains Mono', monospace;
-        }
+        .def-info-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .def-info-stat span { font: 900 18px 'JetBrains Mono', monospace; }
         .def-info-stat small {
           font: 700 10px 'Barlow Condensed', sans-serif;
-          letter-spacing: .1em;
-          color: rgba(255,255,255,.5);
-          text-transform: uppercase;
+          letter-spacing: .1em; color: rgba(255,255,255,.5); text-transform: uppercase;
         }
         .def-info-label {
           font: 800 12px 'Barlow Condensed', sans-serif;
-          letter-spacing: .1em;
-          color: rgba(255,255,255,.6);
-          text-transform: uppercase;
+          letter-spacing: .1em; color: rgba(255,255,255,.6); text-transform: uppercase;
         }
-        .def-danger-warning {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          font: 900 clamp(20px,8vw,40px) 'Barlow Condensed', sans-serif;
-          letter-spacing: .12em;
-          color: #FF4455;
+        .def-danger-warn {
+          position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+          font: 900 clamp(18px,7vw,36px) 'Barlow Condensed', sans-serif;
+          letter-spacing: .12em; color: #FF4455;
           text-shadow: 0 0 24px rgba(255,68,85,.8);
-          pointer-events: none;
-          animation: defDanger .5s ease-in-out infinite alternate;
-          z-index: 20;
+          pointer-events: none; animation: defDanger .5s ease-in-out infinite alternate; z-index: 20;
         }
         @keyframes defBurst {
           0% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
-          60% { transform: translate(-50%,-50%) scale(1.8); opacity: .5; }
-          100% { transform: translate(-50%,-50%) scale(2.4); opacity: 0; }
+          60% { transform: translate(-50%,-50%) scale(2); opacity: .4; }
+          100% { transform: translate(-50%,-50%) scale(2.6); opacity: 0; }
         }
         @keyframes defBurstRing {
-          0% { transform: translate(-50%,-50%) scale(0.5); opacity: 1; }
-          100% { transform: translate(-50%,-50%) scale(2.5); opacity: 0; }
+          0% { transform: translate(-50%,-50%) scale(0.4); opacity: 1; }
+          100% { transform: translate(-50%,-50%) scale(2.8); opacity: 0; }
         }
-        @keyframes defDanger {
-          from { opacity: .7; }
-          to { opacity: 1; text-shadow: 0 0 36px rgba(255,68,85,1); }
-        }
+        @keyframes defDanger { from { opacity: .6; } to { opacity: 1; text-shadow: 0 0 40px rgba(255,68,85,1); } }
       `}</style>
 
       {/* Tutorial overlay */}
@@ -443,61 +424,44 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
         <div className="def-tutorial">
           <div className="def-tutorial__title">DÉFENSE</div>
           <div className="def-tutorial__instruction">
-            Cliquez / tapez sur les ballons pour les détruire avant qu'ils franchissent la ligne ! Si 3 passent, vous devez arrêter les tirs sur le but !
+            Déplace-toi latéralement et <b style={{color:'#FFB800'}}>appuie pour tirer</b> sur les ballons qui descendent !<br/>
+            Si 3 passent la ligne rouge, tu devras arrêter les tirs au but.
           </div>
-          <button
-            type="button"
-            className={`def-tutorial__btn${tutorialReady ? ' is-ready' : ''}`}
-            onClick={handleTutorialStart}
-          >
+          <div className="def-tutorial__hint">🎯</div>
+          <button type="button" className={`def-tutorial__btn${tutorialReady ? ' is-ready' : ''}`} onClick={() => { if (!tutorialReady) return; sessionStorage.setItem('brakup:tut:def','1'); setTutorialDone(true) }}>
             {tutorialReady ? 'OK — Jouer !' : `Démarrer (${tutorialCountdown})`}
           </button>
         </div>
       )}
 
-      {/* TOP 5% — countdown */}
+      {/* Countdown bar */}
       <div className="def-clock">
         <div className="def-clock__track">
-          <i className="def-clock__fill" style={{
-            transform: `scaleX(${countdownRatio})`,
-            background: `linear-gradient(90deg,#FFB800,#ff7a1a 55%,${countdownColor})`,
-          }} />
+          <i className="def-clock__fill" style={{ transform:`scaleX(${countdownRatio})`, background:`linear-gradient(90deg,#FFB800,#ff7a1a 55%,${countdownColor})` }} />
         </div>
         <strong style={{ color: countdownColor }}>{Math.ceil(remainingSeconds)}s</strong>
       </div>
 
-      {/* 70% — invaders game */}
+      {/* Game area */}
       <div className="def-game">
-        <svg className="def-game-lines" viewBox="0 0 375 420" preserveAspectRatio="none">
-          <g stroke="rgba(255,100,100,.15)" strokeWidth="1">
-            {[70, 140, 210, 280, 350].map((y) => (
-              <line key={y} x1="0" y1={y} x2="375" y2={y} />
-            ))}
-          </g>
-        </svg>
+        {/* Danger line at bottom */}
+        <div className="def-danger-line" />
 
+        {/* Descending balls */}
         {balls.map((ball) => (
           <div key={ball.id}>
             {burstIds.has(ball.id) && (
-              <div className="def-burst-ring" style={{ left: `${ball.x}%`, top: `${ball.y}%` }}>
-                <svg viewBox="0 0 80 80" width="80" height="80" style={{ pointerEvents: 'none' }}>
+              <div className="def-burst-ring" style={{ left:`${ball.x}%`, top:`${ball.y}%` }}>
+                <svg viewBox="0 0 80 80" width="80" height="80" style={{ pointerEvents:'none' }}>
                   {Array.from({ length: 8 }, (_, i) => {
-                    const angle = (i / 8) * Math.PI * 2
-                    return <circle key={i} cx={40 + Math.cos(angle) * 28} cy={40 + Math.sin(angle) * 28} r="5" fill="#FFB800" opacity="0.9" />
+                    const a = (i / 8) * Math.PI * 2
+                    return <circle key={i} cx={40 + Math.cos(a) * 28} cy={40 + Math.sin(a) * 28} r="5" fill="#FFB800" opacity="0.9" />
                   })}
                 </svg>
               </div>
             )}
-            <div
-              className={`def-ball is-${ball.state}`}
-              style={{ left: `${ball.x}%`, top: `${ball.y}%` }}
-              onPointerDown={(e) => {
-                e.stopPropagation()
-                e.preventDefault()
-                destroyBall(ball.id)
-              }}
-            >
-              <svg viewBox="0 0 80 80" width="52" height="52" style={{ pointerEvents: 'none' }}>
+            <div className={`def-ball is-${ball.state}`} style={{ left:`${ball.x}%`, top:`${ball.y}%` }}>
+              <svg viewBox="0 0 80 80" width="46" height="46" style={{ pointerEvents:'none' }}>
                 <circle cx="40" cy="40" r="34" fill="#f7f9fc" stroke="#101827" strokeWidth="4" />
                 <path d="M40 19 53 28 48 45H32L27 28Z" fill="none" stroke="#101827" strokeWidth="3" />
                 <line x1="40" y1="6" x2="40" y2="19" stroke="#101827" strokeWidth="2" strokeLinecap="round" />
@@ -510,18 +474,44 @@ export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: 
           </div>
         ))}
 
+        {/* Bullets */}
+        {bullets.map((b) => (
+          <div key={b.id} className="def-bullet" style={{ left:`${b.x}%`, top:`${b.y}%` }} />
+        ))}
+
+        {/* Shooter (player/cannon) at bottom */}
+        {tutorialDone && (
+          <div className="def-shooter" style={{ left:`${shooterX}%`, top:'92%' }}>
+            <svg viewBox="0 0 60 70" width="44" height="52" style={{ pointerEvents:'none' }}>
+              {/* Base / platform */}
+              <ellipse cx="30" cy="65" rx="26" ry="7" fill="rgba(43,255,154,.18)" />
+              {/* Body */}
+              <rect x="18" y="32" width="24" height="28" rx="8" fill="#2bff9a" />
+              {/* Cannon barrel */}
+              <rect x="24" y="4" width="12" height="32" rx="6" fill="#2bff9a" stroke="rgba(255,255,255,.4)" strokeWidth="1.5" />
+              {/* Barrel tip glow */}
+              <circle cx="30" cy="6" r="5" fill="#FFB800" opacity="0.9" />
+              {/* Eyes */}
+              <circle cx="24" cy="42" r="3" fill="#050b16" />
+              <circle cx="36" cy="42" r="3" fill="#050b16" />
+              <circle cx="25" cy="41" r="1" fill="#fff" />
+              <circle cx="37" cy="41" r="1" fill="#fff" />
+            </svg>
+          </div>
+        )}
+
         {passedCount >= 2 && (
-          <div className="def-danger-warning">⚠ DANGER</div>
+          <div className="def-danger-warn">⚠ DANGER</div>
         )}
       </div>
 
-      {/* 25% — info bar */}
+      {/* Info bar */}
       <div className="def-info">
         <div className="def-info-stat">
-          <span style={{ color: '#2bff9a' }}>{destroyedCount}</span>
-          <small>Arrêtés</small>
+          <span style={{ color:'#2bff9a' }}>{destroyedCount}</span>
+          <small>Détruits</small>
         </div>
-        <span className="def-info-label">Touchez les ballons !</span>
+        <span className="def-info-label">Vise et tire !</span>
         <div className="def-info-stat">
           <span style={{ color: passedCount >= 3 ? '#FF4455' : passedCount >= 2 ? '#FFB800' : 'rgba(255,255,255,.7)' }}>
             {passedCount}/3
