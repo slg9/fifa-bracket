@@ -172,8 +172,8 @@ export type Defender = {
 }
 
 export type DefenseOutcome =
-  | { path: 'clean_sweep' }
-  | { path: 'fruit_ninja'; attackersInZone: number; saved: boolean }
+  | { path: 'space_invaders'; blocked: number; total: number }
+  | { path: 'goal_save'; blocked: number; total: number; saved: boolean }
 
 export type BattleRoundType = 'attack' | 'defense'
 

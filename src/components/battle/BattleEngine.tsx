@@ -138,10 +138,12 @@ export function BattleEngine({ match, teamsById, onComplete }: BattleEngineProps
   }
 
   const handleDefenseEnd = (outcome: DefenseOutcome) => {
-    if (outcome.path === 'clean_sweep') {
-      completeRound(true, false, 'defense_perfect')
+    if (outcome.path === 'space_invaders') {
+      const success = outcome.blocked === outcome.total
+      completeRound(success, !success, success ? 'defense_perfect' : 'goal_conceded')
       return
     }
+    // goal_save
     completeRound(outcome.saved, !outcome.saved, outcome.saved ? 'saved' : 'goal_conceded')
   }
 

@@ -1,14 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { BattleDifficulty, DefenderType, DefenseOutcome } from '../../types'
-import FruitNinjaPhase from './FruitNinjaPhase'
-import GoalView from './GoalView'
-
-function distanceToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number) {
-  const dx = x2 - x1; const dy = y2 - y1
-  if (dx === 0 && dy === 0) return Math.hypot(px - x1, py - y1)
-  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)))
-  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
-}
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { BattleDifficulty, DefenseOutcome } from '../../types'
+import GoalSave from './GoalSave'
 
 type DefensePhaseProps = {
   difficulty: BattleDifficulty
@@ -17,449 +9,406 @@ type DefensePhaseProps = {
   onRoundEnd: (outcome: DefenseOutcome) => void
 }
 
-type AttackerType = DefenderType
-type AttackerSeed = { type: AttackerType; hits: number; spawnDelay?: number }
-type AttackerState = 'active' | 'removing' | 'locked'
+const DEFENSE_CFG = {
+  easy:   { timer: 12, ballSpeed: 70,  waveCount: 3, balloonsPerWave: 4 },
+  medium: { timer: 10, ballSpeed: 105, waveCount: 4, balloonsPerWave: 5 },
+  hard:   { timer: 8,  ballSpeed: 150, waveCount: 5, balloonsPerWave: 6 },
+}
 
-type RuntimeAttacker = {
+type BallItem = {
   id: string
-  type: AttackerType
-  x: number
-  baseX: number
-  y: number
-  hitsRemaining: number
-  initialHits: number
-  size: number
-  direction: -1 | 1
-  speed: number
-  spawnDelay: number
-  age: number
-  state: AttackerState
-  hitAt: number | null
-  removeAt: number | null
+  x: number          // 0–100%
+  spawnDelay: number // ms
+  speed: number      // % per second
+  state: 'waiting' | 'active' | 'destroyed' | 'passed'
+  y: number          // current % position (animated via RAF)
+  startedAt: number | null
 }
 
-type DefenseTrail = { id: string; x1: number; y1: number; x2: number; y2: number; createdAt: number }
-
-const SHOOTING_ZONE_Y = 80
-
-// 3 waves per difficulty — agile from wave 1, 3+ attackers always
-const DEFENSE_WAVES: Record<BattleDifficulty, AttackerSeed[][]> = {
-  easy: [
-    [{ type: 'normal', hits: 1 }, { type: 'agile', hits: 1 }, { type: 'costaud', hits: 2 }],
-    [{ type: 'agile', hits: 1 }, { type: 'costaud', hits: 2 }, { type: 'normal', hits: 1 }, { type: 'agile', hits: 1 }],
-    [{ type: 'sonic', hits: 1 }, { type: 'costaud', hits: 2 }, { type: 'agile', hits: 1 }, { type: 'normal', hits: 1 }],
-  ],
-  medium: [
-    [{ type: 'normal', hits: 1 }, { type: 'costaud', hits: 3 }, { type: 'agile', hits: 1 }, { type: 'normal', hits: 1 }],
-    [{ type: 'costaud', hits: 3 }, { type: 'agile', hits: 1 }, { type: 'sonic', hits: 1 }, { type: 'costaud', hits: 2 }, { type: 'agile', hits: 1 }],
-    [{ type: 'costaud', hits: 3 }, { type: 'sonic', hits: 1 }, { type: 'agile', hits: 1 }, { type: 'costaud', hits: 2 }, { type: 'sonic', hits: 1 }],
-  ],
-  hard: [
-    [{ type: 'costaud', hits: 3 }, { type: 'agile', hits: 1 }, { type: 'sonic', hits: 1 }, { type: 'normal', hits: 1 }, { type: 'agile', hits: 1 }],
-    [{ type: 'costaud', hits: 4 }, { type: 'sonic', hits: 1 }, { type: 'agile', hits: 1 }, { type: 'costaud', hits: 3 }, { type: 'sonic', hits: 1 }, { type: 'agile', hits: 1 }],
-    [{ type: 'sonic', hits: 1 }, { type: 'costaud', hits: 4 }, { type: 'sonic', hits: 1 }, { type: 'agile', hits: 1 }, { type: 'costaud', hits: 3 }, { type: 'agile', hits: 1 }],
-  ],
-}
-
-type DefenseConfig = { countdown: number; speed: number; agileSwipeStrict: boolean }
-
-function getDefenseConfig(difficulty: BattleDifficulty): DefenseConfig {
-  const configs: Record<BattleDifficulty, DefenseConfig> = {
-    easy: { countdown: 18, speed: 65, agileSwipeStrict: false },
-    medium: { countdown: 14, speed: 95, agileSwipeStrict: true },
-    hard: { countdown: 10, speed: 130, agileSwipeStrict: true },
+function createBalls(cfg: typeof DEFENSE_CFG['easy']): BallItem[] {
+  const total = cfg.waveCount * cfg.balloonsPerWave
+  const balls: BallItem[] = []
+  let delay = 0
+  for (let i = 0; i < total; i++) {
+    delay += i === 0 ? 200 : 300 + Math.random() * 400
+    balls.push({
+      id: crypto.randomUUID(),
+      x: 5 + Math.random() * 90,
+      spawnDelay: delay,
+      speed: cfg.ballSpeed * (0.85 + Math.random() * 0.3),
+      state: 'waiting',
+      y: -8,
+      startedAt: null,
+    })
   }
-  return configs[difficulty]
+  return balls
 }
 
-function randomInt(maximum: number) {
-  const value = new Uint32Array(1)
-  crypto.getRandomValues(value)
-  return value[0] % maximum
-}
+export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _awayTeamId, onRoundEnd }: DefensePhaseProps) {
+  const cfg = DEFENSE_CFG[difficulty]
+  const totalBalls = cfg.waveCount * cfg.balloonsPerWave
 
-function attackerSize(type: AttackerType, hitsRemaining: number, initialHits: number) {
-  if (type === 'sonic') return 36
-  if (type === 'normal') return 48
-  if (type === 'agile') return 44
-  const hitsTaken = initialHits - hitsRemaining
-  return hitsTaken === 0 ? 80 : hitsTaken === 1 ? 60 : 40
-}
+  const [phase, setPhase] = useState<'invaders' | 'goal_save'>('invaders')
+  const [balls, setBalls] = useState<BallItem[]>(() => createBalls(cfg))
+  const [remainingSeconds, setRemainingSeconds] = useState(cfg.timer)
+  const [burstIds, setBurstIds] = useState<Set<string>>(() => new Set())
+  const [passedCount, setPassedCount] = useState(0)
+  const [destroyedCount, setDestroyedCount] = useState(0)
 
-function createWaveAttackers(seeds: AttackerSeed[], config: DefenseConfig, waveIdx: number): RuntimeAttacker[] {
-  return seeds.map<RuntimeAttacker>((seed, index) => {
-    const baseX = 14 + randomInt(73)
-    const baseSpeed = config.speed
-    const speedFactor = seed.type === 'sonic' ? 3.5 : seed.type === 'costaud' ? .72 : seed.type === 'agile' ? 1.1 : 1
-    const speed = baseSpeed * speedFactor
-    return {
-      id: crypto.randomUUID(), type: seed.type, x: baseX, baseX, y: -8,
-      hitsRemaining: seed.hits, initialHits: seed.hits, size: attackerSize(seed.type, seed.hits, seed.hits),
-      direction: 1, speed, spawnDelay: seed.spawnDelay ?? Math.min(index * 180, 550) + (waveIdx === 0 ? 0 : 100), age: 0,
-      state: 'active', hitAt: null, removeAt: null,
-    }
-  })
-}
-
-function teamColor(teamId: string) {
-  let hash = 0
-  for (const character of teamId) hash = (hash * 31 + character.charCodeAt(0)) % 360
-  return `hsl(${hash} 72% 46%)`
-}
-
-function clamp(value: number, minimum: number, maximum: number) {
-  return Math.max(minimum, Math.min(maximum, value))
-}
-
-function AttackerSprite({ attacker, color, frozen, recentlyHit }: {
-  attacker: RuntimeAttacker
-  color: string
-  frozen: boolean
-  recentlyHit: boolean
-}) {
-  const spawned = attacker.age >= attacker.spawnDelay
-  const bgColor = attacker.type === 'sonic'
-    ? '#00DDCC'
-    : attacker.type === 'costaud'
-      ? '#FF4455'
-      : attacker.type === 'agile'
-        ? '#3B82F6'
-        : color
-  const strokeColor = attacker.type === 'sonic' ? 'rgba(0,255,220,.9)' : 'rgba(255,255,255,.85)'
-  const strokeWidth = attacker.type === 'costaud' ? 6 : 4
-  return <svg viewBox="0 0 100 125" className={`defense-p17-attacker${attacker.state === 'removing' ? ' is-removing' : ''}${recentlyHit && attacker.state === 'active' ? ' is-hit' : ''}${attacker.type === 'sonic' ? ' is-sonic' : ''}`} style={{ left: `${attacker.x}%`, top: `${attacker.y}%`, width: attacker.size, height: attacker.size * 1.25, opacity: spawned ? 1 : 0, pointerEvents: 'none' }}>
-    <circle cx="50" cy="58" r="43" fill={bgColor} stroke={strokeColor} strokeWidth={strokeWidth} />
-    {attacker.type === 'costaud' ? <path d="M22 25 l6 14 -10 8 12 6 -6 16" stroke="rgba(0,0,0,.3)" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null}
-    {attacker.type === 'agile' ? <path d="M19 18 7 31M81 18 93 31" fill="none" stroke="#60a5fa" strokeWidth="6" strokeLinecap="round" /> : null}
-    {attacker.type === 'sonic' ? <>
-      <path d="M62 18 46 50h14L38 94 55 54H42Z" fill="rgba(0,0,0,.45)" stroke="rgba(255,255,255,.9)" strokeWidth="2.5" strokeLinejoin="round" />
-    </> : null}
-    {attacker.type !== 'sonic' && <text x="50" y="70" textAnchor="middle" fontSize="32" fontWeight="900">{attacker.hitsRemaining}</text>}
-    {recentlyHit && attacker.hitsRemaining > 0 ? <text className="defense-p17-alert" x="50" y="20" textAnchor="middle">!</text> : null}
-    {frozen ? <text className="defense-p17-pause" x="50" y="67" textAnchor="middle">⏸</text> : null}
-  </svg>
-}
-
-export function DefensePhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId, onRoundEnd }: DefensePhaseProps) {
-  const config = useMemo(() => getDefenseConfig(difficulty), [difficulty])
-  const waves = useMemo(() => DEFENSE_WAVES[difficulty], [difficulty])
-  const pitchRef = useRef<HTMLDivElement | null>(null)
-  const waveIndexRef = useRef(0)
-  const waveClearingRef = useRef(false)
-  const [waveIndex, setWaveIndex] = useState(0)
-  const [waveBanner, setWaveBanner] = useState<string | null>(null)
-  const initialAttackers = useMemo(() => createWaveAttackers(waves[0], config, 0), [waves, config])
-  const attackersRef = useRef(initialAttackers)
-  const remainingMsRef = useRef(config.countdown * 1000)
   const endedRef = useRef(false)
-  const cleanSweepAtRef = useRef<number | null>(null)
-  const [attackers, setAttackers] = useState(initialAttackers)
-  const [remainingSeconds, setRemainingSeconds] = useState(config.countdown)
-  const [clockNow, setClockNow] = useState(0)
-  const clockNowRef = useRef(0)
-  const [dangerUntil, setDangerUntil] = useState(0)
-  const [trails, setTrails] = useState<DefenseTrail[]>([])
-  const [phase, setPhase] = useState<'swipe' | 'fruit_ninja'>('swipe')
-  const [fruitAttackers, setFruitAttackers] = useState(0)
-  const attackerColor = useMemo(() => teamColor(awayTeamId), [awayTeamId])
-  const lastTouchAtRef = useRef(-1000)
-  const pitchPointerDownRef = useRef<{ x: number; y: number } | null>(null)
-  const pitchLastPointerRef = useRef<{ x: number; y: number } | null>(null)
-  const lockedAttackers = attackers.filter((attacker) => attacker.state === 'locked').slice(0, 3)
+  const ballsRef = useRef(balls)
+  ballsRef.current = balls
+  const remainingMsRef = useRef(cfg.timer * 1000)
+  const passedCountRef = useRef(0)
+  const destroyedCountRef = useRef(0)
+  const phaseRef = useRef<'invaders' | 'goal_save'>('invaders')
+  const goalSaveTriggeredRef = useRef(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const frameRef = useRef(0)
 
   const finish = useCallback((outcome: DefenseOutcome) => {
     if (endedRef.current) return
     endedRef.current = true
+    cancelAnimationFrame(frameRef.current)
     onRoundEnd(outcome)
   }, [onRoundEnd])
 
-  const beginFruitNinja = useCallback((count: number) => {
-    if (endedRef.current || count <= 0) return
-    setFruitAttackers(Math.min(3, count))
-    setPhase('fruit_ninja')
+  const triggerGoalSave = useCallback(() => {
+    if (goalSaveTriggeredRef.current || endedRef.current) return
+    goalSaveTriggeredRef.current = true
+    cancelAnimationFrame(frameRef.current)
+    phaseRef.current = 'goal_save'
+    setPhase('goal_save')
   }, [])
 
-  const advanceWave = useCallback((now: number) => {
-    if (waveClearingRef.current || endedRef.current) return
-    waveClearingRef.current = true
-    const nextWaveIndex = waveIndexRef.current + 1
-    if (nextWaveIndex >= waves.length) {
-      // Final wave cleared → clean sweep after short pause
-      setWaveBanner('PROPRE !')
-      window.setTimeout(() => {
-        if (endedRef.current) return
-        setWaveBanner(null)
-        waveClearingRef.current = false
-        cleanSweepAtRef.current = now + 100
-      }, 700)
-    } else {
-      const bannerText = nextWaveIndex === waves.length - 1 ? 'VAGUE FINALE !' : `VAGUE ${nextWaveIndex + 1} / ${waves.length}`
-      setWaveBanner(bannerText)
-      window.setTimeout(() => {
-        if (endedRef.current) return
-        const nextAttackers = createWaveAttackers(waves[nextWaveIndex], config, nextWaveIndex)
-        attackersRef.current = nextAttackers
-        setAttackers(nextAttackers)
-        waveIndexRef.current = nextWaveIndex
-        setWaveIndex(nextWaveIndex)
-        waveClearingRef.current = false
-        setWaveBanner(null)
-        cleanSweepAtRef.current = null
-      }, 900)
-    }
-    void now
-  }, [waves, config])
-
+  // Main animation loop
   useEffect(() => {
-    if (phase !== 'swipe') return
-    let frame = 0
-    let previous: number | null = null
-    const animate = (now: number) => {
-      if (previous === null) previous = now
-      const delta = Math.min(50, now - previous)
-      previous = now
-      clockNowRef.current = now
-      setClockNow(now)
+    if (phase !== 'invaders') return
+    let prev: number | null = null
+    const tick = (now: number) => {
+      if (prev === null) prev = now
+      const delta = Math.min(50, now - prev)
+      prev = now
+      if (endedRef.current) return
+
       remainingMsRef.current = Math.max(0, remainingMsRef.current - delta)
       const seconds = remainingMsRef.current / 1000
       setRemainingSeconds(seconds)
-      setTrails((current) => current.filter((trail) => now - trail.createdAt < 300))
 
-      const pitchHeight = pitchRef.current?.clientHeight ?? 430
-      let enteredZone = false
-      const nextAttackers = attackersRef.current
-        .filter((attacker) => attacker.removeAt === null || now < attacker.removeAt)
-        .map((attacker) => {
-          if (attacker.state !== 'active') return attacker
-          const age = attacker.age + delta
-          if (age < attacker.spawnDelay) return { ...attacker, age }
-          const y = attacker.y + attacker.speed * delta / 1000 / pitchHeight * 100
-          if (y >= SHOOTING_ZONE_Y) {
-            enteredZone = true
-            return { ...attacker, age, y: 88, state: 'locked' as const }
+      const nextBalls = ballsRef.current.map((ball): BallItem => {
+        if (ball.state === 'destroyed' || ball.state === 'passed') return ball
+        if (ball.state === 'waiting') {
+          // check if spawn time reached
+          if (now >= ball.spawnDelay) {
+            return { ...ball, state: 'active', startedAt: now }
           }
-          if (attacker.type !== 'agile') return { ...attacker, age, y }
-          const wave = (age - attacker.spawnDelay) / 360
-          const direction: 1 | -1 = Math.cos(wave) >= 0 ? 1 : -1
-          return { ...attacker, age, y, x: clamp(attacker.baseX + Math.sin(wave) * 14, 8, 92), direction }
-        })
-      attackersRef.current = nextAttackers
-      setAttackers(nextAttackers)
-      if (enteredZone) setDangerUntil(now + 650)
+          return ball
+        }
+        // active
+        const elapsed = ball.startedAt !== null ? now - ball.startedAt : 0
+        const newY = ball.y + ball.speed * delta / 1000
+        if (newY > 92) {
+          passedCountRef.current += 1
+          setPassedCount(passedCountRef.current)
+          return { ...ball, y: 92, state: 'passed' }
+        }
+        void elapsed
+        return { ...ball, y: newY }
+      })
 
-      const remainingThreats = nextAttackers.filter((a) => a.hitsRemaining > 0 && a.state !== 'locked' && a.state !== 'removing')
-      const allSpawned = nextAttackers.every((a) => a.age >= a.spawnDelay || a.hitsRemaining <= 0)
+      ballsRef.current = nextBalls
+      setBalls(nextBalls)
 
-      // Clean sweep via advanceWave (handles both inter-wave and final-wave → finish)
-      if (remainingThreats.length === 0 && allSpawned && nextAttackers.length > 0 && !waveClearingRef.current) {
-        advanceWave(now)
-      }
-
-      // Final: cleanSweepAtRef set by advanceWave after last wave
-      if (cleanSweepAtRef.current !== null && now >= cleanSweepAtRef.current) {
-        finish({ path: 'clean_sweep' })
+      // Check if 3+ passed → trigger goal save immediately
+      if (passedCountRef.current >= 3 && !goalSaveTriggeredRef.current) {
+        triggerGoalSave()
         return
       }
 
-      const zoneCount = Math.min(3, nextAttackers.filter((attacker) => attacker.state === 'locked').length)
+      // Check all resolved
+      const allResolved = nextBalls.every((b) => b.state === 'destroyed' || b.state === 'passed')
+      if (allResolved && !goalSaveTriggeredRef.current) {
+        const passed = passedCountRef.current
+        if (passed >= 3) {
+          triggerGoalSave()
+        } else {
+          finish({ path: 'space_invaders', blocked: destroyedCountRef.current, total: totalBalls })
+        }
+        return
+      }
+
+      // Timer expired
       if (seconds <= 0) {
-        if (zoneCount === 0) finish({ path: 'clean_sweep' })
-        else beginFruitNinja(zoneCount)
+        const passed = passedCountRef.current
+        if (passed >= 3) {
+          triggerGoalSave()
+        } else {
+          // Mark remaining active balls as passed
+          const finalPassed = nextBalls.filter((b) => b.state !== 'destroyed').length
+          finish({ path: 'space_invaders', blocked: destroyedCountRef.current, total: totalBalls })
+          void finalPassed
+        }
         return
       }
-      frame = requestAnimationFrame(animate)
+
+      frameRef.current = requestAnimationFrame(tick)
     }
-    frame = requestAnimationFrame(animate)
-    return () => cancelAnimationFrame(frame)
-  }, [beginFruitNinja, finish, phase, advanceWave])
+    frameRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frameRef.current)
+  }, [phase, cfg, totalBalls, finish, triggerGoalSave])
 
-  const handlePitchPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (endedRef.current || phase !== 'swipe') return
-    e.currentTarget.setPointerCapture(e.pointerId)
-    const rect = pitchRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-    pitchPointerDownRef.current = pos
-    pitchLastPointerRef.current = pos
+  const destroyBall = (id: string) => {
+    if (endedRef.current || phaseRef.current !== 'invaders') return
+    const ball = ballsRef.current.find((b) => b.id === id)
+    if (!ball || ball.state !== 'active') return
+    destroyedCountRef.current += 1
+    setDestroyedCount(destroyedCountRef.current)
+    setBurstIds((prev) => new Set(prev).add(id))
+    setTimeout(() => setBurstIds((prev) => { const next = new Set(prev); next.delete(id); return next }), 500)
+    const next = ballsRef.current.map((b) => b.id === id ? { ...b, state: 'destroyed' as const } : b)
+    ballsRef.current = next
+    setBalls(next)
   }
 
-  const handlePitchPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!pitchPointerDownRef.current || !pitchLastPointerRef.current || endedRef.current || phase !== 'swipe') return
-    const rect = pitchRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    const last = pitchLastPointerRef.current
-    const totalDeltaX = x - pitchPointerDownRef.current.x
-    const now = clockNowRef.current
-
-    setTrails((current) => [...current, {
-      id: crypto.randomUUID(),
-      x1: last.x / rect.width * 100, y1: last.y / rect.height * 100,
-      x2: x / rect.width * 100, y2: y / rect.height * 100,
-      createdAt: now,
-    }])
-
-    let anyHit = false
-    const nextAttackers = attackersRef.current.map((attacker) => {
-      if (attacker.state !== 'active') return attacker
-      const attPx = attacker.x / 100 * rect.width
-      const attPy = attacker.y / 100 * rect.height
-      if (distanceToSegment(attPx, attPy, last.x, last.y, x, y) > attacker.size / 2 + 12) return attacker
-      if (attacker.type === 'agile' && config.agileSwipeStrict) {
-        const swipeDir: 1 | -1 = totalDeltaX >= 0 ? 1 : -1
-        if (Math.abs(totalDeltaX) < 50 || swipeDir === attacker.direction) return attacker
-      }
-      anyHit = true
-      const hitsRemaining = attacker.hitsRemaining - 1
-      if (hitsRemaining <= 0) return { ...attacker, hitsRemaining: 0, state: 'removing' as const, hitAt: now, removeAt: now + 300 }
-      return { ...attacker, hitsRemaining, size: attackerSize(attacker.type, hitsRemaining, attacker.initialHits), hitAt: now }
-    })
-    if (anyHit) {
-      attackersRef.current = nextAttackers
-      setAttackers(nextAttackers)
-    }
-    pitchLastPointerRef.current = { x, y }
-  }
-
-  const handlePitchPointerUp = () => {
-    pitchPointerDownRef.current = null
-    pitchLastPointerRef.current = null
-  }
-
-  if (phase === 'fruit_ninja') {
-    return <FruitNinjaPhase attackersInZone={fruitAttackers} difficulty={difficulty} onResult={(saved) => finish({ path: 'fruit_ninja', attackersInZone: fruitAttackers, saved })} />
-  }
-
-  const countdownRatio = clamp(remainingSeconds / config.countdown, 0, 1)
-  const countdownColor = countdownRatio > .45 ? `hsl(${Math.round(5 + countdownRatio * 38)} 100% 50%)` : '#ff334d'
-
-  return <section className="battle-defense defense-p17">
-    <style>{`
-      .battle-defense.defense-p17{grid-template-rows:5% 20% 55% 20%;padding:0;background:#050b16;touch-action:none;font-family:'Barlow',sans-serif}
-      /* Countdown bar — red tint background */
-      .defense-p17-clock{position:relative;z-index:25;display:flex;align-items:center;gap:8px;padding:0 14px;height:100%;background:#1a0608;box-sizing:border-box}
-      .defense-p17-clock div{flex:1;height:7px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
-      .defense-p17-clock i{display:block;width:100%;height:100%;transform-origin:left}
-      .defense-p17-clock strong{min-width:24px;font:800 13px 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;text-align:right}
-      /* Origin zone — opponent bench */
-      .defense-p17-origin{position:relative;display:grid;place-items:center;align-content:center;gap:4px;background:linear-gradient(180deg,#1a0d10,#120a0d);overflow:hidden}
-      .defense-p17-origin svg{opacity:.8;filter:drop-shadow(0 6px 12px rgba(0,0,0,.5))}
-      .defense-p17-origin circle{fill:#d7a67d}
-      .defense-p17-origin path{fill:${attackerColor};stroke:#ff8796;stroke-width:3}
-      .defense-p17-origin small{font:800 11px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:rgba(255,255,255,.7);text-transform:uppercase}
-      /* Pitch — red-tinted background */
-      .defense-p17-pitch{position:relative;overflow:hidden;background:linear-gradient(180deg,#140a0d,#0d0608);touch-action:none}
-      .defense-p17-pitch-lines{position:absolute;inset:0;opacity:.35}
-      /* Attacker sprites */
-      .defense-p17-attacker{position:absolute;z-index:5;overflow:visible;transform:translate(-50%,-50%);filter:drop-shadow(0 8px 8px rgba(0,0,0,.5));touch-action:none}
-      .defense-p17-attacker text{fill:#fff;font-weight:950;font-family:'Barlow Condensed',sans-serif}
-      .defense-p17-attacker.is-removing{animation:defenseP17Spin .3s ease-out forwards;pointer-events:none}
-      .defense-p17-attacker.is-hit{animation:defenseP17Shake .2s linear}
-      .defense-p17-attacker.is-sonic{filter:drop-shadow(0 0 8px rgba(0,221,204,.8)) drop-shadow(0 8px 8px rgba(0,0,0,.5));animation:defP17SonicPulse .4s ease-in-out infinite alternate}
-      .defense-p17-attacker.is-sonic.is-removing{animation:defenseP17Spin .3s ease-out forwards}
-      .defense-p17-alert{fill:#FF4455!important;font-size:28px;animation:defenseP17Alert .3s both;font-family:'Barlow Condensed',sans-serif}
-      .defense-p17-pause{font-size:21px}
-      /* Swipe trails */
-      .defense-p17-trails{position:absolute;z-index:12;inset:0;width:100%;height:100%;pointer-events:none}
-      .defense-p17-trails line{stroke:#fff;stroke-width:4;stroke-linecap:round;filter:drop-shadow(0 0 5px rgba(255,255,255,.6));animation:defenseP17Trail .3s both}
-      /* Shot zone (bottom 20%) */
-      .defense-p17-zone{position:relative;z-index:8;overflow:hidden;border-top:2px dashed rgba(255,68,85,.7);background:rgba(255,68,85,.2);box-sizing:border-box}
-      .defense-p17-zone.is-danger{background:rgba(255,68,85,.4);border-top-color:rgba(255,68,85,.9)}
-      .defense-p17-zone .battle-goal-view{position:absolute;left:50%;bottom:-20%;width:72%;transform:translateX(-50%);opacity:.45}
-      .defense-p17-zone-label{position:absolute;z-index:5;top:50%;left:50%;transform:translate(-50%,-50%);font:800 11px 'Barlow Condensed',sans-serif;letter-spacing:.22em;text-transform:uppercase;color:#FF4455;pointer-events:none;white-space:nowrap}
-      .defense-p17-danger-label{position:absolute;z-index:12;left:0;right:0;top:-2px;transform:translateY(-100%);text-align:center;font:900 16px 'Barlow Condensed',sans-serif;letter-spacing:.2em;color:#FF4455;text-shadow:0 0 12px rgba(255,68,85,.7);animation:bk-charge .5s ease-in-out infinite}
-      /* Locked attacker badges in zone */
-      .defense-p17-locked{position:absolute;z-index:10;bottom:8%;display:grid;width:48px;height:48px;place-items:center;border:3px solid rgba(255,130,145,.9);border-radius:50%;color:#fff;background:${attackerColor};font:900 18px 'Barlow Condensed',sans-serif;transform:translateX(-50%);box-shadow:0 0 14px rgba(255,68,85,.6)}
-      .defense-p17-locked-glow{position:absolute;inset:-8px;border-radius:50%;background:radial-gradient(circle,rgba(255,68,85,.5),rgba(255,68,85,0) 70%);animation:bk-charge .8s ease-in-out infinite}
-      /* DÉFENDRE button */
-      .defense-p17-button{position:absolute;z-index:15;right:18px;bottom:14px;display:flex;flex-direction:column;align-items:center;gap:4px}
-      .defense-p17-button button{width:56px;height:56px;border-radius:16px;background:#FF4455;border:1.5px solid #ff8a96;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 0 24px rgba(255,68,85,.6);animation:bk-gold 1.2s ease-in-out infinite;touch-action:manipulation;padding:0}
-      .defense-p17-button button:disabled{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.12);opacity:.4;cursor:not-allowed;animation:none;box-shadow:none}
-      .defense-p17-button small{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:#fff}
-      /* Wave badge */
-      .defense-p17-wave{position:absolute;top:8px;left:10px;z-index:20;padding:3px 8px;border-radius:6px;background:rgba(255,68,85,.15);border:1px solid rgba(255,68,85,.5);font:800 11px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:#FF4455}
-      /* Wave banner overlay */
-      .defense-p17-wave-banner{position:absolute;inset:0;z-index:50;display:grid;place-items:center;background:rgba(0,0,0,.55);animation:defP17BannerIn .15s ease-out both}
-      .defense-p17-wave-banner span{font:900 clamp(32px,12vw,56px) 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#FF4455;text-shadow:0 0 36px rgba(255,68,85,.7);animation:bk-charge .5s ease-in-out infinite}
-      /* Red vignette */
-      .defense-p17-vignette{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 90px 34px rgba(150,0,16,.4);border-radius:inherit;z-index:20}
-      @keyframes defenseP17Spin{to{transform:translate(-50%,-50%) rotate(360deg) scale(.1);opacity:0}}
-      @keyframes defenseP17Shake{0%,100%{margin-left:0}20%{margin-left:-5px}40%{margin-left:5px}60%{margin-left:-5px}80%{margin-left:5px}}
-      @keyframes defenseP17Alert{to{transform:translateY(-22px);opacity:0}}
-      @keyframes defenseP17Trail{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
-      @keyframes defP17SonicPulse{from{filter:drop-shadow(0 0 6px rgba(0,221,204,.6)) drop-shadow(0 8px 8px rgba(0,0,0,.5))}to{filter:drop-shadow(0 0 14px rgba(0,221,204,1)) drop-shadow(0 8px 8px rgba(0,0,0,.5))}}
-      @keyframes defP17BannerIn{from{opacity:0;transform:scale(1.1)}to{opacity:1;transform:none}}
-    `}</style>
-
-    {/* TOP 5% — countdown bar */}
-    <div className="defense-p17-clock">
-      <div><i style={{ transform: `scaleX(${countdownRatio})`, background: `linear-gradient(90deg,#FFB800,#ff7a1a 55%,${countdownColor})` }} /></div>
-      <strong style={{ color: countdownColor }}>{Math.ceil(remainingSeconds)}s</strong>
-    </div>
-
-    {/* 20% — Opponent origin zone */}
-    <div className="defense-p17-origin">
-      <svg width="58" height="72" viewBox="0 0 100 120">
-        <circle cx="50" cy="23" r="17" />
-        <path d="M25 48Q50 32 75 48L68 88H58L56 115H43L41 88H31Z" />
-      </svg>
-      <small>ATTAQUE {awayTeamId.toUpperCase()} · V{waveIndex + 1}/{waves.length}</small>
-    </div>
-
-    {/* 55% — Pitch with attackers */}
-    <div className="defense-p17-pitch" ref={pitchRef}
-      onPointerDown={handlePitchPointerDown}
-      onPointerMove={handlePitchPointerMove}
-      onPointerUp={handlePitchPointerUp}
-      onPointerCancel={handlePitchPointerUp}
-      style={{ touchAction: 'none', cursor: 'crosshair', userSelect: 'none' }}>
-      <svg className="defense-p17-pitch-lines" viewBox="0 0 375 447" preserveAspectRatio="none">
-        <g stroke="rgba(255,255,255,.06)" strokeWidth="1">
-          <line x1="0" y1="80" x2="375" y2="80" /><line x1="0" y1="170" x2="375" y2="170" />
-          <line x1="0" y1="260" x2="375" y2="260" /><line x1="0" y1="350" x2="375" y2="350" />
-        </g>
-      </svg>
-      {/* Wave badge */}
-      <div className="defense-p17-wave">V{waveIndex + 1}/{waves.length}</div>
-      {attackers.filter((attacker) => attacker.state !== 'locked').map((attacker) => (
-        <AttackerSprite key={attacker.id} attacker={attacker} color={attackerColor} frozen={false}
-          recentlyHit={attacker.hitAt !== null && clockNow - attacker.hitAt < 200} />
-      ))}
-      <svg className="defense-p17-trails" viewBox="0 0 100 100" preserveAspectRatio="none">
-        {trails.map((trail) => <line key={trail.id} x1={trail.x1} y1={trail.y1} x2={trail.x2} y2={trail.y2} />)}
-      </svg>
-      {/* Wave banner */}
-      {waveBanner ? <div className="defense-p17-wave-banner"><span>{waveBanner}</span></div> : null}
-    </div>
-
-    {/* 20% — Shot zone */}
-    <div className={`defense-p17-zone${clockNow < dangerUntil ? ' is-danger' : ''}`}>
-      {clockNow < dangerUntil
-        ? <div className="defense-p17-danger-label">⚠ DANGER</div>
-        : <span className="defense-p17-zone-label">Zone de tir</span>}
-      <GoalView difficulty={difficulty} keeperX={50} />
-      {lockedAttackers.map((attacker, index) => (
-        <div key={attacker.id} className="defense-p17-locked" style={{ left: `${25 + index * 25}%` }}>
-          <div className="defense-p17-locked-glow" />
-          {attacker.hitsRemaining}
+  if (phase === 'goal_save') {
+    const safePassedCount = Math.min(3, Math.max(1, passedCountRef.current || 1))
+    return (
+      <section className="def-root" style={{ width: '100%', height: '100%' }}>
+        <style>{`
+          .def-root { display: flex; flex-direction: column; width: 100%; height: 100%; background: #050b16; font-family: 'Barlow Condensed', sans-serif; overflow: hidden; }
+          .def-gs-header { padding: 8px 16px; background: #1a0608; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+          .def-gs-header span { font: 900 14px 'Barlow Condensed', sans-serif; letter-spacing: .14em; color: #FF4455; text-transform: uppercase; }
+          .def-gs-body { flex: 1; min-height: 0; }
+        `}</style>
+        <div className="def-gs-header">
+          <span>⚠ GARDIEN ! {safePassedCount} ballon{safePassedCount > 1 ? 's' : ''} à arrêter</span>
         </div>
-      ))}
-      <div className="defense-p17-button">
-        <button type="button"
-          disabled={lockedAttackers.length === 0}
-          onTouchEnd={(event) => { event.preventDefault(); lastTouchAtRef.current = event.timeStamp; beginFruitNinja(lockedAttackers.length) }}
-          onMouseUp={(event) => { if (event.timeStamp - lastTouchAtRef.current > 500) beginFruitNinja(lockedAttackers.length) }}
-          aria-label="Défendre">
-          <svg width="24" height="26" viewBox="0 0 24 26" fill="none" stroke="#fff" strokeWidth="2">
-            <path d="M12 2 L21 6 V13 C21 19 12 24 12 24 C12 24 3 19 3 13 V6 Z" />
-          </svg>
-        </button>
-        {lockedAttackers.length > 0 && <small>{lockedAttackers.length} en zone</small>}
+        <div className="def-gs-body">
+          <GoalSave
+            ballCount={safePassedCount}
+            difficulty={difficulty}
+            onResult={(saved) => finish({ path: 'goal_save', blocked: destroyedCountRef.current, total: totalBalls, saved })}
+          />
+        </div>
+      </section>
+    )
+  }
+
+  const countdownRatio = Math.max(0, Math.min(1, remainingSeconds / cfg.timer))
+  const countdownColor = countdownRatio > 0.45
+    ? `hsl(${Math.round(5 + countdownRatio * 38)} 100% 50%)`
+    : '#ff334d'
+
+  return (
+    <section className="def-root" ref={containerRef} style={{ touchAction: 'none', userSelect: 'none' }}>
+      <style>{`
+        .def-root {
+          display: grid;
+          grid-template-rows: 5% 70% 25%;
+          width: 100%;
+          height: 100%;
+          background: #050b16;
+          font-family: 'Barlow Condensed', sans-serif;
+          overflow: hidden;
+          position: relative;
+        }
+        /* Countdown */
+        .def-clock {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 0 14px;
+          background: #1a0608;
+          box-sizing: border-box;
+          z-index: 10;
+        }
+        .def-clock__track {
+          flex: 1;
+          height: 7px;
+          border-radius: 99px;
+          background: rgba(255,255,255,.08);
+          overflow: hidden;
+        }
+        .def-clock__fill {
+          display: block;
+          width: 100%;
+          height: 100%;
+          transform-origin: left;
+        }
+        .def-clock strong {
+          min-width: 28px;
+          font: 800 13px 'JetBrains Mono', monospace;
+          font-variant-numeric: tabular-nums;
+          text-align: right;
+        }
+        /* Game area */
+        .def-game {
+          position: relative;
+          overflow: hidden;
+          background: linear-gradient(180deg, #050b16, #0a0c18);
+        }
+        .def-game-lines {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          opacity: .2;
+        }
+        /* Ball */
+        .def-ball {
+          position: absolute;
+          transform: translate(-50%, -50%);
+          z-index: 8;
+          cursor: pointer;
+          touch-action: none;
+        }
+        .def-ball.is-active { pointer-events: auto; }
+        .def-ball.is-destroyed { pointer-events: none; animation: defBurst .4s ease-out forwards; }
+        .def-ball.is-passed { pointer-events: none; opacity: 0; }
+        .def-ball.is-waiting { pointer-events: none; opacity: 0; }
+        .def-burst-ring {
+          position: absolute;
+          transform: translate(-50%, -50%);
+          pointer-events: none;
+          z-index: 15;
+          animation: defBurstRing .5s ease-out forwards;
+        }
+        /* Info bar */
+        .def-info {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 20px;
+          background: linear-gradient(180deg, #1a0608, #0d0405);
+          box-sizing: border-box;
+          z-index: 5;
+        }
+        .def-info-stat {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+        }
+        .def-info-stat span {
+          font: 900 18px 'JetBrains Mono', monospace;
+        }
+        .def-info-stat small {
+          font: 700 10px 'Barlow Condensed', sans-serif;
+          letter-spacing: .1em;
+          color: rgba(255,255,255,.5);
+          text-transform: uppercase;
+        }
+        .def-info-label {
+          font: 800 12px 'Barlow Condensed', sans-serif;
+          letter-spacing: .1em;
+          color: rgba(255,255,255,.6);
+          text-transform: uppercase;
+        }
+        .def-danger-warning {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          font: 900 clamp(20px,8vw,40px) 'Barlow Condensed', sans-serif;
+          letter-spacing: .12em;
+          color: #FF4455;
+          text-shadow: 0 0 24px rgba(255,68,85,.8);
+          pointer-events: none;
+          animation: defDanger .5s ease-in-out infinite alternate;
+          z-index: 20;
+        }
+        @keyframes defBurst {
+          0% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+          60% { transform: translate(-50%,-50%) scale(1.8); opacity: .5; }
+          100% { transform: translate(-50%,-50%) scale(2.4); opacity: 0; }
+        }
+        @keyframes defBurstRing {
+          0% { transform: translate(-50%,-50%) scale(0.5); opacity: 1; }
+          100% { transform: translate(-50%,-50%) scale(2.5); opacity: 0; }
+        }
+        @keyframes defDanger {
+          from { opacity: .7; }
+          to { opacity: 1; text-shadow: 0 0 36px rgba(255,68,85,1); }
+        }
+      `}</style>
+
+      {/* TOP 5% — countdown */}
+      <div className="def-clock">
+        <div className="def-clock__track">
+          <i className="def-clock__fill" style={{
+            transform: `scaleX(${countdownRatio})`,
+            background: `linear-gradient(90deg,#FFB800,#ff7a1a 55%,${countdownColor})`,
+          }} />
+        </div>
+        <strong style={{ color: countdownColor }}>{Math.ceil(remainingSeconds)}s</strong>
       </div>
-    </div>
-  </section>
+
+      {/* 70% — invaders game */}
+      <div className="def-game">
+        <svg className="def-game-lines" viewBox="0 0 375 420" preserveAspectRatio="none">
+          <g stroke="rgba(255,100,100,.15)" strokeWidth="1">
+            {[70, 140, 210, 280, 350].map((y) => (
+              <line key={y} x1="0" y1={y} x2="375" y2={y} />
+            ))}
+          </g>
+        </svg>
+
+        {balls.map((ball) => (
+          <div key={ball.id}>
+            {burstIds.has(ball.id) && (
+              <div className="def-burst-ring" style={{ left: `${ball.x}%`, top: `${ball.y}%` }}>
+                <svg viewBox="0 0 80 80" width="80" height="80">
+                  {Array.from({ length: 8 }, (_, i) => {
+                    const angle = (i / 8) * Math.PI * 2
+                    return <circle key={i} cx={40 + Math.cos(angle) * 28} cy={40 + Math.sin(angle) * 28} r="5" fill="#FFB800" opacity="0.9" />
+                  })}
+                </svg>
+              </div>
+            )}
+            <div
+              className={`def-ball is-${ball.state}`}
+              style={{ left: `${ball.x}%`, top: `${ball.y}%` }}
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                destroyBall(ball.id)
+              }}
+            >
+              <svg viewBox="0 0 80 80" width="52" height="52">
+                <circle cx="40" cy="40" r="34" fill="#f7f9fc" stroke="#101827" strokeWidth="4" />
+                <path d="M40 19 53 28 48 45H32L27 28Z" fill="none" stroke="#101827" strokeWidth="3" />
+                <line x1="40" y1="6" x2="40" y2="19" stroke="#101827" strokeWidth="2" strokeLinecap="round" />
+                <line x1="53" y1="28" x2="66" y2="22" stroke="#101827" strokeWidth="2" strokeLinecap="round" />
+                <line x1="48" y1="45" x2="56" y2="57" stroke="#101827" strokeWidth="2" strokeLinecap="round" />
+                <line x1="32" y1="45" x2="24" y2="57" stroke="#101827" strokeWidth="2" strokeLinecap="round" />
+                <line x1="27" y1="28" x2="14" y2="22" stroke="#101827" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </div>
+          </div>
+        ))}
+
+        {passedCount >= 2 && (
+          <div className="def-danger-warning">⚠ DANGER</div>
+        )}
+      </div>
+
+      {/* 25% — info bar */}
+      <div className="def-info">
+        <div className="def-info-stat">
+          <span style={{ color: '#2bff9a' }}>{destroyedCount}</span>
+          <small>Arrêtés</small>
+        </div>
+        <span className="def-info-label">Touchez les ballons !</span>
+        <div className="def-info-stat">
+          <span style={{ color: passedCount >= 3 ? '#FF4455' : passedCount >= 2 ? '#FFB800' : 'rgba(255,255,255,.7)' }}>
+            {passedCount}/3
+          </span>
+          <small>Passés</small>
+        </div>
+      </div>
+    </section>
+  )
 }
 
 export default DefensePhase
