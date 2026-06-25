@@ -177,7 +177,7 @@ export type DefenseOutcome =
 
 export type BattleRoundType = 'attack' | 'defense'
 
-export type BattlePhase = 'intro' | 'round_start' | 'playing' | 'round_result' | 'match_result'
+export type BattlePhase = 'intro' | 'round_start' | 'countdown' | 'playing' | 'round_result' | 'match_result'
 
 export type BattleMatchState = {
   roundIndex: number

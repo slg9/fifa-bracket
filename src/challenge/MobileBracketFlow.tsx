@@ -23,7 +23,6 @@ function entrantTeam(match: KnockoutMatch, side: 'home' | 'away', teamsById: Map
 
 export function MobileBracketFlow({ matches, teamsById, picks, onPick, onPlay, onShowBracket, onSave }: MobileBracketFlowProps) {
   const [index, setIndex] = useState(0)
-  const [teamPick, setTeamPick] = useState(false)
   const [exitDir, setExitDir] = useState<'left' | 'right' | null>(null)
   const [hintDir, setHintDir] = useState<'left' | 'right' | null>(null)
 
@@ -50,7 +49,6 @@ export function MobileBracketFlow({ matches, teamsById, picks, onPick, onPlay, o
       if (cardRef.current) { cardRef.current.style.transform = ''; cardRef.current.style.transition = '' }
       setIndex(targetIdx)
       setExitDir(null)
-      setTeamPick(false)
     }, 340)
   }
 
@@ -118,53 +116,6 @@ export function MobileBracketFlow({ matches, teamsById, picks, onPick, onPlay, o
       {/* Card stack */}
       <div className={`mbf__stack${exitDir ? ' is-exiting' : ''}`} style={{ position: 'relative' }}>
 
-        {/* ── Team pick overlay (modal above the card) ── */}
-        {teamPick && home && away && (
-          <div style={{
-            position: 'absolute', inset: 0, zIndex: 30,
-            background: 'rgba(5,11,22,0.93)', backdropFilter: 'blur(4px)',
-            borderRadius: 16,
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: 14, padding: '24px 20px',
-            animation: 'mbfOverlayIn .2s ease-out both',
-          }}>
-            <style>{`@keyframes mbfOverlayIn { from { opacity:0; transform:scale(.96); } to { opacity:1; transform:scale(1); } }`}</style>
-            <div style={{ font:"900 clamp(18px,6vw,26px) 'Barlow Condensed',sans-serif", letterSpacing:'.2em', color:'#FFB800', textTransform:'uppercase' }}>
-              ⚔️ Choisis ton camp
-            </div>
-            <div style={{ font:"700 12px 'Barlow Condensed',sans-serif", color:'rgba(255,255,255,.4)', letterSpacing:'.1em' }}>
-              {STAGE_SHORT[match.stage] ?? match.stage} · {match.label}
-            </div>
-            <div style={{ display:'flex', gap:14, alignItems:'center', marginTop:4 }}>
-              <button
-                type="button"
-                onClick={() => { sfx.battle(); setTeamPick(false); onPlay(match.id, home.id) }}
-                style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, padding:'14px 18px', borderRadius:12, border:'2px solid rgba(43,255,154,.5)', background:'rgba(43,255,154,.08)', cursor:'pointer', minWidth:100 }}
-              >
-                <span style={{ fontSize:36 }}>{home.flagEmoji}</span>
-                <strong style={{ font:"800 14px 'Barlow Condensed',sans-serif", color:'#fff', letterSpacing:'.08em' }}>{home.shortName}</strong>
-                <span style={{ font:"600 10px 'Barlow Condensed',sans-serif", color:'#2bff9a', letterSpacing:'.1em' }}>JOUER ⚽</span>
-              </button>
-              <div style={{ font:"900 18px 'Barlow Condensed',sans-serif", color:'rgba(255,255,255,.25)' }}>VS</div>
-              <button
-                type="button"
-                onClick={() => { sfx.battle(); setTeamPick(false); onPlay(match.id, away.id) }}
-                style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, padding:'14px 18px', borderRadius:12, border:'2px solid rgba(255,68,85,.5)', background:'rgba(255,68,85,.08)', cursor:'pointer', minWidth:100 }}
-              >
-                <span style={{ fontSize:36 }}>{away.flagEmoji}</span>
-                <strong style={{ font:"800 14px 'Barlow Condensed',sans-serif", color:'#fff', letterSpacing:'.08em' }}>{away.shortName}</strong>
-                <span style={{ font:"600 10px 'Barlow Condensed',sans-serif", color:'#FF4455', letterSpacing:'.1em' }}>JOUER ⚽</span>
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => setTeamPick(false)}
-              style={{ marginTop:4, padding:'8px 20px', borderRadius:8, border:'1px solid rgba(255,255,255,.2)', background:'transparent', color:'rgba(255,255,255,.4)', font:"700 11px 'Barlow Condensed',sans-serif", cursor:'pointer', letterSpacing:'.1em' }}
-            >
-              Annuler
-            </button>
-          </div>
-        )}
 
         {/* Behind card — next match, visible underneath */}
         {nextMatch && (
@@ -233,7 +184,7 @@ export function MobileBracketFlow({ matches, teamsById, picks, onPick, onPlay, o
 
           {/* Play */}
           {canPlay && (
-            <button type="button" className="mbf__card-play" onClick={() => { sfx.battle(); setTeamPick(true) }}>
+            <button type="button" className="mbf__card-play" onClick={() => { sfx.battle(); onPlay(match.id, picked ?? home?.id) }}>
               ⚔️ Jouer ce match
             </button>
           )}

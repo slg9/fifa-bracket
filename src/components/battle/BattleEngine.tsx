@@ -22,7 +22,8 @@ type BattleEngineProps = {
   match: KnockoutMatch
   teamsById: Map<string, Team>
   onComplete: (result: BattleResult) => void
-  playerSide?: 'home' | 'away' // when provided: skip intro + round_start, go straight to playing
+  onQuit?: () => void
+  playerSide?: 'home' | 'away'
 }
 
 function highlightPlayerName(text: string, playerName: string): ReactNode {
@@ -40,8 +41,20 @@ function entrantId(match: KnockoutMatch, side: 'home' | 'away') {
   return entrant.kind === 'team' ? entrant.teamId : side
 }
 
-export function BattleEngine({ match, teamsById, onComplete, playerSide }: BattleEngineProps) {
-  // If player chose away team, swap so player is always "home" internally
+function makeInitialState(homeTeamId: string, awayTeamId: string, stage: string, skipScreens: boolean): BattleMatchState {
+  return {
+    roundIndex: 0,
+    rounds: [...STANDARD_ROUNDS],
+    playerScore: 0,
+    opponentScore: 0,
+    phase: skipScreens ? 'countdown' : 'intro',
+    difficulty: difficultyForStage(stage),
+    homeTeamId,
+    awayTeamId,
+  }
+}
+
+export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide }: BattleEngineProps) {
   const rawHomeId = entrantId(match, 'home')
   const rawAwayId = entrantId(match, 'away')
   const homeTeamId = playerSide === 'away' ? rawAwayId : rawHomeId
@@ -50,20 +63,15 @@ export function BattleEngine({ match, teamsById, onComplete, playerSide }: Battl
   const awayTeam = teamsById.get(awayTeamId)
   const homeFlag = homeTeam?.flagEmoji ?? ''
   const awayFlag = awayTeam?.flagEmoji ?? ''
-  const skipScreens = playerSide != null // skip intro + round_start when coming from card
-  const [state, setState] = useState<BattleMatchState>(() => ({
-    roundIndex: 0,
-    rounds: [...STANDARD_ROUNDS],
-    playerScore: 0,
-    opponentScore: 0,
-    phase: skipScreens ? 'playing' : 'intro',
-    difficulty: difficultyForStage(match.stage),
-    homeTeamId,
-    awayTeamId,
-  }))
+  const skipScreens = playerSide != null
+
+  const [state, setState] = useState<BattleMatchState>(() => makeInitialState(homeTeamId, awayTeamId, match.stage, skipScreens))
   const [history, setHistory] = useState<BattleResult['rounds']>([])
   const [roundOutcome, setRoundOutcome] = useState<RoundOutcome>('miss')
   const [nextAction, setNextAction] = useState<NextAction | null>(null)
+  const [isPaused, setIsPaused] = useState(false)
+  const [countdownNum, setCountdownNum] = useState<number | null>(null)
+
   const currentRound = state.rounds[state.roundIndex]
   const suddenDeath = state.roundIndex >= STANDARD_ROUNDS.length
   const result = useMemo<BattleResult>(() => ({
@@ -74,12 +82,12 @@ export function BattleEngine({ match, teamsById, onComplete, playerSide }: Battl
     rounds: history,
   }), [awayTeamId, history, homeTeamId, state.opponentScore, state.playerScore])
 
-  // ── Audio track selection ────────────────────────────
+  // ── Audio ───────────────────────────────────────────────
   const playerWon = result.winnerId === homeTeamId
   const audioSrc = (() => {
     if (state.phase === 'intro') return AUDIO.kickoff
     if (state.phase === 'match_result') return playerWon ? AUDIO.victory : AUDIO.defeat
-    if (state.phase === 'playing' || state.phase === 'round_result') {
+    if (state.phase === 'playing' || state.phase === 'round_result' || state.phase === 'countdown') {
       return currentRound === 'attack' ? AUDIO.attack : AUDIO.defense
     }
     return AUDIO.kickoff  // round_start
@@ -93,10 +101,23 @@ export function BattleEngine({ match, teamsById, onComplete, playerSide }: Battl
     const opponent = currentRound === 'attack' ? awayTeam : homeTeam
     return getCommentary(phase, team, opponent)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.roundIndex, currentRound]) // regenerate only on new round
+  }, [state.roundIndex, currentRound])
 
-  // round_start is now user-triggered (button click), no auto-advance
+  // ── Countdown 3-2-1-GO ──────────────────────────────────
+  useEffect(() => {
+    if (state.phase !== 'countdown') return
+    setCountdownNum(3)
+    const t1 = setTimeout(() => setCountdownNum(2), 900)
+    const t2 = setTimeout(() => setCountdownNum(1), 1800)
+    const t3 = setTimeout(() => setCountdownNum(0), 2700)   // 0 = "GO!"
+    const t4 = setTimeout(() => {
+      setCountdownNum(null)
+      setState((curr) => ({ ...curr, phase: 'playing' }))
+    }, 3300)
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4) }
+  }, [state.phase])
 
+  // ── Round result → next round / finish ──────────────────
   useEffect(() => {
     if (state.phase !== 'round_result' || !nextAction) return
     const timer = window.setTimeout(() => {
@@ -107,13 +128,13 @@ export function BattleEngine({ match, teamsById, onComplete, playerSide }: Battl
           ...current,
           rounds: nextAction.append ? [...current.rounds, nextAction.append] : current.rounds,
           roundIndex: current.roundIndex + 1,
-          phase: skipScreens ? 'playing' : 'round_start',
+          phase: skipScreens ? 'countdown' : 'round_start',
         }))
       }
       setNextAction(null)
     }, 1500)
     return () => window.clearTimeout(timer)
-  }, [nextAction, state.phase])
+  }, [nextAction, state.phase, skipScreens])
 
   const completeRound = (success: boolean, isGoal: boolean, outcome: RoundOutcome) => {
     const nextPlayerScore = state.playerScore + Number(currentRound === 'attack' && isGoal)
@@ -148,8 +169,16 @@ export function BattleEngine({ match, teamsById, onComplete, playerSide }: Battl
       completeRound(success, !success, success ? 'defense_perfect' : 'goal_conceded')
       return
     }
-    // goal_save
     completeRound(outcome.saved, !outcome.saved, outcome.saved ? 'saved' : 'goal_conceded')
+  }
+
+  // ── Pause / Restart ─────────────────────────────────────
+  const handleRestart = () => {
+    setIsPaused(false)
+    setHistory([])
+    setNextAction(null)
+    setRoundOutcome('miss')
+    setState(makeInitialState(homeTeamId, awayTeamId, match.stage, skipScreens))
   }
 
   return (
@@ -157,6 +186,7 @@ export function BattleEngine({ match, teamsById, onComplete, playerSide }: Battl
     <div className="battle-desktop-bg" aria-hidden="true" />
     <div className="battle-engine" role="dialog" aria-modal="true" aria-label={`Combat ${match.label}`} onContextMenu={(e) => e.preventDefault()}>
 
+      {/* ── Intro ─────────────────────────────────────────── */}
       {state.phase === 'intro' ? <section className="battle-intro">
         <div className="battle-intro__meta">{match.stage} · {match.label} · {match.dateLabel}</div>
         <div className="battle-intro__matchup">
@@ -172,9 +202,10 @@ export function BattleEngine({ match, teamsById, onComplete, playerSide }: Battl
         </div>
         <div className="battle-intro__spacer" />
         <div className="battle-intro__sequence">{STANDARD_ROUNDS.map((round, index) => <div key={index}><b>{round === 'attack' ? '⚽' : '🛡️'}</b><small>{round === 'attack' ? 'ATT' : 'DEF'}</small></div>)}</div>
-        <button type="button" className="battle-intro__cta" onClick={() => { sfx.battle(); setState((current) => ({ ...current, phase: 'playing' })) }}>⚔️ Jouer ce match</button>
+        <button type="button" className="battle-intro__cta" onClick={() => { sfx.battle(); setState((current) => ({ ...current, phase: 'countdown' })) }}>⚔️ Jouer ce match</button>
       </section> : null}
 
+      {/* ── Round start ───────────────────────────────────── */}
       {state.phase === 'round_start' ? <section className="battle-round-start" key={state.roundIndex}>
         <div className="battle-round-start__score">
           <em>{homeFlag} {homeTeamId.slice(0, 3).toUpperCase()}</em>
@@ -209,16 +240,61 @@ export function BattleEngine({ match, teamsById, onComplete, playerSide }: Battl
           <path d="M57 47 q7 7 14 0" stroke="#1a1a1a" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
           <g transform="translate(98 130)"><circle r="13" fill="#f4f7ff" stroke="#0b1422" strokeWidth="1"/><path d="M0 -7 l6.7 4.9 -2.5 7.9 -8.4 0 -2.5 -7.9z" fill="#0b1422"/></g>
         </svg>
-        <button type="button" className="battle-round-start__ready" onClick={() => { sfx.click(); setState((current) => ({ ...current, phase: 'playing' })) }}>
+        <button type="button" className="battle-round-start__ready" onClick={() => { sfx.click(); setState((current) => ({ ...current, phase: 'countdown' })) }}>
           {currentRound === 'attack' ? "Prêt ? Joue l'attaque \u25b6" : 'Prêt ? Défends ! \u25b6'}
         </button>
-
       </section> : null}
 
-      {state.phase === 'playing' && currentRound === 'attack' ? <AttackPhase key={`attack-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} onRoundEnd={handleAttackEnd} /> : null}
-      {state.phase === 'playing' && currentRound === 'defense' ? <DefensePhase key={`defense-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} onRoundEnd={handleDefenseEnd} /> : null}
+      {/* ── Game phases ───────────────────────────────────── */}
+      {state.phase === 'playing' && currentRound === 'attack'
+        ? <AttackPhase key={`attack-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} onRoundEnd={handleAttackEnd} isPaused={isPaused} />
+        : null}
+      {state.phase === 'playing' && currentRound === 'defense'
+        ? <DefensePhase key={`defense-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} onRoundEnd={handleDefenseEnd} isPaused={isPaused} />
+        : null}
+
       {state.phase === 'round_result' ? <RoundResult outcome={roundOutcome} roundType={currentRound} playerScore={state.playerScore} opponentScore={state.opponentScore} /> : null}
       {state.phase === 'match_result' ? <MatchResult result={result} playerWon={result.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} onContinue={() => onComplete(result)} /> : null}
+
+      {/* ── Countdown overlay ─────────────────────────────── */}
+      {state.phase === 'countdown' && countdownNum !== null ? (
+        <div className="battle-countdown">
+          <div key={countdownNum} className={`battle-countdown__num${countdownNum === 0 ? ' is-go' : ''}`}>
+            {countdownNum === 0 ? 'GO !' : countdownNum}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Pause button (visible during playing) ─────────── */}
+      {state.phase === 'playing' && !isPaused ? (
+        <button
+          type="button"
+          className="battle-pause-btn"
+          onClick={() => setIsPaused(true)}
+          aria-label="Pause"
+        >⏸</button>
+      ) : null}
+
+      {/* ── Pause modal ───────────────────────────────────── */}
+      {isPaused ? (
+        <div className="battle-pause-modal">
+          <div className="battle-pause-modal__inner">
+            <div className="battle-pause-modal__title">PAUSE</div>
+            <button type="button" className="battle-pause-modal__btn battle-pause-modal__btn--resume" onClick={() => setIsPaused(false)}>
+              ▶ Reprendre
+            </button>
+            <button type="button" className="battle-pause-modal__btn" onClick={handleRestart}>
+              ↺ Recommencer
+            </button>
+            {onQuit && (
+              <button type="button" className="battle-pause-modal__btn battle-pause-modal__btn--quit" onClick={() => { setIsPaused(false); onQuit() }}>
+                ✕ Quitter
+              </button>
+            )}
+          </div>
+        </div>
+      ) : null}
+
     </div>
     </>
   )
