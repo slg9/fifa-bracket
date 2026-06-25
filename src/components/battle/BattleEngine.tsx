@@ -163,19 +163,23 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
 
   const handleAttackEnd = (isGoal: boolean, reason: AttackEndReason = isGoal ? 'goal' : 'miss') => {
     const outcome: RoundOutcome = isGoal ? 'goal' : reason === 'intercepted' ? 'intercepted' : 'miss'
+    if (isGoal) sfx.goal()
     completeRound(isGoal, isGoal, outcome)
   }
 
   const handleDefenseEnd = (outcome: DefenseOutcome) => {
     if (outcome.path === 'space_invaders') {
       const success = outcome.blocked === outcome.total
+      if (!success) sfx.concede()
       completeRound(success, !success, success ? 'defense_perfect' : 'goal_conceded')
       return
     }
+    if (!outcome.saved) sfx.concede()
     completeRound(outcome.saved, !outcome.saved, outcome.saved ? 'saved' : 'goal_conceded')
   }
 
   const handleFruitNinjaEnd = (saved: boolean) => {
+    if (!saved) sfx.concede()
     completeRound(saved, !saved, saved ? 'defense_perfect' : 'goal_conceded')
   }
 
@@ -188,10 +192,72 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
     setState(makeInitialState(homeTeamId, awayTeamId, match.stage, skipScreens))
   }
 
+  const isPlaying = state.phase === 'playing' || state.phase === 'countdown' || state.phase === 'round_result'
+
   return (
     <>
     <div className="battle-desktop-bg" aria-hidden="true" />
     <div className="battle-engine" role="dialog" aria-modal="true" aria-label={`Combat ${match.label}`} onContextMenu={(e) => e.preventDefault()}>
+
+      {/* ── Stadium crowd borders ──────────────────────────── */}
+      {isPlaying && (
+        <div className="battle-crowd-borders" aria-hidden="true">
+          {/* Left tribune */}
+          <svg className="battle-crowd-side battle-crowd-side--left" viewBox="0 0 48 844" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="48" height="844" fill="url(#crowdGradL)" />
+            <defs>
+              <linearGradient id="crowdGradL" x1="1" x2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#0a1f12" stopOpacity="0.95" />
+                <stop offset="100%" stopColor="#061408" stopOpacity="0.85" />
+              </linearGradient>
+            </defs>
+            {/* Seat rows */}
+            {Array.from({ length: 22 }, (_, row) => (
+              <g key={row} transform={`translate(0, ${row * 38 + 10})`}>
+                {[6, 18, 30, 42].map((cx, fi) => (
+                  <g key={fi} className={`battle-fan${(row + fi) % 3 === 0 ? ' is-bounce' : (row + fi) % 3 === 1 ? ' is-wave' : ''}`}
+                     style={{ animationDelay: `${(row * 0.13 + fi * 0.07) % 1.2}s` }}>
+                    {/* Fan head */}
+                    <circle cx={cx} cy="4" r="4" fill={['#ff6b35', '#2bff9a', '#FFB800', '#a78bfa'][(row + fi) % 4]} opacity="0.85" />
+                    {/* Fan body */}
+                    <rect x={cx - 4} y="8" width="8" height="9" rx="2" fill={['#ff6b35', '#2bff9a', '#FFB800', '#a78bfa'][(row + fi) % 4]} opacity="0.6" />
+                    {/* Arms up occasionally */}
+                    {(row + fi) % 5 === 0 && <>
+                      <line x1={cx - 4} y1="9" x2={cx - 8} y2="4" stroke={['#ff6b35','#2bff9a','#FFB800','#a78bfa'][(row+fi)%4]} strokeWidth="1.5" opacity="0.7" />
+                      <line x1={cx + 4} y1="9" x2={cx + 8} y2="4" stroke={['#ff6b35','#2bff9a','#FFB800','#a78bfa'][(row+fi)%4]} strokeWidth="1.5" opacity="0.7" />
+                    </>}
+                  </g>
+                ))}
+              </g>
+            ))}
+          </svg>
+          {/* Right tribune */}
+          <svg className="battle-crowd-side battle-crowd-side--right" viewBox="0 0 48 844" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="48" height="844" fill="url(#crowdGradR)" />
+            <defs>
+              <linearGradient id="crowdGradR" x1="0" x2="1" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#0a1f12" stopOpacity="0.95" />
+                <stop offset="100%" stopColor="#061408" stopOpacity="0.85" />
+              </linearGradient>
+            </defs>
+            {Array.from({ length: 22 }, (_, row) => (
+              <g key={row} transform={`translate(0, ${row * 38 + 10})`}>
+                {[6, 18, 30, 42].map((cx, fi) => (
+                  <g key={fi} className={`battle-fan${(row + fi + 2) % 3 === 0 ? ' is-bounce' : (row + fi + 2) % 3 === 1 ? ' is-wave' : ''}`}
+                     style={{ animationDelay: `${(row * 0.11 + fi * 0.09 + 0.4) % 1.2}s` }}>
+                    <circle cx={cx} cy="4" r="4" fill={['#a78bfa', '#FFB800', '#2bff9a', '#ff6b35'][(row + fi) % 4]} opacity="0.85" />
+                    <rect x={cx - 4} y="8" width="8" height="9" rx="2" fill={['#a78bfa', '#FFB800', '#2bff9a', '#ff6b35'][(row + fi) % 4]} opacity="0.6" />
+                    {(row + fi + 1) % 5 === 0 && <>
+                      <line x1={cx - 4} y1="9" x2={cx - 8} y2="4" stroke={['#a78bfa','#FFB800','#2bff9a','#ff6b35'][(row+fi)%4]} strokeWidth="1.5" opacity="0.7" />
+                      <line x1={cx + 4} y1="9" x2={cx + 8} y2="4" stroke={['#a78bfa','#FFB800','#2bff9a','#ff6b35'][(row+fi)%4]} strokeWidth="1.5" opacity="0.7" />
+                    </>}
+                  </g>
+                ))}
+              </g>
+            ))}
+          </svg>
+        </div>
+      )}
 
       {/* ── Intro ─────────────────────────────────────────── */}
       {state.phase === 'intro' ? <section className="battle-intro">

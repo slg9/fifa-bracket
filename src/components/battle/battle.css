@@ -181,6 +181,34 @@
 .battle-pause-modal__btn--quit { border-color: rgba(255,68,85,.4); color: #FF4455; }
 .battle-pause-modal__btn--quit:hover { background: rgba(255,68,85,.1); }
 
+/* ── Stadium crowd borders ───────────────────────────────── */
+.battle-crowd-borders {
+  position: absolute; inset: 0; z-index: 6; pointer-events: none;
+}
+.battle-crowd-side {
+  position: absolute; top: 0; bottom: 0; width: 48px;
+  overflow: visible;
+}
+.battle-crowd-side--left  { left: 0; }
+.battle-crowd-side--right { right: 0; }
+
+/* Fan animations */
+.battle-fan { transform-box: fill-box; transform-origin: center bottom; }
+.battle-fan.is-bounce {
+  animation: fanBounce 0.55s ease-in-out infinite alternate;
+}
+.battle-fan.is-wave {
+  animation: fanWave 0.9s ease-in-out infinite alternate;
+}
+@keyframes fanBounce {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-6px); }
+}
+@keyframes fanWave {
+  from { transform: rotate(-8deg); }
+  to   { transform: rotate(8deg); }
+}
+
 .battle-desktop-bg { display:none }
 @media (min-width:700px) {
   .battle-desktop-bg { display:block;position:fixed;inset:0;z-index:999;background:radial-gradient(ellipse 80% 70% at 50% 40%,#0b1f14 0%,#040b0f 55%,#020508 100%);pointer-events:none }

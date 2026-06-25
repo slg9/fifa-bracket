@@ -330,30 +330,32 @@ export function DefensePhase({ difficulty, homeTeamId: _h, awayTeamId: _a, onRou
       <div className="def-game">
         <div className="def-danger-line" />
 
-        {balls.map((ball) => (
+        {balls.filter((b) => b.state === 'active' || b.state === 'destroyed' || burstIds.has(b.id)).map((ball) => (
           <div key={ball.id}>
             {burstIds.has(ball.id) && (
-              <div className="def-burst-ring" style={{ left:`${ball.x}%`, top:`${ball.y}%` }}>
+              <div className="def-burst-ring" style={{ left:`${ball.x}%`, top:`${ball.y}%`, willChange:'transform,opacity' }}>
                 <svg viewBox="0 0 80 80" width="80" height="80" style={{pointerEvents:'none'}}>
                   {Array.from({length:8},(_,i)=>{ const a=(i/8)*Math.PI*2; return <circle key={i} cx={40+Math.cos(a)*28} cy={40+Math.sin(a)*28} r="5" fill="#FFB800" opacity="0.9"/> })}
                 </svg>
               </div>
             )}
-            <div className={`def-ball is-${ball.state}`} style={{ left:`${ball.x}%`, top:`${ball.y}%` }}>
-              <svg viewBox="0 0 80 80" width="46" height="46" style={{pointerEvents:'none'}}>
-                <circle cx="40" cy="40" r="34" fill="#f7f9fc" stroke="#101827" strokeWidth="4"/>
-                <path d="M40 19 53 28 48 45H32L27 28Z" fill="none" stroke="#101827" strokeWidth="3"/>
-                <line x1="40" y1="6"  x2="40" y2="19" stroke="#101827" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="53" y1="28" x2="66" y2="22" stroke="#101827" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="48" y1="45" x2="56" y2="57" stroke="#101827" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="32" y1="45" x2="24" y2="57" stroke="#101827" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="27" y1="28" x2="14" y2="22" stroke="#101827" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </div>
+            {(ball.state === 'active' || ball.state === 'destroyed') && (
+              <div className={`def-ball is-${ball.state}`} style={{ left:`${ball.x}%`, top:`${ball.y}%`, willChange:'transform,left,top' }}>
+                <svg viewBox="0 0 80 80" width="46" height="46" style={{pointerEvents:'none'}}>
+                  <circle cx="40" cy="40" r="34" fill="#f7f9fc" stroke="#101827" strokeWidth="4"/>
+                  <path d="M40 19 53 28 48 45H32L27 28Z" fill="none" stroke="#101827" strokeWidth="3"/>
+                  <line x1="40" y1="6"  x2="40" y2="19" stroke="#101827" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="53" y1="28" x2="66" y2="22" stroke="#101827" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="48" y1="45" x2="56" y2="57" stroke="#101827" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="32" y1="45" x2="24" y2="57" stroke="#101827" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="27" y1="28" x2="14" y2="22" stroke="#101827" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+            )}
           </div>
         ))}
 
-        {bullets.map((b) => <div key={b.id} className="def-bullet" style={{ left:`${b.x}%`, top:`${b.y}%` }} />)}
+        {bullets.map((b) => <div key={b.id} className="def-bullet" style={{ left:`${b.x}%`, top:`${b.y}%`, willChange:'top' }} />)}
 
         {tutorialDone && (
           <div className="def-shooter" style={{ left:`${shooterX}%`, top:'92%' }}>

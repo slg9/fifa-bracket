@@ -160,6 +160,9 @@ function NinjaObjectVisual({ object, now }: { object: NinjaObject; now: number }
 
 export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty, onResult, isPaused }: FruitNinjaPhaseProps) {
   const arenaRef = useRef<HTMLElement | null>(null)
+  const [tutorialDone, setTutorialDone] = useState(
+    () => sessionStorage.getItem('brakup:tut:ninja') === '1'
+  )
   const [objects, setObjects] = useState<NinjaObject[]>(() => createAllObjects(difficulty))
   const objectsRef = useRef(objects)
   const startAtRef = useRef<number | null>(null)
@@ -204,6 +207,7 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
   }, [isPaused])
 
   useEffect(() => {
+    if (!tutorialDone) return
     let frame = 0
     const animate = (timestamp: number) => {
       if (isPausedRef.current) {
@@ -268,7 +272,7 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
     frame = requestAnimationFrame(animate)
     return () => cancelAnimationFrame(frame)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onResult, result])
+  }, [onResult, result, tutorialDone])
 
   const performSlash = (px1: number, py1: number, px2: number, py2: number) => {
     const rect = arenaRef.current?.getBoundingClientRect()
@@ -382,7 +386,40 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
         @keyframes fnSonicPulse{from{filter:drop-shadow(0 0 6px rgba(0,221,204,.6)) drop-shadow(0 8px 8px rgba(0,0,0,.6))}to{filter:drop-shadow(0 0 16px rgba(0,255,220,1)) drop-shadow(0 8px 8px rgba(0,0,0,.6))}}
         @keyframes fnComment{0%{opacity:1;transform:translate(-50%,-100%)}80%{opacity:1;transform:translate(-50%,-130%)}100%{opacity:0;transform:translate(-50%,-140%)}}
         @keyframes fnWaveAnnounce{0%{opacity:0;transform:scale(.8)}15%{opacity:1;transform:scale(1.05)}30%{transform:scale(1)}85%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.95)}}
+        .fn-tutorial{position:absolute;inset:0;z-index:60;background:rgba(3,7,14,.85);backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:28px 24px;text-align:center}
+        .fn-tutorial__title{font:900 clamp(36px,12vw,58px) 'Barlow Condensed',sans-serif;letter-spacing:.18em;color:#2bff9a;text-shadow:0 0 36px rgba(43,255,154,.6);text-transform:uppercase}
+        .fn-tutorial__emoji{font-size:52px;animation:fnTutSwipe .8s ease-in-out infinite alternate}
+        @keyframes fnTutSwipe{from{transform:translateX(-18px) rotate(-10deg)}to{transform:translateX(18px) rotate(10deg)}}
+        .fn-tutorial__text{font:600 clamp(14px,4.5vw,17px) 'Barlow Condensed',sans-serif;color:rgba(255,255,255,.85);max-width:300px;line-height:1.45}
+        .fn-tutorial__sub{font:500 clamp(11px,3.5vw,13px) 'Barlow',sans-serif;color:rgba(255,255,255,.4);max-width:280px;line-height:1.4}
+        .fn-tutorial__btn{margin-top:8px;padding:13px 32px;border-radius:12px;border:2px solid #2bff9a;background:rgba(43,255,154,.12);color:#2bff9a;font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:.14em;cursor:pointer;box-shadow:0 0 20px rgba(43,255,154,.3)}
       `}</style>
+
+      {/* Tutorial overlay */}
+      {!tutorialDone && (
+        <div className="fn-tutorial">
+          <div className="fn-tutorial__title">FRUIT NINJA</div>
+          <div className="fn-tutorial__emoji">🖐</div>
+          <div className="fn-tutorial__text">
+            Des ballons traversent le terrain en <b style={{color:'#2bff9a'}}>3 vagues</b>.<br/>
+            <b style={{color:'#FFB800'}}>Glisse rapidement</b> sur les ballons pour les intercepter !<br/>
+            Intercepte <b style={{color:'#2bff9a'}}>{THRESHOLD}/{BALL_COUNT}</b> pour défendre.
+          </div>
+          <div className="fn-tutorial__sub">
+            ⚡ Les ballons cyan <b>sont des leurres</b> — ne les touche pas !
+          </div>
+          <button
+            type="button"
+            className="fn-tutorial__btn"
+            onClick={() => {
+              sessionStorage.setItem('brakup:tut:ninja', '1')
+              setTutorialDone(true)
+            }}
+          >
+            🥷 Je suis prêt !
+          </button>
+        </div>
+      )}
 
       {/* Faint grid lines */}
       <svg className="fruit-ninja-grid" viewBox="0 0 375 812" preserveAspectRatio="none">

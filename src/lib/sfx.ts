@@ -107,4 +107,23 @@ export const sfx = {
   tab() {
     tone(500, 0.08, { type: 'sine', gain: 0.14 })
   },
+
+  /** Crowd roar — goal scored */
+  goal() {
+    noise(1.4, { filterFreq: 600, filterFreqEnd: 2400, gain: 0.28 })
+    noise(1.0, { filterFreq: 200, filterFreqEnd: 800, gain: 0.18, delay: 0.06 })
+    tone(392, 0.22, { type: 'triangle', gain: 0.22 })
+    tone(523, 0.24, { type: 'triangle', gain: 0.26, delay: 0.1 })
+    tone(659, 0.28, { type: 'triangle', gain: 0.3, delay: 0.22 })
+    tone(784, 0.4,  { type: 'sine',     gain: 0.24, delay: 0.36 })
+    tone(1046,0.35, { type: 'sine',     gain: 0.16, delay: 0.5 })
+  },
+
+  /** Crowd groan — goal conceded */
+  concede() {
+    noise(1.0, { filterFreq: 500, filterFreqEnd: 120, gain: 0.22 })
+    tone(330, 0.4, { type: 'sawtooth', gain: 0.14, freqEnd: 220 })
+    tone(220, 0.4, { type: 'sawtooth', gain: 0.12, delay: 0.32, freqEnd: 146 })
+    tone(146, 0.3, { type: 'sawtooth', gain: 0.08, delay: 0.6,  freqEnd: 110 })
+  },
 }

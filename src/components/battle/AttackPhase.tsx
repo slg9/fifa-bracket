@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { BattleDifficulty } from '../../types'
-import GoalView from './GoalView'
+import GoalView, { type BallFlight, type GoalTarget } from './GoalView'
 
 export type AttackEndReason = 'goal' | 'saved' | 'miss' | 'intercepted' | 'timeout'
 
@@ -100,6 +100,9 @@ export function AttackPhase({
   // Keeper Y (vertical movement)
   const [keeperY, setKeeperY] = useState(70)
   const keeperYRef            = useRef(70)
+
+  // Ball flight animation (shot phase)
+  const [ballFlight, setBallFlight] = useState<BallFlight | null>(null)
 
   // Power gauge
   const [gaugeCursor, setGaugeCursor] = useState(0)   // 0..1 position in track
@@ -276,9 +279,13 @@ export function AttackPhase({
 
       shotTime += delta
 
-      // Keeper oscillates in X and Y
-      const kx = 50 + 38 * Math.sin(shotTime * KEEPER_SPEED_FACTOR)
-      const ky = 60 + 28 * Math.sin(shotTime * 1.15 + 1.0)  // offset phase
+      // Keeper covers the full goal with compound sine motion
+      const kx = Math.max(5, Math.min(95,
+        50 + 40 * Math.sin(shotTime * KEEPER_SPEED_FACTOR) + 9 * Math.sin(shotTime * 2.9 + 0.7)
+      ))
+      const ky = Math.max(8, Math.min(92,
+        50 + 38 * Math.sin(shotTime * 1.15 + 1.0) + 10 * Math.sin(shotTime * 0.75 + 2.1)
+      ))
       keeperXRef.current = kx; setKeeperX(kx)
       keeperYRef.current = ky; setKeeperY(ky)
 
@@ -344,29 +351,39 @@ export function AttackPhase({
     // no-op (kept for parity)
   }
 
-  // Tap to stop gauge
+  // Tap to stop gauge — with ball flight animation
   const handleGaugeTap = () => {
     if (endedRef.current || shotSubPhaseRef.current !== 'power') return
     if (resultLabel) return
 
-    const cursor   = gaugeCursorRef.current   // 0..1 position in track
-    const greenL   = gaugeGreenLeft.current    // 0..1
-    const greenR   = greenL + cfg.gaugeGreenPx / GAUGE_TRACK_PX
-    const inGreen  = cursor >= greenL && cursor <= greenR
+    const cursor  = gaugeCursorRef.current
+    const greenL  = gaugeGreenLeft.current
+    const greenR  = greenL + cfg.gaugeGreenPx / GAUGE_TRACK_PX
+    const inGreen = cursor >= greenL && cursor <= greenR
 
-    // 2D distance-based keeper blocking
     const at = aimTargetRef.current ?? { x: 50, y: 50 }
     const keeperBlocking = Math.abs(at.x - keeperXRef.current) < 16 && Math.abs(at.y - keeperYRef.current) < 20
+
+    const flightTarget: GoalTarget = { x: at.x, y: at.y, clientX: 0, clientY: 0 }
+    const FLIGHT_MS = 380
 
     if (!inGreen) {
       setResultLabel('RATÉ !')
       setTimeout(() => finish(false, 'miss'), 700)
     } else if (keeperBlocking) {
-      setResultLabel('ARRÊTÉ !')
-      setTimeout(() => finish(false, 'saved'), 1000)
+      setBallFlight({ id: Date.now(), target: flightTarget, state: 'flying', duration: FLIGHT_MS })
+      setTimeout(() => {
+        setBallFlight({ id: Date.now(), target: flightTarget, state: 'saved', duration: FLIGHT_MS })
+        setResultLabel('ARRÊTÉ !')
+      }, FLIGHT_MS)
+      setTimeout(() => finish(false, 'saved'), FLIGHT_MS + 900)
     } else {
-      setResultLabel('BUT !')
-      setTimeout(() => finish(true, 'goal'), 700)
+      setBallFlight({ id: Date.now(), target: flightTarget, state: 'flying', duration: FLIGHT_MS })
+      setTimeout(() => {
+        setBallFlight({ id: Date.now(), target: flightTarget, state: 'goal', duration: FLIGHT_MS })
+        setResultLabel('BUT !')
+      }, FLIGHT_MS)
+      setTimeout(() => finish(true, 'goal'), FLIGHT_MS + 800)
     }
   }
 
@@ -799,7 +816,8 @@ export function AttackPhase({
               difficulty={difficulty}
               keeperX={keeperX}
               keeperY={keeperY}
-              target={aimTarget ? { x: aimTarget.x, y: aimTarget.y, clientX: 0, clientY: 0 } : null}
+              target={aimTarget && shotSubPhase === 'aim' ? { x: aimTarget.x, y: aimTarget.y, clientX: 0, clientY: 0 } : null}
+              ballFlight={ballFlight}
               interactive={false}
             />
 
@@ -827,15 +845,17 @@ export function AttackPhase({
               </svg>
             )}
 
-            {/* Fixed ball at bottom center */}
-            <div style={{
-              position:'absolute', left:'50%', bottom:'4%', transform:'translateX(-50%)',
-              width:28, height:28, borderRadius:'50%',
-              background:'radial-gradient(circle at 35% 35%, #fff, #e0ecff)',
-              border:'2.5px solid rgba(255,255,255,.85)',
-              boxShadow:'0 0 14px rgba(43,255,154,.6)',
-              zIndex:15, pointerEvents:'none',
-            }} />
+            {/* Fixed ball at bottom center — hidden once flight starts */}
+            {!ballFlight && (
+              <div style={{
+                position:'absolute', left:'50%', bottom:'4%', transform:'translateX(-50%)',
+                width:28, height:28, borderRadius:'50%',
+                background:'radial-gradient(circle at 35% 35%, #fff, #e0ecff)',
+                border:'2.5px solid rgba(255,255,255,.85)',
+                boxShadow:'0 0 14px rgba(43,255,154,.6)',
+                zIndex:15, pointerEvents:'none',
+              }} />
+            )}
 
             {/* Aim instruction — before first aim */}
             {shotSubPhase === 'aim' && !aimTarget && (
