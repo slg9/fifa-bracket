@@ -34,7 +34,7 @@ type InterceptionComment = { id: string; text: string; x: number; y: number; cre
 const INTERCEPTION_COMMENTS = ['ARRÊTÉ !', 'SUPERBE !', 'QUELLE RÉFLEXE !', 'INCROYABLE !', 'LE MUR !', 'PARÉ !', 'MAGNIFIQUE !']
 
 // Wave timing (ms elapsed since start)
-const WAVE_1_START = 0
+
 const WAVE_2_START = 3500
 const WAVE_3_START = 7000
 const TOTAL_DURATION = 12000
