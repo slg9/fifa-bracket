@@ -2560,7 +2560,7 @@
     display: flex;
   }
 
-  /* Today chip is accessible via the hamburger â€” hide from topbar to save space */
+  /* Today chip is accessible via the hamburger — hide from topbar to save space */
   .topactions .chip-btn--live {
     display: none;
   }
@@ -2631,7 +2631,7 @@
     min-width: 120px;
   }
 
-  /* Hide Wins, Draws, Losses columns on mobile â€” keep J, +/-, Pts */
+  /* Hide Wins, Draws, Losses columns on mobile — keep J, +/-, Pts */
   .stand thead th:nth-child(4),
   .stand thead th:nth-child(5),
   .stand thead th:nth-child(6),
@@ -2641,7 +2641,7 @@
     display: none;
   }
 
-  /* Group modal mobile â€” bottom sheet, no horizontal overflow */
+  /* Group modal mobile — bottom sheet, no horizontal overflow */
   .gmmodal {
     align-items: flex-start;
     padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
@@ -2705,7 +2705,7 @@
     flex-direction: column;
   }
 
-  /* Hide fullscreen button on mobile â€” iOS Safari blocks requestFullscreen */
+  /* Hide fullscreen button on mobile — iOS Safari blocks requestFullscreen */
   .bracket-shell__fullscreen {
     display: none;
   }
