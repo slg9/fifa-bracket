@@ -115,8 +115,7 @@ export function AttackPhase({
   // Ball flight animation (shot phase)
   const [ballFlight, setBallFlight] = useState<BallFlight | null>(null)
 
-  // Power gauge
-  const [gaugeCursor, setGaugeCursor] = useState(0)   // 0..1 position in track
+  // Power gauge — cursor position managed via direct DOM ref, no React state
   const gaugeCursorRef   = useRef(0)
   const gaugeTimeRef     = useRef(0)
   const gaugeGreenLeft   = useRef(0)    // 0..1 position of green zone left edge
@@ -124,11 +123,16 @@ export function AttackPhase({
   // Result
   const [resultLabel, setResultLabel] = useState<string | null>(null)
 
+  // Direct DOM refs for performance-critical shot phase elements
+  const gaugeCursorElRef = useRef<HTMLDivElement>(null)
+
   // Common refs
   const endedRef      = useRef(false)
   const isPausedRef   = useRef(false)
   isPausedRef.current = isPaused ?? false
   const containerRef  = useRef<HTMLDivElement>(null)
+  // Cache game area width for compositor-thread transform positioning (avoids layout reads in RAF)
+  const gameWidthRef  = useRef(typeof window !== 'undefined' ? window.innerWidth : 400)
 
   // ── Init GD walls ──
   useEffect(() => {
@@ -197,6 +201,9 @@ export function AttackPhase({
     let prev: number | null = null
     gdElapsedRef.current = 0
 
+    // Measure game area width once before RAF loop — used for compositor-thread transform positioning
+    gameWidthRef.current = wallContainerRef.current?.offsetWidth ?? window.innerWidth
+
     const tick = (now: number) => {
       if (isPausedRef.current) { prev = null; frame = requestAnimationFrame(tick); return }
       if (prev === null) prev = now
@@ -214,7 +221,8 @@ export function AttackPhase({
         gdPlayerXRef.current = Math.min(97, gdPlayerXRef.current + PLAYER_SPEED * delta)
       }
       if (playerElRef.current) {
-        playerElRef.current.style.left = `${gdPlayerXRef.current}%`
+        // transform: compositor thread only — no layout, no paint
+        playerElRef.current.style.transform = `translateX(${(gdPlayerXRef.current / 100) * gameWidthRef.current - 25}px)`
       }
 
       // Speed ramps up more aggressively toward the end of the slalom
@@ -280,7 +288,8 @@ export function AttackPhase({
     if (!rect) return
     gdPlayerXRef.current = Math.max(3, Math.min(97, ((e.clientX - rect.left) / rect.width) * 100))
     if (playerElRef.current) {
-      playerElRef.current.style.left = `${gdPlayerXRef.current}%`
+      const w = gameWidthRef.current || rect.width
+      playerElRef.current.style.transform = `translateX(${(gdPlayerXRef.current / 100) * w - 25}px)`
     }
   }
 
@@ -312,12 +321,14 @@ export function AttackPhase({
       keeperXRef.current = kx; setKeeperX(kx)
       keeperYRef.current = ky; setKeeperY(ky)
 
-      // Gauge oscillates
+      // Gauge oscillates — direct DOM, no React re-render
       gaugeTimeRef.current += delta
       const raw = Math.sin(gaugeTimeRef.current * Math.PI * 2 * cfg.gaugeSpeed)
       const cursor = (raw + 1) / 2
       gaugeCursorRef.current = cursor
-      setGaugeCursor(cursor)
+      if (gaugeCursorElRef.current) {
+        gaugeCursorElRef.current.style.left = `${cursor * 100}%`
+      }
 
       // Auto-miss after ~12s (more time to aim)
       if (gaugeTimeRef.current > 12) {
@@ -598,10 +609,11 @@ export function AttackPhase({
         /* ── GD player token (kawaii avatar) ── */
         .atk-gd-player {
           position: absolute;
-          transform: translate(-50%, -50%);
+          left: 0;
+          top: calc(${GD_PLAYER_Y}% - 28px);
           pointer-events: none; z-index: 10;
           filter: drop-shadow(0 0 10px rgba(43,255,154,.7));
-          transition: left 0.04s linear;
+          will-change: transform;
         }
         .atk-gd-player--flash { filter: drop-shadow(0 0 14px rgba(255,68,85,1)); }
         .atk-gd-player--pass  { filter: drop-shadow(0 0 14px rgba(255,184,0,.9)); }
@@ -837,7 +849,7 @@ export function AttackPhase({
               })}
             </div>
 
-            {/* Player token — kawaii avatar, fixed bottom Y, left managed by DOM ref */}
+            {/* Player token — kawaii avatar, top set in CSS, X via compositor transform */}
             <div
               ref={playerElRef}
               className={[
@@ -845,7 +857,7 @@ export function AttackPhase({
                 gdJumping ? 'atk-gd-player--pass' : '',
                 gdFlash   ? 'atk-gd-player--flash' : '',
               ].join(' ')}
-              style={{ left: `${gdPlayerXRef.current}%`, top: `${GD_PLAYER_Y}%` }}
+              style={{ transform: `translateX(${(gdPlayerXRef.current / 100) * gameWidthRef.current - 25}px)` }}
             >
               <svg viewBox="0 0 80 90" width="50" height="56" style={{ display:'block' }}>
                 <ellipse cx="38" cy="85" rx="22" ry="5" fill="rgba(0,0,0,.3)"/>
@@ -948,7 +960,7 @@ export function AttackPhase({
               <div className="atk-gauge-label">APPUIE AU BON MOMENT !</div>
               <div className="atk-gauge-track">
                 <div className="atk-gauge-green" style={{ left: `${gaugeGreenLeftPct}%`, width: `${(cfg.gaugeGreenPx / GAUGE_TRACK_PX) * 100}%` }} />
-                <div className="atk-gauge-cursor" style={{ left: `${gaugeCursor * 100}%` }} />
+                <div ref={gaugeCursorElRef} className="atk-gauge-cursor" />
               </div>
             </div>
           )}
