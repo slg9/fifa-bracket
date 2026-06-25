@@ -175,7 +175,7 @@ export type DefenseOutcome =
   | { path: 'space_invaders'; blocked: number; total: number }
   | { path: 'goal_save'; blocked: number; total: number; saved: boolean }
 
-export type BattleRoundType = 'attack' | 'defense'
+export type BattleRoundType = 'attack' | 'defense' | 'fruit_ninja'
 
 export type BattlePhase = 'intro' | 'round_start' | 'countdown' | 'playing' | 'round_result' | 'match_result'
 

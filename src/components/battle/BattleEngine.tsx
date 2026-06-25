@@ -6,6 +6,7 @@ import { sfx } from '../../lib/sfx'
 import AttackPhase, { type AttackEndReason } from './AttackPhase'
 import { difficultyForStage } from './config'
 import DefensePhase from './DefensePhase'
+import FruitNinjaPhase from './FruitNinjaPhase'
 import MatchResult from './MatchResult'
 import RoundResult, { type RoundOutcome } from './RoundResult'
 import './battle.css'
@@ -34,7 +35,7 @@ function highlightPlayerName(text: string, playerName: string): ReactNode {
 
 type NextAction = { type: 'next'; append?: BattleRoundType } | { type: 'finish' }
 
-const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'attack', 'defense', 'attack']
+const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja', 'attack', 'defense']
 
 function entrantId(match: KnockoutMatch, side: 'home' | 'away') {
   const entrant = match[side]
@@ -90,12 +91,14 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
     if (state.phase === 'playing' || state.phase === 'round_result' || state.phase === 'countdown') {
       return currentRound === 'attack' ? AUDIO.attack : AUDIO.defense
     }
+    // round_start commentary only for attack/defense, fruit_ninja uses kickoff
     return AUDIO.kickoff  // round_start
   })()
   useGameAudio(audioSrc)
 
   const commentaryData = useMemo(() => {
     if (!homeTeam || !awayTeam) return null
+    if (currentRound === 'fruit_ninja') return null
     const phase = currentRound === 'attack' ? 'pre_attack' : 'pre_defense'
     const team = currentRound === 'attack' ? homeTeam : awayTeam
     const opponent = currentRound === 'attack' ? awayTeam : homeTeam
@@ -172,6 +175,10 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
     completeRound(outcome.saved, !outcome.saved, outcome.saved ? 'saved' : 'goal_conceded')
   }
 
+  const handleFruitNinjaEnd = (saved: boolean) => {
+    completeRound(saved, !saved, saved ? 'defense_perfect' : 'goal_conceded')
+  }
+
   // ── Pause / Restart ─────────────────────────────────────
   const handleRestart = () => {
     setIsPaused(false)
@@ -191,33 +198,35 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
         <div className="battle-intro__meta">{match.stage} · {match.label} · {match.dateLabel}</div>
         <div className="battle-intro__matchup">
           <div className="battle-intro__team">
-            <div className="battle-intro__badge is-home">{homeFlag ? <span style={{ fontSize: 36 }}>{homeFlag}</span> : rawHomeId.slice(0, 3).toUpperCase()}</div>
-            <strong>{rawHomeId.toUpperCase()}</strong>
+            <div className="battle-intro__badge is-home">{homeFlag ? <span style={{ fontSize: 36 }}>{homeFlag}</span> : (homeTeam?.shortName?.toUpperCase() ?? rawHomeId.slice(0, 3).toUpperCase())}</div>
+            <strong>{homeTeam?.shortName?.toUpperCase() ?? rawHomeId.toUpperCase()}</strong>
           </div>
           <div className="battle-intro__vs">VS</div>
           <div className="battle-intro__team is-away">
-            <div className="battle-intro__badge">{awayFlag ? <span style={{ fontSize: 36 }}>{awayFlag}</span> : rawAwayId.slice(0, 3).toUpperCase()}</div>
-            <strong>{rawAwayId.toUpperCase()}</strong>
+            <div className="battle-intro__badge">{awayFlag ? <span style={{ fontSize: 36 }}>{awayFlag}</span> : (awayTeam?.shortName?.toUpperCase() ?? rawAwayId.slice(0, 3).toUpperCase())}</div>
+            <strong>{awayTeam?.shortName?.toUpperCase() ?? rawAwayId.toUpperCase()}</strong>
           </div>
         </div>
         <div className="battle-intro__spacer" />
-        <div className="battle-intro__sequence">{STANDARD_ROUNDS.map((round, index) => <div key={index}><b>{round === 'attack' ? '⚽' : '🛡️'}</b><small>{round === 'attack' ? 'ATT' : 'DEF'}</small></div>)}</div>
+        <div className="battle-intro__sequence">{STANDARD_ROUNDS.map((round, index) => <div key={index}><b>{round === 'fruit_ninja' ? '🥷' : round === 'attack' ? '⚽' : '🛡️'}</b><small>{round === 'fruit_ninja' ? 'NIN' : round === 'attack' ? 'ATT' : 'DEF'}</small></div>)}</div>
         <button type="button" className="battle-intro__cta" onClick={() => { sfx.battle(); setState((current) => ({ ...current, phase: 'countdown' })) }}>⚔️ Jouer ce match</button>
       </section> : null}
 
       {/* ── Round start ───────────────────────────────────── */}
       {state.phase === 'round_start' ? <section className="battle-round-start" key={state.roundIndex}>
         <div className="battle-round-start__score">
-          <em>{homeFlag} {homeTeamId.slice(0, 3).toUpperCase()}</em>
+          <em>{homeFlag} {homeTeam?.shortName?.toUpperCase() ?? homeTeamId.slice(0, 3).toUpperCase()}</em>
           <strong>{state.playerScore} — {state.opponentScore}</strong>
-          <em>{awayTeamId.slice(0, 3).toUpperCase()} {awayFlag}</em>
+          <em>{awayTeam?.shortName?.toUpperCase() ?? awayTeamId.slice(0, 3).toUpperCase()} {awayFlag}</em>
         </div>
         <div className="battle-round-start__card">
           <p>{commentaryData
             ? highlightPlayerName(commentaryData.text, commentaryData.tokens[0])
             : currentRound === 'attack'
-              ? <><b>{homeTeamId.toUpperCase()}</b> entre dans la surface… <b>il faut éliminer les défenseurs et armer la frappe !</b></>
-              : <><b>{awayTeamId.toUpperCase()}</b> attaque en force… <b>protège ta surface, neutralise les attaquants !</b></>}
+              ? <><b>{homeTeam?.name?.toUpperCase() ?? homeTeamId.toUpperCase()}</b> entre dans la surface… <b>il faut éliminer les défenseurs et armer la frappe !</b></>
+              : currentRound === 'defense'
+                ? <><b>{awayTeam?.name?.toUpperCase() ?? awayTeamId.toUpperCase()}</b> attaque en force… <b>protège ta surface, neutralise les attaquants !</b></>
+                : <><b>VAGUE D'ATTAQUE !</b> Intercepte les ballons avec ton curseur !</>}
           </p>
         </div>
         <svg className="battle-round-start__player" width="128" height="148" viewBox="0 0 128 148">
@@ -241,16 +250,26 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
           <g transform="translate(98 130)"><circle r="13" fill="#f4f7ff" stroke="#0b1422" strokeWidth="1"/><path d="M0 -7 l6.7 4.9 -2.5 7.9 -8.4 0 -2.5 -7.9z" fill="#0b1422"/></g>
         </svg>
         <button type="button" className="battle-round-start__ready" onClick={() => { sfx.click(); setState((current) => ({ ...current, phase: 'countdown' })) }}>
-          {currentRound === 'attack' ? "Prêt ? Joue l'attaque \u25b6" : 'Prêt ? Défends ! \u25b6'}
+          {currentRound === 'attack' ? "Prêt ? Joue l'attaque \u25b6" : currentRound === 'defense' ? 'Prêt ? Défends ! \u25b6' : 'Prêt ? Intercepte ! 🥷'}
         </button>
       </section> : null}
 
       {/* ── Game phases ───────────────────────────────────── */}
-      {state.phase === 'playing' && currentRound === 'attack'
-        ? <AttackPhase key={`attack-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} onRoundEnd={handleAttackEnd} isPaused={isPaused} />
+      {/* Show during countdown too so the player can preview the game layout */}
+      {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'attack'
+        ? <AttackPhase key={`attack-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} />
         : null}
-      {state.phase === 'playing' && currentRound === 'defense'
-        ? <DefensePhase key={`defense-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} onRoundEnd={handleDefenseEnd} isPaused={isPaused} />
+      {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'defense'
+        ? <DefensePhase key={`defense-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} onRoundEnd={handleDefenseEnd} isPaused={isPaused || state.phase === 'countdown'} />
+        : null}
+      {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'fruit_ninja'
+        ? <FruitNinjaPhase
+            key={`ninja-${state.roundIndex}`}
+            attackersInZone={2}
+            difficulty={state.difficulty}
+            onResult={handleFruitNinjaEnd}
+            isPaused={isPaused || state.phase === 'countdown'}
+          />
         : null}
 
       {state.phase === 'round_result' ? <RoundResult outcome={roundOutcome} roundType={currentRound} playerScore={state.playerScore} opponentScore={state.opponentScore} /> : null}

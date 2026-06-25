@@ -12,248 +12,384 @@ type AttackPhaseProps = {
   isPaused?: boolean
 }
 
+// ── Config ───────────────────────────────────────────────
 const ATTACK_CFG = {
-  easy:   { rowCount: 5, gapWidth: 28, slalomAmp: 8,  fallSpeed: 19, pulseSpeed: 1.2,  perfectRange: 14, keeperSpeed: 22 },
-  medium: { rowCount: 6, gapWidth: 22, slalomAmp: 13, fallSpeed: 25, pulseSpeed: 0.85, perfectRange: 9,  keeperSpeed: 50 },
-  hard:   { rowCount: 7, gapWidth: 17, slalomAmp: 17, fallSpeed: 33, pulseSpeed: 0.60, perfectRange: 5,  keeperSpeed: 85 },
+  easy:   { wallCount: 4, wallGap: 38, gdSpeed: 35, gaugeGreenPx: 28, gaugeSpeed: 0.7 },
+  medium: { wallCount: 5, wallGap: 32, gdSpeed: 42, gaugeGreenPx: 22, gaugeSpeed: 1.1 },
+  hard:   { wallCount: 6, wallGap: 26, gdSpeed: 50, gaugeGreenPx: 16, gaugeSpeed: 1.55 },
 }
 
-const ROW_SPACING   = 30   // % between rows' initial positions
-const PLAYER_Y      = 82   // fixed ball Y (%)
-const PLAYER_SPEED  = 55   // %/s via keyboard
+// Wall gap zone centers (% of game-area WIDTH) — gap left/right computed from cfg.wallGap
+const GAP_ZONE_CENTERS = [20, 80, 50]  // left zone, right zone, center zone
 
-const SLALOM_COMMENTS = [
+// GD constants — walls fall FROM TOP
+const GD_PLAYER_Y   = 80     // fixed Y % where ball sits
+const WALL_FIRST_Y  = -12    // first wall starts above screen (negative %)
+const WALL_SPACING  = 38     // vertical spacing between walls (%)
+const WALL_HEIGHT   = 4      // wall bar height in % of game area
+const PLAYER_SPEED  = 60     // %/s via keyboard (left/right)
+const JUMP_DURATION = 700    // ms
+
+const KEEPER_SPEED_FACTOR = 0.85  // sin frequency multiplier
+
+const GD_COMMENTS = [
   'Beau dribble !', 'Bien joué !', 'Incroyable !', 'Quel geste !',
   'Il les passe tous !', 'Magnifique !', 'Élégant !', 'En pleine course !',
 ]
 
-type SlalomRow = {
-  y0: number        // initial Y (starts above screen, falls down)
-  gapW: number
-  baseX: number     // gap left-edge base position
-  amp: number       // oscillation amplitude
-  speed: number     // oscillation speed (rad/s)
-  phaseOff: number  // phase offset
+// Gauge track total width in px (rendered via CSS width 70% max 260px – we use a normalized 0-1 cursor)
+const GAUGE_TRACK_PX = 260
+
+type GdWall = {
+  worldY: number       // top edge world-Y (%) — negative = above screen
+  gapZoneIdx: number   // which zone preset (cycles 0,1,2,0,…)
+  passed: boolean
+  checked: boolean
 }
 
-function generateRows(cfg: typeof ATTACK_CFG['easy']): SlalomRow[] {
-  const rows: SlalomRow[] = []
-  const { rowCount, gapWidth, slalomAmp } = cfg
-  for (let i = 0; i < rowCount; i++) {
-    // Strictly alternate: left zone (~18%) vs right zone (~78%)
-    const isLeft = i % 2 === 0
-    const center = isLeft ? 18 : 78
-    const baseX = center - gapWidth / 2
-    const speed   = 0.6 + Math.random() * 1.4
-    const phaseOff = Math.random() * Math.PI * 2
-    rows.push({
-      y0: -12 - i * ROW_SPACING,   // row i starts progressively above screen
-      gapW: gapWidth,
-      baseX,
-      amp: slalomAmp,
-      speed,
-      phaseOff,
-    })
-  }
-  return rows
-}
-
-function gapXAt(row: SlalomRow, elapsedSec: number): number {
-  const x = row.baseX + row.amp * Math.sin(elapsedSec * row.speed + row.phaseOff)
-  return Math.max(2, Math.min(100 - row.gapW - 2, x))
-}
-
-export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _awayTeayId, onRoundEnd, isPaused }: AttackPhaseProps) {
+// ── Component ────────────────────────────────────────────
+export function AttackPhase({
+  difficulty,
+  homeTeamId: _homeTeamId,
+  awayTeamId: _awayTeamId,
+  onRoundEnd,
+  isPaused,
+}: AttackPhaseProps) {
   const cfg = ATTACK_CFG[difficulty]
 
-  const [tutorialDone, setTutorialDone] = useState(() => sessionStorage.getItem('brakup:tut:atk') === '1')
-  const [phase, setPhase] = useState<'slalom' | 'pulse'>('slalom')
-  const [rows]            = useState<SlalomRow[]>(() => generateRows(cfg))
-  const [playerX, setPlayerX]         = useState(50)
-  const [rowPositions, setRowPositions] = useState<number[]>(() => rows.map((r) => r.y0))
-  const [rowGapXs, setRowGapXs]       = useState<number[]>(() => rows.map((r) => r.baseX))
-  const [keeperX, setKeeperX]         = useState(50)
-  const [pulseRadius, setPulseRadius]  = useState(26)
-  const [inPerfect, setInPerfect]     = useState(false)
-  const [resultLabel, setResultLabel]  = useState<string | null>(null)
-  const [collisionFlash, setCollisionFlash] = useState(false)
-  const [pulsePhase, setPulsePhase]   = useState<'idle' | 'result'>('idle')
-  const [rowComment, setRowComment]   = useState<string | null>(null)
-  const [showPulseIntro, setShowPulseIntro] = useState(false)
+  // ── Tutorial ──
+  const [tutorialDone, setTutorialDone] = useState(
+    () => sessionStorage.getItem('brakup:tut:atk2') === '1'
+  )
 
-  const endedRef          = useRef(false)
-  const playerXRef        = useRef(50)
-  const rowPositionsRef   = useRef<number[]>(rows.map((r) => r.y0))
-  const rowGapXsRef       = useRef<number[]>(rows.map((r) => r.baseX))
-  const checkedRowsRef    = useRef(new Set<number>())
-  const containerRef      = useRef<HTMLDivElement>(null)
-  const phaseRef          = useRef<'slalom' | 'pulse'>('slalom')
-  const pulseTimeRef      = useRef(0)
-  const keeperXRef        = useRef(50)
-  const pulseResultSentRef = useRef(false)
-  const lastCommentTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const elapsedRef        = useRef(0)   // seconds of active play (pauses excluded)
-  const isPausedRef       = useRef(false)
-  isPausedRef.current     = isPaused ?? false
-  const keysRef           = useRef({ left: false, right: false })
+  // ── Top-level phase ──
+  const [phase, setPhase] = useState<'gd' | 'shot'>('gd')
+  const phaseRef = useRef<'gd' | 'shot'>('gd')
 
-  // Keyboard controls
+  // ── GD phase state (display only) ──
+  const [gdPlayerX, setGdPlayerX]     = useState(50)
+  const [gdFallPct, setGdFallPct]     = useState(0)
+  const [gdWallsDisplay, setGdWallsDisplay] = useState<GdWall[]>([])
+  const [gdJumping, setGdJumping]     = useState(false)
+  const [gdComment, setGdComment]     = useState<string | null>(null)
+  const [gdFlash, setGdFlash]         = useState(false)
+  const [showShotIntro, setShowShotIntro] = useState(false)
+
+  // ── GD phase refs (RAF) ──
+  const gdPlayerXRef    = useRef(50)
+  const gdFallPctRef    = useRef(0)
+  const gdWallsRef      = useRef<GdWall[]>([])
+  const isJumpingRef    = useRef(false)
+  const keysRef         = useRef({ left: false, right: false })
+  const commentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const gdCheckedRef    = useRef(0)  // count of walls passed
+  const gdElapsedRef    = useRef(0)  // elapsed time for GD acceleration
+
+  // ── Shot phase ──
+  const [shotSubPhase, setShotSubPhase] = useState<'aim' | 'power'>('aim')
+  const shotSubPhaseRef = useRef<'aim' | 'power'>('aim')
+
+  // 2D aim target (coordinates within GoalView's coordinate system: 0–100 each axis)
+  const [aimTarget, setAimTarget] = useState<{ x: number; y: number } | null>(null)
+  const aimTargetRef = useRef<{ x: number; y: number } | null>(null)
+
+  // Keeper (oscillates in shot phase)
+  const [keeperX, setKeeperX] = useState(50)
+  const keeperXRef            = useRef(50)
+
+  // Keeper Y (vertical movement)
+  const [keeperY, setKeeperY] = useState(70)
+  const keeperYRef            = useRef(70)
+
+  // Power gauge
+  const [gaugeCursor, setGaugeCursor] = useState(0)   // 0..1 position in track
+  const gaugeCursorRef   = useRef(0)
+  const gaugeTimeRef     = useRef(0)
+  const gaugeGreenLeft   = useRef(0)    // 0..1 position of green zone left edge
+
+  // Result
+  const [resultLabel, setResultLabel] = useState<string | null>(null)
+
+  // Common refs
+  const endedRef      = useRef(false)
+  const isPausedRef   = useRef(false)
+  isPausedRef.current = isPaused ?? false
+  const containerRef  = useRef<HTMLDivElement>(null)
+
+  // ── Init GD walls ──
   useEffect(() => {
-    if (!tutorialDone) return
-    const onDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft')  { keysRef.current.left  = true; e.preventDefault() }
-      if (e.key === 'ArrowRight') { keysRef.current.right = true; e.preventDefault() }
+    const walls: GdWall[] = []
+    for (let i = 0; i < cfg.wallCount; i++) {
+      walls.push({
+        worldY: WALL_FIRST_Y - i * WALL_SPACING,  // stacked above screen
+        gapZoneIdx: i % 3,
+        passed: false,
+        checked: false,
+      })
     }
-    const onUp = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft')  keysRef.current.left  = false
-      if (e.key === 'ArrowRight') keysRef.current.right = false
-    }
-    window.addEventListener('keydown', onDown)
-    window.addEventListener('keyup', onUp)
-    return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp) }
-  }, [tutorialDone])
+    gdWallsRef.current = walls
+    setGdWallsDisplay([...walls])
+  }, [cfg.wallCount])
 
+  // ── Finish callback ──
   const finish = useCallback((isGoal: boolean, reason: AttackEndReason) => {
     if (endedRef.current) return
     endedRef.current = true
     onRoundEnd(isGoal, reason)
   }, [onRoundEnd])
 
-  // ── Slalom RAF ──────────────────────────────────────────
+  // ── Jump handler ──
+  const handleJump = () => {
+    if (isJumpingRef.current) return
+    isJumpingRef.current = true
+    setGdJumping(true)
+    setTimeout(() => {
+      isJumpingRef.current = false
+      setGdJumping(false)
+    }, JUMP_DURATION)
+  }
+
+  // ── Keyboard handler ──
   useEffect(() => {
-    if (phase !== 'slalom' || !tutorialDone) return
+    if (!tutorialDone) return
+    const onDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft')  { keysRef.current.left  = true; e.preventDefault() }
+      if (e.key === 'ArrowRight') { keysRef.current.right = true; e.preventDefault() }
+      if (e.key === ' ')          { handleJump(); e.preventDefault() }
+    }
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft')  keysRef.current.left  = false
+      if (e.key === 'ArrowRight') keysRef.current.right = false
+    }
+    window.addEventListener('keydown', onDown)
+    window.addEventListener('keyup',   onUp)
+    return () => {
+      window.removeEventListener('keydown', onDown)
+      window.removeEventListener('keyup',   onUp)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tutorialDone])
+
+  // ── GD RAF — walls fall from top ──
+  useEffect(() => {
+    if (phase !== 'gd' || !tutorialDone || showShotIntro) return
     let frame = 0
     let prev: number | null = null
+    gdElapsedRef.current = 0
 
     const tick = (now: number) => {
       if (isPausedRef.current) { prev = null; frame = requestAnimationFrame(tick); return }
       if (prev === null) prev = now
-      const delta = Math.min(50, now - prev)
+      const delta = Math.min(50, now - prev) / 1000
       prev = now
       if (endedRef.current) return
 
-      elapsedRef.current += delta / 1000
+      gdElapsedRef.current += delta
 
-      // ── Keyboard movement ──
+      // Move player X via keyboard (left/right)
       if (keysRef.current.left) {
-        playerXRef.current = Math.max(2, playerXRef.current - PLAYER_SPEED * delta / 1000)
-        setPlayerX(playerXRef.current)
+        gdPlayerXRef.current = Math.max(3, gdPlayerXRef.current - PLAYER_SPEED * delta)
       }
       if (keysRef.current.right) {
-        playerXRef.current = Math.min(98, playerXRef.current + PLAYER_SPEED * delta / 1000)
-        setPlayerX(playerXRef.current)
+        gdPlayerXRef.current = Math.min(97, gdPlayerXRef.current + PLAYER_SPEED * delta)
       }
+      setGdPlayerX(gdPlayerXRef.current)
 
-      // ── Move rows downward ──
-      const newPositions = rowPositionsRef.current.map((y) => y + cfg.fallSpeed * delta / 1000)
-      const newGapXs = rows.map((row) => gapXAt(row, elapsedRef.current))
-      rowPositionsRef.current = newPositions
-      rowGapXsRef.current = newGapXs
-      setRowPositions([...newPositions])
-      setRowGapXs([...newGapXs])
+      // Speed increases from cfg.gdSpeed * 0.75 to cfg.gdSpeed * 1.5 over 8 seconds
+      const speed = cfg.gdSpeed * (0.75 + (gdElapsedRef.current / 8) * 0.75)
+      const clampedSpeed = Math.min(speed, cfg.gdSpeed * 1.5)
 
-      // ── Collision check ──
-      const px = playerXRef.current
-      for (let ri = 0; ri < rows.length; ri++) {
-        if (checkedRowsRef.current.has(ri)) continue
-        const rowY = newPositions[ri]
-        if (rowY < PLAYER_Y - 5) continue   // not yet at player level
-        // Row reached player level — evaluate once
-        checkedRowsRef.current.add(ri)
-        const gapX = newGapXs[ri]
-        const inGap = px >= gapX && px <= gapX + rows[ri].gapW
-        if (!inGap) {
-          setCollisionFlash(true)
+      // Walls fall downward
+      gdFallPctRef.current += clampedSpeed * delta
+      setGdFallPct(gdFallPctRef.current)
+
+      const walls = gdWallsRef.current
+      setGdWallsDisplay([...walls])
+
+      // Collision / pass check — fire once per wall when it reaches player Y
+      const playerX = gdPlayerXRef.current
+      const fall    = gdFallPctRef.current
+      for (let i = 0; i < walls.length; i++) {
+        const wall = walls[i]
+        if (wall.checked) continue
+        // Wall screen Y = worldY + fall (worldY is negative → starts above screen)
+        const screenY = wall.worldY + fall
+        // Trigger when wall top edge reaches PLAYER_Y band
+        if (screenY < GD_PLAYER_Y - 4) continue
+
+        wall.checked = true
+        const center  = GAP_ZONE_CENTERS[wall.gapZoneIdx]
+        const halfGap = cfg.wallGap / 2
+        const inGap   = playerX >= center - halfGap && playerX <= center + halfGap
+
+        if (inGap || isJumpingRef.current) {
+          wall.passed = true
+          gdCheckedRef.current++
+          const comment = GD_COMMENTS[Math.floor(Math.random() * GD_COMMENTS.length)]
+          setGdComment(comment)
+          if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
+          commentTimerRef.current = setTimeout(() => setGdComment(null), 800)
+
+          if (gdCheckedRef.current >= cfg.wallCount) {
+            setShowShotIntro(true)
+            return
+          }
+        } else {
+          setGdFlash(true)
+          setTimeout(() => setGdFlash(false), 300)
           finish(false, 'intercepted')
           return
         }
-        // Successfully passed — show comment
-        const comment = SLALOM_COMMENTS[Math.floor(Math.random() * SLALOM_COMMENTS.length)]
-        setRowComment(comment)
-        if (lastCommentTimeoutRef.current) clearTimeout(lastCommentTimeoutRef.current)
-        lastCommentTimeoutRef.current = setTimeout(() => setRowComment(null), 800)
-      }
-
-      // ── All rows passed → transition to pulse ──
-      if (checkedRowsRef.current.size === rows.length) {
-        setShowPulseIntro(true)
-        return
       }
 
       frame = requestAnimationFrame(tick)
     }
+
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [phase, rows, cfg.fallSpeed, finish, tutorialDone])
+  }, [phase, tutorialDone, showShotIntro, cfg.gdSpeed, cfg.wallCount, cfg.wallGap, finish])
 
-  // Pointer control (horizontal only for slalom)
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (phaseRef.current !== 'slalom' || endedRef.current) return
+  // ── Pointer move for GD (drag ball left/right) ──
+  const handleGdPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (phaseRef.current !== 'gd' || endedRef.current) return
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
     const x = ((e.clientX - rect.left) / rect.width) * 100
-    playerXRef.current = Math.max(2, Math.min(98, x))
-    setPlayerX(playerXRef.current)
+    gdPlayerXRef.current = Math.max(3, Math.min(97, x))
+    setGdPlayerX(gdPlayerXRef.current)
   }
 
-  // ── Pulse RAF ───────────────────────────────────────────
+  // ── Shot RAF (keeper oscillation + gauge) ──
   useEffect(() => {
-    if (phase !== 'pulse' || showPulseIntro) return
-    pulseTimeRef.current = 0
+    if (phase !== 'shot' || showShotIntro) return
+    gaugeTimeRef.current = 0
     let frame = 0
     let prev: number | null = null
-    let autoTimeoutMs = 5000
+    let shotTime = 0
 
     const tick = (now: number) => {
       if (isPausedRef.current) { prev = null; frame = requestAnimationFrame(tick); return }
       if (prev === null) prev = now
-      const delta = Math.min(50, now - prev)
+      const delta = Math.min(50, now - prev) / 1000
       prev = now
       if (endedRef.current) return
 
-      pulseTimeRef.current += delta / 1000
-      autoTimeoutMs -= delta
+      shotTime += delta
 
-      const newKeeperX = 50 + 35 * Math.sin(pulseTimeRef.current * 0.8)
-      keeperXRef.current = newKeeperX
-      setKeeperX(newKeeperX)
+      // Keeper oscillates in X and Y
+      const kx = 50 + 38 * Math.sin(shotTime * KEEPER_SPEED_FACTOR)
+      const ky = 60 + 28 * Math.sin(shotTime * 1.15 + 1.0)  // offset phase
+      keeperXRef.current = kx; setKeeperX(kx)
+      keeperYRef.current = ky; setKeeperY(ky)
 
-      const R = 26 + 22 * Math.sin(pulseTimeRef.current * cfg.pulseSpeed)
-      setPulseRadius(R)
-      setInPerfect(Math.abs(R - 26) < cfg.perfectRange)
+      // Gauge cursor in power sub-phase
+      if (shotSubPhaseRef.current === 'power') {
+        gaugeTimeRef.current += delta
+        // Full cycle 0→1→0 at cfg.gaugeSpeed Hz
+        const raw = Math.sin(gaugeTimeRef.current * Math.PI * 2 * cfg.gaugeSpeed)
+        const cursor = (raw + 1) / 2
+        gaugeCursorRef.current = cursor
+        setGaugeCursor(cursor)
 
-      if (autoTimeoutMs <= 0 && !pulseResultSentRef.current) {
-        pulseResultSentRef.current = true
-        setResultLabel('RATÉ !')
-        setTimeout(() => finish(false, 'miss'), 700)
-        return
+        // Auto-miss after ~6s
+        if (gaugeTimeRef.current > 6) {
+          finish(false, 'miss')
+          setResultLabel('RATÉ !')
+          return
+        }
       }
 
       frame = requestAnimationFrame(tick)
     }
+
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [phase, showPulseIntro, cfg.pulseSpeed, cfg.perfectRange, finish])
+  }, [phase, showShotIntro, cfg.gaugeSpeed, finish])
 
-  const handlePulseTap = () => {
-    if (endedRef.current || pulseResultSentRef.current || phase !== 'pulse') return
-    pulseResultSentRef.current = true
-    const R = 26 + 22 * Math.sin(pulseTimeRef.current * cfg.pulseSpeed)
-    const perfect = Math.abs(R - 26) < cfg.perfectRange
-    if (!perfect) { setResultLabel('RATÉ !'); setTimeout(() => finish(false, 'miss'), 700); return }
-    const keeperBlocking = Math.abs(keeperXRef.current - 50) < 16
-    if (keeperBlocking) {
-      setResultLabel('ARRÊTÉ !'); setPulsePhase('result'); setTimeout(() => finish(false, 'saved'), 700)
-    } else {
-      setResultLabel('BUT !'); setPulsePhase('result'); setTimeout(() => finish(true, 'goal'), 700)
+  // ── Shot pointer move — 2D aim tracking ──
+  const handleShotPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (shotSubPhaseRef.current !== 'aim') return
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    // Game area is 70% of total container height
+    const gameH = rect.height * 0.7
+    const relX = (e.clientX - rect.left) / rect.width
+    const relY = (e.clientY - rect.top) / gameH
+
+    // Map to goal-relative 0–100 (goal spans ~9–91% width, ~12–88% height)
+    const aimX = Math.max(0, Math.min(100, (relX - 0.09) / 0.82 * 100))
+    const aimY = Math.max(0, Math.min(100, (relY - 0.12) / 0.76 * 100))
+
+    const target = { x: aimX, y: aimY }
+    aimTargetRef.current = target
+    setAimTarget(target)
+  }
+
+  // ── Shot pointer down — click to fire or gauge tap ──
+  const handleShotPointerDown = () => {
+    if (shotSubPhaseRef.current === 'aim') {
+      // Switch to power gauge immediately
+      shotSubPhaseRef.current = 'power'
+      setShotSubPhase('power')
+      gaugeTimeRef.current = 0
+      // Randomize green zone
+      const maxLeft = 1 - cfg.gaugeGreenPx / GAUGE_TRACK_PX
+      gaugeGreenLeft.current = Math.random() * maxLeft * 0.6 + 0.2
+    } else if (shotSubPhaseRef.current === 'power') {
+      handleGaugeTap()
     }
   }
+
+  const handleShotPointerUp = () => {
+    // no-op (kept for parity)
+  }
+
+  // Tap to stop gauge
+  const handleGaugeTap = () => {
+    if (endedRef.current || shotSubPhaseRef.current !== 'power') return
+    if (resultLabel) return
+
+    const cursor   = gaugeCursorRef.current   // 0..1 position in track
+    const greenL   = gaugeGreenLeft.current    // 0..1
+    const greenR   = greenL + cfg.gaugeGreenPx / GAUGE_TRACK_PX
+    const inGreen  = cursor >= greenL && cursor <= greenR
+
+    // 2D distance-based keeper blocking
+    const at = aimTargetRef.current ?? { x: 50, y: 50 }
+    const keeperBlocking = Math.abs(at.x - keeperXRef.current) < 16 && Math.abs(at.y - keeperYRef.current) < 20
+
+    if (!inGreen) {
+      setResultLabel('RATÉ !')
+      setTimeout(() => finish(false, 'miss'), 700)
+    } else if (keeperBlocking) {
+      setResultLabel('ARRÊTÉ !')
+      setTimeout(() => finish(false, 'saved'), 1000)
+    } else {
+      setResultLabel('BUT !')
+      setTimeout(() => finish(true, 'goal'), 700)
+    }
+  }
+
+  // ── Transition from GD to shot ──
+  const handleStartShot = () => {
+    setShowShotIntro(false)
+    phaseRef.current = 'shot'
+    setPhase('shot')
+    shotSubPhaseRef.current = 'aim'
+    setShotSubPhase('aim')
+  }
+
+  // ── Derived display values ──
+  const fall = gdFallPct
+  const gaugeGreenLeftPct = gaugeGreenLeft.current * 100  // % of track
+
+  // Speed indicator for GD (0-1 progress of acceleration)
+  const gdSpeedProgress = Math.min(1, gdElapsedRef.current / 8)
 
   return (
     <section
       className="atk-root"
       ref={containerRef}
-      onPointerMove={handlePointerMove}
       style={{ touchAction: 'none', userSelect: 'none' }}
     >
       <style>{`
@@ -266,10 +402,11 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
           overflow: hidden;
           position: relative;
         }
-        /* Tutorial overlay */
+
+        /* ── Tutorial overlay ── */
         .atk-tutorial {
           position: absolute; inset: 0; z-index: 50;
-          background: rgba(5,11,22,0.90); backdrop-filter: blur(3px);
+          background: rgba(5,11,22,0.78); backdrop-filter: blur(3px);
           display: flex; flex-direction: column; align-items: center;
           justify-content: center; gap: 14px; padding: 24px;
         }
@@ -282,8 +419,15 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
           font: 600 clamp(13px,4vw,17px) 'Barlow Condensed', sans-serif;
           color: rgba(255,255,255,.85); text-align: center; max-width: 320px; line-height: 1.4;
         }
-        .atk-tutorial__arrow { font-size: 28px; animation: atkArrowLR 0.8s ease-in-out infinite alternate; display: inline-block; }
-        @keyframes atkArrowLR { from { transform: translateX(-12px); } to { transform: translateX(12px); } }
+        .atk-tutorial__arrow {
+          font-size: 28px;
+          animation: atkArrowLR 0.8s ease-in-out infinite alternate;
+          display: inline-block;
+        }
+        @keyframes atkArrowLR {
+          from { transform: translateX(-12px); }
+          to   { transform: translateX(12px); }
+        }
         .atk-tutorial__btn {
           margin-top: 8px; padding: 12px 28px; border-radius: 10px;
           border: 2px solid #2bff9a; background: rgba(43,255,154,.1);
@@ -291,7 +435,8 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
           letter-spacing: .1em; cursor: pointer;
           box-shadow: 0 0 16px rgba(43,255,154,.35);
         }
-        /* Row comment */
+
+        /* ── Comment popup ── */
         .atk-row-comment {
           position: absolute; top: 35%; left: 50%; transform: translate(-50%,-50%);
           font: 900 clamp(16px,6vw,26px) 'Barlow Condensed', sans-serif;
@@ -300,145 +445,451 @@ export function AttackPhase({ difficulty, homeTeamId: _homeTeamId, awayTeamId: _
           pointer-events: none; z-index: 30; white-space: nowrap;
           animation: atkCommentPop .15s ease-out both;
         }
-        @keyframes atkCommentPop { from { transform:translate(-50%,-50%) scale(.7); opacity:0; } to { transform:translate(-50%,-50%) scale(1); opacity:1; } }
-        /* Game area */
+        @keyframes atkCommentPop {
+          from { transform: translate(-50%,-50%) scale(.7); opacity: 0; }
+          to   { transform: translate(-50%,-50%) scale(1);  opacity: 1; }
+        }
+
+        /* ── Game area ── */
         .atk-game { position: relative; overflow: hidden; }
-        .atk-pitch { position: absolute; inset: 0; background: linear-gradient(180deg,#0c2e1d,#0a2618); }
-        .atk-pitch-lines { position: absolute; inset: 0; width:100%; height:100%; pointer-events:none; opacity:.3; }
-        /* Defender rows (falling) */
-        .atk-row { position: absolute; left: 0; right: 0; height: 9px; pointer-events: none; }
-        .atk-row-obstacle {
-          position: absolute; top: 0; height: 100%; border-radius: 3px;
-          box-shadow: 0 2px 12px rgba(255,68,85,.55);
+
+        /* ── GD pitch (top-down) ── */
+        .atk-gd {
+          position: absolute; inset: 0;
+          background: repeating-linear-gradient(
+            90deg,
+            #0a3a1e 0px, #0a3a1e 60px,
+            #0b4022 60px, #0b4022 120px
+          );
         }
-        .atk-row-gap-indicator {
-          position: absolute; top: -4px; height: 17px; border-radius: 3px;
-          border: 1.5px dashed rgba(43,255,154,.45); pointer-events: none;
+        .atk-gd-stripe-overlay {
+          position: absolute; inset: 0;
+          background:
+            repeating-linear-gradient(
+              0deg,
+              transparent 0px, transparent 38px,
+              rgba(255,255,255,.025) 38px, rgba(255,255,255,.025) 39px
+            ),
+            repeating-linear-gradient(
+              90deg,
+              transparent 0px, transparent 55px,
+              rgba(255,255,255,.018) 55px, rgba(255,255,255,.018) 56px
+            );
+          pointer-events: none;
         }
-        /* Player ball */
-        .atk-player {
-          position: absolute; width: 24px; height: 24px; border-radius: 50%;
-          background: radial-gradient(circle at 35% 35%, #4fff9a, #13d472);
-          border: 2.5px solid #fff;
-          box-shadow: 0 0 14px rgba(43,255,154,.8), 0 0 28px rgba(43,255,154,.4);
-          transform: translate(-50%, -50%); pointer-events: none; z-index: 10;
+
+        /* ── GD pitch SVG markings ── */
+        .atk-gd-pitch-svg {
+          position: absolute; inset: 0;
+          width: 100%; height: 100%;
+          pointer-events: none; overflow: visible;
         }
-        .atk-player.is-flash { background:#FF4455; box-shadow:0 0 24px rgba(255,68,85,1); animation:atkCollide .3s; }
-        @keyframes atkCollide { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.5)} }
-        /* Pulse phase */
-        .atk-pulse { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; z-index:5; }
-        .atk-pulse-instruction { position:absolute; top:12%; left:50%; transform:translateX(-50%); font:900 15px 'Barlow Condensed',sans-serif; letter-spacing:.14em; color:#FFB800; white-space:nowrap; text-shadow:0 0 12px rgba(255,184,0,.6); pointer-events:none; z-index:6; }
-        .atk-pulse-ball-wrap { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:15; pointer-events:none; }
-        .atk-pulse-ring { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:50%; border:3px dashed #f5c842; box-shadow:0 0 10px rgba(245,200,66,.5); pointer-events:none; z-index:8; width:72px; height:72px; }
-        .atk-result-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font:900 clamp(40px,14vw,72px) 'Barlow Condensed',sans-serif; letter-spacing:.08em; text-shadow:0 0 36px currentColor; animation:atkResultIn .25s ease-out both; z-index:20; pointer-events:none; }
+
+        /* ── GD speed indicator ── */
+        .atk-gd-speed {
+          position: absolute; top: 8px; right: 10px; z-index: 20;
+          font: 700 9px 'Barlow Condensed', sans-serif;
+          letter-spacing: .12em; color: rgba(255,255,255,.35);
+          transition: color .3s;
+        }
+        .atk-gd-speed.is-fast { color: #FF4455; text-shadow: 0 0 8px rgba(255,68,85,.6); }
+
+        /* ── GD walls (horizontal bars falling from top) ── */
+        .atk-gd-wall-piece {
+          position: absolute;
+          height: ${WALL_HEIGHT}%;
+          background: rgba(255,68,85,.90);
+          box-shadow: 0 0 12px rgba(255,68,85,.7), 0 0 28px rgba(255,68,85,.3);
+          border-radius: 3px;
+          pointer-events: none;
+        }
+        .atk-gd-gap-hint {
+          position: absolute;
+          height: ${WALL_HEIGHT}%;
+          border-top: 1.5px dashed rgba(43,255,154,.4);
+          border-bottom: 1.5px dashed rgba(43,255,154,.4);
+          pointer-events: none;
+        }
+
+        /* ── GD player ball ── */
+        .atk-gd-ball {
+          position: absolute;
+          width: 28px; height: 28px;
+          border-radius: 50%;
+          background: radial-gradient(circle at 35% 35%, #fff, #cce8ff);
+          border: 2.5px solid rgba(255,255,255,.9);
+          box-shadow: 0 0 12px rgba(100,200,255,.8), 0 0 24px rgba(100,200,255,.4);
+          transform: translate(-50%, -50%);
+          pointer-events: none; z-index: 10;
+          transition: transform 0.05s, width 0.05s, height 0.05s;
+        }
+        .atk-gd-ball--jump {
+          width: 50px; height: 50px;
+          box-shadow: 0 0 20px rgba(100,200,255,1), 0 0 40px rgba(100,200,255,.5);
+        }
+        .atk-gd-ball--flash {
+          background: #FF4455;
+          box-shadow: 0 0 24px rgba(255,68,85,1);
+        }
+        .atk-gd-shadow {
+          position: absolute;
+          width: 20px; height: 8px;
+          border-radius: 50%;
+          background: rgba(0,0,0,.45);
+          transform: translate(-50%, -50%);
+          pointer-events: none; z-index: 9;
+          filter: blur(2px);
+        }
+
+        /* ── Jump button ── */
+        .atk-gd-jump-btn {
+          position: absolute; bottom: 12px; left: 12px; z-index: 20;
+          width: 52px; height: 52px; border-radius: 50%;
+          background: rgba(43,255,154,.1);
+          border: 2px solid #2bff9a;
+          color: #2bff9a; font-size: 22px;
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer; box-shadow: 0 0 14px rgba(43,255,154,.4);
+          touch-action: none;
+        }
+        .atk-gd-jump-btn:active { background: rgba(43,255,154,.25); }
+
+        /* ── Shot game area ── */
+        .atk-shot-game {
+          position: absolute; inset: 0;
+          cursor: crosshair;
+        }
+
+        /* ── FIFA power gauge overlay ── */
+        .atk-gauge-overlay {
+          position: absolute; inset: 0; z-index: 25;
+          background: rgba(5,11,22,.55); backdrop-filter: blur(2px);
+          display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 14px;
+          cursor: pointer;
+        }
+        .atk-gauge-label {
+          font: 900 clamp(14px,5vw,20px) 'Barlow Condensed', sans-serif;
+          letter-spacing: .2em; color: #FFB800;
+          text-shadow: 0 0 16px rgba(255,184,0,.6);
+          animation: atkBlink 1s ease-in-out infinite alternate;
+        }
+        @keyframes atkBlink { from{opacity:.65} to{opacity:1} }
+        .atk-gauge-track {
+          position: relative;
+          width: 70%; max-width: ${GAUGE_TRACK_PX}px; height: 24px;
+          background: #c0392b; border-radius: 12px;
+          border: 2px solid rgba(255,255,255,.3);
+          overflow: hidden;
+        }
+        .atk-gauge-green {
+          position: absolute; top: 0; bottom: 0;
+          background: #2bff9a;
+          border-radius: 0;
+        }
+        .atk-gauge-cursor {
+          position: absolute; top: -3px; bottom: -3px;
+          width: 5px; background: #fff; border-radius: 3px;
+          box-shadow: 0 0 8px rgba(255,255,255,.9);
+          transform: translateX(-50%);
+        }
+
+        /* ── Result overlay ── */
+        .atk-result-overlay {
+          position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+          font: 900 clamp(40px,14vw,72px) 'Barlow Condensed', sans-serif;
+          letter-spacing: .08em; text-shadow: 0 0 36px currentColor;
+          animation: atkResultIn .25s ease-out both; z-index: 30; pointer-events: none;
+        }
         @keyframes atkResultIn { from{transform:scale(.5);opacity:0} to{transform:scale(1);opacity:1} }
-        /* Transition overlay */
-        .atk-transition { position:absolute; inset:0; z-index:40; background:rgba(5,11,22,.92); backdrop-filter:blur(4px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:28px 20px; text-align:center; animation:atkFadeIn .3s ease-out both; }
-        .atk-transition__title { font:900 clamp(28px,9vw,48px) 'Barlow Condensed',sans-serif; letter-spacing:.15em; color:#2bff9a; text-shadow:0 0 28px rgba(43,255,154,.6); text-transform:uppercase; }
-        .atk-transition__sub { font:800 clamp(14px,5vw,20px) 'Barlow Condensed',sans-serif; letter-spacing:.08em; color:#FFB800; }
-        .atk-transition__desc { font:500 clamp(12px,3.5vw,15px) 'Barlow Condensed',sans-serif; color:rgba(255,255,255,.7); max-width:300px; line-height:1.45; }
-        .atk-transition__btn { margin-top:10px; padding:13px 32px; border-radius:10px; border:2px solid #2bff9a; background:rgba(43,255,154,.12); color:#2bff9a; font:800 16px 'Barlow Condensed',sans-serif; letter-spacing:.14em; cursor:pointer; box-shadow:0 0 20px rgba(43,255,154,.3); }
+
+        /* ── Shot intro transition overlay ── */
+        .atk-transition {
+          position: absolute; inset: 0; z-index: 40;
+          background: rgba(5,11,22,0.78); backdrop-filter: blur(3px);
+          display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 12px; padding: 28px 20px;
+          text-align: center; animation: atkFadeIn .3s ease-out both;
+        }
+        .atk-transition__title {
+          font: 900 clamp(28px,9vw,48px) 'Barlow Condensed', sans-serif;
+          letter-spacing: .15em; color: #2bff9a;
+          text-shadow: 0 0 28px rgba(43,255,154,.6); text-transform: uppercase;
+        }
+        .atk-transition__sub { font: 800 clamp(14px,5vw,20px) 'Barlow Condensed', sans-serif; letter-spacing: .08em; color: #FFB800; }
+        .atk-transition__desc { font: 500 clamp(12px,3.5vw,15px) 'Barlow Condensed', sans-serif; color: rgba(255,255,255,.7); max-width: 300px; line-height: 1.45; }
+        .atk-transition__btn {
+          margin-top: 10px; padding: 13px 32px; border-radius: 10px;
+          border: 2px solid #2bff9a; background: rgba(43,255,154,.12);
+          color: #2bff9a; font: 800 16px 'Barlow Condensed', sans-serif;
+          letter-spacing: .14em; cursor: pointer; box-shadow: 0 0 20px rgba(43,255,154,.3);
+        }
         @keyframes atkFadeIn { from{opacity:0} to{opacity:1} }
-        /* Info bar */
-        .atk-info { display:flex; align-items:center; justify-content:center; gap:16px; padding:10px 20px; background:linear-gradient(180deg,#0a2618,#061a10); box-sizing:border-box; z-index:5; overflow:hidden; }
-        .atk-info-phase { padding:4px 10px; border-radius:6px; background:rgba(255,184,0,.12); border:1px solid rgba(255,184,0,.4); font:800 11px 'Barlow Condensed',sans-serif; letter-spacing:.12em; color:#FFB800; flex-shrink:0; }
-        .atk-info-label { font:700 11px 'Barlow Condensed',sans-serif; color:rgba(255,255,255,.6); letter-spacing:.06em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        /* Row arrival arrow hint */
-        .atk-arrow-hint { position:absolute; top:4%; left:50%; transform:translateX(-50%); font:900 13px 'Barlow Condensed',sans-serif; letter-spacing:.1em; color:rgba(255,68,85,.6); pointer-events:none; animation:atkArrowDown .7s ease-in-out infinite alternate; }
-        @keyframes atkArrowDown { from{transform:translateX(-50%) translateY(-3px)} to{transform:translateX(-50%) translateY(3px)} }
+
+        /* ── Info bar ── */
+        .atk-info {
+          display: flex; align-items: center; justify-content: center;
+          gap: 16px; padding: 10px 20px;
+          background: linear-gradient(180deg,#0a2618,#061a10);
+          box-sizing: border-box; z-index: 5; overflow: hidden;
+        }
+        .atk-info-phase {
+          padding: 4px 10px; border-radius: 6px;
+          background: rgba(255,184,0,.12); border: 1px solid rgba(255,184,0,.4);
+          font: 800 11px 'Barlow Condensed', sans-serif;
+          letter-spacing: .12em; color: #FFB800; flex-shrink: 0;
+        }
+        .atk-info-label {
+          font: 700 11px 'Barlow Condensed', sans-serif;
+          color: rgba(255,255,255,.6); letter-spacing: .06em;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* ── Shot aim instruction ── */
+        .atk-aim-instruction {
+          position: absolute; top: 5%; left: 50%; transform: translateX(-50%);
+          font: 900 clamp(13px,4.5vw,18px) 'Barlow Condensed', sans-serif;
+          letter-spacing: .14em; color: #FFB800; white-space: nowrap;
+          text-shadow: 0 0 14px rgba(255,184,0,.7); pointer-events: none; z-index: 10;
+          animation: atkBlink 1s ease-in-out infinite alternate;
+        }
       `}</style>
 
-      {/* Tutorial */}
+      {/* ── Tutorial overlay ── */}
       {!tutorialDone && (
         <div className="atk-tutorial">
-          <div className="atk-tutorial__title">SLALOM</div>
+          <div className="atk-tutorial__title">DRIBBLE</div>
           <div className="atk-tutorial__instruction">
-            Les défenseurs arrivent du haut ! Glisse latéralement pour passer dans la brèche — elle bouge, reste attentif !
+            Les défenseurs arrivent par le haut ! Déplace-toi à gauche ou à droite pour passer dans la brèche.
             <br /><br />
-            <span style={{ color:'rgba(255,255,255,.5)', fontSize:'0.9em' }}>⌨ Clavier : ← → pour se déplacer</span>
+            Appuie sur <b style={{ color:'#2bff9a' }}>SAUT</b> (ou Espace) pour sauter par-dessus un mur !
+            <br /><br />
+            <span style={{ color:'rgba(255,255,255,.5)', fontSize:'0.9em' }}>⌨ Clavier : ← → pour se déplacer · Espace pour sauter</span>
           </div>
           <span className="atk-tutorial__arrow">↔</span>
-          <button type="button" className="atk-tutorial__btn" onClick={() => { sessionStorage.setItem('brakup:tut:atk','1'); setTutorialDone(true) }}>
+          <button
+            type="button"
+            className="atk-tutorial__btn"
+            onClick={() => {
+              sessionStorage.setItem('brakup:tut:atk2', '1')
+              setTutorialDone(true)
+            }}
+          >
             OK — Jouer !
           </button>
         </div>
       )}
 
-      {/* Slalom → Pulse transition */}
-      {showPulseIntro && (
+      {/* ── Shot intro transition ── */}
+      {showShotIntro && (
         <div className="atk-transition">
-          <div style={{fontSize:36}}>⚽</div>
+          <div style={{ fontSize: 36 }}>⚽</div>
           <div className="atk-transition__title">Bravo !</div>
           <div className="atk-transition__sub">Tu entres dans la zone de tir</div>
           <div className="atk-transition__desc">
-            Le ballon pulse. <b style={{color:'#FFB800'}}>Tape au bon moment</b> pour décocher un tir parfait. Le gardien bouge — vise quand il s&apos;écarte !
+            <b style={{ color:'#FFB800' }}>Phase 1</b> — Déplace-toi pour viser, tape pour tirer.
+            <br /><br />
+            <b style={{ color:'#2bff9a' }}>Phase 2</b> — Arrête la jauge au bon moment !
           </div>
-          <button type="button" className="atk-transition__btn" onClick={() => { setShowPulseIntro(false); phaseRef.current = 'pulse'; setPhase('pulse') }}>
+          <button type="button" className="atk-transition__btn" onClick={handleStartShot}>
             ▶ Tirer !
           </button>
         </div>
       )}
 
-      {/* 70% — game area */}
-      <div className="atk-game">
-        {phase === 'slalom' ? (
-          <div className="atk-pitch">
-            <svg className="atk-pitch-lines" viewBox="0 0 375 420" preserveAspectRatio="none">
-              <g stroke="rgba(255,255,255,.06)" strokeWidth="1">
-                {[70,140,210,280,350].map((y) => <line key={y} x1="0" y1={y} x2="375" y2={y} />)}
-              </g>
+      {/* ── 70% — game area ── */}
+      <div
+        className="atk-game"
+        onPointerMove={phase === 'gd' ? handleGdPointerMove : handleShotPointerMove}
+        onPointerUp={handleShotPointerUp}
+      >
+        {/* ════ GD Phase ════ */}
+        {phase === 'gd' && (
+          <div className="atk-gd">
+            <div className="atk-gd-stripe-overlay" />
+
+            {/* Faint pitch markings SVG */}
+            <svg className="atk-gd-pitch-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+              {/* Center line */}
+              <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(255,255,255,.12)" strokeWidth=".4" />
+              {/* Center circle */}
+              <ellipse cx="50" cy="50" rx="16" ry="10" fill="none" stroke="rgba(255,255,255,.1)" strokeWidth=".35" />
+              {/* Top penalty area */}
+              <rect x="25" y="0" width="50" height="22" fill="none" stroke="rgba(255,255,255,.09)" strokeWidth=".35" />
+              {/* Bottom penalty area */}
+              <rect x="25" y="78" width="50" height="22" fill="none" stroke="rgba(255,255,255,.09)" strokeWidth=".35" />
             </svg>
 
-            {/* Arrow hint at top */}
-            <div className="atk-arrow-hint">▼ DÉFENSEURS ▼</div>
+            {/* Speed indicator */}
+            <div className={`atk-gd-speed${gdSpeedProgress > 0.6 ? ' is-fast' : ''}`}>
+              {gdSpeedProgress > 0.6 ? '⚡ ACCÉLÉRATION' : 'VITESSE'}
+            </div>
 
-            {/* Falling rows */}
-            {rows.map((row, ri) => {
-              const rowY = rowPositions[ri] ?? row.y0
-              if (rowY < -8 || rowY > 108) return null
-              const gapX = rowGapXs[ri] ?? row.baseX
-              const gapEnd = gapX + row.gapW
-              const hue = ri % 2 === 0 ? '255,68,85' : '255,100,50'
+            {/* Walls falling from top */}
+            {gdWallsDisplay.map((wall, wi) => {
+              const screenY = wall.worldY + fall
+              if (screenY < -WALL_HEIGHT - 1 || screenY > 108) return null
+              const center  = GAP_ZONE_CENTERS[wall.gapZoneIdx]
+              const halfGap = cfg.wallGap / 2
+              const gapL    = center - halfGap
+              const gapR    = center + halfGap
+              const wallColor = ['rgba(255,68,85,.9)', 'rgba(255,110,0,.9)', 'rgba(200,40,255,.9)'][wi % 3]
+              const glowColor = ['rgba(255,68,85,.7)', 'rgba(255,110,0,.7)', 'rgba(200,40,255,.7)'][wi % 3]
               return (
-                <div key={ri} className="atk-row" style={{ top:`${rowY}%` }}>
-                  {gapX > 2 && <div className="atk-row-obstacle" style={{ left:0, width:`${gapX}%`, background:`rgba(${hue},.82)` }} />}
-                  <div className="atk-row-gap-indicator" style={{ left:`${gapX}%`, width:`${row.gapW}%` }} />
-                  {gapEnd < 98 && <div className="atk-row-obstacle" style={{ left:`${gapEnd}%`, width:`${100-gapEnd}%`, background:`rgba(${hue},.82)` }} />}
+                <div key={wi} style={{ position: 'absolute', top: `${screenY}%`, left: 0, right: 0, height: `${WALL_HEIGHT}%`, pointerEvents: 'none' }}>
+                  {/* Left piece */}
+                  {gapL > 0 && (
+                    <div className="atk-gd-wall-piece" style={{ left: 0, width: `${gapL}%`, background: wallColor, boxShadow: `0 0 12px ${glowColor}` }} />
+                  )}
+                  {/* Right piece */}
+                  {gapR < 100 && (
+                    <div className="atk-gd-wall-piece" style={{ left: `${gapR}%`, right: 0, background: wallColor, boxShadow: `0 0 12px ${glowColor}` }} />
+                  )}
+                  {/* Gap hint */}
+                  <div className="atk-gd-gap-hint" style={{ left: `${gapL}%`, width: `${gapR - gapL}%` }} />
                 </div>
               )
             })}
 
-            {/* Player dot (fixed Y, moves left/right) */}
-            <div className={`atk-player${collisionFlash?' is-flash':''}`} style={{ left:`${playerX}%`, top:`${PLAYER_Y}%` }} />
+            {/* Shadow (only when jumping) */}
+            {gdJumping && (
+              <div
+                className="atk-gd-shadow"
+                style={{ left: `${gdPlayerX}%`, top: `${GD_PLAYER_Y}%` }}
+              />
+            )}
 
-            {rowComment && <div className="atk-row-comment">{rowComment}</div>}
+            {/* Player ball — fixed bottom Y, moves left/right */}
+            <div
+              className={[
+                'atk-gd-ball',
+                gdJumping ? 'atk-gd-ball--jump' : '',
+                gdFlash   ? 'atk-gd-ball--flash' : '',
+              ].join(' ')}
+              style={{ left: `${gdPlayerX}%`, top: `${GD_PLAYER_Y}%` }}
+            />
+
+            {/* Jump button */}
+            <button
+              type="button"
+              className="atk-gd-jump-btn"
+              onPointerDown={(e) => { e.stopPropagation(); handleJump() }}
+              aria-label="Sauter"
+            >
+              ↑
+            </button>
+
+            {/* Comment popup */}
+            {gdComment && (
+              <div className="atk-row-comment">{gdComment}</div>
+            )}
           </div>
-        ) : (
-          <div className="atk-pulse" onPointerDown={handlePulseTap}>
-            <GoalView difficulty={difficulty} keeperX={keeperX} interactive={false} />
-            <div className="atk-pulse-instruction">TAPER AU BON MOMENT !</div>
-            <div className="atk-pulse-ring" />
-            <div className="atk-pulse-ball-wrap">
-              <svg viewBox="0 0 80 80" style={{ width:`${pulseRadius*2*1.2}px`, height:`${pulseRadius*2*1.2}px`, filter:inPerfect?'drop-shadow(0 0 12px #2bff9a)':pulsePhase==='result'?'drop-shadow(0 0 12px #FF4455)':'drop-shadow(0 0 6px rgba(255,255,255,.5))', transition:'filter .08s', pointerEvents:'none' }}>
-                <circle cx="40" cy="40" r="34" fill="#f7f9fc" stroke={inPerfect?'#2bff9a':'#101827'} strokeWidth="4"/>
-                <path d="M40 19 53 28 48 45H32L27 28Z" fill="none" stroke={inPerfect?'#2bff9a':'#101827'} strokeWidth="3"/>
-                <line x1="40" y1="6"  x2="40" y2="19" stroke={inPerfect?'#2bff9a':'#101827'} strokeWidth="2" strokeLinecap="round"/>
-                <line x1="53" y1="28" x2="66" y2="22" stroke={inPerfect?'#2bff9a':'#101827'} strokeWidth="2" strokeLinecap="round"/>
-                <line x1="48" y1="45" x2="56" y2="57" stroke={inPerfect?'#2bff9a':'#101827'} strokeWidth="2" strokeLinecap="round"/>
-                <line x1="32" y1="45" x2="24" y2="57" stroke={inPerfect?'#2bff9a':'#101827'} strokeWidth="2" strokeLinecap="round"/>
-                <line x1="27" y1="28" x2="14" y2="22" stroke={inPerfect?'#2bff9a':'#101827'} strokeWidth="2" strokeLinecap="round"/>
+        )}
+
+        {/* ════ Shot Phase ════ */}
+        {phase === 'shot' && (
+          <div
+            className="atk-shot-game"
+            onPointerMove={handleShotPointerMove}
+            onPointerDown={handleShotPointerDown}
+            onPointerUp={handleShotPointerUp}
+          >
+            {/* GoalView with keeper oscillating in X and Y */}
+            <GoalView
+              difficulty={difficulty}
+              keeperX={keeperX}
+              keeperY={keeperY}
+              target={aimTarget ? { x: aimTarget.x, y: aimTarget.y, clientX: 0, clientY: 0 } : null}
+              interactive={false}
+            />
+
+            {/* SVG overlay for billiard line */}
+            {aimTarget && shotSubPhase === 'aim' && (
+              <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents:'none', overflow:'visible' }}>
+                <line
+                  x1="50%" y1="97%"
+                  x2={`${9 + aimTarget.x * 0.82}%`}
+                  y2={`${12 + aimTarget.y * 0.76}%`}
+                  stroke="rgba(43,255,154,0.7)"
+                  strokeWidth="2"
+                  strokeDasharray="6 4"
+                  strokeLinecap="round"
+                />
+                {/* Aim circle at target */}
+                <circle
+                  cx={`${9 + aimTarget.x * 0.82}%`}
+                  cy={`${12 + aimTarget.y * 0.76}%`}
+                  r="14"
+                  fill="rgba(255,184,0,0.2)"
+                  stroke="#FFB800"
+                  strokeWidth="2"
+                />
               </svg>
-            </div>
-            {resultLabel && <div className="atk-result-overlay" style={{ color:resultLabel==='BUT !'?'#2bff9a':'#FF4455' }}>{resultLabel}</div>}
+            )}
+
+            {/* Fixed ball at bottom center */}
+            <div style={{
+              position:'absolute', left:'50%', bottom:'4%', transform:'translateX(-50%)',
+              width:28, height:28, borderRadius:'50%',
+              background:'radial-gradient(circle at 35% 35%, #fff, #e0ecff)',
+              border:'2.5px solid rgba(255,255,255,.85)',
+              boxShadow:'0 0 14px rgba(43,255,154,.6)',
+              zIndex:15, pointerEvents:'none',
+            }} />
+
+            {/* Aim instruction — before first aim */}
+            {shotSubPhase === 'aim' && !aimTarget && (
+              <div className="atk-aim-instruction">DÉPLACE TOI POUR VISER · TAPE POUR TIRER</div>
+            )}
+
+            {/* Power sub-phase — FIFA gauge */}
+            {shotSubPhase === 'power' && !resultLabel && (
+              <div className="atk-gauge-overlay" onPointerDown={handleGaugeTap}>
+                <div className="atk-gauge-label">APPUIE DANS LA ZONE VERTE !</div>
+                <div className="atk-gauge-track">
+                  <div
+                    className="atk-gauge-green"
+                    style={{
+                      left:  `${gaugeGreenLeftPct}%`,
+                      width: `${(cfg.gaugeGreenPx / GAUGE_TRACK_PX) * 100}%`,
+                    }}
+                  />
+                  <div
+                    className="atk-gauge-cursor"
+                    style={{ left: `${gaugeCursor * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Result */}
+            {resultLabel && (
+              <div
+                className="atk-result-overlay"
+                style={{ color: resultLabel === 'BUT !' ? '#2bff9a' : '#FF4455' }}
+              >
+                {resultLabel}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* 30% — info bar */}
+      {/* ── 30% — info bar ── */}
       <div className="atk-info">
-        <span className="atk-info-phase">{phase === 'slalom' ? 'SLALOM' : 'TIR'}</span>
+        <span className="atk-info-phase">
+          {phase === 'gd'
+            ? 'DRIBBLE'
+            : shotSubPhase === 'aim'
+              ? 'VISÉE'
+              : 'FRAPPE'}
+        </span>
         <span className="atk-info-label">
-          {phase === 'slalom' ? 'Évite les défenseurs — brèche mobile !' : inPerfect ? '✓ ZONE PARFAITE' : 'Timing du tir'}
+          {phase === 'gd'
+            ? 'Défenseurs en approche — déplace-toi, saute pour passer !'
+            : shotSubPhase === 'aim'
+              ? 'Déplace-toi pour viser · Tape pour tirer'
+              : 'Appuie au bon moment !'}
         </span>
       </div>
     </section>

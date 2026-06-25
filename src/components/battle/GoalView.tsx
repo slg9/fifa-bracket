@@ -19,6 +19,7 @@ export type BallFlight = {
 type GoalViewProps = {
   difficulty: BattleDifficulty
   keeperX: number
+  keeperY?: number
   goalkeeperColor?: string
   goalkeeperSecondaryColor?: string
   target?: GoalTarget | null
@@ -74,6 +75,7 @@ function GoalkeeperGlove({ color, secondaryColor, saving, saveAngle }: {
 export function GoalView({
   difficulty,
   keeperX,
+  keeperY: keeperYProp,
   goalkeeperColor = '#2f7de1',
   goalkeeperSecondaryColor,
   target,
@@ -141,7 +143,8 @@ export function GoalView({
   const targetSvgY = targetEdges.y
   const keeperBottom = edgeAtY(92)
   const keeperSvgX = interpolate(keeperBottom.left, keeperBottom.right, keeperX / 100)
-  const keeperSvgY = bottomY - 36
+  const keeperYNorm = (keeperYProp ?? 90) / 100  // 0 = top, 1 = bottom
+  const keeperSvgY = topY + 20 + keeperYNorm * Math.max(0, goalHeight - 60)
   const saveAngle = targetSvgX >= keeperSvgX ? 45 : -45
   const saving = ballFlight?.state === 'saved'
   const transitionMs = Math.max(35, 120 - getDifficultyConfig(difficulty).gkSpeed * .4) * (slowMotion ? 4 : 1)
