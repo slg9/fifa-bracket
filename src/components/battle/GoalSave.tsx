@@ -13,6 +13,8 @@ type Ball = {
   id: number
   startX: number
   startY: number
+  endX: number
+  endY: number
   delay: number
   duration: number
   state: BallState
@@ -21,14 +23,12 @@ type Ball = {
 function makeBalls(count: number, duration: number): Ball[] {
   const balls: Ball[] = []
   for (let i = 0; i < count; i++) {
-    // spawn from random screen edges (0=top, 1=right, 2=bottom, 3=left)
-    const edge = Math.floor(Math.random() * 4)
-    let sx = 50, sy = 50
-    if (edge === 0) { sx = 15 + Math.random() * 70; sy = -5 }
-    else if (edge === 1) { sx = 105; sy = 10 + Math.random() * 60 }
-    else if (edge === 2) { sx = 15 + Math.random() * 70; sy = 110 }
-    else { sx = -5; sy = 10 + Math.random() * 60 }
-    balls.push({ id: i, startX: sx, startY: sy, delay: i * 400, duration, state: 'flying' })
+    // Spawn from top of screen, fly DOWN toward goal at bottom
+    const sx = 10 + Math.random() * 80
+    const sy = -8 + Math.random() * 12
+    const ex = 28 + Math.random() * 44
+    const ey = 80 + Math.random() * 8
+    balls.push({ id: i, startX: sx, startY: sy, endX: ex, endY: ey, delay: i * 500, duration, state: 'flying' })
   }
   return balls
 }
@@ -63,16 +63,23 @@ export function GoalSave({ ballCount, difficulty, onResult }: GoalSaveProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // check resolution — only depends on balls so onResult reference changes don't cancel the timeout
+  // check resolution — immediate BUT if any ball scored; ARRÊTÉ when all blocked
   useEffect(() => {
     if (endedRef.current) return
-    const allResolved = balls.every((b) => b.state !== 'flying')
+    // First ball to reach goal = immediate concede (no cleanup return — endedRef prevents double fire)
+    if (balls.some((b) => b.state === 'scored')) {
+      endedRef.current = true
+      setResultLabel('BUT !')
+      window.setTimeout(() => onResultRef.current(false), 900)
+      return
+    }
+    // Only resolve when no balls remain 'flying' OR 'waiting' (waiting = not yet launched)
+    const allResolved = balls.every((b) => b.state === 'intercepted' || b.state === 'scored')
     if (!allResolved) return
     const saved = balls.every((b) => b.state === 'intercepted')
     endedRef.current = true
     setResultLabel(saved ? 'ARRÊTÉ !' : 'BUT !')
-    const t = setTimeout(() => onResultRef.current(saved), 900)
-    return () => clearTimeout(t)
+    window.setTimeout(() => onResultRef.current(saved), 900)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [balls])
 
@@ -92,6 +99,10 @@ export function GoalSave({ ballCount, difficulty, onResult }: GoalSaveProps) {
 
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // Swipe trail visual
+  const [trail, setTrail] = useState<Array<{ id: string; x1: number; y1: number; x2: number; y2: number; at: number }>>([])
+  const trailTimerRef = useRef(0)
+
   // swipe detection
   const swipeRef = useRef<{ x: number; y: number } | null>(null)
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -99,24 +110,29 @@ export function GoalSave({ ballCount, difficulty, onResult }: GoalSaveProps) {
     const dx = e.clientX - swipeRef.current.x
     const dy = e.clientY - swipeRef.current.y
     const dist = Math.hypot(dx, dy)
-    if (dist < 18) return
-    swipeRef.current = { x: e.clientX, y: e.clientY }
+    if (dist < 12) return
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
-    // find nearest flying ball to swipe path
+    const prevX = (swipeRef.current.x - rect.left) / rect.width * 100
+    const prevY = (swipeRef.current.y - rect.top) / rect.height * 100
+    swipeRef.current = { x: e.clientX, y: e.clientY }
     const mx = (e.clientX - rect.left) / rect.width * 100
     const my = (e.clientY - rect.top) / rect.height * 100
+    // Add trail segment
+    const seg = { id: crypto.randomUUID(), x1: prevX, y1: prevY, x2: mx, y2: my, at: Date.now() }
+    setTrail((prev) => [...prev.filter((s) => Date.now() - s.at < 400), seg])
+    clearTimeout(trailTimerRef.current)
+    trailTimerRef.current = window.setTimeout(() => setTrail([]), 450)
     const now = Date.now()
     ballsRef.current.forEach((ball) => {
       if (ball.state !== 'flying') return
-      // estimate ball position based on animation progress
       const elapsed = now - ball.delay
       if (elapsed < 0) return
       const progress = Math.min(1, elapsed / ball.duration)
-      const bx = ball.startX + (50 - ball.startX) * progress
-      const by = ball.startY + (85 - ball.startY) * progress
+      const bx = ball.startX + (ball.endX - ball.startX) * progress
+      const by = ball.startY + (ball.endY - ball.startY) * progress
       const d = Math.hypot(mx - bx, my - by)
-      if (d < 14) {
+      if (d < 22) {
         interceptBall(ball.id, e.clientX, e.clientY, rect)
       }
     })
@@ -189,32 +205,42 @@ export function GoalSave({ ballCount, difficulty, onResult }: GoalSaveProps) {
         @keyframes gsFadeIn { from { opacity: 0; } to { opacity: 1; } }
       `}</style>
 
-      {/* Goal frame SVG background */}
+      {/* Goal frame SVG background — goalkeeper perspective, goal at bottom */}
       <svg className="gs-goal-frame" viewBox="0 0 100 100" preserveAspectRatio="none">
-        {/* Net fill */}
-        <path d="M8 20H92L96 88H4Z" fill="rgba(255,255,255,.03)" />
-        {/* Vertical net lines */}
-        {[20, 34, 48, 62, 76].map((x) => (
-          <line key={x} x1={x} y1="20" x2={x + (x - 50) * 0.08} y2="88"
-            stroke="rgba(255,255,255,.12)" strokeWidth="0.5" />
+        {/* Field gradient top */}
+        <rect x="0" y="0" width="100" height="74" fill="rgba(43,255,154,.03)" />
+        {/* Net fill — behind the goal (at bottom) */}
+        <path d="M6 76H94L98 98H2Z" fill="rgba(255,255,255,.04)" />
+        {/* Vertical net lines (perspective: converge upward) */}
+        {[18, 32, 50, 68, 82].map((x) => (
+          <line key={x} x1={x} y1="76" x2={50 + (x - 50) * 0.18} y2="98"
+            stroke="rgba(255,255,255,.14)" strokeWidth="0.5" />
         ))}
         {/* Horizontal net lines */}
-        {[35, 50, 65, 80].map((y) => {
-          const progress = (y - 20) / 68
-          const left = 8 - progress * 4
-          const right = 92 + progress * 4
-          return <line key={y} x1={left} y1={y} x2={right} y2={y} stroke="rgba(255,255,255,.12)" strokeWidth="0.5" />
+        {[80, 86, 92].map((y) => {
+          const progress = (y - 76) / 22
+          const left = 6 - progress * 4
+          const right = 94 + progress * 4
+          return <line key={y} x1={left} y1={y} x2={right} y2={y} stroke="rgba(255,255,255,.14)" strokeWidth="0.5" />
         })}
-        {/* Goal frame */}
-        <path d="M4 88L8 20H92L96 88" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <line x1="4" y1="88" x2="96" y2="88" stroke="rgba(255,255,255,.9)" strokeWidth="1.5" />
-        {/* Top crossbar */}
-        <line x1="8" y1="20" x2="92" y2="20" stroke="rgba(255,255,255,.9)" strokeWidth="1.5" />
-        {/* Ground */}
-        <line x1="0" y1="90" x2="100" y2="90" stroke="rgba(255,255,255,.2)" strokeWidth="0.5" />
+        {/* Goal posts */}
+        <line x1="6" y1="76" x2="2" y2="98" stroke="rgba(255,255,255,.92)" strokeWidth="1.8" strokeLinecap="round" />
+        <line x1="94" y1="76" x2="98" y2="98" stroke="rgba(255,255,255,.92)" strokeWidth="1.8" strokeLinecap="round" />
+        {/* Crossbar (top of goal) */}
+        <line x1="6" y1="76" x2="94" y2="76" stroke="rgba(255,255,255,.92)" strokeWidth="1.8" />
+        {/* Goal line at bottom */}
+        <line x1="2" y1="98" x2="98" y2="98" stroke="rgba(255,255,255,.92)" strokeWidth="1.8" />
+        {/* Ground / field lines */}
+        <line x1="0" y1="74" x2="100" y2="74" stroke="rgba(255,255,255,.15)" strokeWidth="0.5" />
+        {/* Penalty spot */}
+        <circle cx="50" cy="40" r="1.2" fill="rgba(255,255,255,.25)" />
+        {/* Penalty box outline */}
+        <rect x="18" y="55" width="64" height="19" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="0.5" />
+        {/* Goal area box */}
+        <rect x="32" y="66" width="36" height="8" fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="0.5" />
       </svg>
 
-      <div className="gs-label">TOUCHEZ LES BALLONS !</div>
+      <div className="gs-label">TOUCHE LES BALLONS !</div>
 
       {/* Balls */}
       {balls.map((ball) => {
@@ -225,11 +251,11 @@ export function GoalSave({ ballCount, difficulty, onResult }: GoalSaveProps) {
           <div key={ball.id}>
             <style>{`
               @keyframes ${animName} {
-                0% { left: ${ball.startX}%; top: ${ball.startY}%; width: 20px; height: 20px; }
-                100% { left: 50%; top: 85%; width: 56px; height: 56px; }
+                0% { left: ${ball.startX}%; top: ${ball.startY}%; width: 22px; height: 22px; }
+                100% { left: ${ball.endX}%; top: ${ball.endY}%; width: 60px; height: 60px; }
               }
               .gs-ball-${ball.id} {
-                animation: ${animName} ${ball.duration}ms linear ${ball.delay}ms both;
+                animation: ${animName} ${ball.duration}ms cubic-bezier(.2,.4,.6,1) ${ball.delay}ms both;
               }
             `}</style>
             <div
@@ -254,6 +280,24 @@ export function GoalSave({ ballCount, difficulty, onResult }: GoalSaveProps) {
           </div>
         )
       })}
+
+      {/* Swipe trail */}
+      {trail.length > 0 && (
+        <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents:'none', zIndex:25 }}>
+          {trail.map((seg, i) => {
+            const age = (Date.now() - seg.at) / 400
+            return (
+              <line key={seg.id}
+                x1={`${seg.x1}%`} y1={`${seg.y1}%`}
+                x2={`${seg.x2}%`} y2={`${seg.y2}%`}
+                stroke="#2bff9a" strokeWidth={4 - i * 0.5}
+                strokeLinecap="round"
+                opacity={Math.max(0, 1 - age)}
+              />
+            )
+          })}
+        </svg>
+      )}
 
       {/* Burst particles */}
       {particles.map((p) => (

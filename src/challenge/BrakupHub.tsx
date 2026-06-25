@@ -6,7 +6,9 @@ import type { BattleResult, ChallengeEntry, KnockoutEntrant, KnockoutMatch, Rank
 import BattleEngine from '../components/battle/BattleEngine'
 import BracketChallenge from './BracketChallenge'
 import ChallengeSplash from './ChallengeSplash'
-import MobileBracketFlow from './MobileBracketFlow'
+import ChallengeLoading from './ChallengeLoading'
+import WorldCupMapMenu from './WorldCupMapMenu'
+import useChallengePreload from './useChallengePreload'
 import EmailEntry from './EmailEntry'
 import Leaderboard from './Leaderboard'
 import MyBrackets from './MyBrackets'
@@ -71,6 +73,9 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
   const [picks, setPicks] = useState<Record<string, string>>(() => {
     try { return JSON.parse(localStorage.getItem('brakup:draft') ?? '{}') as Record<string, string> } catch { return {} }
   })
+  const [battleScores, setBattleScores] = useState<Record<string, { p: number; o: number }>>(() => {
+    try { return JSON.parse(localStorage.getItem('brakup:scores') ?? '{}') } catch { return {} }
+  })
   const [activeSide, setActiveSide] = useState<'home' | 'away'>('home')
   const [battleBonuses, setBattleBonuses] = useState(0)
   const [brackets, setBrackets] = useState<ChallengeEntry[]>([])
@@ -79,6 +84,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
+  const challengePreload = useChallengePreload()
   // Lobby music: kickoff when on challenge/brackets/board. Null during battle (BattleEngine takes over).
   useGameAudio(view !== 'battle' ? '/audio/kickoff-carnival.mp3' : null)
 
@@ -87,6 +93,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
   const activeMatch = matches.find((match) => match.id === activeMatchId)
 
   useEffect(() => { localStorage.setItem('brakup:draft', JSON.stringify(picks)) }, [picks])
+  useEffect(() => { localStorage.setItem('brakup:scores', JSON.stringify(battleScores)) }, [battleScores])
   useEffect(() => {
     if (!accessToken) return
     localStorage.setItem('brakup:token', accessToken)
@@ -115,7 +122,9 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
     navigate('battle', matchId)
   }
   const handleBattleComplete = (result: BattleResult) => {
-    handlePick(activeMatchId ?? '', result.winnerId)
+    const mid = activeMatchId ?? ''
+    handlePick(mid, result.winnerId)
+    setBattleScores((s) => ({ ...s, [mid]: { p: result.playerScore, o: result.opponentScore } }))
     setBattleBonuses((current) => Math.min(40, current + Math.max(1, Math.round(result.playerScore / 20))))
     navigate('challenge')
   }
@@ -136,7 +145,8 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
 
   return (
     <div className="brakup-shell">
-      {showSplash && <ChallengeSplash onPlay={() => setShowSplash(false)} />}
+      {view === 'challenge' && !challengePreload.ready ? <ChallengeLoading progress={challengePreload.progress} /> : null}
+      {showSplash && challengePreload.ready ? <ChallengeSplash onPlay={() => setShowSplash(false)} /> : null}
       <header className="brakup-topbar">
         <button type="button" className="brakup-brand" onClick={() => { sfx.tab(); navigate('challenge') }}><img src="/favicon-512.png" alt="" className="brakup-brand__ico" /><div><strong>BRAKUP</strong><small>World Cup Challenge</small></div></button>
         <nav>
@@ -149,8 +159,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
       {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} /> : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
-        {/* Primary: swipeable match flow for all screen sizes */}
-        <MobileBracketFlow matches={matches} teamsById={teamsById} picks={picks} onPick={handlePick} onPlay={handlePlay} onShowBracket={() => { sfx.bracket(); setShowBracket(true) }} onSave={() => setShowEmailEntry(true)} />
+        <WorldCupMapMenu matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} onPick={handlePick} onPlay={handlePlay} onShowBracket={() => { sfx.bracket(); setShowBracket(true) }} onSave={() => setShowEmailEntry(true)} />
       </> : null}
 
       {/* Bracket overlay — fullscreen, opens from the ⊞ button */}

@@ -38,7 +38,9 @@
 .battle-engine *, .battle-engine *::before, .battle-engine *::after { box-sizing: border-box; }
 .battle-engine { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .battle-engine button { font: inherit; }
-.battle-intro,.battle-round-start,.battle-round-result,.battle-match-result { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding: 28px 24px max(24px,env(safe-area-inset-bottom)); text-align: center; overflow-y: auto; }
+.battle-intro,.battle-round-start,.battle-round-result,.battle-match-result { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding: 40px 20px max(24px,env(safe-area-inset-bottom)); text-align: center; overflow-y: auto; }
+/* Round-start & result need extra top space for the persistent score strip */
+.battle-round-start,.battle-round-result { padding-top: 48px; }
 /* Screen 1 — Battle Entry */
 .battle-intro { background:radial-gradient(120% 60% at 50% 0%,rgba(43,255,154,.16),rgba(5,11,22,0) 55%),#050b16; }
 .battle-intro::before { content:""; position:absolute; inset:0; background: repeating-linear-gradient(90deg,transparent 0 49px,rgba(255,255,255,.018) 50px), repeating-linear-gradient(0deg,transparent 0 49px,rgba(255,255,255,.018) 50px); mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent); pointer-events:none; }
@@ -136,9 +138,30 @@
   100% { transform: scale(1.5); opacity: 0; }
 }
 
+/* ── Persistent score strip ──────────────────────────────── */
+.battle-score-strip {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 14px 5px;
+  background: rgba(5,11,22,.82); backdrop-filter: blur(6px);
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  font-family: 'Barlow Condensed','Arial Narrow',sans-serif;
+  pointer-events: none;
+}
+.battle-score-strip span {
+  font: 600 11px 'Barlow Condensed',sans-serif;
+  letter-spacing: .08em; color: rgba(255,255,255,.55);
+  text-transform: uppercase; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 36%;
+}
+.battle-score-strip strong {
+  font: 800 18px 'JetBrains Mono',monospace;
+  color: #fff; white-space: nowrap; letter-spacing: .04em;
+}
+
 /* ── Pause button ────────────────────────────────────────── */
 .battle-pause-btn {
-  position: absolute; top: 12px; right: 12px; z-index: 150;
+  position: absolute; top: 36px; right: 12px; z-index: 150;
   width: 36px; height: 36px; border-radius: 50%;
   border: 1.5px solid rgba(255,255,255,.2);
   background: rgba(5,11,22,.7); backdrop-filter: blur(4px);

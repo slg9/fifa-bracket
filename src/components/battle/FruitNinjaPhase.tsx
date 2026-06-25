@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import type { BattleDifficulty } from '../../types'
+import type { BattleDifficulty, Team } from '../../types'
 
 type FruitNinjaPhaseProps = {
   attackersInZone: number
   difficulty: BattleDifficulty
   onResult: (saved: boolean) => void
   isPaused?: boolean
+  awayTeam?: Team
 }
 
 type NinjaKind = 'ball' | 'decoy'
@@ -35,12 +36,12 @@ const INTERCEPTION_COMMENTS = ['ARRÊTÉ !', 'SUPERBE !', 'QUELLE RÉFLEXE !', '
 
 // Wave timing (ms elapsed since start)
 
-const WAVE_2_START = 3500
-const WAVE_3_START = 7000
-const TOTAL_DURATION = 12000
+const WAVE_2_START = 2500
+const WAVE_3_START = 5000
+const TOTAL_DURATION = 8500
 
-const BALL_COUNT = 14
-const THRESHOLD = 9
+const BALL_COUNT = 17
+const THRESHOLD = 11
 
 function randomUnit() {
   const values = new Uint32Array(1)
@@ -52,12 +53,19 @@ function randomRange(minimum: number, maximum: number) {
   return minimum + randomUnit() * (maximum - minimum)
 }
 
+function edgePoint(edge: number): { x: number; y: number } {
+  if (edge === 0) return { x: randomRange(2, 8),   y: randomRange(5, 95) }   // left
+  if (edge === 1) return { x: randomRange(92, 98), y: randomRange(5, 95) }   // right
+  if (edge === 2) return { x: randomRange(5, 95),  y: randomRange(2, 8) }    // top
+  return              { x: randomRange(5, 95),  y: randomRange(92, 98) }     // bottom
+}
 function randomPath() {
-  const edge = Math.floor(randomUnit() * 4)
-  if (edge === 0) return { startX: randomRange(5, 20), startY: randomRange(15, 85), endX: randomRange(80, 95), endY: randomRange(15, 85) }
-  if (edge === 1) return { startX: randomRange(80, 95), startY: randomRange(15, 85), endX: randomRange(5, 20), endY: randomRange(15, 85) }
-  if (edge === 2) return { startX: randomRange(15, 85), startY: randomRange(5, 20), endX: randomRange(15, 85), endY: randomRange(80, 95) }
-  return { startX: randomRange(15, 85), startY: randomRange(80, 95), endX: randomRange(15, 85), endY: randomRange(5, 20) }
+  const startEdge = Math.floor(randomUnit() * 4)
+  // End on any of the OTHER 3 edges (including adjacent → diagonal paths)
+  const endEdge = (startEdge + 1 + Math.floor(randomUnit() * 3)) % 4
+  const s = edgePoint(startEdge)
+  const e = edgePoint(endEdge)
+  return { startX: s.x, startY: s.y, endX: e.x, endY: e.y }
 }
 
 function createAllObjects(difficulty: BattleDifficulty): NinjaObject[] {
@@ -66,12 +74,12 @@ function createAllObjects(difficulty: BattleDifficulty): NinjaObject[] {
   // Wave 2: 5 balls, delays 3500–5500ms
   // Wave 3: 5 balls, delays 7200–9500ms
   const waveDefs: Array<{ count: number; minDelay: number; maxDelay: number; wave: 1 | 2 | 3 }> = [
-    { count: 4, minDelay: 200, maxDelay: 1800, wave: 1 },
-    { count: 5, minDelay: 3500, maxDelay: 5500, wave: 2 },
-    { count: 5, minDelay: 7200, maxDelay: 9500, wave: 3 },
+    { count: 5,  minDelay: 150,  maxDelay: 1400, wave: 1 },
+    { count: 6,  minDelay: 2500, maxDelay: 4000, wave: 2 },
+    { count: 6,  minDelay: 5000, maxDelay: 7200, wave: 3 },
   ]
 
-  const difficultyDuration = difficulty === 'easy' ? 2800 : difficulty === 'medium' ? 2200 : 1700
+  const difficultyDuration = difficulty === 'easy' ? 1900 : difficulty === 'medium' ? 1450 : 1050
 
   const objects: NinjaObject[] = []
   for (const { count, minDelay, maxDelay, wave } of waveDefs) {
@@ -127,42 +135,59 @@ function distanceToSegment(px: number, py: number, x1: number, y1: number, x2: n
 
 function NinjaObjectVisual({ object, now }: { object: NinjaObject; now: number }) {
   const burstVisible = object.state === 'intercepted' && object.hitAt !== null && now - object.hitAt < 250
-  const diameter = object.kind === 'ball' ? 58 : 52
   const hidden = object.state === 'waiting' || (object.state === 'intercepted' && !burstVisible) || object.state === 'missed'
+
+  if (object.kind === 'decoy') {
+    return (
+      <svg
+        viewBox="0 0 80 80"
+        className={`fruit-ninja-object is-decoy${burstVisible ? ' is-burst' : ''}`}
+        style={{ left: `${object.x}%`, top: `${object.y}%`, width: 52, height: 52, opacity: hidden ? 0 : 1, pointerEvents: 'none' }}
+      >
+        <circle cx="40" cy="40" r="34" fill="#00DDCC" stroke="rgba(0,255,220,.9)" strokeWidth="4" />
+        <path d="M52 14 36 42h16L28 70 44 44H30Z" fill="rgba(0,0,0,.4)" stroke="rgba(255,255,255,.9)" strokeWidth="2.5" strokeLinejoin="round" />
+        {burstVisible && (
+          <g className="fruit-ninja-burst">
+            {Array.from({ length: 8 }, (_, i) => (
+              <circle key={i} cx={40 + Math.cos(i * Math.PI / 4) * 26} cy={40 + Math.sin(i * Math.PI / 4) * 26} r="5" fill="#00FFCC" />
+            ))}
+          </g>
+        )}
+      </svg>
+    )
+  }
+
   return (
     <svg
       viewBox="0 0 80 80"
-      className={`fruit-ninja-object is-${object.kind}${burstVisible ? ' is-burst' : ''}`}
-      style={{ left: `${object.x}%`, top: `${object.y}%`, width: diameter, height: diameter, opacity: hidden ? 0 : 1, pointerEvents: 'none' }}
+      className={`fruit-ninja-object is-ball${burstVisible ? ' is-burst' : ''}`}
+      style={{ left: `${object.x}%`, top: `${object.y}%`, width: 52, height: 52, opacity: hidden ? 0 : 1, pointerEvents: 'none' }}
     >
-      {object.kind === 'ball' ? (
-        <>
-          <circle cx="40" cy="40" r="34" fill="#f7f9fc" stroke="#101827" strokeWidth="4" />
-          <path d="M40 19 53 28 48 45H32L27 28Z M32 45 20 57M48 45 60 57M27 28 15 24M53 28 65 24M40 19V7" fill="none" stroke="#101827" strokeWidth="4" />
-        </>
-      ) : null}
-      {object.kind === 'decoy' ? (
-        <>
-          <circle cx="40" cy="40" r="34" fill="#00DDCC" stroke="rgba(0,255,220,.9)" strokeWidth="4" />
-          <path d="M52 14 36 42h16L28 70 44 44H30Z" fill="rgba(0,0,0,.4)" stroke="rgba(255,255,255,.9)" strokeWidth="2.5" strokeLinejoin="round" />
-        </>
-      ) : null}
-      {burstVisible ? (
+      <circle cx="40" cy="40" r="34" fill="#f7f9fc" stroke="#101827" strokeWidth="4" />
+      <path d="M40 19 53 28 48 45H32L27 28Z M32 45 20 57M48 45 60 57M27 28 15 24M53 28 65 24M40 19V7" fill="none" stroke="#101827" strokeWidth="4" />
+      {burstVisible && (
         <g className="fruit-ninja-burst">
-          {Array.from({ length: 8 }, (_, index) => (
-            <circle key={index} cx={40 + Math.cos(index * Math.PI / 4) * 26} cy={40 + Math.sin(index * Math.PI / 4) * 26} r="5" fill={object.kind === 'decoy' ? '#00FFCC' : '#ffcf32'} />
+          {Array.from({ length: 8 }, (_, i) => (
+            <circle key={i} cx={40 + Math.cos(i * Math.PI / 4) * 34} cy={40 + Math.sin(i * Math.PI / 4) * 34} r="5" fill="#ffcf32" />
           ))}
         </g>
-      ) : null}
+      )}
     </svg>
   )
 }
 
-export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty, onResult, isPaused }: FruitNinjaPhaseProps) {
+export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty, onResult, isPaused, awayTeam }: FruitNinjaPhaseProps) {
+  const [attackerName] = useState(() => {
+    const players = awayTeam?.players?.length
+      ? awayTeam.players
+      : awayTeam ? [`${awayTeam.shortName} 9`, `${awayTeam.shortName} 10`, `${awayTeam.shortName} 11`] : ['L\'attaquant']
+    return players[Math.floor(Math.random() * Math.min(3, players.length))]
+  })
   const arenaRef = useRef<HTMLElement | null>(null)
   const [tutorialDone, setTutorialDone] = useState(
     () => sessionStorage.getItem('brakup:tut:ninja') === '1'
   )
+  const [preCountdownNum, setPreCountdownNum] = useState<number | null>(null)
   const [objects, setObjects] = useState<NinjaObject[]>(() => createAllObjects(difficulty))
   const objectsRef = useRef(objects)
   const startAtRef = useRef<number | null>(null)
@@ -180,6 +205,9 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
   const [comments, setComments] = useState<InterceptionComment[]>([])
   const [waveAnnouncement, setWaveAnnouncement] = useState<{ text: string; key: number } | null>(null)
   const waveAnnouncedRef = useRef<Set<number>>(new Set())
+  const [missedCount, setMissedCount] = useState(0)
+  const missedCountRef = useRef(0)
+  const [missMessage, setMissMessage] = useState<string | null>(null)
 
   const intercepted = objects.filter((o) => o.kind === 'ball' && o.state === 'intercepted').length
 
@@ -243,7 +271,8 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
         setTimeout(() => setWaveAnnouncement(null), 1200)
       }
 
-      const nextObjects = objectsRef.current.map((object) => {
+      const prevObjects = objectsRef.current
+      const nextObjects = prevObjects.map((object) => {
         if (object.state === 'intercepted' || object.state === 'missed') return object
         if (elapsed < object.delay) return object
         const progress = (elapsed - object.delay) / object.duration
@@ -255,6 +284,23 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
           state: 'active' as const,
         }
       })
+
+      // Detect newly missed balls → red flash + miss message
+      let newMisses = 0
+      for (let i = 0; i < nextObjects.length; i++) {
+        if (nextObjects[i].kind === 'ball' && nextObjects[i].state === 'missed' && prevObjects[i].state === 'active') {
+          newMisses++
+        }
+      }
+      if (newMisses > 0) {
+        missedCountRef.current += newMisses
+        setMissedCount(missedCountRef.current)
+        setRedFlashUntil(timestamp + 500)
+        const msgs = ['Ouille !', 'Ça fait mal !', 'Aïe !', 'On va encaisser un but !', 'Danger !!', 'Au but ! 😱', 'Trop rapide !']
+        setMissMessage(msgs[Math.floor(randomUnit() * msgs.length)])
+        setTimeout(() => setMissMessage(null), 1400)
+      }
+
       objectsRef.current = nextObjects
       setObjects(nextObjects)
 
@@ -297,7 +343,7 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
       if (object.state !== 'active') return object
       const objPx = (object.x / 100) * rect.width
       const objPy = (object.y / 100) * rect.height
-      const hitRadius = (object.kind === 'ball' ? 58 : 52) / 2 + 14
+      const hitRadius = (object.kind === 'ball' ? 52 : 52) / 2 + 22
       if (distanceToSegment(objPx, objPy, px1, py1, px2, py2) > hitRadius) return object
       changed = true
       if (object.kind === 'decoy') {
@@ -319,6 +365,7 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
   }
 
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
+    if (!tutorialDone) return
     e.currentTarget.setPointerCapture(e.pointerId)
     isPointerDownRef.current = true
     const rect = arenaRef.current?.getBoundingClientRect()
@@ -349,10 +396,14 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      onPointerLeave={handlePointerUp}
     >
       <style>{`
-        .fruit-ninja-phase{position:fixed;z-index:1200;inset:0;overflow:hidden;color:#fff;background:#03070d;touch-action:none;cursor:crosshair;user-select:none}
+        .fruit-ninja-phase{position:absolute;z-index:1200;inset:0;overflow:hidden;color:#fff;background:#03070d;touch-action:none;cursor:crosshair;user-select:none}
+        .fn-pre-countdown{position:absolute;inset:0;z-index:65;background:rgba(3,7,14,.75);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;pointer-events:none}
+        .fn-pre-countdown__num{font:900 clamp(80px,25vw,140px) 'Barlow Condensed',sans-serif;color:#fff;letter-spacing:.06em;line-height:1;text-shadow:0 0 40px rgba(255,255,255,.5);animation:fnCdnPop .85s cubic-bezier(.22,1,.36,1) both}
+        .fn-pre-countdown__num.is-go{color:#2bff9a;text-shadow:0 0 60px rgba(43,255,154,.9);animation:fnCdnGo .55s cubic-bezier(.22,1,.36,1) both}
+        @keyframes fnCdnPop{0%{transform:scale(2.2);opacity:0}25%{opacity:1}80%{transform:scale(1);opacity:1}100%{transform:scale(.8);opacity:0}}
+        @keyframes fnCdnGo{0%{transform:scale(.4);opacity:0}40%{transform:scale(1.1);opacity:1}100%{transform:scale(1.5);opacity:0}}
         .fruit-ninja-grid{position:absolute;inset:0;pointer-events:none;opacity:.05}
         .fruit-ninja-counter{position:absolute;z-index:20;top:max(54px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
         .fruit-ninja-counter-title{font:900 40px 'Barlow Condensed',sans-serif;letter-spacing:.04em;color:#fff}
@@ -369,8 +420,13 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
         .fruit-ninja-object.is-decoy{filter:drop-shadow(0 0 10px rgba(0,221,204,.9)) drop-shadow(0 8px 8px rgba(0,0,0,.6));animation:fnSonicPulse .3s ease-in-out infinite alternate}
         .fruit-ninja-trails{position:absolute;z-index:15;inset:0;pointer-events:none}
         .fruit-ninja-trails line{stroke:#2bff9a;stroke-width:5;stroke-linecap:round;filter:drop-shadow(0 0 6px rgba(43,255,154,.9)) drop-shadow(0 0 12px rgba(43,255,154,.5));animation:fnSlash .45s both}
-        .fruit-ninja-flash{position:absolute;z-index:30;inset:0;background:rgba(255,20,45,.48);pointer-events:none;animation:fnFlash .2s both}
+        .fruit-ninja-flash{position:absolute;z-index:30;inset:0;background:rgba(255,20,45,.55);pointer-events:none;animation:fnFlash .5s both}
         .fruit-ninja-comment{position:absolute;z-index:25;transform:translate(-50%,-100%);font:900 18px 'Barlow Condensed',sans-serif;color:#2bff9a;text-shadow:0 0 8px rgba(43,255,154,.9);pointer-events:none;animation:fnComment .6s both;letter-spacing:.06em;white-space:nowrap}
+        .fn-miss-message{position:absolute;z-index:36;top:38%;left:50%;transform:translate(-50%,-50%);font:900 clamp(24px,8vw,40px) 'Barlow Condensed',sans-serif;color:#FF4455;text-shadow:0 0 24px rgba(255,68,85,.9);pointer-events:none;white-space:nowrap;animation:fnMissMsg .6s cubic-bezier(.22,1,.36,1) both;text-align:center}
+        @keyframes fnMissMsg{0%{transform:translate(-50%,-50%) scale(.6);opacity:0}20%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}80%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(.9)}}
+        .fn-miss-counter{position:absolute;z-index:20;top:max(54px,env(safe-area-inset-top));right:16px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;pointer-events:none}
+        .fn-miss-counter__num{font:900 28px 'Barlow Condensed',sans-serif;color:#FF4455;text-shadow:0 0 12px rgba(255,68,85,.7);line-height:1}
+        .fn-miss-counter__label{font:600 10px 'Barlow',sans-serif;color:rgba(255,68,85,.6);text-transform:uppercase;letter-spacing:.1em}
         .fruit-ninja-wave-announce{position:absolute;z-index:35;inset:0;display:grid;place-items:center;pointer-events:none}
         .fruit-ninja-wave-announce span{font:900 clamp(48px,14vw,80px) 'Barlow Condensed',sans-serif;letter-spacing:.04em;color:#2bff9a;text-shadow:0 0 24px rgba(43,255,154,.8),0 0 48px rgba(43,255,154,.4);animation:fnWaveAnnounce 1.2s both}
         .fruit-ninja-result{position:absolute;z-index:40;inset:0;display:grid;place-items:center;align-content:center;background:rgba(2,7,14,.82);animation:fnResultIn .2s both}
@@ -396,28 +452,41 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
       `}</style>
 
       {/* Tutorial overlay */}
-      {!tutorialDone && (
+      {!tutorialDone && preCountdownNum === null && (
         <div className="fn-tutorial">
-          <div className="fn-tutorial__title">FRUIT NINJA</div>
-          <div className="fn-tutorial__emoji">🖐</div>
+          <div className="fn-tutorial__title">ALERTE ROUGE !</div>
+          <div className="fn-tutorial__emoji">⚠️</div>
           <div className="fn-tutorial__text">
-            Des ballons traversent le terrain en <b style={{color:'#2bff9a'}}>3 vagues</b>.<br/>
-            <b style={{color:'#FFB800'}}>Glisse rapidement</b> sur les ballons pour les intercepter !<br/>
-            Intercepte <b style={{color:'#2bff9a'}}>{THRESHOLD}/{BALL_COUNT}</b> pour défendre.
+            <b style={{color:'#FF4455'}}>{attackerName}</b>{awayTeam ? ` (${awayTeam.shortName})` : ''} et ses équipiers chargent leur frappe en <b style={{color:'#2bff9a'}}>3 vagues</b> !<br/><br/>
+            <b style={{color:'#FFB800'}}>Glisse rapidement</b> sur les ballons pour les intercepter avant qu'ils atteignent le but.<br/>
+            Arrête <b style={{color:'#2bff9a'}}>{THRESHOLD}/{BALL_COUNT}</b> tirs pour défendre.
           </div>
           <div className="fn-tutorial__sub">
-            ⚡ Les ballons cyan <b>sont des leurres</b> — ne les touche pas !
+            ⚡ Les ballons cyan <b>sont des feintes</b> — ne les touche pas !
           </div>
           <button
             type="button"
             className="fn-tutorial__btn"
             onClick={() => {
               sessionStorage.setItem('brakup:tut:ninja', '1')
-              setTutorialDone(true)
+              setPreCountdownNum(3)
+              setTimeout(() => setPreCountdownNum(2), 900)
+              setTimeout(() => setPreCountdownNum(1), 1800)
+              setTimeout(() => setPreCountdownNum(0), 2700)
+              setTimeout(() => { setPreCountdownNum(null); setTutorialDone(true) }, 3300)
             }}
           >
-            🥷 Je suis prêt !
+            🧤 Je défends !
           </button>
+        </div>
+      )}
+
+      {/* Pre-game countdown (after tutorial dismiss) */}
+      {!tutorialDone && preCountdownNum !== null && (
+        <div className="fn-pre-countdown">
+          <div key={preCountdownNum} className={`fn-pre-countdown__num${preCountdownNum === 0 ? ' is-go' : ''}`}>
+            {preCountdownNum === 0 ? 'GO !' : preCountdownNum}
+          </div>
         </div>
       )}
 
@@ -434,17 +503,19 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
       {/* Counter */}
       <div className="fruit-ninja-counter">
         <div className="fruit-ninja-counter-title">
-          {'\u26BD'} {intercepted} <span>/ {BALL_COUNT}</span>
+          \uD83E\uDDE4 {intercepted} <span>/ {BALL_COUNT}</span>
         </div>
         <div className="fruit-ninja-wave-badge">VAGUE {currentWave}/3</div>
-        <small>intercepte {THRESHOLD} pour arreter</small>
+        <small>arr\u00EAte {THRESHOLD} tirs pour d\u00E9fendre</small>
         <div className="fruit-ninja-counter-bar">
           <div className="fruit-ninja-counter-fill" style={{ width: `${Math.min(100, intercepted / BALL_COUNT * 100)}%` }} />
         </div>
       </div>
 
-      {/* Hint for desktop */}
-      <div className="fruit-ninja-hint">Glisser pour intercepter les ballons</div>
+      {/* Attacker name reminder */}
+      <div className="fruit-ninja-hint">
+        <span style={{color:'#FF4455'}}>{attackerName}</span> arme sa frappe \u2014 intercepte !
+      </div>
 
       {/* Objects (pure visual, pointer-events:none) */}
       {objects.map((object) => (
@@ -465,7 +536,18 @@ export function FruitNinjaPhase({ attackersInZone: _attackersInZone, difficulty,
         </div>
       ))}
 
+      {/* Miss counter (top right) */}
+      {missedCount > 0 && (
+        <div className="fn-miss-counter">
+          <div className="fn-miss-counter__num">-{missedCount}</div>
+          <div className="fn-miss-counter__label">ratés</div>
+        </div>
+      )}
+
       {now < redFlashUntil ? <div className="fruit-ninja-flash" /> : null}
+
+      {/* Miss message */}
+      {missMessage ? <div key={missMessage + missedCount} className="fn-miss-message">{missMessage}</div> : null}
 
       {/* Wave announcement overlay */}
       {waveAnnouncement ? (

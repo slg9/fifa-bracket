@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { toBlob } from 'html-to-image'
 import './App.css'
+import BootLoaderMark from './components/BootLoaderMark'
 import BrakupHub from './challenge/BrakupHub'
 import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
 import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
@@ -327,12 +328,24 @@ function normalizeFilePart(value: string): string {
 }
 
 const mobileRoundTabs = [
-  { key: 'R32', label: 'R32', stage: 'Round of 32' },
-  { key: 'R16', label: 'R16', stage: 'Round of 16' },
-  { key: 'QF', label: 'QF', stage: 'Quarter-final' },
-  { key: 'SF', label: 'SF', stage: 'Semi-final' },
+  { key: 'R32', label: '16e', stage: 'Round of 32' },
+  { key: 'R16', label: '8e', stage: 'Round of 16' },
+  { key: 'QF', label: 'Quarts', stage: 'Quarter-final' },
+  { key: 'SF', label: 'Demies', stage: 'Semi-final' },
   { key: 'F', label: 'Finale', stage: 'Finale' },
 ] as const
+
+const stageLabels: Record<string, string> = {
+  'Round of 32': '16emes',
+  'Round of 16': '8emes',
+  'Quarter-final': 'Quarts',
+  'Semi-final': 'Demies',
+  Finale: 'Finale',
+}
+
+function formatStageLabel(stage: string): string {
+  return stageLabels[stage] ?? stage
+}
 
 function KnockoutTeamBadge({
   entrant,
@@ -990,7 +1003,7 @@ function BracketBoard({
             <div className="bracket-mobile-path__list">
               {focusedPathMatches.map((match) => (
                 <div key={match.id} className="bracket-mobile-path__item">
-                  <span>{match.stage}</span>
+                  <span>{formatStageLabel(match.stage)}</span>
                   <b>
                     {match.home.kind === 'team' ? teamsById.get(match.home.teamId)?.name : match.home.label}
                     {' vs '}
@@ -1057,7 +1070,7 @@ function BracketBoard({
 
             {roundColumns.map((column) => (
               <div key={column.key} className={`bcol bcol--${column.side}`}>
-                <div className="bcol__label">{column.stage}</div>
+                <div className="bcol__label">{formatStageLabel(column.stage)}</div>
                 <div className="bcol__matches">
                   {column.side === 'center' ? (
                     <div className="finalwrap">
@@ -1132,13 +1145,13 @@ function BracketBoard({
                           onPick={onPick}
                           onClear={onClear}
                           onPreview={setPreviewTeamId}
-                          onStandingsHover={column.stage === 'Round of 16' ? (teamId, event) => {
+                          onStandingsHover={(teamId, event) => {
                             const rect = event.currentTarget.getBoundingClientRect()
                             const x = 'clientX' in event ? event.clientX : rect.left + rect.width / 2
                             const y = 'clientY' in event ? event.clientY : rect.bottom
                             if (teamId) setStandingsPopup({ teamId, x, y })
                             else setStandingsPopup(null)
-                          } : undefined}
+                          }}
                         />
                       )
                     })
@@ -1225,12 +1238,10 @@ function App() {
     standings: [],
     predictions: [],
   })
-  const [mode, setMode] = useState<Mode>('real')
+  const [mode, setMode] = useState<Mode>('simulation')
   const simulatorMode = useMemo(() => new URLSearchParams(window.location.search).has('simulator'), [])
   const challengeMode = useMemo(() => new URLSearchParams(window.location.search).has('challenge'), [])
-  const [view, setView] = useState<View>(() =>
-    new URLSearchParams(window.location.search).has('simulator') ? 'bracket' : 'groups'
-  )
+  const [view, setView] = useState<View>('bracket')
   const [overrides, setOverrides] = useState<Record<string, MatchOverride>>({})
   const [knockoutPicks, setKnockoutPicks] = useState<Record<string, string>>({})
   const [focusId, setFocusId] = useState<string | null>(null)
@@ -1468,16 +1479,7 @@ function App() {
     return (
       <main className="app-shell loading">
         <div className="boot-loader">
-          <svg className="boot-loader__mark" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <circle className="boot-loader__orbit boot-loader__orbit--outer" cx="60" cy="60" r="50" />
-            <circle className="boot-loader__orbit boot-loader__orbit--inner" cx="60" cy="60" r="39" />
-            <g className="boot-loader__ball">
-              <circle cx="60" cy="60" r="24" fill="#eef3ff" />
-              <polygon points="60,45 71,53 67,67 53,67 49,53" fill="#0a1020" />
-              <path d="M60 45 60 36M71 53 80 49M67 67 73 76M53 67 47 76M49 53 40 49" stroke="#0a1020" strokeWidth="3" strokeLinecap="round" />
-              <path d="M60 36A24 24 0 0 1 80 49M73 76A24 24 0 0 1 47 76M40 49A24 24 0 0 1 60 36" stroke="#0a1020" strokeWidth="3" fill="none" />
-            </g>
-          </svg>
+          <BootLoaderMark />
           <div className="boot-loader__copy">
             <span className="boot-loader__label">Coupe du Monde 2026</span>
             <span className="boot-loader__status">Synchronisation du terrain</span>
@@ -1701,8 +1703,10 @@ function App() {
     return <BrakupHub seed={seed} liveSource={liveSource} standings={standings} teamsById={teamsById} />
   }
 
+  const isHomeBracketFocus = view === 'bracket' && mode === 'simulation'
+
   return (
-    <div className={`app-shell${simulatorMode ? ' is-simulator' : ''}`}>
+    <div className={`app-shell${simulatorMode ? ' is-simulator' : ''}${isHomeBracketFocus ? ' is-home-bracket' : ''}`}>
       {menuOpen ? <div className="menu-scrim" onClick={() => setMenuOpen(false)} /> : null}
       <div className="floods" aria-hidden="true">
         <i />
@@ -1754,6 +1758,21 @@ function App() {
             <div className="topmenu__sep" />
             <button
               type="button"
+              className={`topmenu__item${view === 'bracket' ? ' is-active' : ''}`}
+              onClick={() => { setView('bracket'); setMenuOpen(false) }}
+            >
+              Tableau final
+            </button>
+            <button
+              type="button"
+              className={`topmenu__item${view === 'groups' ? ' is-active' : ''}`}
+              onClick={() => { setView('groups'); setMenuOpen(false) }}
+            >
+              Groupes
+            </button>
+            <div className="topmenu__sep" />
+            <button
+              type="button"
               className={`topmenu__item${mode === 'real' ? ' is-active' : ''}`}
               onClick={() => { setMode('real'); setMenuOpen(false) }}
             >
@@ -1789,16 +1808,7 @@ function App() {
 
             {initialDayModalLoading ? (
               <div className="daymodal__loading">
-                <svg className="boot-loader__mark" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <circle className="boot-loader__orbit boot-loader__orbit--outer" cx="60" cy="60" r="50" />
-                  <circle className="boot-loader__orbit boot-loader__orbit--inner" cx="60" cy="60" r="39" />
-                  <g className="boot-loader__ball">
-                    <circle cx="60" cy="60" r="24" fill="#eef3ff" />
-                    <polygon points="60,45 71,53 67,67 53,67 49,53" fill="#0a1020" />
-                    <path d="M60 45 60 36M71 53 80 49M67 67 73 76M53 67 47 76M49 53 40 49" stroke="#0a1020" strokeWidth="3" strokeLinecap="round" />
-                    <path d="M60 36A24 24 0 0 1 80 49M73 76A24 24 0 0 1 47 76M40 49A24 24 0 0 1 60 36" stroke="#0a1020" strokeWidth="3" fill="none" />
-                  </g>
-                </svg>
+                <BootLoaderMark />
                 <div className="daymodal__loading-copy">
                   <span className="boot-loader__label">Récupération FIFA</span>
                   <span className="boot-loader__status">Chargement des scores et classements du jour</span>
@@ -2542,16 +2552,7 @@ function App() {
               <div className="statsmodal__body">
                 {matchStatsLoading ? (
                   <div className="statsmodal__loading">
-                    <svg className="boot-loader__mark" style={{ width: 64, height: 64 }} viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                      <circle className="boot-loader__orbit boot-loader__orbit--outer" cx="60" cy="60" r="50" />
-                      <circle className="boot-loader__orbit boot-loader__orbit--inner" cx="60" cy="60" r="39" />
-                      <g className="boot-loader__ball">
-                        <circle cx="60" cy="60" r="24" fill="#eef3ff" />
-                        <polygon points="60,45 71,53 67,67 53,67 49,53" fill="#0a1020" />
-                        <path d="M60 45 60 36M71 53 80 49M67 67 73 76M53 67 47 76M49 53 40 49" stroke="#0a1020" strokeWidth="3" strokeLinecap="round" />
-                        <path d="M60 36A24 24 0 0 1 80 49M73 76A24 24 0 0 1 47 76M40 49A24 24 0 0 1 60 36" stroke="#0a1020" strokeWidth="3" fill="none" />
-                      </g>
-                    </svg>
+                    <BootLoaderMark className="boot-loader__mark boot-loader__mark--sm" />
                     <span className="boot-loader__label" style={{ fontSize: 11 }}>Chargement des stats</span>
                   </div>
                 ) : !match.fifaMatchPath ? (

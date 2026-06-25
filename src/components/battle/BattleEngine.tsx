@@ -8,7 +8,7 @@ import { difficultyForStage } from './config'
 import DefensePhase from './DefensePhase'
 import FruitNinjaPhase from './FruitNinjaPhase'
 import MatchResult from './MatchResult'
-import RoundResult, { type RoundOutcome } from './RoundResult'
+import RoundResult, { roundResultNeedsClick, type RoundOutcome } from './RoundResult'
 import './battle.css'
 
 const AUDIO = {
@@ -42,13 +42,13 @@ function entrantId(match: KnockoutMatch, side: 'home' | 'away') {
   return entrant.kind === 'team' ? entrant.teamId : side
 }
 
-function makeInitialState(homeTeamId: string, awayTeamId: string, stage: string, skipScreens: boolean): BattleMatchState {
+function makeInitialState(homeTeamId: string, awayTeamId: string, stage: string, skipIntro: boolean): BattleMatchState {
   return {
     roundIndex: 0,
     rounds: [...STANDARD_ROUNDS],
     playerScore: 0,
     opponentScore: 0,
-    phase: skipScreens ? 'countdown' : 'intro',
+    phase: skipIntro ? 'round_start' : 'intro',
     difficulty: difficultyForStage(stage),
     homeTeamId,
     awayTeamId,
@@ -64,14 +64,25 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
   const awayTeam = teamsById.get(awayTeamId)
   const homeFlag = homeTeam?.flagEmoji ?? ''
   const awayFlag = awayTeam?.flagEmoji ?? ''
-  const skipScreens = playerSide != null
+  const skipIntro = playerSide != null
+  const skipScreens = false
 
-  const [state, setState] = useState<BattleMatchState>(() => makeInitialState(homeTeamId, awayTeamId, match.stage, skipScreens))
+  const [state, setState] = useState<BattleMatchState>(() => makeInitialState(homeTeamId, awayTeamId, match.stage, skipIntro))
   const [history, setHistory] = useState<BattleResult['rounds']>([])
   const [roundOutcome, setRoundOutcome] = useState<RoundOutcome>('miss')
   const [nextAction, setNextAction] = useState<NextAction | null>(null)
   const [isPaused, setIsPaused] = useState(false)
   const [countdownNum, setCountdownNum] = useState<number | null>(null)
+
+  // Pick stable player names for this match (avoid re-computing each render)
+  const homeAttackerName = useMemo(() => {
+    const players = homeTeam?.players
+    if (!players?.length) return undefined
+    return players[Math.floor(Math.random() * Math.min(players.length, 5))]
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homeTeamId])
+  const homeKeeperName = homeTeam?.players?.[0]
+  const awayKeeperName = awayTeam?.players?.[0]
 
   const currentRound = state.rounds[state.roundIndex]
   const suddenDeath = state.roundIndex >= STANDARD_ROUNDS.length
@@ -82,6 +93,13 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
     playerScore: state.playerScore,
     rounds: history,
   }), [awayTeamId, history, homeTeamId, state.opponentScore, state.playerScore])
+
+  // Clear tutorial flags so they show at the start of each new match
+  useEffect(() => {
+    sessionStorage.removeItem('brakup:tut:atk2')
+    sessionStorage.removeItem('brakup:tut:def')
+    sessionStorage.removeItem('brakup:tut:ninja')
+  }, [])
 
   // ── Audio ───────────────────────────────────────────────
   const playerWon = result.winnerId === homeTeamId
@@ -120,24 +138,29 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4) }
   }, [state.phase])
 
+  // ── Advance to next round (called by auto-timer OR by "On se ressaisit" button) ──
+  const advanceRound = useMemo(() => () => {
+    if (!nextAction) return
+    if (nextAction.type === 'finish') {
+      setState((current) => ({ ...current, phase: 'match_result' }))
+    } else {
+      setState((current) => ({
+        ...current,
+        rounds: nextAction.append ? [...current.rounds, nextAction.append] : current.rounds,
+        roundIndex: current.roundIndex + 1,
+        phase: skipScreens ? 'countdown' : 'round_start',
+      }))
+    }
+    setNextAction(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextAction, skipScreens])
+
   // ── Round result → next round / finish ──────────────────
   useEffect(() => {
-    if (state.phase !== 'round_result' || !nextAction) return
-    const timer = window.setTimeout(() => {
-      if (nextAction.type === 'finish') {
-        setState((current) => ({ ...current, phase: 'match_result' }))
-      } else {
-        setState((current) => ({
-          ...current,
-          rounds: nextAction.append ? [...current.rounds, nextAction.append] : current.rounds,
-          roundIndex: current.roundIndex + 1,
-          phase: skipScreens ? 'countdown' : 'round_start',
-        }))
-      }
-      setNextAction(null)
-    }, 1500)
+    if (state.phase !== 'round_result' || !nextAction || roundResultNeedsClick(roundOutcome)) return
+    const timer = window.setTimeout(advanceRound, 2000)
     return () => window.clearTimeout(timer)
-  }, [nextAction, state.phase, skipScreens])
+  }, [advanceRound, nextAction, roundOutcome, state.phase])
 
   const completeRound = (success: boolean, isGoal: boolean, outcome: RoundOutcome) => {
     const nextPlayerScore = state.playerScore + Number(currentRound === 'attack' && isGoal)
@@ -189,75 +212,23 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
     setHistory([])
     setNextAction(null)
     setRoundOutcome('miss')
-    setState(makeInitialState(homeTeamId, awayTeamId, match.stage, skipScreens))
+    setState(makeInitialState(homeTeamId, awayTeamId, match.stage, skipIntro))
   }
 
-  const isPlaying = state.phase === 'playing' || state.phase === 'countdown' || state.phase === 'round_result'
 
   return (
     <>
     <div className="battle-desktop-bg" aria-hidden="true" />
     <div className="battle-engine" role="dialog" aria-modal="true" aria-label={`Combat ${match.label}`} onContextMenu={(e) => e.preventDefault()}>
 
-      {/* ── Stadium crowd borders ──────────────────────────── */}
-      {isPlaying && (
-        <div className="battle-crowd-borders" aria-hidden="true">
-          {/* Left tribune */}
-          <svg className="battle-crowd-side battle-crowd-side--left" viewBox="0 0 48 844" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="48" height="844" fill="url(#crowdGradL)" />
-            <defs>
-              <linearGradient id="crowdGradL" x1="1" x2="0" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#0a1f12" stopOpacity="0.95" />
-                <stop offset="100%" stopColor="#061408" stopOpacity="0.85" />
-              </linearGradient>
-            </defs>
-            {/* Seat rows */}
-            {Array.from({ length: 22 }, (_, row) => (
-              <g key={row} transform={`translate(0, ${row * 38 + 10})`}>
-                {[6, 18, 30, 42].map((cx, fi) => (
-                  <g key={fi} className={`battle-fan${(row + fi) % 3 === 0 ? ' is-bounce' : (row + fi) % 3 === 1 ? ' is-wave' : ''}`}
-                     style={{ animationDelay: `${(row * 0.13 + fi * 0.07) % 1.2}s` }}>
-                    {/* Fan head */}
-                    <circle cx={cx} cy="4" r="4" fill={['#ff6b35', '#2bff9a', '#FFB800', '#a78bfa'][(row + fi) % 4]} opacity="0.85" />
-                    {/* Fan body */}
-                    <rect x={cx - 4} y="8" width="8" height="9" rx="2" fill={['#ff6b35', '#2bff9a', '#FFB800', '#a78bfa'][(row + fi) % 4]} opacity="0.6" />
-                    {/* Arms up occasionally */}
-                    {(row + fi) % 5 === 0 && <>
-                      <line x1={cx - 4} y1="9" x2={cx - 8} y2="4" stroke={['#ff6b35','#2bff9a','#FFB800','#a78bfa'][(row+fi)%4]} strokeWidth="1.5" opacity="0.7" />
-                      <line x1={cx + 4} y1="9" x2={cx + 8} y2="4" stroke={['#ff6b35','#2bff9a','#FFB800','#a78bfa'][(row+fi)%4]} strokeWidth="1.5" opacity="0.7" />
-                    </>}
-                  </g>
-                ))}
-              </g>
-            ))}
-          </svg>
-          {/* Right tribune */}
-          <svg className="battle-crowd-side battle-crowd-side--right" viewBox="0 0 48 844" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="48" height="844" fill="url(#crowdGradR)" />
-            <defs>
-              <linearGradient id="crowdGradR" x1="0" x2="1" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#0a1f12" stopOpacity="0.95" />
-                <stop offset="100%" stopColor="#061408" stopOpacity="0.85" />
-              </linearGradient>
-            </defs>
-            {Array.from({ length: 22 }, (_, row) => (
-              <g key={row} transform={`translate(0, ${row * 38 + 10})`}>
-                {[6, 18, 30, 42].map((cx, fi) => (
-                  <g key={fi} className={`battle-fan${(row + fi + 2) % 3 === 0 ? ' is-bounce' : (row + fi + 2) % 3 === 1 ? ' is-wave' : ''}`}
-                     style={{ animationDelay: `${(row * 0.11 + fi * 0.09 + 0.4) % 1.2}s` }}>
-                    <circle cx={cx} cy="4" r="4" fill={['#a78bfa', '#FFB800', '#2bff9a', '#ff6b35'][(row + fi) % 4]} opacity="0.85" />
-                    <rect x={cx - 4} y="8" width="8" height="9" rx="2" fill={['#a78bfa', '#FFB800', '#2bff9a', '#ff6b35'][(row + fi) % 4]} opacity="0.6" />
-                    {(row + fi + 1) % 5 === 0 && <>
-                      <line x1={cx - 4} y1="9" x2={cx - 8} y2="4" stroke={['#a78bfa','#FFB800','#2bff9a','#ff6b35'][(row+fi)%4]} strokeWidth="1.5" opacity="0.7" />
-                      <line x1={cx + 4} y1="9" x2={cx + 8} y2="4" stroke={['#a78bfa','#FFB800','#2bff9a','#ff6b35'][(row+fi)%4]} strokeWidth="1.5" opacity="0.7" />
-                    </>}
-                  </g>
-                ))}
-              </g>
-            ))}
-          </svg>
+      {/* ── Persistent score strip (shown on all phases except intro/match_result) ── */}
+      {state.phase !== 'intro' && state.phase !== 'match_result' ? (
+        <div className="battle-score-strip" aria-label="Score">
+          <span>{homeFlag} {homeTeam?.shortName ?? rawHomeId.slice(0, 3).toUpperCase()}</span>
+          <strong>{state.playerScore} — {state.opponentScore}</strong>
+          <span>{awayTeam?.shortName ?? rawAwayId.slice(0, 3).toUpperCase()} {awayFlag}</span>
         </div>
-      )}
+      ) : null}
 
       {/* ── Intro ─────────────────────────────────────────── */}
       {state.phase === 'intro' ? <section className="battle-intro">
@@ -280,19 +251,14 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
 
       {/* ── Round start ───────────────────────────────────── */}
       {state.phase === 'round_start' ? <section className="battle-round-start" key={state.roundIndex}>
-        <div className="battle-round-start__score">
-          <em>{homeFlag} {homeTeam?.shortName?.toUpperCase() ?? homeTeamId.slice(0, 3).toUpperCase()}</em>
-          <strong>{state.playerScore} — {state.opponentScore}</strong>
-          <em>{awayTeam?.shortName?.toUpperCase() ?? awayTeamId.slice(0, 3).toUpperCase()} {awayFlag}</em>
-        </div>
         <div className="battle-round-start__card">
           <p>{commentaryData
             ? highlightPlayerName(commentaryData.text, commentaryData.tokens[0])
             : currentRound === 'attack'
-              ? <><b>{homeTeam?.name?.toUpperCase() ?? homeTeamId.toUpperCase()}</b> entre dans la surface… <b>il faut éliminer les défenseurs et armer la frappe !</b></>
+              ? <><b>{homeTeam?.name ?? homeTeamId}</b> entre dans la surface - elimine les defenseurs et arme la frappe !</>
               : currentRound === 'defense'
-                ? <><b>{awayTeam?.name?.toUpperCase() ?? awayTeamId.toUpperCase()}</b> attaque en force… <b>protège ta surface, neutralise les attaquants !</b></>
-                : <><b>VAGUE D'ATTAQUE !</b> Intercepte les ballons avec ton curseur !</>}
+                ? <><b>{awayTeam?.name ?? awayTeamId}</b> attaque en force - protege ta surface !</>
+                : <><b>VAGUE D'ATTAQUE !</b> Intercepte les ballons avant qu'ils atteignent le but !</>}
           </p>
         </div>
         <svg className="battle-round-start__player" width="128" height="148" viewBox="0 0 128 148">
@@ -323,10 +289,10 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
       {/* ── Game phases ───────────────────────────────────── */}
       {/* Show during countdown too so the player can preview the game layout */}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'attack'
-        ? <AttackPhase key={`attack-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} />
+        ? <AttackPhase key={`attack-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeTeam?.players} awayTeamPlayers={awayTeam?.players} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} />
         : null}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'defense'
-        ? <DefensePhase key={`defense-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} onRoundEnd={handleDefenseEnd} isPaused={isPaused || state.phase === 'countdown'} />
+        ? <DefensePhase key={`defense-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} awayTeamPlayers={awayTeam?.players} onRoundEnd={handleDefenseEnd} isPaused={isPaused || state.phase === 'countdown'} />
         : null}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'fruit_ninja'
         ? <FruitNinjaPhase
@@ -335,11 +301,23 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
             difficulty={state.difficulty}
             onResult={handleFruitNinjaEnd}
             isPaused={isPaused || state.phase === 'countdown'}
+            awayTeam={awayTeam}
           />
         : null}
 
-      {state.phase === 'round_result' ? <RoundResult outcome={roundOutcome} roundType={currentRound} playerScore={state.playerScore} opponentScore={state.opponentScore} /> : null}
-      {state.phase === 'match_result' ? <MatchResult result={result} playerWon={result.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} onContinue={() => onComplete(result)} /> : null}
+      {state.phase === 'round_result' ? (
+        <RoundResult
+          outcome={roundOutcome}
+          roundType={currentRound}
+          playerScore={state.playerScore}
+          opponentScore={state.opponentScore}
+          scorerName={currentRound === 'attack' ? homeAttackerName : undefined}
+          keeperName={currentRound === 'defense' || currentRound === 'fruit_ninja' ? homeKeeperName : awayKeeperName}
+          opponentName={awayTeam?.name}
+          onContinue={advanceRound}
+        />
+      ) : null}
+      {state.phase === 'match_result' ? <MatchResult result={result} playerWon={result.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} onContinue={() => onComplete(result)} /> : null}
 
       {/* ── Countdown overlay ─────────────────────────────── */}
       {state.phase === 'countdown' && countdownNum !== null ? (
