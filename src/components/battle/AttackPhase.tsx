@@ -133,6 +133,9 @@ export function AttackPhase({
   const containerRef  = useRef<HTMLDivElement>(null)
   // Cache game area width for compositor-thread transform positioning (avoids layout reads in RAF)
   const gameWidthRef  = useRef(typeof window !== 'undefined' ? window.innerWidth : 400)
+  // Cached rects — avoid getBoundingClientRect() in pointer-move hot path (forced layout = jank)
+  const containerRectRef = useRef({ left: 0, width: typeof window !== 'undefined' ? window.innerWidth : 400 })
+  const shotRectRef      = useRef({ left: 0, top: 0, width: 0, height: 0 })
 
   // ── Init GD walls ──
   useEffect(() => {
@@ -154,6 +157,34 @@ export function AttackPhase({
     gdWallsRef.current = walls
     setGdWallsDisplay([...walls])
   }, [cfg.wallCount])
+
+  // ── Cache container rect (avoids getBoundingClientRect in hot pointer path) ──
+  useEffect(() => {
+    const measure = () => {
+      const el = containerRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      containerRectRef.current = { left: r.left, width: r.width }
+      gameWidthRef.current = r.width
+    }
+    measure()
+    window.addEventListener('resize', measure, { passive: true })
+    return () => window.removeEventListener('resize', measure)
+  }, [])
+
+  // ── Cache shot game rect when entering shot phase ──
+  useEffect(() => {
+    if (phase !== 'shot') return
+    const measure = () => {
+      const el = shotGameRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      shotRectRef.current = { left: r.left, top: r.top, width: r.width, height: r.height }
+    }
+    const t = setTimeout(measure, 50)  // slight delay for layout to settle after phase transition
+    window.addEventListener('resize', measure, { passive: true })
+    return () => { clearTimeout(t); window.removeEventListener('resize', measure) }
+  }, [phase])
 
   // ── Finish callback ──
   const finish = useCallback((isGoal: boolean, reason: AttackEndReason) => {
@@ -281,15 +312,14 @@ export function AttackPhase({
     return () => cancelAnimationFrame(frame)
   }, [phase, tutorialDone, showShotIntro, cfg.gdSpeed, cfg.wallCount, cfg.wallGap, finish])
 
-  // ── Pointer move for GD (drag ball left/right) — direct DOM, no re-render ──
+  // ── Pointer move for GD (drag ball left/right) — direct DOM, no re-render, no getBCR ──
   const handleGdPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     if (phaseRef.current !== 'gd' || endedRef.current) return
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect) return
-    gdPlayerXRef.current = Math.max(3, Math.min(97, ((e.clientX - rect.left) / rect.width) * 100))
+    const { left, width } = containerRectRef.current
+    if (!width) return
+    gdPlayerXRef.current = Math.max(3, Math.min(97, ((e.clientX - left) / width) * 100))
     if (playerElRef.current) {
-      const w = gameWidthRef.current || rect.width
-      playerElRef.current.style.transform = `translateX(${(gdPlayerXRef.current / 100) * w - 25}px)`
+      playerElRef.current.style.transform = `translateX(${(gdPlayerXRef.current / 100) * (gameWidthRef.current || width) - 25}px)`
     }
   }
 
@@ -347,8 +377,8 @@ export function AttackPhase({
 
   // ── Map screen pointer to goal-normalized coords (0-100), clamped inside goal ──
   const pointerToGoalTarget = (clientX: number, clientY: number): { x: number; y: number } => {
-    const rect = shotGameRef.current?.getBoundingClientRect()
-    if (!rect) return { x: 50, y: 30 }
+    const rect = shotRectRef.current
+    if (!rect.width) return { x: 50, y: 30 }
     const svgX = (clientX - rect.left) / rect.width   // 0-1
     const svgY = (clientY - rect.top)  / rect.height  // 0-1
 
@@ -380,9 +410,17 @@ export function AttackPhase({
     setAimCursorPos(pos)
   }
 
-  // ── Single tap → freeze gauge and fire ──
-  const handleShotPointerDown = () => {
-    if (shotFiredRef.current || endedRef.current || resultLabel) return
+  // ── Single tap → aim at tap point + freeze gauge and fire ──
+  const handleShotPointerDown = (e?: React.PointerEvent<HTMLElement>) => {
+    if (shotFiredRef.current || endedRef.current) return
+
+    // On mobile: tap simultaneously aims AND fires. Update aim to where user tapped.
+    if (e && !ballFlight) {
+      const pos = pointerToGoalTarget(e.clientX, e.clientY)
+      aimCursorRef.current = pos
+      // Don't call setAimCursorPos here — skip the re-render; aim is read from ref below
+    }
+
     shotFiredRef.current = true
 
     const cursor = gaugeCursorRef.current
@@ -447,10 +485,12 @@ export function AttackPhase({
       ref={containerRef}
       style={{ touchAction: 'none', userSelect: 'none' }}
       onPointerMove={(e) => {
-        if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerMove(e)
+        // Section-level: handles both phases so finger can roam anywhere (GD: no inner-div boundary)
+        if (phase === 'gd') handleGdPointerMove(e)
+        else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerMove(e)
       }}
       onPointerDown={(e) => {
-        if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerDown()
+        if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerDown(e)
         else if (phase === 'gd') handleGdPointerMove(e)
       }}
     >
@@ -780,7 +820,6 @@ export function AttackPhase({
       {phase === 'gd' && (
       <div
         className="atk-game"
-        onPointerMove={handleGdPointerMove}
       >
         {/* ════ GD Phase ════ */}
         {phase === 'gd' && (
@@ -930,6 +969,7 @@ export function AttackPhase({
         <div
           className="atk-shot-game"
           ref={shotGameRef}
+          onPointerDown={!showShotIntro && !ballFlight ? (e) => handleShotPointerDown(e) : undefined}
         >
           <GoalView
             compact
