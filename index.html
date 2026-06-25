@@ -2,56 +2,83 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
+
+    <!-- ── Favicons ─────────────────────────────────────── -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/logo-mark.svg" />
+    <link rel="apple-touch-icon" href="/favicon-512.png" />
     <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- ── Viewport & theme ─────────────────────────────── -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#070b14" />
-    <meta
-      name="description"
-      content="Simulateur premium de Coupe du monde 2026 : phase de groupes, scores live, matchs du jour et bracket final interactif dans une DA broadcast neon."
-    />
-    <meta
-      name="keywords"
-      content="Coupe du monde 2026, World Cup 2026, bracket predictor, simulateur football, scores live, groupes, tableau final, FIFA bracket"
-    />
-    <meta name="robots" content="index,follow" />
-    <meta name="application-name" content="Mondial 2026 Bracket Predictor" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Brakup" />
 
+    <!-- ── SEO ──────────────────────────────────────────── -->
+    <title>Brakup — World Cup 2026 Challenge | Prédicte, Joue &amp; Gagne</title>
+    <meta name="description" content="Brakup est LE jeu de prédiction de la Coupe du Monde 2026. Crée ton bracket, joue les matchs en mini-jeu interactif et affronte d'autres fans sur le classement mondial. Scores live inclus." />
+    <meta name="keywords" content="Brakup, World Cup 2026, Coupe du Monde 2026, bracket predictor, challenge football, prédiction matchs, scores live, tableau final FIFA, mini-jeu foot" />
+    <meta name="robots" content="index,follow" />
+    <meta name="application-name" content="Brakup" />
+    <meta name="author" content="Brakup" />
+    <link rel="canonical" href="https://fifa-bracket.vercel.app/" />
+
+    <!-- ── Open Graph ────────────────────────────────────── -->
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="fr_FR" />
-    <meta property="og:site_name" content="Mondial 2026 Bracket Predictor" />
+    <meta property="og:site_name" content="Brakup" />
     <meta property="og:url" content="https://fifa-bracket.vercel.app/" />
-    <meta property="og:title" content="Mondial 2026 Bracket Predictor" />
-    <meta
-      property="og:description"
-      content="Simule les groupes, suis les matchs du jour et projette tout le tableau final de la Coupe du monde 2026."
-    />
+    <meta property="og:title" content="Brakup — World Cup 2026 Challenge" />
+    <meta property="og:description" content="Crée ton bracket, joue les matchs en mini-jeu et grimpe dans le classement. LE challenge de la Coupe du Monde 2026 !" />
     <meta property="og:image" content="https://fifa-bracket.vercel.app/og-image.png" />
     <meta property="og:image:secure_url" content="https://fifa-bracket.vercel.app/og-image.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Mondial 2026 Bracket Predictor" />
+    <meta property="og:image:alt" content="Brakup — World Cup 2026 Challenge" />
 
+    <!-- ── Twitter / X Card ─────────────────────────────── -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Mondial 2026 Bracket Predictor" />
-    <meta
-      name="twitter:description"
-      content="Un simulateur premium pour suivre les groupes, les scores live et le bracket final de la Coupe du monde 2026."
-    />
+    <meta name="twitter:title" content="Brakup — World Cup 2026 Challenge" />
+    <meta name="twitter:description" content="Crée ton bracket, joue les matchs en mini-jeu et grimpe dans le classement. LE challenge de la Coupe du Monde 2026 !" />
     <meta name="twitter:image" content="https://fifa-bracket.vercel.app/og-image.png" />
+    <meta name="twitter:image:alt" content="Brakup — World Cup 2026 Challenge" />
 
+    <!-- ── Structured Data ───────────────────────────────── -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "Mondial 2026 Bracket Predictor",
-        "description": "Simulateur premium de Coupe du monde 2026 avec groupes, scores live, matchs du jour et bracket final interactif."
+        "@type": "WebApplication",
+        "name": "Brakup",
+        "url": "https://fifa-bracket.vercel.app/",
+        "description": "Brakup est LE jeu de prédiction de la Coupe du Monde 2026. Crée ton bracket, joue les matchs en mini-jeu interactif et affronte d'autres fans sur le classement mondial.",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Web",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "EUR"
+        },
+        "screenshot": "https://fifa-bracket.vercel.app/og-image.png",
+        "about": {
+          "@type": "SportsEvent",
+          "name": "FIFA World Cup 2026",
+          "startDate": "2026-06-11",
+          "endDate": "2026-07-19",
+          "location": {
+            "@type": "Place",
+            "name": "USA / Canada / Mexique"
+          }
+        }
       }
     </script>
 
-    <title>Mondial 2026 Bracket Predictor | Scores Live, Groupes et Tableau Final</title>
+    <!-- ── Fonts ─────────────────────────────────────────── -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@600;700;800&display=swap" rel="stylesheet">

@@ -1712,15 +1712,7 @@ function App() {
 
       <header className="topbar">
         <div className="brand">
-          <div className="brand__mark">
-            <span>26</span>
-          </div>
-          <div>
-            <div className="brand__title">
-              MONDIAL <b>2026</b>
-            </div>
-            <div className="brand__sub">Simulateur de bracket · React · live + simulation</div>
-          </div>
+          <img src="/brakup-logo.png" alt="BRAKUP" className="brand__logo" />
         </div>
 
         <div className="topactions">

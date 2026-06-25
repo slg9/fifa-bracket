@@ -1,17 +1,33 @@
 {
-  "name": "Mondial 2026 Bracket Predictor",
-  "short_name": "Mondial 2026",
-  "description": "Simulateur premium de Coupe du monde 2026 avec groupes, scores live et bracket final interactif.",
-  "start_url": "/",
+  "name": "Brakup — World Cup 2026 Challenge",
+  "short_name": "Brakup",
+  "description": "Crée ton bracket, joue les matchs en mini-jeu et grimpe dans le classement. LE challenge de la Coupe du Monde 2026 !",
+  "start_url": "/?challenge",
   "display": "standalone",
   "background_color": "#070b14",
   "theme_color": "#070b14",
+  "orientation": "portrait-primary",
+  "categories": ["games", "sports"],
+  "lang": "fr",
   "icons": [
     {
-      "src": "/logo-mark.svg",
+      "src": "/favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png"
     }
   ]
 }

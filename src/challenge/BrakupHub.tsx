@@ -138,7 +138,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
     <div className="brakup-shell">
       {showSplash && <ChallengeSplash onPlay={() => setShowSplash(false)} />}
       <header className="brakup-topbar">
-        <button type="button" className="brakup-brand" onClick={() => { sfx.tab(); navigate('challenge') }}><span>B</span><div><strong>BRAKUP</strong><small>World Cup Challenge</small></div></button>
+        <button type="button" className="brakup-brand" onClick={() => { sfx.tab(); navigate('challenge') }}><img src="/favicon-512.png" alt="" className="brakup-brand__ico" /><div><strong>BRAKUP</strong><small>World Cup Challenge</small></div></button>
         <nav>
           <button type="button" className={view === 'challenge' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('challenge') }}>Challenge</button>
           <button type="button" className={view === 'brackets' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('brackets') }}>Mes brackets</button>
