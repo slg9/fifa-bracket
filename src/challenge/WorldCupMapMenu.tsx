@@ -263,13 +263,13 @@ function LevelEntryScreen({
   selectedTeamId,
   score,
   open,
-  canShare,
-  canShowBracket,
+  canShare: _canShare,
+  canShowBracket: _canShowBracket,
   onClose,
   onPickTeam,
   onPlay,
-  onShowBracket,
-  onShare,
+  onShowBracket: _onShowBracket,
+  onShare: _onShare,
 }: {
   node: DisplayNode | null
   selectedTeamId: string | null
@@ -381,7 +381,7 @@ export function WorldCupMapMenu({
   teamsById,
   picks,
   scores = {},
-  onPick,
+  onPick: _onPick,
   onPlay,
   onShowBracket,
   onSave,

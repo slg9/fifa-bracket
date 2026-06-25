@@ -28,7 +28,7 @@ const GAP_ZONE_CENTERS = [18, 82, 50, 30, 70]
 const GD_PLAYER_Y   = 80     // fixed Y % where ball sits
 const WALL_FIRST_Y  = -12    // first wall starts above screen (negative %)
 const WALL_SPACING  = 38     // vertical spacing between walls (%)
-const WALL_HEIGHT   = 4      // wall bar height in % of game area
+
 const PLAYER_SPEED  = 60     // %/s via keyboard (left/right)
 const JUMP_DURATION = 700    // ms
 
@@ -362,7 +362,7 @@ export function AttackPhase({
   }
 
   // ── Pointer move in shot area → move aim cursor ──
-  const handleShotPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handleShotPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     if (shotFiredRef.current || phase !== 'shot' || ballFlight) return
     const pos = pointerToGoalTarget(e.clientX, e.clientY)
     aimCursorRef.current = pos

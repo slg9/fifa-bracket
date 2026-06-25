@@ -124,7 +124,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
   const handleBattleComplete = (result: BattleResult) => {
     const mid = activeMatchId ?? ''
     handlePick(mid, result.winnerId)
-    setBattleScores((s) => ({ ...s, [mid]: { p: result.playerScore, o: result.opponentScore } }))
+    setBattleScores((s) => ({ ...s, [mid]: { p: result.playerScore, o: result.awayScore } }))
     setBattleBonuses((current) => Math.min(40, current + Math.max(1, Math.round(result.playerScore / 20))))
     navigate('challenge')
   }
