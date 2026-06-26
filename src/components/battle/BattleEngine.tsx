@@ -8,6 +8,7 @@ import AttackPhase, { type AttackEndReason } from './AttackPhase'
 import { difficultyForStage } from './config'
 import DefensePhase from './DefensePhase'
 import FruitNinjaPhase from './FruitNinjaPhase'
+import GoalSave from './GoalSave'
 import CoinFlip from './CoinFlip'
 import MatchResult from './MatchResult'
 import RoundResult, { roundResultNeedsClick, type RoundOutcome } from './RoundResult'
@@ -36,10 +37,28 @@ function highlightPlayerName(text: string, playerName: string): ReactNode {
   return <>{text.slice(0, idx)}<b style={{ color: '#2bff9a', fontStyle: 'normal' }}>{playerName}</b>{text.slice(idx + playerName.length)}</>
 }
 
+function pickPlayer(players: string[] | undefined, start: number, fallback?: string) {
+  if (!players?.length) return fallback
+  const index = Math.min(start, players.length - 1)
+  return players[index] ?? fallback
+}
+
+function pickDefender(players: string[] | undefined, fallback?: string) {
+  if (!players?.length) return fallback
+  const pool = players.slice(1, Math.min(players.length, 5))
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : players[0]
+}
+
 type NextAction = { type: 'next'; append?: BattleRoundType } | { type: 'finish' } | { type: 'coin_flip' }
 
-const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja', 'attack', 'defense']
+const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja', 'attack', 'defense', 'fruit_ninja']
 const MAX_SUDDEN_DEATH_ROUNDS = 4 // 2 full attack+defense cycles before forcing a result
+
+const ROUND_LABELS: Record<BattleRoundType, { short: string; label: string }> = {
+  attack: { short: 'ATT', label: 'Attaque' },
+  defense: { short: 'DEF', label: 'Defense' },
+  fruit_ninja: { short: 'TM', label: 'Tirs massifs' },
+}
 
 function audioForRound(round: BattleRoundType | undefined): string {
   if (round === 'attack') return AUDIO.attack
@@ -65,6 +84,79 @@ function makeInitialState(homeTeamId: string, awayTeamId: string, stage: string,
   }
 }
 
+function roundProgressMeta(round: BattleRoundType, absoluteIndex: number) {
+  if (absoluteIndex >= STANDARD_ROUNDS.length && round === 'defense') return { short: 'GS', label: 'Goal save' }
+  return ROUND_LABELS[round]
+}
+
+function BattleProgressRail({ rounds, currentIndex, phase }: { rounds: BattleRoundType[]; currentIndex: number; phase: string }) {
+  const suddenDeath = currentIndex >= STANDARD_ROUNDS.length
+  const visibleStart = suddenDeath ? STANDARD_ROUNDS.length : 0
+  const visibleRounds = suddenDeath ? (['attack', 'defense', 'attack', 'defense'] as BattleRoundType[]) : rounds.slice(0, STANDARD_ROUNDS.length)
+  const activeVisibleIndex = currentIndex - visibleStart
+  const progressLabel = suddenDeath ? 'Mort subite' : `Phase ${Math.min(currentIndex + 1, STANDARD_ROUNDS.length)}/${STANDARD_ROUNDS.length}`
+
+  return (
+    <div className={`battle-progress-rail${suddenDeath ? ' is-sudden' : ''}`} aria-label={progressLabel}>
+      <div className="battle-progress-rail__title">{suddenDeath ? 'MS' : 'MATCH'}</div>
+      <div className="battle-progress-rail__steps">
+        {visibleRounds.map((round, index) => {
+          const absoluteIndex = visibleStart + index
+          const isDone = absoluteIndex < currentIndex || phase === 'round_result' && absoluteIndex === currentIndex
+          const isActive = index === activeVisibleIndex && phase !== 'round_result'
+          const meta = roundProgressMeta(round, absoluteIndex)
+          return (
+            <div
+              key={`${absoluteIndex}-${round}`}
+              className={`battle-progress-step${isDone ? ' is-done' : ''}${isActive ? ' is-active' : ''}`}
+              title={`${absoluteIndex + 1}. ${meta.label}`}
+            >
+              <span>{meta.short}</span>
+              <i />
+            </div>
+          )
+        })}
+      </div>
+      <div className="battle-progress-rail__meta">{suddenDeath ? `${Math.min(Math.max(activeVisibleIndex + 1, 1), MAX_SUDDEN_DEATH_ROUNDS)}/${MAX_SUDDEN_DEATH_ROUNDS}` : `${currentIndex + 1}/${STANDARD_ROUNDS.length}`}</div>
+    </div>
+  )
+}
+
+type SuddenAttempt = 'pending' | 'active' | 'goal' | 'miss'
+
+function SuddenDeathShootout({ history, currentIndex, currentRound, phase }: { history: BattleResult['rounds']; currentIndex: number; currentRound: BattleRoundType; phase: string }) {
+  const suddenHistory = history.slice(STANDARD_ROUNDS.length, STANDARD_ROUNDS.length + MAX_SUDDEN_DEATH_ROUNDS)
+  const playerAttempts: SuddenAttempt[] = ['pending', 'pending']
+  const opponentAttempts: SuddenAttempt[] = ['pending', 'pending']
+  let playerSlot = 0
+  let opponentSlot = 0
+
+  suddenHistory.forEach((round) => {
+    if (round.type === 'attack' && playerSlot < playerAttempts.length) {
+      playerAttempts[playerSlot] = round.isGoal ? 'goal' : 'miss'
+      playerSlot += 1
+    } else if (round.type === 'defense' && opponentSlot < opponentAttempts.length) {
+      opponentAttempts[opponentSlot] = round.isGoal ? 'goal' : 'miss'
+      opponentSlot += 1
+    }
+  })
+
+  if (currentIndex >= STANDARD_ROUNDS.length && phase !== 'round_result') {
+    if (currentRound === 'attack' && playerSlot < playerAttempts.length) playerAttempts[playerSlot] = 'active'
+    if (currentRound === 'defense' && opponentSlot < opponentAttempts.length) opponentAttempts[opponentSlot] = 'active'
+  }
+
+  const renderDots = (items: SuddenAttempt[]) => items.map((status, index) => <i key={index} className={`battle-sd-dot is-${status}`} />)
+
+  return (
+    <div className="battle-sd-shootout" aria-label="Mort subite tirs au but">
+      <div className="battle-sd-shootout__side">{renderDots(playerAttempts)}</div>
+      <span>MORT SUBITE</span>
+      <div className="battle-sd-shootout__side">{renderDots(opponentAttempts)}</div>
+    </div>
+  )
+}
+
 export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide }: BattleEngineProps) {
   const rawHomeId = entrantId(match, 'home')
   const rawAwayId = entrantId(match, 'away')
@@ -87,6 +179,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
   const [countdownNum, setCountdownNum] = useState<number | null>(null)
   const [audioOverride, setAudioOverride] = useState<string | null>(null)
   const [coinFlipWinnerId, setCoinFlipWinnerId] = useState<string | null>(null)
+  const [coinFlipMode, setCoinFlipMode] = useState<'sudden_death' | 'simulation'>('sudden_death')
+  const [simulatedResult, setSimulatedResult] = useState<BattleResult | null>(null)
   const audioMuted = useGameMuted()
 
   // Pick stable player names for this match (avoid re-computing each render)
@@ -102,14 +196,16 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
     return players[Math.floor(Math.random() * Math.min(players.length, 5))]
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [awayTeamId])
-  const homeKeeperName = homeTeam?.players?.[0]
-  const awayKeeperName = awayTeam?.players?.[0]
+  const homeDefenderName = useMemo(() => pickDefender(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} DEF` : undefined), [homeTeam?.players, homeTeam?.shortName])
+  const homeKeeperName = pickPlayer(homeTeam?.players, 0, homeTeam?.shortName ? `${homeTeam.shortName} GK` : undefined)
+  const awayKeeperName = pickPlayer(awayTeam?.players, 0, awayTeam?.shortName ? `${awayTeam.shortName} GK` : undefined)
 
   const currentRound = state.rounds[state.roundIndex]
+  const suddenDeath = state.roundIndex >= STANDARD_ROUNDS.length
+  const isSuddenGoalSave = suddenDeath && currentRound === 'defense'
   const roundStartPlayerNumber = currentRound === 'attack' ? '9' : currentRound === 'defense' ? '10' : '1'
   const roundStartPlayerName = currentRound === 'attack' ? homeAttackerName : currentRound === 'defense' ? awayAttackerName : awayKeeperName
   const roundStartCommentaryPlayer = roundStartPlayerName ? `${roundStartPlayerName} #${roundStartPlayerNumber}` : undefined
-  const suddenDeath = state.roundIndex >= STANDARD_ROUNDS.length
   const result = useMemo<BattleResult>(() => ({
     homeScore: state.playerScore,
     awayScore: state.opponentScore,
@@ -117,6 +213,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
     playerScore: state.playerScore,
     rounds: history,
   }), [awayTeamId, coinFlipWinnerId, history, homeTeamId, state.opponentScore, state.playerScore])
+  const displayedResult = simulatedResult ?? result
 
   const startRoundCountdown = () => {
     // Pre-battle already gives the instructions; avoid phase-level tutorial countdowns.
@@ -129,6 +226,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
   // Audio
   const playerWon = result.winnerId === homeTeamId
   const baseAudioSrc = (() => {
+    if (suddenDeath && state.phase !== 'match_result' && state.phase !== 'coin_flip') return null
     if (state.phase === 'intro') return AUDIO.kickoff
     if (state.phase === 'match_result') return playerWon ? AUDIO.victory : AUDIO.defeat
     if (state.phase === 'round_start' || state.phase === 'playing' || state.phase === 'round_result' || state.phase === 'countdown') {
@@ -169,6 +267,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
     if (nextAction.type === 'finish') {
       setState((current) => ({ ...current, phase: 'match_result' }))
     } else if (nextAction.type === 'coin_flip') {
+      setCoinFlipMode('sudden_death')
       setState((current) => ({ ...current, phase: 'coin_flip' }))
     } else {
       setState((current) => ({
@@ -202,12 +301,12 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
       action = nextPlayerScore === nextOpponentScore ? { type: 'next', append: 'attack' } : { type: 'finish' }
     } else {
       const suddenDeathCompleted = state.roundIndex - STANDARD_ROUNDS.length + 1
-      if (isGoal) {
+      if (currentRound === 'attack') {
+        action = { type: 'next', append: 'defense' }
+      } else if (nextPlayerScore !== nextOpponentScore) {
         action = { type: 'finish' }
       } else if (suddenDeathCompleted >= MAX_SUDDEN_DEATH_ROUNDS) {
         action = { type: 'coin_flip' }
-      } else if (currentRound === 'attack') {
-        action = { type: 'next', append: 'defense' }
       } else {
         action = { type: 'next', append: 'attack' }
       }
@@ -247,6 +346,14 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
     completeRound(outcome.saved, !outcome.saved, outcome.saved ? 'saved' : 'goal_conceded')
   }
 
+  const handleSuddenGoalSaveEnd = (saved: boolean) => {
+    if (!saved) {
+      playGameSound('/audio/sad.mp3', { volume: 0.95 })
+      sfx.concede()
+    }
+    completeRound(saved, !saved, saved ? 'saved' : 'goal_conceded')
+  }
+
   const handleFruitNinjaEnd = (saved: boolean) => {
     if (!saved) {
       playGameSound('/audio/sad.mp3', { volume: 0.95 })
@@ -255,8 +362,26 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
     completeRound(saved, !saved, saved ? 'defense_perfect' : 'goal_conceded')
   }
 
-  const handleCoinFlipEnd = (winnerId: string) => {
+  const handleCoinFlipEnd = (winnerId: string, score?: { home: number; away: number }, commentary?: string) => {
     setCoinFlipWinnerId(winnerId)
+    if (coinFlipMode === 'simulation' && score) {
+      setSimulatedResult({
+        homeScore: score.home,
+        awayScore: score.away,
+        winnerId,
+        playerScore: score.home,
+        rounds: [],
+        simulated: true,
+        commentary,
+      })
+      setState((current) => ({
+        ...current,
+        phase: 'match_result',
+        playerScore: score.home,
+        opponentScore: score.away,
+      }))
+      return
+    }
     setHistory((prev) => [...prev, { type: 'attack' as const, success: true, isGoal: true }])
     setState((current) => ({
       ...current,
@@ -282,6 +407,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
     setNextAction(null)
     setRoundOutcome('miss')
     setCoinFlipWinnerId(null)
+    setSimulatedResult(null)
+    setCoinFlipMode('sudden_death')
     setState(makeInitialState(homeTeamId, awayTeamId, match.stage, skipIntro))
   }
 
@@ -301,7 +428,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
           <strong>{state.opponentScore}</strong>
           <span className="battle-score-strip__flag">{awayFlag || awayTeam?.shortName?.slice(0, 2).toUpperCase() || awayTeamId.slice(0, 2).toUpperCase()}</span>
         </div>
-        {suddenDeath ? <div className="battle-sudden-death-badge">⚡ MORT SUBITE</div> : null}
+        {suddenDeath ? <SuddenDeathShootout history={history} currentIndex={state.roundIndex} currentRound={currentRound} phase={state.phase} /> : <BattleProgressRail rounds={state.rounds} currentIndex={state.roundIndex} phase={state.phase} />}
         </>
       ) : null}
 
@@ -323,14 +450,19 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
         <div className="battle-intro__sequence">
           {STANDARD_ROUNDS.map((round, index) => (
             <div key={index}>
-              <b>{round === 'fruit_ninja' ? 'NIN' : round === 'attack' ? 'ATT' : 'DEF'}</b>
-              <small>{round === 'fruit_ninja' ? 'NIN' : round === 'attack' ? 'ATT' : 'DEF'}</small>
+              <b>{round === 'fruit_ninja' ? 'TM' : round === 'attack' ? 'ATT' : 'DEF'}</b>
+              <small>{round === 'fruit_ninja' ? 'TIRS' : round === 'attack' ? 'ATT' : 'DEF'}</small>
             </div>
           ))}
         </div>
-        <button type="button" className="battle-intro__cta" onClick={() => { sfx.battle(); startRoundCountdown() }}>
-          Jouer ce match
-        </button>
+        <div className="battle-intro__actions">
+          <button type="button" className="battle-intro__cta" onClick={() => { sfx.battle(); startRoundCountdown() }}>
+            Jouer ce match
+          </button>
+          <button type="button" className="battle-intro__simulate" onClick={() => { sfx.click(); setCoinFlipMode('simulation'); setState((current) => ({ ...current, phase: 'coin_flip' })) }}>
+            Simuler
+          </button>
+        </div>
       </section> : null}
 
       {/* Round start */}
@@ -341,8 +473,10 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
             : currentRound === 'attack'
               ? <><b>{roundStartCommentaryPlayer ?? homeTeam?.name ?? homeTeamId}</b> part en slalom - passe les portes vertes puis arme la frappe !</>
               : currentRound === 'defense'
-                ? <><b>{roundStartCommentaryPlayer ?? awayTeam?.name ?? awayTeamId}</b> attaque en force - protege ta surface !</>
-                : <><b>CHAOS FRUIT NINJA !</b> Coupe les ballons adverses avant qu'ils filent vers le but !</>}
+                ? isSuddenGoalSave
+                  ? <><b>{roundStartCommentaryPlayer ?? awayTeam?.name ?? awayTeamId}</b> frappe en mort subite. Ton gardien doit sortir le ballon !</>
+                  : <><b>{roundStartCommentaryPlayer ?? awayTeam?.name ?? awayTeamId}</b> attaque en force - protege ta surface !</>
+                : <><b>{awayAttackerName ?? awayTeam?.name ?? awayTeamId}</b> et ses partenaires preparent des grosses frappes. Ton gardien doit tenir face aux tirs massifs !</>}
           </p>
         </div>
         <svg className="battle-round-start__player" width="128" height="148" viewBox="0 0 128 148">
@@ -366,26 +500,60 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
           <g transform="translate(98 130)"><circle r="13" fill="#f4f7ff" stroke="#0b1422" strokeWidth="1"/><path d="M0 -7 l6.7 4.9 -2.5 7.9 -8.4 0 -2.5 -7.9z" fill="#0b1422"/></g>
         </svg>
         <button type="button" className="battle-round-start__ready" onClick={() => { sfx.click(); startRoundCountdown() }}>
-          {currentRound === 'attack' ? "Pret ? Joue l'attaque >" : currentRound === 'defense' ? 'Pret ? Defends ! >' : 'Pret ? Fruit Ninja ! >'}
+          {currentRound === 'attack' ? "Pret ? Joue l'attaque >" : currentRound === 'defense' ? isSuddenGoalSave ? 'Pret ? Goal save ! >' : 'Pret ? Defends ! >' : 'Pret ? Tirs massifs ! >'}
         </button>
       </section> : null}
 
       {/* Game phases */}
       {/* Show during countdown too so the player can preview the game layout */}
-      {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'attack'
+      {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'attack' && !suddenDeath
         ? <AttackPhase key={`attack-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeTeam?.players} awayTeamPlayers={awayTeam?.players} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} />
         : null}
-      {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'defense'
-        ? <DefensePhase key={`defense-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} playerKit={homeKit} opponentKit={awayKit} awayTeamPlayers={awayTeam?.players} onRoundEnd={handleDefenseEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} />
+      {state.phase === 'playing' && currentRound === 'attack' && suddenDeath
+        ? <AttackPhase
+            key={`sudden-shot-${state.roundIndex}`}
+            difficulty={state.difficulty}
+            homeTeamId={homeTeamId}
+            awayTeamId={awayTeamId}
+            homeTeamPlayers={homeTeam?.players}
+            awayTeamPlayers={awayTeam?.players}
+            playerKit={homeKit}
+            opponentKit={awayKit}
+            onRoundEnd={handleAttackEnd}
+            isPaused={isPaused}
+            onAudioOverride={setAudioOverride}
+            shotOnly
+            shotAudioMode="heartOnly"
+            shotTitle="TIR DE MORT SUBITE"
+          />
         : null}
-      {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'fruit_ninja'
+      {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'defense' && !suddenDeath
+        ? <DefensePhase key={`defense-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} playerKit={homeKit} opponentKit={awayKit} awayTeamPlayers={awayTeam?.players} defenderName={homeDefenderName} keeperName={homeKeeperName} onRoundEnd={handleDefenseEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} />
+        : null}
+      {state.phase === 'playing' && currentRound === 'defense' && suddenDeath
+        ? <GoalSave
+            key={`sudden-goal-save-${state.roundIndex}`}
+            ballCount={1}
+            difficulty={state.difficulty}
+            playerKit={homeKit}
+            opponentKit={awayKit}
+            opponentName={awayAttackerName ?? awayTeam?.name}
+            opponentFlag={awayFlag}
+            keeperName={homeKeeperName}
+            mode="sudden_death"
+            onAudioOverride={setAudioOverride}
+            onResult={handleSuddenGoalSaveEnd}
+          />
+        : null}
+      {state.phase === 'playing' && currentRound === 'fruit_ninja'
         ? <FruitNinjaPhase
             key={`ninja-${state.roundIndex}`}
             attackersInZone={2}
             difficulty={state.difficulty}
             onResult={handleFruitNinjaEnd}
-            isPaused={isPaused || state.phase === 'countdown'}
-            awayTeam={awayTeam}
+            isPaused={isPaused}
+            homeTeam={homeTeam}
+            keeperName={homeKeeperName}
             opponentKit={awayKit}
             onAudioOverride={setAudioOverride}
           />
@@ -414,10 +582,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
           awayTeamName={awayTeam?.name ?? awayTeamId}
           homeFlag={homeFlag || homeTeam?.shortName?.slice(0, 2).toUpperCase() || homeTeamId.slice(0, 2).toUpperCase()}
           awayFlag={awayFlag || awayTeam?.shortName?.slice(0, 2).toUpperCase() || awayTeamId.slice(0, 2).toUpperCase()}
+          mode={coinFlipMode}
           onComplete={handleCoinFlipEnd}
         />
       ) : null}
-      {state.phase === 'match_result' ? <MatchResult result={result} playerWon={result.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} onContinue={() => onComplete(result)} /> : null}
+      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} onContinue={() => onComplete(displayedResult)} /> : null}
 
       {/* Countdown overlay */}
       {state.phase === 'countdown' && countdownNum !== null ? (

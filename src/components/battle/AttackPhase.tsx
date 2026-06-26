@@ -1037,7 +1037,7 @@ export function AttackPhase({
           overflow: hidden;
           position: relative;
         }
-        .atk-root.is-gd { display: grid; grid-template-rows: 1fr auto; }
+        .atk-root.is-gd { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
         .atk-root.is-shot { display: flex; flex-direction: column; }
         /* GD game area */
         .atk-game { position: relative; overflow: hidden; flex: 1; }
@@ -1127,13 +1127,13 @@ export function AttackPhase({
           pointer-events: none; overflow: visible;
         }
         .atk-dribble-hud {
-          position: absolute; top: max(10px, env(safe-area-inset-top)); left: 10px; right: 10px; z-index: 24;
-          display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start;
+          position: absolute; top: max(106px, calc(env(safe-area-inset-top) + 96px)); left: 14px; right: 14px; z-index: 24;
+          display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start;
           pointer-events: none;
         }
-        .atk-dribble-title { color:#eafff5; font:900 14px 'Barlow Condensed',sans-serif; letter-spacing:.16em; text-shadow:0 0 12px rgba(43,255,154,.42); }
-        .atk-dribble-title small { display:block; margin-top:1px; color:rgba(255,255,255,.52); font:800 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; }
-        .atk-flow-bar { width:min(190px,54vw); height:8px; margin-top:6px; border-radius:999px; background:rgba(255,255,255,.13); overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
+        .atk-dribble-title { color:#eafff5; font:900 13px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-shadow:0 0 12px rgba(43,255,154,.42); }
+        .atk-dribble-title small { display:block; margin-top:2px; color:rgba(255,255,255,.6); font:800 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .atk-flow-bar { width:min(210px,58vw); height:7px; margin-top:7px; border-radius:999px; background:rgba(255,255,255,.13); overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
         .atk-flow-bar__fill { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#2bff9a,#b8ff6a,#ffb800); box-shadow:0 0 12px rgba(43,255,154,.52); transition:width .22s ease-out; }
         .atk-combo-badge { min-width:72px; padding:7px 9px; border-radius:12px; text-align:center; color:#dfffee; background:rgba(5,16,21,.68); border:1px solid rgba(43,255,154,.32); font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.12em; box-shadow:0 0 18px rgba(43,255,154,.14); }
         .atk-combo-badge.is-hot { color:#201300; background:linear-gradient(180deg,#ffdc73,#ffb800); border-color:rgba(255,255,255,.48); box-shadow:0 0 22px rgba(255,184,0,.42); }
@@ -1141,7 +1141,7 @@ export function AttackPhase({
 
         /*  GD speed indicator  */
         .atk-gd-speed {
-          position: absolute; top: 8px; right: 10px; z-index: 20;
+          position: absolute; top: max(138px, calc(env(safe-area-inset-top) + 128px)); right: 14px; z-index: 20;
           font: 700 9px 'Barlow Condensed', sans-serif;
           letter-spacing: .12em; color: rgba(255,255,255,.35);
           transition: color .3s;
@@ -1220,22 +1220,22 @@ export function AttackPhase({
         @keyframes atkBonusFlash { from{opacity:1; transform:scale(.92)} to{opacity:0; transform:scale(1.08)} }
         @keyframes atkJumpButtonAlert { from{ transform:translateY(0); filter:brightness(1); } to{ transform:translateY(-2px); filter:brightness(1.18); } }
 
-        .atk-controls { display:grid; grid-template-columns:82px minmax(0,1fr) 82px; align-items:center; gap:10px; padding:10px 12px max(12px, env(safe-area-inset-bottom)); background:linear-gradient(180deg,#07170f,#030b08); border-top:1px solid rgba(255,255,255,.08); }
-        .atk-controls__stat { color:#dffef0; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.1em; text-transform:uppercase; }
-        .atk-controls__stat small { display:block; color:rgba(255,255,255,.48); font:700 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; margin-top:2px; }
-        .atk-controls__buttons { display:grid; grid-template-columns:1fr 1.08fr 1fr; gap:8px; }
-        .atk-ctrl-btn { min-height:58px; border:1px solid rgba(255,255,255,.18); border-radius:18px; background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.04)); color:#fff; font:900 26px 'Barlow Condensed',sans-serif; box-shadow:0 12px 26px rgba(0,0,0,.32); touch-action:none; cursor:pointer; }
+        .atk-controls { display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"stat phase" "buttons buttons"; align-items:center; gap:9px 12px; padding:10px 14px max(18px, calc(env(safe-area-inset-bottom) + 12px)); background:linear-gradient(180deg,rgba(7,23,15,.94),#030b08); border-top:1px solid rgba(255,255,255,.1); box-shadow:0 -18px 34px rgba(0,0,0,.34); }
+        .atk-controls__stat { grid-area:stat; color:#dffef0; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.1em; text-transform:uppercase; }
+        .atk-controls__stat small { display:inline; color:rgba(255,255,255,.5); font:800 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; margin-left:7px; }
+        .atk-controls__buttons { grid-area:buttons; display:grid; grid-template-columns:minmax(70px,1fr) minmax(108px,1.22fr) minmax(70px,1fr); gap:10px; width:min(100%,430px); justify-self:center; }
+        .atk-ctrl-btn { min-height:64px; border:1px solid rgba(255,255,255,.18); border-radius:16px; background:linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.045)); color:#fff; font:900 32px 'Barlow Condensed',sans-serif; line-height:1; box-shadow:0 12px 26px rgba(0,0,0,.32); touch-action:none; cursor:pointer; }
         .atk-ctrl-btn:active { transform:translateY(2px); background:rgba(43,255,154,.18); }
-        .atk-ctrl-btn--evade { color:#1c1300; background:linear-gradient(180deg,#ffd96a,#ff9f1a); border-color:rgba(255,255,255,.42); font-size:12px; letter-spacing:.12em; }
-        .atk-ctrl-btn--evade b { display:block; font-size:22px; line-height:1; }
+        .atk-ctrl-btn--evade { color:#1c1300; background:linear-gradient(180deg,#ffd96a,#ff9f1a); border-color:rgba(255,255,255,.42); font-size:13px; letter-spacing:.12em; }
+        .atk-ctrl-btn--evade b { display:block; font-size:26px; line-height:.95; }
         .atk-ctrl-btn--evade.is-jumping { filter:brightness(.82);box-shadow:inset 0 0 0 2px rgba(0,0,0,.18); }
         .atk-ctrl-btn--evade.is-danger { animation: atkJumpButtonAlert .48s ease-in-out infinite alternate; box-shadow:0 0 20px rgba(255,184,0,.58), 0 12px 26px rgba(0,0,0,.32); }
-        .atk-controls__phase { text-align:right; color:#2bff9a; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.14em; }
+        .atk-controls__phase { grid-area:phase; min-width:112px; text-align:right; color:#2bff9a; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.14em; }
         .atk-controls__phase.is-jump { color:#FFB800; }
         .atk-controls__phase.is-combo { color:#FF4455; }
         .atk-controls__phase.is-moving { color:#19d3ff; }
         .atk-controls__phase.is-bonus { color:#FFB800; }
-        .atk-controls__phase small { display:block; color:rgba(255,255,255,.52); font:700 9px 'Barlow Condensed',sans-serif; letter-spacing:.08em; margin-top:2px; }
+        .atk-controls__phase small { display:block; color:rgba(255,255,255,.62); font:800 10px 'Barlow Condensed',sans-serif; letter-spacing:.08em; margin-top:2px; max-width:132px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
         /*  Shot game area  */
         .atk-shot-game {
@@ -1247,6 +1247,29 @@ export function AttackPhase({
         }
         .atk-shot-game .goal-arcade > svg {
           min-height: unset; aspect-ratio: unset; height: 100%;
+        }
+        .atk-shot-title {
+          position: absolute;
+          top: max(106px, calc(env(safe-area-inset-top) + 96px));
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 28;
+          width: max-content;
+          max-width: calc(100% - 28px);
+          padding: 7px 12px;
+          border: 1px solid rgba(255,184,0,.38);
+          border-radius: 999px;
+          background: rgba(2,8,16,.58);
+          color: #FFB800;
+          font: 900 12px 'Barlow Condensed',sans-serif;
+          letter-spacing: .14em;
+          text-transform: uppercase;
+          text-align: center;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          pointer-events: none;
+          backdrop-filter: blur(8px);
         }
 
         /*  Gauge at bottom of shot scene  */
@@ -1581,9 +1604,9 @@ export function AttackPhase({
         <div className="atk-controls">
           <div className="atk-controls__stat">FLOW {flow}<small>Combo x{comboDisplay}</small></div>
           <div className="atk-controls__buttons">
-            <button type="button" className="atk-ctrl-btn" data-control="left" aria-label="Gauche" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.left = true }} onPointerUp={() => { keysRef.current.left = false }} onPointerCancel={() => { keysRef.current.left = false }} onPointerLeave={() => { keysRef.current.left = false }}>&lt;</button>
-            <button type="button" className={`atk-ctrl-btn atk-ctrl-btn--evade${gdJumping ? ' is-jumping' : ''}${nextGdWave?.requiresJump ? ' is-danger' : ''}`} data-control="jump" aria-label="Saut" onPointerDown={(e) => { e.stopPropagation(); handleJump() }}><b>^</b>SAUT</button>
-            <button type="button" className="atk-ctrl-btn" data-control="right" aria-label="Droite" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.right = true }} onPointerUp={() => { keysRef.current.right = false }} onPointerCancel={() => { keysRef.current.right = false }} onPointerLeave={() => { keysRef.current.right = false }}>&gt;</button>
+            <button type="button" className="atk-ctrl-btn" data-control="left" aria-label="Gauche" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.left = true }} onPointerUp={() => { keysRef.current.left = false }} onPointerCancel={() => { keysRef.current.left = false }} onPointerLeave={() => { keysRef.current.left = false }}>←</button>
+            <button type="button" className={`atk-ctrl-btn atk-ctrl-btn--evade${gdJumping ? ' is-jumping' : ''}${nextGdWave?.requiresJump ? ' is-danger' : ''}`} data-control="jump" aria-label="Saut" onPointerDown={(e) => { e.stopPropagation(); handleJump() }}><b>↑</b>SAUT</button>
+            <button type="button" className="atk-ctrl-btn" data-control="right" aria-label="Droite" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.right = true }} onPointerUp={() => { keysRef.current.right = false }} onPointerCancel={() => { keysRef.current.right = false }} onPointerLeave={() => { keysRef.current.right = false }}>→</button>
           </div>
           <div className={`atk-controls__phase${gdBadgeClass}`}>SLALOM<small>{gdInstruction}</small></div>
         </div>

@@ -7,24 +7,46 @@ type CoinFlipProps = {
   awayFlag: string
   homeTeamId: string
   awayTeamId: string
-  onComplete: (winnerId: string) => void
+  mode?: 'sudden_death' | 'simulation'
+  onComplete: (winnerId: string, score?: { home: number; away: number }, commentary?: string) => void
 }
 
-export function CoinFlip({ homeTeamName, awayTeamName, homeFlag, awayFlag, homeTeamId, awayTeamId, onComplete }: CoinFlipProps) {
+const SIM_COMMENTS = [
+  'Match tranche par une sequence folle en fin de rencontre.',
+  'La simulation donne un vainqueur net apres un gros duel tactique.',
+  'Le rythme s emballe et une equipe finit par faire craquer la defense.',
+  'Scenario serre, mais le dernier temps fort fait basculer le match.',
+  'Le sort du match se joue sur quelques details et une frappe decisive.',
+]
+
+function makeSimulatedScore(homeWins: boolean) {
+  const winnerGoals = 1 + Math.floor(Math.random() * 4)
+  const loserGoals = Math.floor(Math.random() * winnerGoals)
+  return homeWins ? { home: winnerGoals, away: loserGoals } : { home: loserGoals, away: winnerGoals }
+}
+
+export function CoinFlip({ homeTeamName, awayTeamName, homeFlag, awayFlag, homeTeamId, awayTeamId, mode = 'sudden_death', onComplete }: CoinFlipProps) {
   const [phase, setPhase] = useState<'spinning' | 'revealing' | 'done'>('spinning')
   const [winnerId, setWinnerId] = useState<string | null>(null)
+  const [score, setScore] = useState<{ home: number; away: number } | null>(null)
+  const [commentary, setCommentary] = useState('')
 
   useEffect(() => {
     // Pick random winner after ~2.6s of spinning
     const pickWinner = () => {
       const winner = Math.random() < 0.5 ? homeTeamId : awayTeamId
+      const homeWins = winner === homeTeamId
       setWinnerId(winner)
+      if (mode === 'simulation') {
+        setScore(makeSimulatedScore(homeWins))
+        setCommentary(SIM_COMMENTS[Math.floor(Math.random() * SIM_COMMENTS.length)])
+      }
       setPhase('revealing')
     }
     const t1 = setTimeout(pickWinner, 2600)
     const t2 = setTimeout(() => setPhase('done'), 3600)
     return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [homeTeamId, awayTeamId])
+  }, [homeTeamId, awayTeamId, mode])
 
   const winnerName = winnerId === homeTeamId ? homeTeamName : awayTeamName
   const winnerFlag = winnerId === homeTeamId ? homeFlag : awayFlag
@@ -159,8 +181,7 @@ export function CoinFlip({ homeTeamName, awayTeamName, homeFlag, awayFlag, homeT
 
       {phase === 'spinning' && (
         <p className="battle-coin-flip__message">
-          <b>Mort subite</b> — Après une bataille acharnée sans vainqueur,<br />
-          le hasard décide. <b>On tire à pile ou face !</b>
+          {mode === 'simulation' ? <><b>Simulation du match</b> — Le moteur lance un scenario express.<br /><b>Un vainqueur sera designe.</b></> : <><b>Mort subite</b> — Après une bataille acharnée sans vainqueur,<br />le hasard décide. <b>On tire à pile ou face !</b></>}
         </p>
       )}
 
@@ -183,8 +204,9 @@ export function CoinFlip({ homeTeamName, awayTeamName, homeFlag, awayFlag, homeT
           <span className="battle-coin-flip__result-eyebrow">Le sort a parlé</span>
           <span className="battle-coin-flip__result-flag">{winnerFlag}</span>
           <span className="battle-coin-flip__result-name">{winnerName}</span>
+          {score ? <span className="battle-coin-flip__message"><b>{score.home} - {score.away}</b><br />{commentary}</span> : null}
           {phase === 'done' && (
-            <button type="button" className="battle-coin-flip__btn" onClick={() => onComplete(winnerId!)}>
+            <button type="button" className="battle-coin-flip__btn" onClick={() => onComplete(winnerId!, score ?? undefined, commentary || undefined)}>
               Continuer <span>→</span>
             </button>
           )}

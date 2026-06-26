@@ -256,8 +256,8 @@ export function GoalView({
     return () => cancelAnimationFrame(raf)
   }, [ballFlight?.id, ballFlight?.duration])
 
-  const width = Math.max(1, dimensions.width)
-  const height = Math.max(1, dimensions.height)
+  const width = Math.max(MIN_SVG_WIDTH, dimensions.width || MIN_SVG_WIDTH)
+  const height = Math.max(MIN_SVG_HEIGHT, dimensions.height || MIN_SVG_HEIGHT)
   const frame = goalFrameMetrics(width, height, compact)
   const goalHeight = frame.bottomY - frame.topY
   const activeTarget = ballFlight?.target ?? target

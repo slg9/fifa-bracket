@@ -12,7 +12,8 @@ export type GoalSaveProps = {
   opponentKit?: TeamKit
   opponentName?: string
   opponentFlag?: string
-  mode?: 'goal_save' | 'penalty'
+  keeperName?: string
+  mode?: 'goal_save' | 'penalty' | 'sudden_death'
   onAudioOverride?: (src: string | null) => void
 }
 
@@ -60,34 +61,34 @@ const GOAL_SAVE_DIFFICULTY: Record<BattleDifficulty, GoalSaveConfig> = {
     waves: 3,
     minBallsPerWave: 2,
     maxBallsPerWave: 3,
-    durationRange: [1550, 2100],
-    delayRange: [320, 680],
+    durationRange: [2300, 2850],
+    delayRange: [420, 760],
     allowedMisses: 0,
-    swipeRadius: 0.085,
+    swipeRadius: 0.105,
   },
   medium: {
     waves: 3,
     minBallsPerWave: 3,
     maxBallsPerWave: 4,
-    durationRange: [1200, 1750],
-    delayRange: [220, 520],
+    durationRange: [2050, 2550],
+    delayRange: [340, 640],
     allowedMisses: 0,
-    swipeRadius: 0.075,
+    swipeRadius: 0.095,
   },
   hard: {
     waves: 3,
     minBallsPerWave: 4,
     maxBallsPerWave: 5,
-    durationRange: [900, 1450],
-    delayRange: [140, 390],
+    durationRange: [1780, 2250],
+    delayRange: [280, 520],
     allowedMisses: 0,
-    swipeRadius: 0.065,
+    swipeRadius: 0.085,
   },
 }
 
 const GOAL_ZONE = { minX: 8, maxX: 92, minY: 78, scoreY: 94 }
-const MIN_SWIPE_DISTANCE = 5
-const MIN_SWIPE_SPEED = 0.06
+const MIN_SWIPE_DISTANCE = 3
+const MIN_SWIPE_SPEED = 0.035
 const DOUBLE_TAP_WINDOW_MS = 1050
 
 function clamp(value: number, min: number, max: number) {
@@ -100,10 +101,11 @@ function randomBetween(min: number, max: number) {
 
 
 function easeBall(type: BallType, t: number) {
-  if (type === 'fast') return t * t
-  if (type === 'delayed') return t * t * t * (t * (6 * t - 15) + 10)
-  if (type === 'curveLeft' || type === 'curveRight') return 1 - Math.pow(1 - t, 2.35)
-  return t * t * (3 - 2 * t)
+  const smooth = t * t * (3 - 2 * t)
+  if (type === 'fast') return Math.pow(t, 1.28)
+  if (type === 'delayed') return Math.pow(smooth, 1.18)
+  if (type === 'curveLeft' || type === 'curveRight') return Math.pow(smooth, 0.94)
+  return smooth
 }
 
 function cubicBezierPoint(ball: Ball, t: number) {
@@ -139,23 +141,31 @@ function pointToClient(rect: DOMRect, point: BallPosition) {
   }
 }
 
-function makeGoalSaveBalls(ballCount: number, difficulty: BattleDifficulty, mode: 'goal_save' | 'penalty' = 'goal_save') {
+function makeGoalSaveBalls(ballCount: number, difficulty: BattleDifficulty, mode: 'goal_save' | 'penalty' | 'sudden_death' = 'goal_save') {
+  const cfg = GOAL_SAVE_DIFFICULTY[difficulty]
   const isPenalty = mode === 'penalty'
+  const isSuddenDeath = mode === 'sudden_death'
+  const isSpotKick = isPenalty || isSuddenDeath
   const danger = clamp(ballCount, 1, 3)
   const balls: Ball[] = []
-  const count = isPenalty ? 1 : danger
-  const durationBase = isPenalty ? (difficulty === 'hard' ? 1240 : difficulty === 'medium' ? 1380 : 1520) : difficulty === 'hard' ? 1120 : difficulty === 'medium' ? 1320 : 1520
+  const count = isSpotKick ? 1 : danger
+  const penaltyDurationBase = isSuddenDeath
+    ? difficulty === 'hard' ? 1120 : difficulty === 'medium' ? 1260 : 1400
+    : difficulty === 'hard' ? 1460 : difficulty === 'medium' ? 1640 : 1820
 
   for (let i = 0; i < count; i += 1) {
-    const type: BallType = isPenalty ? (Math.random() < 0.34 ? 'curveLeft' : Math.random() < 0.52 ? 'curveRight' : 'normal') : difficulty === 'hard' && i === 0 ? 'fast' : i % 2 ? 'curveLeft' : 'normal'
-    const endX = clamp((isPenalty ? randomBetween(28, 72) : [34, 50, 66][i]) + randomBetween(-6, 6), 18, 82)
+    const type: BallType = isSpotKick ? (isSuddenDeath && Math.random() < 0.42 ? 'fast' : Math.random() < 0.34 ? 'curveLeft' : Math.random() < 0.52 ? 'curveRight' : 'normal') : difficulty === 'hard' && i === 0 ? 'fast' : i % 2 ? 'curveLeft' : 'normal'
+    const endX = clamp((isSpotKick ? randomBetween(24, 76) : [34, 50, 66][i]) + randomBetween(-6, 6), 18, 82)
     const startX = clamp(endX + randomBetween(-24, 24), 8, 92)
-    const startY = isPenalty ? randomBetween(5, 11) : randomBetween(-12, 4)
+    const startY = isSpotKick ? randomBetween(5, 11) : randomBetween(10, 18)
     const endY = randomBetween(94, 97)
     const curveDir = type === 'curveLeft' ? -1 : Math.random() < 0.5 ? -1 : 1
-    const curvePower = type === 'fast' ? 10 : randomBetween(14, 26)
-    const duration = durationBase - (isPenalty ? 0 : (danger - 1) * 80 + i * 45)
-    const delay = isPenalty ? 3100 : 80 + i * 180
+    const curvePower = type === 'fast' ? 8 : randomBetween(10, 20)
+    const baseDuration = isSpotKick ? penaltyDurationBase : randomBetween(cfg.durationRange[0], cfg.durationRange[1])
+    const pressureTrim = isSpotKick ? 0 : (danger - 1) * 70 + i * 35
+    const typeTrim = type === 'fast' ? 170 : type === 'curveLeft' || type === 'curveRight' ? 60 : 0
+    const duration = Math.max(isSuddenDeath ? 1040 : isPenalty ? 1320 : 1680, baseDuration - pressureTrim - typeTrim)
+    const delay = isSuddenDeath ? 120 : isPenalty ? 3100 : 220 + i * randomBetween(cfg.delayRange[0], cfg.delayRange[1])
 
     balls.push({
       id: i + 1,
@@ -166,15 +176,15 @@ function makeGoalSaveBalls(ballCount: number, difficulty: BattleDifficulty, mode
       endX,
       endY,
       cp1X: clamp(startX + (endX - startX) * 0.22 + curveDir * curvePower, -8, 108),
-      cp1Y: randomBetween(8, 24),
+      cp1Y: randomBetween(24, 38),
       cp2X: clamp(endX - curveDir * curvePower * 0.32, 0, 100),
-      cp2Y: randomBetween(62, 78),
+      cp2Y: randomBetween(58, 72),
       delay,
       duration,
       health: 1,
       maxHealth: 1,
       state: 'waiting',
-      speedFeel: clamp(1.25 - duration / 2300, 0.25, 1.05),
+      speedFeel: clamp(1.2 - duration / 2800, 0.2, 1),
       spinDirection: Math.random() < 0.5 ? -1 : 1,
     })
   }
@@ -182,9 +192,12 @@ function makeGoalSaveBalls(ballCount: number, difficulty: BattleDifficulty, mode
   return balls
 }
 
-export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentKit, opponentName, opponentFlag, mode = 'goal_save', onAudioOverride }: GoalSaveProps) {
+export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentKit, opponentName, opponentFlag, keeperName, mode = 'goal_save', onAudioOverride }: GoalSaveProps) {
   const cfg = GOAL_SAVE_DIFFICULTY[difficulty]
   const isPenalty = mode === 'penalty'
+  const isSuddenDeath = mode === 'sudden_death'
+  const showKicker = isPenalty || isSuddenDeath
+  const autoResolve = !isPenalty
   const playerJerseyColor = playerKit?.primary ?? '#2bff9a'
   const playerAccentColor = playerKit?.secondary ?? '#FFB800'
   const opponentJerseyColor = opponentKit?.primary ?? '#FF4455'
@@ -219,7 +232,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
   onResultRef.current = onResult
 
   useEffect(() => {
-    if (isPenalty) {
+    if (isPenalty || isSuddenDeath) {
       onAudioOverride?.(null)
       const heart = playGameSound('/audio/heart.mp3', { volume: 0.88, loop: true })
       return () => {
@@ -229,7 +242,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
     }
     onAudioOverride?.('/audio/save-the-chaos.mp3')
     return () => onAudioOverride?.(null)
-  }, [isPenalty, onAudioOverride])
+  }, [isPenalty, isSuddenDeath, onAudioOverride])
 
   useEffect(() => {
     if (!isPenalty) return
@@ -276,9 +289,11 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
     endedRef.current = true
     setResultLabel(label)
     setPendingResult(saved)
-    if (saved) playGameSound('/audio/goal.mp3', { volume: 0.86 })
-    else playGameSound('/audio/sad.mp3', { volume: 0.86 })
-  }, [])
+    if (!saved) playGameSound('/audio/sad.mp3', { volume: 0.86 })
+    if (autoResolve) {
+      addTimer(() => onResultRef.current(saved), 780)
+    }
+  }, [addTimer, autoResolve])
 
   const maybeFinishIfComplete = useCallback((nextBalls: Ball[]) => {
     if (endedRef.current) return
@@ -407,8 +422,8 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
       const point = getBallPosition(ball, now, startTimeRef.current)
       if (!point.started || point.raw >= 1) continue
       const clientPoint = pointToClient(rect, point)
-      const radiusMultiplier = ball.type === 'fast' ? 0.9 : ball.type === 'doubleTap' ? 1.22 : ball.type === 'fake' ? 1 : 1.08
-      const radius = clamp(rect.width * cfg.swipeRadius, 28, 46) * radiusMultiplier
+      const radiusMultiplier = ball.type === 'fast' ? 1.02 : ball.type === 'doubleTap' ? 1.24 : ball.type === 'fake' ? 1 : 1.12
+      const radius = clamp(rect.width * cfg.swipeRadius, 34, 58) * radiusMultiplier
       if (distancePointToSegment(clientPoint.x, clientPoint.y, x1, y1, x2, y2) <= radius) {
         interceptBall(ball, point, now)
       }
@@ -427,8 +442,8 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
       const point = getBallPosition(ball, now, startTimeRef.current)
       if (!point.started || point.raw >= 1) continue
       const clientPoint = pointToClient(rect, point)
-      const radiusMultiplier = ball.type === 'fast' ? 0.84 : ball.type === 'doubleTap' ? 1.16 : 1
-      const directRadius = clamp(rect.width * cfg.swipeRadius, 26, 44) * radiusMultiplier
+      const radiusMultiplier = ball.type === 'fast' ? 1 : ball.type === 'doubleTap' ? 1.18 : 1.08
+      const directRadius = clamp(rect.width * cfg.swipeRadius, 32, 56) * radiusMultiplier
       if (Math.hypot(clientPoint.x - event.clientX, clientPoint.y - event.clientY) <= directRadius) {
         interceptBall(ball, point, now)
         break
@@ -494,7 +509,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
   return (
     <div
       ref={containerRef}
-      className={`gs-container${isPenalty ? ' is-penalty' : ''}${scoreFlash ? ' is-score-flash' : ''}${shake ? ' is-shaking' : ''}${hitFreeze ? ' is-freeze' : ''}`}
+      className={`gs-container${isPenalty ? ' is-penalty' : ''}${isSuddenDeath ? ' is-sudden-death' : ''}${scoreFlash ? ' is-score-flash' : ''}${shake ? ' is-shaking' : ''}${hitFreeze ? ' is-freeze' : ''}`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={endSwipe}
@@ -504,7 +519,9 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
       <style>{`
         .gs-container { position:relative; width:100%; height:100%; overflow:hidden; touch-action:none; user-select:none; cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23f7fbff' stroke='%230b1726' stroke-width='4' stroke-linejoin='round' d='M17 45C12 36 12 25 19 19c5-4 10-2 12 4l2-12c1-5 6-7 10-5 4 1 6 5 5 10l-1 11 4-11c2-4 6-5 10-3 4 2 5 6 4 10l-3 12 4-9c2-4 6-4 9-2 3 2 4 6 2 9l-6 16c-3 7-9 12-16 13l-11 2c-8 1-15-2-19-9Z'/%3E%3C/svg%3E") 18 18,crosshair; background:radial-gradient(circle at 50% 11%,rgba(43,255,154,.11),transparent 28%),linear-gradient(180deg,#061426 0%,#081b1a 48%,#07130c 74%,#030806 100%); font-family:'Barlow Condensed',sans-serif; }
         .gs-container.is-penalty { background:radial-gradient(circle at 50% 14%,rgba(255,68,85,.13),transparent 26%),radial-gradient(circle at 50% 96%,rgba(43,255,154,.11),transparent 32%),linear-gradient(180deg,#061426 0%,#082324 48%,#07130c 74%,#030806 100%); }
+        .gs-container.is-sudden-death { background:radial-gradient(circle at 50% 14%,rgba(255,68,85,.22),transparent 28%),radial-gradient(circle at 50% 96%,rgba(255,184,0,.14),transparent 34%),linear-gradient(180deg,#090d18 0%,#081b1a 48%,#07130c 74%,#030806 100%); }
         .gs-penalty-kicker { position:absolute; top:9%; left:50%; z-index:9; transform:translateX(-50%); display:grid; place-items:center; gap:2px; color:#fff; pointer-events:none; filter:drop-shadow(0 10px 18px rgba(0,0,0,.42)); animation:gsKickerPulse .7s ease-in-out infinite alternate; }
+        .gs-container.is-sudden-death .gs-penalty-kicker { top:12%; animation:gsKickerStrike .55s ease-in-out infinite alternate; }
         .gs-penalty-kicker__flag { display:grid; place-items:center; width:31px; height:31px; border-radius:50%; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.22); font-size:19px; margin-bottom:-4px; }
         .gs-penalty-kicker__name { padding:4px 9px; border-radius:999px; background:rgba(2,8,16,.62); border:1px solid rgba(255,255,255,.12); font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.13em; text-transform:uppercase; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .gs-penalty-countdown { position:absolute; inset:0; z-index:35; display:grid; place-items:center; pointer-events:none; }
@@ -514,10 +531,10 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
         .gs-container::after { content:''; position:absolute; inset:0; pointer-events:none; opacity:0; background:radial-gradient(circle at 50% 92%,rgba(255,68,85,.36),transparent 36%); transition:opacity .12s ease-out; z-index:18; }
         .gs-container.is-score-flash::after { opacity:1; }
         .gs-goal-frame { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-        .gs-hud { position:absolute; top:8px; left:10px; right:10px; z-index:24; display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:center; pointer-events:none; }
-        .gs-hud__pill { padding:7px 9px; border:1px solid rgba(255,255,255,.12); border-radius:999px; background:rgba(2,8,16,.58); color:rgba(255,255,255,.78); font:900 11px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-transform:uppercase; text-align:center; box-shadow:0 0 24px rgba(43,255,154,.08); }
+        .gs-hud { position:absolute; top:max(50px, calc(env(safe-area-inset-top) + 42px)); left:12px; right:12px; z-index:24; display:grid; grid-template-columns:1fr auto 1fr; gap:7px; align-items:center; pointer-events:none; }
+        .gs-hud__pill { padding:6px 8px; border:1px solid rgba(255,255,255,.12); border-radius:999px; background:rgba(2,8,16,.62); color:rgba(255,255,255,.78); font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; text-transform:uppercase; text-align:center; box-shadow:0 0 24px rgba(43,255,154,.08); backdrop-filter:blur(8px); }
         .gs-hud__pill strong { color:#fff; font-size:13px; }
-        .gs-label { position:absolute; top:10%; left:50%; transform:translateX(-50%); z-index:8; padding:8px 14px; border:1px solid rgba(255,255,255,.12); border-radius:999px; background:rgba(2,8,16,.46); color:rgba(255,255,255,.78); font:900 13px 'Barlow Condensed',sans-serif; letter-spacing:.15em; text-transform:uppercase; white-space:nowrap; pointer-events:none; }
+        .gs-label { position:absolute; top:max(92px, calc(env(safe-area-inset-top) + 82px)); left:50%; transform:translateX(-50%); z-index:8; width:max-content; max-width:calc(100% - 28px); padding:7px 12px; border:1px solid rgba(255,255,255,.12); border-radius:999px; background:rgba(2,8,16,.5); color:rgba(255,255,255,.78); font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; backdrop-filter:blur(8px); }
         .gs-wave-label { position:absolute; top:18%; left:50%; z-index:25; transform:translateX(-50%); padding:9px 18px; border-radius:999px; background:rgba(43,255,154,.14); border:1px solid rgba(43,255,154,.44); color:#2bff9a; font:900 18px 'Barlow Condensed'; letter-spacing:.18em; text-shadow:0 0 18px rgba(43,255,154,.55); animation:gsWave .72s ease-out both; pointer-events:none; }
         .gs-combo { position:absolute; top:26%; left:50%; z-index:26; transform:translateX(-50%); color:${playerJerseyColor}; font:900 25px 'Barlow Condensed'; letter-spacing:.16em; text-shadow:0 0 24px currentColor; animation:gsCombo .35s ease-out both; pointer-events:none; }
         .gs-ball { position:absolute; left:0; top:0; z-index:12; width:var(--gs-ball-size); height:var(--gs-ball-size); transform:translate(-50%,-50%) scale(var(--gs-scale,1)); pointer-events:auto; opacity:1; filter:drop-shadow(0 12px 14px rgba(0,0,0,.42)) drop-shadow(0 0 14px rgba(255,255,255,.16)); will-change:left,top,width,height,opacity,transform; }
@@ -546,6 +563,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
         @keyframes gsCombo { from{opacity:0;transform:translateX(-50%) translateY(8px) scale(.8)} to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)} }
         @keyframes gsShake { 0%,100%{transform:translate(0,0)} 25%{transform:translate(2px,-1px)} 50%{transform:translate(-2px,1px)} 75%{transform:translate(1px,2px)} }
         @keyframes gsKickerPulse { to{ transform:translateX(-50%) translateY(4px) scale(1.03); } }
+        @keyframes gsKickerStrike { to{ transform:translateX(-50%) translateY(7px) scale(1.08); filter:drop-shadow(0 0 22px rgba(255,68,85,.46)) drop-shadow(0 10px 18px rgba(0,0,0,.42)); } }
         @keyframes gsPenaltyCount { 0%{opacity:0;transform:scale(.58)} 30%{opacity:1;transform:scale(1.08)} 100%{opacity:0;transform:scale(.92)} }
       `}</style>
 
@@ -565,7 +583,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
         <line x1={GOAL_ZONE.minX} y1={GOAL_ZONE.scoreY} x2={GOAL_ZONE.maxX} y2={GOAL_ZONE.scoreY} stroke="rgba(255,68,85,.32)" strokeWidth=".65" strokeDasharray="2 2" />
       </svg>
 
-      {isPenalty ? (
+      {showKicker ? (
         <div className="gs-penalty-kicker" aria-hidden="true">
           {opponentFlag ? <div className="gs-penalty-kicker__flag">{opponentFlag}</div> : null}
           <svg viewBox="0 0 80 98" width="62" height="76">
@@ -594,11 +612,11 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
 
       <div className="gs-hud">
         <div className="gs-hud__pill">STOP <strong>{stoppedCount}/{totalRealBalls}</strong></div>
-        <div className="gs-hud__pill">VAGUE <strong>{currentWave + 1}/{cfg.waves}</strong></div>
+        <div className="gs-hud__pill">{isSuddenDeath ? 'TIR' : 'VAGUE'} <strong>{isSuddenDeath ? '1/1' : `${currentWave + 1}/${cfg.waves}`}</strong></div>
         <div className="gs-hud__pill">RATE <strong>{missedCount}/1</strong></div>
       </div>
-      <div className="gs-label">{isPenalty ? 'TIR AU BUT - SWIPE POUR ARRETER' : 'ARRETE LE BALLON ! 1 PASSE = BUT'}</div>
-      {showWaveLabel ? <div className="gs-wave-label">{isPenalty ? 'PREPARE LE PLONGEON' : 'DERNIERE CHANCE'}</div> : null}
+      <div className="gs-label">{showKicker ? `${keeperName ?? 'GARDIEN'} - SWIPE POUR ARRETER` : `${keeperName ?? 'GARDIEN'} : 1 PASSE = BUT`}</div>
+      {showWaveLabel ? <div className="gs-wave-label">{isSuddenDeath ? 'MORT SUBITE' : isPenalty ? 'PREPARE LE PLONGEON' : 'DERNIERE CHANCE'}</div> : null}
       {combo >= 2 ? <div className="gs-combo">COMBO x{combo}</div> : null}
 
       {activeBalls.map(({ ball, point }) => {
@@ -648,7 +666,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
         <div className={`gs-result${pendingResult ? ' is-save' : ''}`}>
           <div>{resultLabel}</div>
           <div className="gs-result__comment">{pendingResult ? 'TIR BLOQUE - CAGES SAUVEES' : 'BUT ENCAISSE'}</div>
-          <button type="button" className="gs-result__continue" onClick={handleResultContinue}>CONTINUER</button>
+          {!autoResolve ? <button type="button" className="gs-result__continue" onClick={handleResultContinue}>CONTINUER</button> : null}
         </div>
       ) : null}
     </div>

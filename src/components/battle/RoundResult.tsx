@@ -3,7 +3,7 @@ import type { BattleRoundType } from '../../types'
 
 export type RoundOutcome = 'goal' | 'saved' | 'intercepted' | 'miss' | 'defense_perfect' | 'goal_conceded'
 
-const MANUAL_CONTINUE_OUTCOMES: RoundOutcome[] = ['goal', 'goal_conceded', 'intercepted', 'miss']
+const MANUAL_CONTINUE_OUTCOMES: RoundOutcome[] = ['goal', 'saved', 'defense_perfect', 'goal_conceded', 'intercepted', 'miss']
 
 type RoundResultProps = {
   outcome: RoundOutcome
@@ -72,6 +72,14 @@ const MISS_ENCOURAGEMENTS = [
   'Tu y etais presque, le match continue.',
   'Garde le rythme pour la prochaine phase.',
 ]
+const BUTTON_COPY: Record<RoundOutcome, string[]> = {
+  goal: ['On garde le rythme', 'Continuer la pression', 'Enchainer'],
+  saved: ['On continue comme ca', 'Garder les cages', 'Rester solide'],
+  defense_perfect: ['Bloc solide, on enchaine', 'Continuer comme ca', 'Remettre le verrou'],
+  goal_conceded: ['On baisse pas les bras', 'Reagir tout de suite', 'Rester dans le match'],
+  intercepted: ['Se relancer', 'Reprendre le controle', 'On repart'],
+  miss: ['Regler la mire', 'La prochaine est dedans', 'On reste dangereux'],
+}
 
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
@@ -98,7 +106,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
     if (!nextRoundType) return 'Coup de sifflet : le resultat du match arrive.'
     if (nextRoundType === 'attack') return "Prochaine phase : attaque. Il faut dribbler puis finir l'action."
     if (nextRoundType === 'defense') return "Prochaine phase : defense. L'adversaire lance son offensive."
-    return 'Prochaine phase : chaos fruit ninja. Coupe les ballons.'
+    return 'Prochaine phase : Tirs massifs. Coupe les ballons.'
   }, [nextRoundType])
 
   const commentary = useMemo(() => {
@@ -121,7 +129,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
     if (outcome === 'saved') {
       const keeper = keeperName ? `${keeperName} sort le grand jeu !` : 'Parade monumentale !'
       const sub = `${opponentName ? `${opponentName} va devoir s'y reprendre.` : "L'attaque adverse est repoussee."} ${nextPhaseHint}`
-      return { accent: '#FF4455', main: keeper, sub }
+      return { accent: '#2bff9a', main: keeper, sub }
     }
     if (outcome === 'defense_perfect') {
       return { accent: '#2bff9a', main: "Zero pointe pour l'adversaire !", sub: `Defense de fer. ${nextPhaseHint}` }
@@ -130,13 +138,13 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
   }, [keeperName, nextPhaseHint, opponentName, outcome, scorerName])
 
   const showButton = roundResultNeedsClick(outcome)
-  const buttonLabel = !nextRoundType
-    ? 'Voir le resultat'
-    : nextRoundType === 'attack'
-      ? "Passer a l'attaque"
-      : nextRoundType === 'defense'
-        ? "Defendre l'offensive"
-        : 'Lancer le chaos'
+  const buttonLabel = useMemo(() => {
+    if (!nextRoundType) return outcome === 'goal_conceded' ? 'Voir le verdict' : 'Voir le resultat'
+    const situational = pick(BUTTON_COPY[outcome])
+    if (nextRoundType === 'attack') return situational
+    if (nextRoundType === 'defense') return outcome === 'goal_conceded' ? 'On baisse pas les bras' : situational
+    return outcome === 'goal_conceded' ? 'Resister aux tirs massifs' : 'Subir les tirs massifs'
+  }, [nextRoundType, outcome])
 
   return (
     <section className={`battle-round-result is-${outcome}`}>
@@ -146,7 +154,8 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         .battle-round-result.is-defense_perfect{background:radial-gradient(90% 50% at 50% 32%,rgba(255,184,0,.18),rgba(5,11,22,0) 62%),#050b16}
         .battle-round-result::before{content:"";position:absolute;inset:0;pointer-events:none;animation:bk-flash 1.6s ease-out both;z-index:5}
         .battle-round-result.is-goal::before{background:#FFB800}
-        .battle-round-result.is-saved::before,.battle-round-result.is-intercepted::before{background:#FF4455}
+        .battle-round-result.is-saved::before{background:#2bff9a}
+        .battle-round-result.is-intercepted::before{background:#FF4455}
         .battle-round-result.is-defense_perfect::before{background:#2bff9a}
         .battle-round-result.is-miss::before,.battle-round-result.is-goal_conceded::before{background:rgba(255,255,255,.3)}
         .rr-confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:4}
@@ -155,7 +164,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         .battle-round-result__visual svg{width:100%;height:100%;overflow:visible}
         .battle-result-ring{fill:none;stroke:#FFB800;stroke-width:5;transform-origin:100px 100px;animation:battleResultRing .8s both}
         .battle-result-ray{stroke:#FFB800;stroke-width:5;stroke-linecap:round;stroke-dasharray:90;animation:battleResultRay .7s both}
-        .battle-result-keeper{display:grid;width:120px;height:120px;place-items:center;margin:20px;border-radius:50%;background:rgba(255,68,85,.2);border:2px solid #FF4455;font-size:60px;animation:battleKeeperJump .8s both;box-shadow:0 0 40px rgba(255,68,85,.35)}
+        .battle-result-keeper{display:grid;width:120px;height:120px;place-items:center;margin:20px;border-radius:50%;background:rgba(43,255,154,.16);border:2px solid #2bff9a;color:#2bff9a;font-size:60px;animation:battleKeeperJump .8s both;box-shadow:0 0 40px rgba(43,255,154,.32)}
         .rr-shield{filter:drop-shadow(0 0 24px rgba(255,184,0,.6));animation:bk-pulse 1.6s ease-in-out infinite}
         .battle-round-result.is-goal_conceded svg circle{fill:#f4f7ff}
         .battle-round-result.is-goal_conceded svg path{fill:#0b1422}
@@ -165,8 +174,9 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         .battle-result-miss{color:#8794a7;font-size:120px;line-height:1;animation:battleMiss .7s both;font-family:'Barlow Condensed',sans-serif}
         .battle-round-result>span{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.45);z-index:6;position:relative}
         .battle-round-result h2{box-sizing:border-box;max-width:calc(100% - 18px);margin:2px auto 10px;padding:0 .08em .08em;font:900 clamp(34px,10.2vw,66px) 'Barlow Condensed',sans-serif;letter-spacing:.01em;line-height:1.08;z-index:6;position:relative;text-align:center;white-space:nowrap;overflow:visible}
+        .battle-round-result.is-defense_perfect h2{max-width:min(340px,calc(100% - 20px));font-size:clamp(32px,8.8vw,56px);white-space:normal;line-height:.96}
         .battle-round-result.is-goal h2{color:#FFB800;text-shadow:0 0 4px #FFB800,0 0 24px rgba(255,184,0,.7),3px 3px 0 rgba(255,184,0,.5)}
-        .battle-round-result.is-saved h2{color:#FF4455;text-shadow:0 0 24px rgba(255,68,85,.5)}
+        .battle-round-result.is-saved h2{color:#2bff9a;text-shadow:0 0 24px rgba(43,255,154,.55)}
         .battle-round-result.is-defense_perfect h2{color:#FFB800;text-shadow:0 0 30px rgba(255,184,0,.55)}
         .battle-round-result.is-intercepted h2{color:#2bff9a;text-shadow:0 0 18px rgba(43,255,154,.5)}
         .battle-round-result.is-miss h2,.battle-round-result.is-goal_conceded h2{color:rgba(255,255,255,.72)}
