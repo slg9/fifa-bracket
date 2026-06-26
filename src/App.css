@@ -4612,6 +4612,20 @@
     display: none;
   }
 
+  .topactions > .topbar__challenge-link {
+    display: inline-flex;
+    max-width: 46px;
+    padding-right: 6px;
+  }
+
+  .topactions > .topbar__challenge-link span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
   .app-shell.is-home-bracket .topactions > .bracket-team-menu--topbar {
     display: none;
   }

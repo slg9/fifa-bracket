@@ -1749,19 +1749,26 @@ function App() {
         {shouldDockBracketHeader ? <div className="topbar__center">Tableau final</div> : null}
 
         <div className="topactions topactions--bracket-only">
+          <button
+            type="button"
+            className={`chip-btn chip-btn--sm topbar__daymatches${liveNowMatches.length > 0 ? ' is-live' : ''}`}
+            onClick={() => setShowDayModal(true)}
+          >
+            {liveNowMatches.length > 0 ? 'Match en cours' : 'Matchs du jour'}
+          </button>
           {shouldDockBracketHeader ? (
             <>
               <TeamFocusMenu teams={bracketHeaderTeams} focusId={focusId} onFocusChange={setFocusId} className="bracket-team-menu--topbar" />
 
-              <button
-                type="button"
-                className="chip-btn chip-btn--sm"
-                onClick={() => dispatchBracketAction('bracket:toggle-fullscreen')}
-                title="Plein ecran"
-                aria-label="Plein ecran"
+              <a
+                href="?challenge"
+                className="chip-btn chip-btn--sm chip-btn--challenge topbar__challenge-link"
+                title="Brakup Challenge"
+                aria-label="Ouvrir Brakup Challenge"
               >
-                FS
-              </button>
+                <img src="/brakup-challenge-logo.png" alt="" className="chip-btn__challenge-logo" />
+                <span>Challenge</span>
+              </a>
 
               <div className="bracket-actions-wrap--topbar">
                 <button

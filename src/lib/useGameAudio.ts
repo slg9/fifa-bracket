@@ -39,7 +39,9 @@ function stopInterval() {
 }
 
 function startTrack(src: string) {
-  const audio = new Audio(src)
+  const audio = _audio ?? new Audio()
+  audio.pause()
+  audio.src = src
   audio.loop = true
   audio.muted = _muted
   audio.volume = 0
@@ -83,14 +85,19 @@ function switchTo(newSrc: string | null) {
         stopInterval()
         rememberPosition(prev, prevSrc)
         prev.pause()
-        prev.src = ''
-        _audio = null
-        if (newSrc) startTrack(newSrc)
+        if (newSrc) {
+          _audio = prev
+          startTrack(newSrc)
+        } else {
+          prev.removeAttribute('src')
+          _audio = null
+        }
       }
     }, FADE_OUT_MS / FADE_STEPS)
   } else {
-    if (prev) { rememberPosition(prev, prevSrc); prev.pause(); prev.src = ''; _audio = null }
+    if (prev) { rememberPosition(prev, prevSrc); prev.pause(); _audio = prev }
     if (newSrc) startTrack(newSrc)
+    else if (prev) { prev.removeAttribute('src'); _audio = null }
   }
 }
 
@@ -123,7 +130,7 @@ export function stopGameAudio() {
  */
 export function playTrack(src: string) {
   stopInterval()
-  if (_audio) { _audio.pause(); _audio.src = ''; _audio = null }
+  if (_audio) { _audio.pause() }
   _src = null       // reset guard so switchTo doesn't short-circuit
   switchTo(src)
 }

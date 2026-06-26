@@ -154,6 +154,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
             {matches.filter((match) => match.stage === stage).map((match) => {
               const isPicked = picks[match.id] != null
               const isReady = match.home.kind === 'team' && match.away.kind === 'team' && !isPicked
+              const realWinnerId = realResults[match.id]
               return <article className={`brakup-bracket__match${isPicked ? ' is-done' : isReady ? ' is-ready' : ''}`} key={match.id} data-match-id={match.id}>
                 {(['home', 'away'] as const).map((side) => {
                   const entrant = match[side]
@@ -161,13 +162,17 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   if (!team) return <div key={side} className="is-pending"><span>◌</span><strong>{entrant.kind === 'placeholder' ? entrant.label : '?'}</strong></div>
                   const isWinner = isPicked && picks[match.id] === team.id
                   const isLoser = isPicked && picks[match.id] !== team.id
+                  const isRealWinnerVisible = isPicked && realWinnerId === team.id
+                  const predictionState = isPicked && realWinnerId && picks[match.id] === team.id ? picks[match.id] === realWinnerId ? 'correct' : 'wrong' : null
                   return <div key={side}
-                    className={isWinner ? 'is-picked' : isLoser ? 'is-lost' : ''}
+                    className={`${isWinner ? 'is-picked' : isLoser ? 'is-lost' : ''}${isRealWinnerVisible ? ' is-real-winner' : ''}`}
                     onClick={() => { if (!isLoser) { sfx.pick(); onPick(match.id, team.id) } }}
                     role="button" tabIndex={0}
                     title={`Choisir ${team.shortName}`}>
                     <span>{team.flagEmoji}</span>
                     <strong>{team.shortName}</strong>
+                    {isRealWinnerVisible ? <small className="bkm-official">OFF</small> : null}
+                    {predictionState ? <small className={`bkm-prono is-${predictionState}`} /> : null}
                     {isReady && <button type="button" className="bkm-play" title="Jouer ce match"
                       onClick={(e) => { e.stopPropagation(); sfx.battle(); onPlay(match.id, team.id) }}>⚔</button>}
                   </div>

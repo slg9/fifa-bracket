@@ -20,9 +20,14 @@ const SIM_COMMENTS = [
 ]
 
 function makeSimulatedScore(homeWins: boolean) {
-  const winnerGoals = 1 + Math.floor(Math.random() * 4)
-  const loserGoals = Math.floor(Math.random() * winnerGoals)
-  return homeWins ? { home: winnerGoals, away: loserGoals } : { home: loserGoals, away: winnerGoals }
+  const winnerGoals = Math.floor(Math.random() * 5)
+  let loserGoals = Math.floor(Math.random() * 5)
+  while (loserGoals === winnerGoals) {
+    loserGoals = Math.floor(Math.random() * 5)
+  }
+  const winner = Math.max(winnerGoals, loserGoals)
+  const loser = Math.min(winnerGoals, loserGoals)
+  return homeWins ? { home: winner, away: loser } : { home: loser, away: winner }
 }
 
 export function CoinFlip({ homeTeamName, awayTeamName, homeFlag, awayFlag, homeTeamId, awayTeamId, mode = 'sudden_death', onComplete }: CoinFlipProps) {

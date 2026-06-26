@@ -190,6 +190,7 @@
 .brakup-bracket__match > div:hover { border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.06) }
 /* Winner */
 .brakup-bracket__match > div.is-picked { border-color:#2bff9a;background:rgba(43,255,154,.08);color:#2bff9a }
+.brakup-bracket__match > div.is-real-winner { box-shadow: inset 3px 0 0 rgba(255,184,0,.85) }
 /* Loser */
 .brakup-bracket__match > div.is-lost { opacity:.4;cursor:default }
 /* Future / pending */
@@ -200,6 +201,10 @@
 /* Team flag + name */
 .brakup-bracket__match span { font-size:16px;line-height:1;flex-shrink:0 }
 .brakup-bracket__match strong { flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:.05em;text-transform:uppercase }
+.bkm-official { margin-left:auto;padding:2px 4px;border-radius:4px;background:rgba(255,184,0,.16);color:#FFB800;font:900 8px 'Barlow Condensed',sans-serif;letter-spacing:.08em }
+.bkm-prono { width:9px;height:9px;border-radius:999px;box-shadow:0 0 10px currentColor;flex:0 0 9px }
+.bkm-prono.is-correct { color:#2bff9a;background:#2bff9a }
+.bkm-prono.is-wrong { color:#ff4455;background:#ff4455 }
 /* Play button: hidden by default, shown on hover of ready match */
 .brakup-bracket__match > div .bkm-play { display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);width:22px;height:22px;border:1px solid currentColor;border-radius:5px;background:transparent;color:inherit;font-size:9px;cursor:pointer;align-items:center;justify-content:center;line-height:1;padding:0 }
 .brakup-bracket__match.is-ready > div:hover .bkm-play { display:flex }
@@ -1330,6 +1335,45 @@
   font-size: 10px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.wcmap__prediction-dot {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid rgba(5, 12, 24, 0.9);
+  z-index: 6;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.wcmap__prediction-dot.is-correct {
+  color: #2bff9a;
+  background: #2bff9a;
+}
+
+.wcmap__prediction-dot.is-wrong {
+  color: #ff4455;
+  background: #ff4455;
+}
+
+.wcmap__official-winner {
+  position: absolute;
+  left: 9px;
+  top: 8px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(5, 12, 24, 0.82);
+  border: 1px solid rgba(255, 214, 90, 0.52);
+  font-size: 14px;
+  line-height: 1;
+  z-index: 6;
+  box-shadow: 0 0 14px rgba(255, 214, 90, 0.22);
 }
 
 .wcmap__field-node.is-live .wcmap__mini-field {

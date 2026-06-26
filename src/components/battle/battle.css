@@ -333,7 +333,7 @@
 .battle-sd-shootout {
   position: absolute;
   left: 50%;
-  top: max(78px, calc(env(safe-area-inset-top) + 70px));
+  top: max(46px, calc(env(safe-area-inset-top) + 38px));
   z-index: 156;
   transform: translateX(-50%);
   display: grid;

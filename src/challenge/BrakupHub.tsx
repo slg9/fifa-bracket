@@ -76,6 +76,9 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
   const [battleScores, setBattleScores] = useState<Record<string, { p: number; o: number }>>(() => {
     try { return JSON.parse(localStorage.getItem('brakup:scores') ?? '{}') } catch { return {} }
   })
+  const [realResults] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem('brakup:official-results') ?? '{}') } catch { return {} }
+  })
   const [activeSide, setActiveSide] = useState<'home' | 'away'>('home')
   const [battleBonuses, setBattleBonuses] = useState(0)
   const [brackets, setBrackets] = useState<ChallengeEntry[]>([])
@@ -163,7 +166,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
       {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} /> : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
-        <WorldCupMapMenu matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} onPick={handlePick} onPlay={handlePlay} onShowBracket={() => { sfx.bracket(); setShowBracket(true) }} onSave={() => setShowEmailEntry(true)} />
+        <WorldCupMapMenu matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} realResults={realResults} onPick={handlePick} onPlay={handlePlay} onShowBracket={() => { sfx.bracket(); setShowBracket(true) }} onSave={() => setShowEmailEntry(true)} />
         <button type="button" className="game-menu-button" onClick={() => { sfx.click(); setShowGameMenu(true) }} aria-label="Ouvrir le menu jeu">
           <span />
           <span />
@@ -199,7 +202,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
             <button type="button" className="brakup-bracket-overlay__close" onClick={() => { sfx.click(); setShowBracket(false) }}>✕ Fermer</button>
           </div>
           <div className="brakup-bracket-overlay__body">
-            <BracketChallenge matches={matches} teamsById={teamsById} picks={picks} onPick={handlePick} onPlay={(matchId) => { setShowBracket(false); handlePlay(matchId) }} brackets={brackets} activeBracketId={activeBracketId} onSelectBracket={(id) => { const entry = brackets.find((item) => item.id === id); if (entry) openBracket(entry) }} />
+            <BracketChallenge matches={matches} teamsById={teamsById} picks={picks} onPick={handlePick} onPlay={(matchId) => { setShowBracket(false); handlePlay(matchId) }} brackets={brackets} activeBracketId={activeBracketId} onSelectBracket={(id) => { const entry = brackets.find((item) => item.id === id); if (entry) openBracket(entry) }} realResults={realResults} />
           </div>
         </div>
       ) : null}

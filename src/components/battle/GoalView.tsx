@@ -233,7 +233,7 @@ export function GoalView({
       }
     }))
     return () => cancelAnimationFrame(frame)
-  }, [keeperX])
+  }, [keeperX, keeperYProp])
 
   useEffect(() => {
     if (!ballFlight) {
@@ -373,14 +373,16 @@ export function GoalView({
 
   const renderKeeperAt = (position: number, opacity: number, ghostIndex?: number) => {
     const x = interpolate(keeperBottom.left, keeperBottom.right, position / 100)
+    const orientation = motion.direction === 1 ? -1 : 1
     return (
       <g
         key={ghostIndex ?? 'keeper'}
         className={`goal-keeper-position${ghostIndex === undefined ? ' is-current' : ' is-ghost'}`}
         opacity={opacity}
-        style={{ transform: `translate(${x}px, ${keeperSvgY}px) scale(${keeperScale})`, transitionDuration: `${transitionMs}ms` }}
+        transform={`translate(${x} ${keeperSvgY}) scale(${keeperScale})`}
+        style={{ transitionDuration: `${transitionMs}ms` }}
       >
-        <g className="goal-keeper-orientation" style={{ transform: `scaleX(${motion.direction === 1 ? -1 : 1})` }}>
+        <g className="goal-keeper-orientation" transform={`scale(${orientation} 1)`}>
           <Goalkeeper color={goalkeeperColor} secondaryColor={goalkeeperSecondaryColor} saving={ghostIndex === undefined && saving} saveAngle={saveAngle} />
         </g>
       </g>
@@ -545,7 +547,6 @@ export function GoalView({
         .goal-keeper-orientation {
           transform-box: fill-box;
           transform-origin: center;
-          transition: transform .12s linear;
         }
         .goal-keeper {
           transform-box: fill-box;

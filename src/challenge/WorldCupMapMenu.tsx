@@ -7,6 +7,7 @@ export interface WorldCupMapMenuProps {
   teamsById: Map<string, Team>
   picks: Record<string, string>
   scores?: Record<string, { p: number; o: number }>
+  realResults?: Record<string, string>
   onPick: (matchId: string, teamId: string) => void
   onPlay: (matchId: string, teamId: string) => void
   onShowBracket?: () => void
@@ -29,6 +30,8 @@ type DisplayNode = {
   homeTeam?: Team
   awayTeam?: Team
   pickedTeamId?: string
+  realWinnerTeamId?: string
+  predictionState?: 'correct' | 'wrong'
 }
 
 type BattleScore = { p: number; o: number }
@@ -144,10 +147,32 @@ function scoreForNode(node: DisplayNode, score?: BattleScore): DisplayScore | nu
     : { home: score.o, away: score.p }
 }
 
+function matchDateFromLabel(dateLabel: string) {
+  const parsed = dateLabel.match(/(\d{1,2})\s+([A-Za-z]+)/)
+  if (!parsed) return null
+  const months: Record<string, number> = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+  }
+  const month = months[parsed[2]]
+  if (month == null) return null
+  return new Date(2026, month, Number(parsed[1]), 12)
+}
+
+function isMatchDayOrPast(match: KnockoutMatch) {
+  const date = matchDateFromLabel(match.dateLabel)
+  if (!date) return false
+  const today = new Date()
+  const todayKey = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
+  const matchKey = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+  return todayKey >= matchKey
+}
+
 function buildDisplayNodes(
   matches: KnockoutMatch[],
   teamsById: Map<string, Team>,
   picks: Record<string, string>,
+  realResults: Record<string, string>,
 ): DisplayNode[] {
   const resolved = matches.map((match) => ({
     match,
@@ -160,9 +185,11 @@ function buildDisplayNodes(
 
   return resolved.map(({ match, homeTeam, awayTeam, pickedTeamId }) => {
     const pos = NODE_POS[match.id]
+    const realWinnerTeamId = realResults[match.id]
+    const isUnlockedByDate = homeTeam && awayTeam && isMatchDayOrPast(match)
     const status: NodeStatus = pickedTeamId
       ? 'completed'
-      : homeTeam && awayTeam && match.id === firstPlayable
+      : homeTeam && awayTeam && (match.id === firstPlayable || isUnlockedByDate)
         ? 'live'
         : 'locked'
 
@@ -180,6 +207,8 @@ function buildDisplayNodes(
       homeTeam,
       awayTeam,
       pickedTeamId,
+      realWinnerTeamId,
+      predictionState: pickedTeamId && realWinnerTeamId ? pickedTeamId === realWinnerTeamId ? 'correct' : 'wrong' : undefined,
     }
   })
 }
@@ -247,6 +276,9 @@ function MatchNode({
     ? node.pickedTeamId === node.homeTeam?.id ? node.awayTeam : node.homeTeam
     : undefined
   const displayScore = scoreForNode(node, score)
+  const realWinnerTeam = node.pickedTeamId && node.realWinnerTeamId
+    ? node.realWinnerTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
+    : undefined
 
   return (
     <button
@@ -322,6 +354,8 @@ function MatchNode({
 
       {isLocked && <span className="wcmap__status-badge wcmap__status-badge--lock">{'\uD83D\uDD12'}</span>}
       {isCompleted && <span className="wcmap__status-badge">{'\u2713'}</span>}
+      {node.predictionState ? <span className={`wcmap__prediction-dot is-${node.predictionState}`} title={node.predictionState === 'correct' ? 'Prono réussi' : 'Prono raté'} /> : null}
+      {realWinnerTeam ? <span className="wcmap__official-winner" title={`Vrai vainqueur: ${realWinnerTeam.name}`}>{realWinnerTeam.flagEmoji}</span> : null}
       {isLive && <span className="wcmap__live-dot" />}
     </button>
   )
@@ -452,6 +486,7 @@ export function WorldCupMapMenu({
   teamsById,
   picks,
   scores = {},
+  realResults = {},
   onPick: _onPick,
   onPlay,
   onShowBracket,
@@ -467,7 +502,7 @@ export function WorldCupMapMenu({
   const [selectingId, setSelectingId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks), [matches, teamsById, picks])
+  const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks, realResults), [matches, teamsById, picks, realResults])
   const focusNode = nodes.find((node) => node.status === 'live') ?? nodes.find((node) => node.status === 'available') ?? null
   const selectedNode = nodes.find((node) => node.id === selectedMatchId) ?? null
 
