@@ -1050,3 +1050,394 @@
     font-size: 14px;
   }
 }
+
+/* --- WorldCupMapMenu premium route refresh --- */
+.wcmap {
+  width: min(100%, 540px);
+  max-width: 540px;
+  margin: 0 auto;
+}
+
+.wcmap__hud {
+  align-items: center;
+  padding: 14px clamp(14px, 4vw, 26px) 10px;
+}
+
+.wcmap__hud-actions {
+  gap: 8px;
+}
+
+.wcmap__progress-card,
+.wcmap__ghost {
+  min-height: 38px;
+  border-radius: 14px;
+  background: rgba(6, 14, 28, 0.82);
+  border-color: rgba(118, 177, 255, 0.16);
+}
+
+.wcmap__viewport {
+  border: 1px solid rgba(126, 183, 255, 0.12);
+  border-radius: 30px;
+  background: #04110a;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+}
+
+.wcmap__canvas {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 20% 12%, rgba(48, 255, 170, 0.14), transparent 24%),
+    radial-gradient(circle at 82% 34%, rgba(32, 141, 255, 0.12), transparent 26%),
+    radial-gradient(circle at 28% 74%, rgba(255, 203, 77, 0.09), transparent 28%),
+    radial-gradient(circle at 68% 88%, rgba(32, 255, 136, 0.08), transparent 22%),
+    linear-gradient(180deg, #071b13 0%, #082916 48%, #04140c 100%);
+}
+
+.wcmap__canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 42px 42px, 120px 120px, 120px 120px;
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wcmap__canvas::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(0,0,0,0.32), transparent 18%),
+    radial-gradient(circle at 88% 58%, rgba(0,0,0,0.28), transparent 20%),
+    radial-gradient(circle at 35% 90%, rgba(0,0,0,0.34), transparent 22%),
+    radial-gradient(circle at 74% 15%, rgba(0,0,0,0.26), transparent 16%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.wcmap__paths {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.wcmap__path {
+  fill: none;
+  stroke: rgba(255, 200, 65, 0.42);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-dasharray: 5 9;
+  filter: drop-shadow(0 0 6px rgba(255, 200, 65, 0.45));
+}
+
+.wcmap__path.is-active {
+  stroke: rgba(61, 236, 255, 0.78);
+  stroke-width: 2.3;
+  filter: drop-shadow(0 0 9px rgba(61, 236, 255, 0.7));
+}
+
+.wcmap__marker {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.wcmap__marker span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(6, 12, 22, 0.88);
+  border: 1px solid rgba(255, 214, 90, 0.45);
+  color: #ffd65a;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow:
+    0 0 18px rgba(255, 214, 90, 0.18),
+    0 10px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+}
+
+.wcmap__field-node {
+  position: absolute;
+  width: 118px;
+  height: 92px;
+  transform: translate(-50%, -50%);
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  z-index: 5;
+  touch-action: manipulation;
+}
+
+.wcmap__field-node:hover {
+  transform: translate(-50%, -50%) scale(1.03);
+}
+
+.wcmap__field-node.is-selecting {
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.wcmap__field-panel {
+  position: absolute;
+  left: 50%;
+  top: -24px;
+  transform: translateX(-50%);
+  min-width: 104px;
+  height: 30px;
+  border-radius: 14px;
+  background: rgba(5, 12, 24, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+  z-index: 3;
+}
+
+.wcmap__match-number {
+  color: #ffd65a;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.wcmap__flags-vs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wcmap__flags-vs strong {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 10px;
+}
+
+.wcmap__locked-label {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.wcmap__mini-field {
+  position: absolute;
+  inset: 18px 10px 4px;
+  border-radius: 24px;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.05) 50%, transparent 50%),
+    linear-gradient(180deg, #246b32 0%, #153f22 100%);
+  background-size: 18px 100%, 100% 100%;
+  border: 3px solid rgba(78, 255, 164, 0.55);
+  box-shadow:
+    inset 0 0 18px rgba(255, 255, 255, 0.08),
+    0 0 18px rgba(42, 255, 190, 0.28),
+    0 18px 34px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.wcmap__pitch-line--mid {
+  position: absolute;
+  left: 50%;
+  top: 8%;
+  width: 1px;
+  height: 84%;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.wcmap__pitch-circle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.wcmap__goal {
+  position: absolute;
+  left: 50%;
+  width: 30px;
+  height: 8px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.wcmap__goal--top {
+  top: 4px;
+}
+
+.wcmap__goal--bottom {
+  bottom: 4px;
+}
+
+.wcmap__round-chip {
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  transform: translateX(-50%);
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(6, 12, 22, 0.9);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.wcmap__field-node.is-live .wcmap__mini-field {
+  border-color: rgba(255, 199, 59, 0.95);
+  box-shadow:
+    0 0 0 4px rgba(255, 199, 59, 0.12),
+    0 0 26px rgba(255, 199, 59, 0.48),
+    0 18px 34px rgba(0, 0, 0, 0.45);
+}
+
+.wcmap__field-node.is-live .wcmap__field-panel {
+  border-color: rgba(255, 214, 90, 0.52);
+}
+
+.wcmap__field-node.is-completed .wcmap__mini-field {
+  border-color: rgba(48, 227, 255, 0.85);
+}
+
+.wcmap__field-node.is-completed .wcmap__field-panel {
+  border-color: rgba(48, 227, 255, 0.36);
+}
+
+.wcmap__field-node.is-available .wcmap__mini-field {
+  border-color: rgba(78, 255, 164, 0.7);
+}
+
+.wcmap__field-node.is-locked {
+  opacity: 0.55;
+  filter: grayscale(0.75);
+}
+
+.wcmap__field-node.is-final {
+  width: 150px;
+  height: 120px;
+}
+
+.wcmap__field-node.is-final .wcmap__mini-field {
+  border-color: rgba(255, 214, 90, 0.95);
+  box-shadow:
+    0 0 36px rgba(255, 214, 90, 0.55),
+    0 22px 46px rgba(0, 0, 0, 0.55);
+}
+
+.wcmap__field-node.is-final .wcmap__field-panel {
+  border-color: rgba(255, 214, 90, 0.7);
+  box-shadow:
+    0 0 22px rgba(255, 214, 90, 0.35),
+    0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+.wcmap__field-node.is-third .wcmap__mini-field {
+  border-color: rgba(255, 146, 90, 0.88);
+  box-shadow:
+    0 0 26px rgba(255, 146, 90, 0.32),
+    0 18px 34px rgba(0, 0, 0, 0.45);
+}
+
+.wcmap__status-badge,
+.wcmap__live-dot {
+  position: absolute;
+  right: 2px;
+  bottom: 6px;
+  z-index: 4;
+}
+
+.wcmap__status-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #0cf2d0;
+  color: #03131d;
+  font-weight: 900;
+  box-shadow: 0 0 18px rgba(12, 242, 208, 0.5);
+}
+
+.wcmap__status-badge--lock {
+  background: rgba(9, 15, 26, 0.96);
+  color: #d8e0f2;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 0 14px rgba(0, 0, 0, 0.34);
+}
+
+.wcmap__live-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background: #ff445d;
+  box-shadow: 0 0 16px rgba(255, 68, 93, 0.8);
+}
+
+@media (min-width: 960px) {
+  .wcmap {
+    max-width: 580px;
+  }
+
+  .wcmap__viewport {
+    max-width: 560px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 680px) {
+  .wcmap__viewport {
+    border-radius: 24px;
+  }
+
+  .wcmap__field-node {
+    width: 108px;
+    height: 88px;
+  }
+
+  .wcmap__field-node.is-final {
+    width: 136px;
+    height: 112px;
+  }
+
+  .wcmap__field-panel {
+    min-width: 94px;
+    max-width: 104px;
+    gap: 5px;
+  }
+
+  .wcmap__flags-vs {
+    gap: 5px;
+    font-size: 12px;
+  }
+
+  .wcmap__match-number,
+  .wcmap__locked-label,
+  .wcmap__round-chip,
+  .wcmap__marker span {
+    font-size: 10px;
+  }
+}

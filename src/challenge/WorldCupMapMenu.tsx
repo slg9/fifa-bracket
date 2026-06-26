@@ -31,32 +31,35 @@ type DisplayNode = {
   pickedTeamId?: string
 }
 
-// ─── Candy Crush winding layout ───────────────────────────────────────────────
-// All matches in ascending order, top → bottom, zigzag left↔right
-
-const MAP_HEIGHT = 1820
+const MAP_HEIGHT = 2600
+const ROUTE_Y_START = 2450
+const ROUTE_Y_END = 180
 
 const ROUTE_X = [
-  24, 74, 30, 70, 18, 82, 34, 66,
-  22, 78, 28, 72, 16, 84, 34, 68,
-  20, 80, 32, 66, 24, 76, 30, 70,
-  18, 82, 34, 66, 26, 74, 32, 50,
-]
-const ROUTE_Y_START = 1720
-const ROUTE_Y_END = 120
+  22, 72, 34, 80,
+  20, 66, 38, 80,
+  28, 74, 20, 62,
+  36, 80, 26, 70,
 
-// Sequence order drives both path rendering and node visit order
+  20, 58, 80, 42,
+  72, 24, 64, 34,
+
+  78, 30, 68, 22,
+
+  40, 74,
+  56,
+  50,
+]
+
 const MATCH_SEQUENCE = [
-  'M73','M74','M75','M76',
-  'M77','M78','M79','M80',
-  'M81','M82','M83','M84',
-  'M85','M86','M87','M88',
-  'M89','M90','M91','M92',
-  'M93','M94','M95','M96',
-  'M97','M98',
-  'M99','M100',
-  'M101','M102',
-  'M103','M104',
+  'M73', 'M74', 'M75', 'M76',
+  'M77', 'M78', 'M79', 'M80',
+  'M81', 'M82', 'M83', 'M84',
+  'M85', 'M86', 'M87', 'M88',
+  'M89', 'M90', 'M91', 'M92',
+  'M93', 'M94', 'M95', 'M96',
+  'M97', 'M98', 'M99', 'M100',
+  'M101', 'M102', 'M103', 'M104',
 ]
 
 const NODE_POS: Record<string, { x: number; y: number }> = Object.fromEntries(
@@ -67,16 +70,13 @@ const NODE_POS: Record<string, { x: number; y: number }> = Object.fromEntries(
   }),
 ) as Record<string, { x: number; y: number }>
 
-// Zone labels — positioned between sections, encountered as user scrolls UP
 const ZONE_BANNERS = [
-  { label: '16es de finale', y: 1670 },   // intro to R32 (just above bottom rows)
-  { label: '8es de finale', y: 1175 },    // R32 → R16 transition
-  { label: 'Quarts de finale', y: 865 },  // R16 → QF transition
-  { label: 'Demi-finales', y: 540 },      // QF → SF transition
-  { label: '🏆 Finale', y: 340 },         // SF → Finals transition
+  { label: '16ES DE FINALE', y: 2380 },
+  { label: '8ES DE FINALE', y: 1740 },
+  { label: 'QUARTS DE FINALE', y: 1170 },
+  { label: 'DEMI-FINALES', y: 700 },
+  { label: 'FINALE', y: 390 },
 ]
-
-// ─── Round labels ──────────────────────────────────────────────────────────────
 
 const ROUND_LONG: Record<string, string> = {
   'Round of 32': '16e de finale',
@@ -85,6 +85,7 @@ const ROUND_LONG: Record<string, string> = {
   'Semi-final': 'Demi-finale',
   Finale: 'Finale',
 }
+
 const ROUND_SHORT: Record<string, string> = {
   'Round of 32': '16e',
   'Round of 16': '8e',
@@ -97,31 +98,35 @@ function getRoundLabel(match: KnockoutMatch) {
   if (match.id === 'M103') return '3e place'
   return ROUND_LONG[match.stage] ?? match.stage
 }
+
 function getRoundShort(match: KnockoutMatch) {
-  if (match.id === 'M103') return '3e'
-  if (match.id === 'M104') return '🏆'
+  if (match.id === 'M103') return '3E'
+  if (match.id === 'M104') return 'FINALE'
   return ROUND_SHORT[match.stage] ?? match.stage
 }
 
 function getStatusHint(status: NodeStatus) {
   switch (status) {
-    case 'completed': return 'Choix enregistré — tu peux rejouer.'
-    case 'live': return 'Ce match est le prochain à jouer !'
-    case 'available': return 'Choisis ton équipe et lance le match.'
-    default: return 'Termine les matchs précédents pour débloquer.'
+    case 'completed':
+      return 'Choix enregistré — tu peux rejouer.'
+    case 'live':
+      return 'Ce match est le prochain à jouer.'
+    case 'available':
+      return 'Choisis ton équipe et lance le match.'
+    default:
+      return 'Termine les matchs précédents pour débloquer.'
   }
 }
 
 function entrantTeam(match: KnockoutMatch, side: 'home' | 'away', teamsById: Map<string, Team>) {
-  const e = match[side]
-  return e.kind === 'team' ? teamsById.get(e.teamId) : undefined
+  const entrant = match[side]
+  return entrant.kind === 'team' ? teamsById.get(entrant.teamId) : undefined
 }
+
 function displayTeamName(team?: Team, fallback?: string) {
   if (team) return team.shortName || team.name
   return fallback ?? 'À déterminer'
 }
-
-// ─── Data builder ─────────────────────────────────────────────────────────────
 
 function buildDisplayNodes(
   matches: KnockoutMatch[],
@@ -135,7 +140,7 @@ function buildDisplayNodes(
     pickedTeamId: picks[match.id],
   }))
 
-  const firstPlayable = resolved.find((r) => !r.pickedTeamId && r.homeTeam && r.awayTeam)?.match.id
+  const firstPlayable = resolved.find((entry) => !entry.pickedTeamId && entry.homeTeam && entry.awayTeam)?.match.id
 
   return resolved.map(({ match, homeTeam, awayTeam, pickedTeamId }) => {
     const pos = NODE_POS[match.id]
@@ -154,15 +159,17 @@ function buildDisplayNodes(
       isThirdPlace: match.id === 'M103',
       x: pos?.x ?? 50,
       y: pos?.y ?? 0,
-      match, status, homeTeam, awayTeam, pickedTeamId,
+      match,
+      status,
+      homeTeam,
+      awayTeam,
+      pickedTeamId,
     }
   })
 }
 
-// ─── SVG path (single winding road) ──────────────────────────────────────────
-
 function MapPathSvg({ nodes }: { nodes: DisplayNode[] }) {
-  const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
+  const byId = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes])
 
   return (
     <svg
@@ -171,43 +178,36 @@ function MapPathSvg({ nodes }: { nodes: DisplayNode[] }) {
       preserveAspectRatio="none"
       aria-hidden="true"
     >
-      {MATCH_SEQUENCE.slice(1).map((id, i) => {
-        const from = byId.get(MATCH_SEQUENCE[i])
+      {MATCH_SEQUENCE.slice(1).map((id, index) => {
+        const from = byId.get(MATCH_SEQUENCE[index])
         const to = byId.get(id)
         if (!from || !to) return null
 
-        const fx = from.x, fy = from.y
-        const tx = to.x, ty = to.y
+        const fx = from.x
+        const fy = from.y
+        const tx = to.x
+        const ty = to.y
         const dx = tx - fx
-        const dy = ty - fy
         const direction = dx >= 0 ? 1 : -1
-        const bend = Math.max(18, Math.min(44, Math.abs(dx) * 0.48 + 16))
-        const lift = Math.max(36, Math.min(96, Math.abs(dy) * 0.22 + 28))
-        const midX = (fx + tx) / 2 + direction * bend * 0.36
-        const midY = (fy + ty) / 2
-        const cp1x = fx + direction * bend
-        const cp1y = fy - lift
-        const cp2x = midX - direction * bend * 0.22
-        const cp2y = midY - lift * 0.42
-        const cp4x = tx - direction * bend
-        const cp4y = ty + lift
-        const d = `M ${fx} ${fy} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${midX} ${midY} S ${cp4x} ${cp4y}, ${tx} ${ty}`
-
+        const bend = Math.max(10, Math.min(22, Math.abs(dx) * 0.36 + 8))
+        const cp1x = fx + dx * 0.24 + direction * bend
+        const cp1y = fy - 62
+        const cp2x = tx - dx * 0.24 - direction * bend * 0.7
+        const cp2y = ty + 62
+        const pathDef = `M ${fx} ${fy} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tx} ${ty}`
         const isActive = to.status !== 'locked'
 
         return (
           <path
-            key={`${MATCH_SEQUENCE[i]}-${id}`}
+            key={`${MATCH_SEQUENCE[index]}-${id}`}
             className={`wcmap__path${isActive ? ' is-active' : ''}`}
-            d={d}
+            d={pathDef}
           />
         )
       })}
     </svg>
   )
 }
-
-// ─── Node bubble ──────────────────────────────────────────────────────────────
 
 function MatchNode({
   node,
@@ -227,7 +227,7 @@ function MatchNode({
       type="button"
       data-node-id={node.id}
       className={[
-        'wcmap__node',
+        'wcmap__field-node',
         `is-${node.status}`,
         node.isFinalBoss ? 'is-final' : '',
         node.isThirdPlace ? 'is-third' : '',
@@ -236,27 +236,35 @@ function MatchNode({
       style={{ left: `${node.x}%`, top: `${node.y}px` }}
       onClick={onClick}
     >
-      {isLocked ? (
-        <>
-          <span className="wcmap__node-lock">🔒</span>
-          <span className="wcmap__node-num">{node.matchNumber}</span>
-        </>
-      ) : (
-        <>
-          <div className="wcmap__node-flags">
-            <span>{node.homeTeam?.flagEmoji ?? '🌍'}</span>
-            <span>{node.awayTeam?.flagEmoji ?? '🌍'}</span>
-          </div>
-          <span className="wcmap__node-round">{node.roundShort}</span>
-        </>
-      )}
-      {isCompleted && <span className="wcmap__node-badge">★</span>}
-      {isLive && <span className="wcmap__node-live-dot" />}
+      <div className="wcmap__field-panel">
+        <span className="wcmap__match-number">M{node.matchNumber}</span>
+
+        {!isLocked ? (
+          <span className="wcmap__flags-vs">
+            <span>{node.homeTeam?.flagEmoji ?? ''}</span>
+            <strong>VS</strong>
+            <span>{node.awayTeam?.flagEmoji ?? ''}</span>
+          </span>
+        ) : (
+          <span className="wcmap__locked-label">VERROUILLÉ</span>
+        )}
+      </div>
+
+      <div className="wcmap__mini-field">
+        <div className="wcmap__pitch-line wcmap__pitch-line--mid" />
+        <div className="wcmap__pitch-circle" />
+        <div className="wcmap__goal wcmap__goal--top" />
+        <div className="wcmap__goal wcmap__goal--bottom" />
+      </div>
+
+      <span className="wcmap__round-chip">{node.roundShort}</span>
+
+      {isLocked && <span className="wcmap__status-badge wcmap__status-badge--lock">🔒</span>}
+      {isCompleted && <span className="wcmap__status-badge">✕</span>}
+      {isLive && <span className="wcmap__live-dot" />}
     </button>
   )
 }
-
-// ─── Level entry screen ───────────────────────────────────────────────────────
 
 function LevelEntryScreen({
   node,
@@ -303,12 +311,11 @@ function LevelEntryScreen({
           <p className="wcmap-entry__hint">{getStatusHint(node.status)}</p>
         )}
 
-        {/* Completed match: show winner summary */}
         {node.status === 'completed' && node.pickedTeamId ? (
           <div className="wcmap-entry__result">
             <div className="wcmap-entry__result-winner">
               <span className="wcmap-entry__result-flag">
-                {(node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam)?.flagEmoji ?? '🏆'}
+                {(node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam)?.flagEmoji ?? '🌍'}
               </span>
               <div>
                 <small className="wcmap-entry__result-label">VAINQUEUR</small>
@@ -320,7 +327,7 @@ function LevelEntryScreen({
             {score ? (
               <div className="wcmap-entry__result-score">
                 <span>{node.homeTeam?.flagEmoji ?? '🌍'}</span>
-                <strong>{score.p} — {score.o}</strong>
+                <strong>{score.p} ? {score.o}</strong>
                 <span>{node.awayTeam?.flagEmoji ?? '🌍'}</span>
               </div>
             ) : (
@@ -366,15 +373,13 @@ function LevelEntryScreen({
           >
             {node.status === 'completed'
               ? '↺ Rejouer le match'
-              : node.isFinalBoss ? '🏆 JOUER LA FINALE' : '⚽ JOUER CE MATCH'}
+              : node.isFinalBoss ? '🏆 Jouer la finale' : '⚽ Jouer ce match'}
           </button>
         </div>
       </aside>
     </div>
   )
 }
-
-// ─── Main component ───────────────────────────────────────────────────────────
 
 export function WorldCupMapMenu({
   matches,
@@ -397,42 +402,40 @@ export function WorldCupMapMenu({
   const [notice, setNotice] = useState<string | null>(null)
 
   const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks), [matches, teamsById, picks])
-  const focusNode = nodes.find((n) => n.status === 'live') ?? nodes.find((n) => n.status === 'available') ?? null
-  const selectedNode = nodes.find((n) => n.id === selectedMatchId) ?? null
-  const completedCount = nodes.filter((n) => n.status === 'completed').length
+  const focusNode = nodes.find((node) => node.status === 'live') ?? nodes.find((node) => node.status === 'available') ?? null
+  const selectedNode = nodes.find((node) => node.id === selectedMatchId) ?? null
+  const completedCount = nodes.filter((node) => node.status === 'completed').length
 
   useEffect(() => {
     if (!selectedNode) return
     setSelectedTeamId(selectedNode.pickedTeamId ?? null)
   }, [selectedNode])
 
-  // Auto-pan to focus node on first render (show R32 matches at bottom)
   useEffect(() => {
     if (!focusNode || panInitRef.current || !viewportRef.current) return
     panInitRef.current = true
-    const vh = viewportRef.current.clientHeight
-    const maxPan = MAP_HEIGHT - vh
-    // Center focus node vertically at 60% from top (slightly below center)
-    const targetOffset = -(focusNode.y - vh * 0.4)
+    const viewportHeight = viewportRef.current.clientHeight
+    const maxPan = MAP_HEIGHT - viewportHeight
+    const targetOffset = -(focusNode.y - viewportHeight * 0.42)
     setOffset({ x: 0, y: Math.max(-maxPan, Math.min(0, targetOffset)) })
   }, [focusNode])
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement
     if (target.closest('button')) return
-    e.currentTarget.setPointerCapture(e.pointerId)
-    dragRef.current = { px: e.clientX, py: e.clientY, ox: offset.x, oy: offset.y }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    dragRef.current = { px: event.clientX, py: event.clientY, ox: offset.x, oy: offset.y }
     dragDistRef.current = 0
   }
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current || !viewportRef.current) return
-    const dy = e.clientY - dragRef.current.py
-    dragDistRef.current = Math.abs(dy)
-    const vh = viewportRef.current.clientHeight
-    const maxPan = MAP_HEIGHT - vh
-    const newY = Math.max(-maxPan, Math.min(0, dragRef.current.oy + dy))
-    setOffset({ x: 0, y: newY })
+    const deltaY = event.clientY - dragRef.current.py
+    dragDistRef.current = Math.abs(deltaY)
+    const viewportHeight = viewportRef.current.clientHeight
+    const maxPan = MAP_HEIGHT - viewportHeight
+    const nextY = Math.max(-maxPan, Math.min(0, dragRef.current.oy + deltaY))
+    setOffset({ x: 0, y: nextY })
   }
 
   const handlePointerUp = () => {
@@ -441,14 +444,14 @@ export function WorldCupMapMenu({
 
   useEffect(() => {
     if (!notice) return
-    const t = window.setTimeout(() => setNotice(null), 2400)
-    return () => window.clearTimeout(t)
+    const timeoutId = window.setTimeout(() => setNotice(null), 2400)
+    return () => window.clearTimeout(timeoutId)
   }, [notice])
 
   const handleSelectNode = (node: DisplayNode) => {
-    if (dragDistRef.current > 8) return // was a pan, not a tap
+    if (dragDistRef.current > 8) return
     if (node.status === 'locked') {
-      setNotice('Match verrouille. Termine les matchs precedents pour debloquer.')
+      setNotice('Match verrouill?. Termine les matchs précédents pour débloquer.')
       return
     }
     sfx.tab()
@@ -461,7 +464,6 @@ export function WorldCupMapMenu({
   const handlePickTeam = (teamId: string) => {
     if (!selectedNode) return
     sfx.pick()
-    // Only update local selection — match is only 'completed' after playing it
     setSelectedTeamId(teamId)
   }
 
@@ -510,9 +512,9 @@ export function WorldCupMapMenu({
         >
           <MapPathSvg nodes={nodes} />
 
-          {ZONE_BANNERS.map((b) => (
-            <div key={b.label} className="wcmap__marker" style={{ top: `${b.y}px` }}>
-              <span>{b.label}</span>
+          {ZONE_BANNERS.map((banner) => (
+            <div key={banner.label} className="wcmap__marker" style={{ top: `${banner.y}px` }}>
+              <span>{banner.label}</span>
             </div>
           ))}
 
@@ -527,11 +529,7 @@ export function WorldCupMapMenu({
         </div>
       </div>
 
-      <div
-        className={`wcmap__notice${notice ? ' is-visible' : ''}`}
-        role="status"
-        aria-live="polite"
-      >
+      <div className={`wcmap__notice${notice ? ' is-visible' : ''}`} role="status" aria-live="polite">
         {notice}
       </div>
 

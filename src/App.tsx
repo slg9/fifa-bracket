@@ -604,6 +604,7 @@ function BracketBoard({
   onPick,
   onClear,
   onFocusChange,
+  onFullscreenChange,
 }: {
   matches: DisplayMatch[]
   teamsById: Map<string, Team>
@@ -614,6 +615,7 @@ function BracketBoard({
   onPick: (matchId: string, teamId: string) => void
   onClear: (matchId: string) => void
   onFocusChange: (teamId: string | null) => void
+  onFullscreenChange?: (isFullscreen: boolean) => void
 }) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const exportRef = useRef<HTMLDivElement | null>(null)
@@ -715,7 +717,30 @@ function BracketBoard({
 
   useEffect(() => {
     isFullscreenRef.current = isFullscreen
-  }, [isFullscreen])
+    onFullscreenChange?.(isFullscreen)
+  }, [isFullscreen, onFullscreenChange])
+
+  useEffect(() => {
+    const handleToggleFullscreen = () => {
+      void toggleFullscreen()
+    }
+    const handleShareRequest = () => {
+      void handleShare()
+    }
+    const handleDownloadRequest = () => {
+      void handleDownload()
+    }
+
+    window.addEventListener('bracket:toggle-fullscreen', handleToggleFullscreen)
+    window.addEventListener('bracket:share', handleShareRequest)
+    window.addEventListener('bracket:download', handleDownloadRequest)
+
+    return () => {
+      window.removeEventListener('bracket:toggle-fullscreen', handleToggleFullscreen)
+      window.removeEventListener('bracket:share', handleShareRequest)
+      window.removeEventListener('bracket:download', handleDownloadRequest)
+    }
+  }, [])
 
   useEffect(() => {
     const syncViewportState = () => {
@@ -1080,6 +1105,11 @@ function BracketBoard({
 
                         return (
                           <div key={match.id} className="bracket-final">
+                            {match.id === 'M103' ? (
+                              <div className="finale__challenge-mark">
+                                <img src="/brakup-challenge-logo-wc.png" alt="Brakup Challenge" className="finale__challenge-logo" />
+                              </div>
+                            ) : null}
                             <MatchCard
                               match={match}
                               teamsById={teamsById}
@@ -1190,7 +1220,7 @@ function BracketBoard({
             <table className="standings-popup__table">
               <thead>
                 <tr>
-                  <th>J</th><th>G</th><th>N</th><th>P</th><th>+/-</th><th>Pts</th>
+                  <th>Equipe</th><th>J</th><th>G</th><th>N</th><th>P</th><th>+/-</th><th>Pts</th>
                 </tr>
               </thead>
               <tbody>
@@ -1256,6 +1286,9 @@ function App() {
   const [initialDayModalLoading, setInitialDayModalLoading] = useState(false)
   const [selectedDayKey, setSelectedDayKey] = useState(() => localDateStr())
   const [menuOpen, setMenuOpen] = useState(false)
+  const [headerBracketMenuOpen, setHeaderBracketMenuOpen] = useState(false)
+  const [isBracketFullscreen, setIsBracketFullscreen] = useState(false)
+  const [sidePanel, setSidePanel] = useState<'qualified' | 'thirds' | 'scorers' | null>(null)
   const [matchModalGroupId, setMatchModalGroupId] = useState<string | null>(null)
   const [matchStatsModal, setMatchStatsModal] = useState<{ match: GroupMatch; homeTeam: Team; awayTeam: Team } | null>(null)
   const [matchStatsData, setMatchStatsData] = useState<MatchEventsData | null>(null)
@@ -1475,6 +1508,24 @@ function App() {
     return () => clearInterval(id)
   }, [])
 
+  useEffect(() => {
+    if (view !== 'bracket') {
+      setSidePanel(null)
+      setHeaderBracketMenuOpen(false)
+      setIsBracketFullscreen(false)
+    }
+  }, [view])
+
+  useEffect(() => {
+    if (isBracketFullscreen) {
+      setHeaderBracketMenuOpen(false)
+    }
+  }, [isBracketFullscreen])
+
+  function dispatchBracketAction(action: 'bracket:toggle-fullscreen' | 'bracket:share' | 'bracket:download') {
+    window.dispatchEvent(new Event(action))
+  }
+
   if (loading) {
     return (
       <main className="app-shell loading">
@@ -1510,8 +1561,12 @@ function App() {
   const groupBracket = buildKnockoutBracket(standings)
   const activeKnockoutPicks = mode === 'simulation' ? knockoutPicks : {}
   const displayBracket = resolveDisplayBracket(groupBracket, activeKnockoutPicks)
+  const bracketHeaderTeams = [...new Set(displayBracket.flatMap((match) => [getEntrantTeamId(match.home), getEntrantTeamId(match.away)]).filter((teamId): teamId is string => Boolean(teamId)))]
+    .map((teamId) => teamsById.get(teamId))
+    .filter((team): team is Team => Boolean(team))
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+  const shouldDockBracketHeader = view === 'bracket' && !isBracketFullscreen
   const projectedQualifiedIds = new Set<string>()
-
   Object.values(standings).forEach((rows) => {
     rows
       .filter((row) => row.rank <= 2)
@@ -1716,21 +1771,110 @@ function App() {
 
       <header className="topbar">
         <div className="brand">
-          <img src="/brakup-logo.png" alt="BRAKUP" className="brand__logo" />
+          <img src="/brakup-challenge-logo-wc.png" alt="BRAKUP" className="brand__logo" />
         </div>
 
+        {shouldDockBracketHeader ? <div className="topbar__center">Tableau final</div> : null}
+
         <div className="topactions">
+          <a href="?challenge" className="chip-btn chip-btn--challenge chip-btn--icon-expand" title="Brakup Challenge">
+            <img src="/favicon-512.png" alt="" className="chip-btn__challenge-logo" />
+            <span className="chip-btn__expand-label">Brakup Challenge</span>
+          </a>
+
           {todayMatches.length > 0 ? (
-            <button type="button" className="chip-btn chip-btn--live" onClick={reopenDayModal}>
+            <button type="button" className="chip-btn chip-btn--live chip-btn--icon-expand" onClick={reopenDayModal} title="Matchs du jour">
               <span className="chip-btn__pulse" aria-hidden="true" />
-              {todayMatches.length} match{todayMatches.length > 1 ? 's' : ''} aujourd&apos;hui
+              <span className="chip-btn__expand-label">
+                {todayMatches.length} match{todayMatches.length > 1 ? 's' : ''} aujourd&apos;hui
+              </span>
             </button>
           ) : null}
-          <button type="button" className={`syncbtn${syncing ? ' is-busy' : ''}${pollingInterval ? ' is-polling' : ''}`} onClick={handleSyncLiveSnapshot} title="Synchroniser les données live">
-            <span className="syncbtn__ico">{syncing ? '◌' : '⟳'}</span>
-            <span className="syncbtn__label">{syncing ? 'Synchro…' : pollingInterval ? `Auto · ${pollingInterval >= 60_000 ? `${pollingInterval / 60_000}min` : `${pollingInterval / 1_000}s`}` : 'Sync'}</span>
+          <button
+            type="button"
+            className={`syncbtn chip-btn--icon-expand${syncing ? ' is-busy' : ''}${pollingInterval ? ' is-polling' : ''}`}
+            onClick={handleSyncLiveSnapshot}
+            title="Synchroniser les donnees live"
+          >
+            <span className="syncbtn__ico">{syncing ? '...' : 'A'}</span>
+            <span className="chip-btn__expand-label">
+              {syncing ? 'Synchro...' : pollingInterval ? `Auto · ${pollingInterval >= 60_000 ? `${pollingInterval / 60_000}min` : `${pollingInterval / 1_000}s`}` : 'Sync'}
+            </span>
             <span className="syncbtn__meta">{formatSyncTime(liveSource.syncedAt)}</span>
           </button>
+
+          {shouldDockBracketHeader ? (
+            <>
+              <label className="bracket-select bracket-select--topbar">
+                <span>Equipe</span>
+                <select value={focusId ?? ''} onChange={(event) => setFocusId(event.target.value || null)}>
+                  <option value="">Parcours finalistes</option>
+                  {bracketHeaderTeams.map((team) => (
+                    <option key={team.id} value={team.id}>{team.flagEmoji} {team.name}</option>
+                  ))}
+                </select>
+              </label>
+
+              <button
+                type="button"
+                className="chip-btn chip-btn--sm"
+                onClick={() => dispatchBracketAction('bracket:toggle-fullscreen')}
+                title="Plein ecran"
+                aria-label="Plein ecran"
+              >
+                ⛶
+              </button>
+
+              <div className="bracket-actions-wrap--topbar">
+                <button
+                  type="button"
+                  className="chip-btn chip-btn--sm"
+                  aria-label={headerBracketMenuOpen ? 'Fermer les actions du tableau' : 'Ouvrir les actions du tableau'}
+                  aria-expanded={headerBracketMenuOpen}
+                  onClick={() => setHeaderBracketMenuOpen((open) => !open)}
+                >
+                  ☰
+                </button>
+
+                {headerBracketMenuOpen ? (
+                  <div className="topmenu bracket-actions-drop--topbar" role="menu">
+                    <button
+                      type="button"
+                      className="topmenu__item"
+                      onClick={() => {
+                        dispatchBracketAction('bracket:share')
+                        setHeaderBracketMenuOpen(false)
+                      }}
+                    >
+                      Partager
+                    </button>
+                    <button
+                      type="button"
+                      className="topmenu__item"
+                      onClick={() => {
+                        dispatchBracketAction('bracket:download')
+                        setHeaderBracketMenuOpen(false)
+                      }}
+                    >
+                      Telecharger
+                    </button>
+                    {focusId ? (
+                      <button
+                        type="button"
+                        className="topmenu__item"
+                        onClick={() => {
+                          setFocusId(null)
+                          setHeaderBracketMenuOpen(false)
+                        }}
+                      >
+                        Reinitialiser le focus
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </div>
 
         <button
@@ -1740,7 +1884,7 @@ function App() {
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((v) => !v)}
         >
-          {menuOpen ? '×' : '☰'}
+          {menuOpen ? 'X' : 'Menu'}
         </button>
 
         {menuOpen ? (
@@ -1755,6 +1899,11 @@ function App() {
                 {todayMatches.length} match{todayMatches.length > 1 ? 's' : ''} aujourd&apos;hui
               </button>
             ) : null}
+            <div className="topmenu__sep" />
+            <a href="?challenge" className="topmenu__item topmenu__item--challenge">
+              <img src="/favicon-512.png" alt="" className="topmenu__challenge-logo" />
+              <span>Brakup Challenge</span>
+            </a>
             <div className="topmenu__sep" />
             <button
               type="button"
@@ -1791,7 +1940,7 @@ function App() {
                 className="topmenu__item topmenu__item--danger"
                 onClick={() => { clearSimulation(); setMenuOpen(false) }}
               >
-                Réinitialiser simulation
+                Reinitialiser simulation
               </button>
             ) : null}
           </div>
@@ -2391,93 +2540,126 @@ function App() {
               onPick={handlePickWinner}
               onClear={handleClearWinner}
               onFocusChange={setFocusId}
+              onFullscreenChange={setIsBracketFullscreen}
             />
           )}
         </main>
 
-        <aside className="board__side">
-          <div className="panel">
-            <div className="panel__head">
-              <div>
-                <div className="panel__title">En route pour les 8es</div>
-                <div className="panel__sub">Top 2 par groupe · 8 meilleurs 3es qualifiés</div>
+        {view === 'bracket' ? (
+          <>
+            {sidePanel ? <button type="button" className="float-sidebar__scrim" aria-label="Fermer le panneau lateral" onClick={() => setSidePanel(null)} /> : null}
+            <div className="float-sidebar">
+              <div className="float-tabs">
+                <button
+                  type="button"
+                  className={`float-tab${sidePanel === 'qualified' ? ' is-active' : ''}`}
+                  onClick={() => setSidePanel((current) => current === 'qualified' ? null : 'qualified')}
+                >
+                  Top 2
+                </button>
+                <button
+                  type="button"
+                  className={`float-tab${sidePanel === 'thirds' ? ' is-active' : ''}`}
+                  onClick={() => setSidePanel((current) => current === 'thirds' ? null : 'thirds')}
+                >
+                  Top 3
+                </button>
+                {liveSource.topScorers && liveSource.topScorers.length > 0 ? (
+                  <button
+                    type="button"
+                    className={`float-tab${sidePanel === 'scorers' ? ' is-active' : ''}`}
+                    onClick={() => setSidePanel((current) => current === 'scorers' ? null : 'scorers')}
+                  >
+                    Buteurs
+                  </button>
+                ) : null}
               </div>
-            </div>
-            <div className="odds">
-              {[...projectedQualifiedIds]
-                .slice(0, 12)
-                .map((teamId, index) => {
-                  const team = teamsById.get(teamId)
-                  if (!team) return null
 
-                  return (
-                    <button key={team.id} type="button" className={`oddrow${focusId === team.id ? ' is-focus' : ''}`} onClick={() => toggleFocus(team.id)}>
-                      <span className="oddrow__rank">{index + 1}</span>
-                      {flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
-                      <span className="oddrow__name">{team.name}</span>
-                      <span className="oddrow__bar">
-                        <span className="oddrow__fill" style={{ width: `${100 - index * 5}%` }} />
-                      </span>
-                      <span className="oddrow__pct">{team.groupId}</span>
-                    </button>
-                  )
-                })}
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="panel__head">
-              <div>
-                <div className="panel__title">Meilleurs troisièmes</div>
-                <div className="panel__sub">Projection en cours pour les slots variables</div>
-              </div>
-            </div>
-            <div className="scorers">
-              {bestThirds.map((row, index) => {
-                const team = teamsById.get(row.teamId)
-                if (!team) return null
-
-                return (
-                  <div key={team.id} className={`scorerrow${index === 0 ? ' is-top' : ''}`}>
-                    <span className="scorerrow__rank">{index + 1}</span>
-                    {flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
-                    <span className="scorerrow__name">{team.name}</span>
-                    <span className="scorerrow__team">{team.groupId}</span>
-                    <span className="scorerrow__goals">
-                      <b>{row.points}</b>
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="panel__foot">
-              <span className={`srcdot srcdot--${mode === 'simulation' ? 'sim' : 'live'}`} />
-              {mode === 'simulation' ? 'Données simulées' : 'Données live fusionnées au seed'}
-            </div>
-          </div>
-
-          {liveSource.topScorers && liveSource.topScorers.length > 0 ? (
-            <div className="panel">
-              <div className="panel__head">
-                <div className="panel__title">Top buteurs</div>
-              </div>
-              <div className="scorers">
-                {liveSource.topScorers.map((scorer, index) => {
-                  const team = teamsByFifaCode.get(scorer.teamCode)
-                  return (
-                    <div key={`${scorer.name}-${scorer.teamCode}`} className={`scorerrow${index === 0 ? ' is-top' : ''}`}>
-                      <span className="scorerrow__rank">{index + 1}</span>
-                      {team ? (flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>) : null}
-                      <span className="scorerrow__name">{scorer.name}</span>
-                      <span className="scorerrow__goals"><b>{scorer.goals}</b></span>
+              {sidePanel ? (
+                <div className="float-panel">
+                  <div className="float-panel__head">
+                    <div className="float-panel__title">
+                      {sidePanel === 'qualified' ? 'En route pour les 8es' : sidePanel === 'thirds' ? 'Meilleurs troisiemes' : 'Top buteurs'}
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-          ) : null}
+                    <button type="button" className="float-panel__close" onClick={() => setSidePanel(null)} aria-label="Fermer">
+                      X
+                    </button>
+                  </div>
 
-        </aside>
+                  <div className="float-panel__body">
+                    {sidePanel === 'qualified' ? (
+                      <>
+                        <div className="panel__sub">Top 2 par groupe · meilleurs troisiemes qualifies</div>
+                        <div className="odds">
+                          {[...projectedQualifiedIds]
+                            .slice(0, 12)
+                            .map((teamId, index) => {
+                              const team = teamsById.get(teamId)
+                              if (!team) return null
+
+                              return (
+                                <button key={team.id} type="button" className={`oddrow${focusId === team.id ? ' is-focus' : ''}`} onClick={() => setFocusId(focusId === team.id ? null : team.id)}>
+                                  <span className="oddrow__rank">{index + 1}</span>
+                                  {flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
+                                  <span className="oddrow__name">{team.name}</span>
+                                  <span className="oddrow__bar">
+                                    <span className="oddrow__fill" style={{ width: `${100 - index * 5}%` }} />
+                                  </span>
+                                  <span className="oddrow__pct">{team.groupId}</span>
+                                </button>
+                              )
+                            })}
+                        </div>
+                      </>
+                    ) : null}
+
+                    {sidePanel === 'thirds' ? (
+                      <>
+                        <div className="panel__sub">Projection en cours pour les slots variables</div>
+                        <div className="scorers">
+                          {bestThirds.map((row, index) => {
+                            const team = teamsById.get(row.teamId)
+                            if (!team) return null
+
+                            return (
+                              <div key={team.id} className={`scorerrow${index === 0 ? ' is-top' : ''}`}>
+                                <span className="scorerrow__rank">{index + 1}</span>
+                                {flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
+                                <span className="scorerrow__name">{team.name}</span>
+                                <span className="scorerrow__team">{team.groupId}</span>
+                                <span className="scorerrow__goals"><b>{row.points}</b></span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <div className="panel__foot">
+                          <span className={`srcdot srcdot--${mode === 'simulation' ? 'sim' : 'live'}`} />
+                          {mode === 'simulation' ? 'Donnees simulees' : 'Donnees live fusionnees au seed'}
+                        </div>
+                      </>
+                    ) : null}
+
+                    {sidePanel === 'scorers' && liveSource.topScorers && liveSource.topScorers.length > 0 ? (
+                      <div className="scorers">
+                        {liveSource.topScorers.map((scorer, index) => {
+                          const team = teamsByFifaCode.get(scorer.teamCode)
+                          return (
+                            <div key={`${scorer.name}-${scorer.teamCode}`} className={`scorerrow${index === 0 ? ' is-top' : ''}`}>
+                              <span className="scorerrow__rank">{index + 1}</span>
+                              {team ? (flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>) : null}
+                              <span className="scorerrow__name">{scorer.name}</span>
+                              <span className="scorerrow__goals"><b>{scorer.goals}</b></span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : null}
       </div>
       {matchStatsModal ? (() => {
         const { match, homeTeam, awayTeam } = matchStatsModal
