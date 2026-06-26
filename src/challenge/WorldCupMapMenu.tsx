@@ -10,6 +10,7 @@ export interface WorldCupMapMenuProps {
   realResults?: Record<string, string>
   onPick: (matchId: string, teamId: string) => void
   onPlay: (matchId: string, teamId: string) => void
+  onSimulate?: (matchId: string) => void
   onShowBracket?: () => void
   onSave?: () => void
 }
@@ -371,6 +372,7 @@ function LevelEntryScreen({
   onClose,
   onPickTeam,
   onPlay,
+  onSimulate,
   onShowBracket: _onShowBracket,
   onShare: _onShare,
 }: {
@@ -383,12 +385,14 @@ function LevelEntryScreen({
   onClose: () => void
   onPickTeam: (teamId: string) => void
   onPlay: () => void
+  onSimulate?: () => void
   onShowBracket?: () => void
   onShare?: () => void
 }) {
   if (!open || !node) return null
 
   const canPlay = Boolean(node.homeTeam && node.awayTeam && selectedTeamId)
+  const canSimulate = Boolean(node.homeTeam && node.awayTeam && onSimulate)
   const displayScore = scoreForNode(node, score)
 
   return (
@@ -435,6 +439,15 @@ function LevelEntryScreen({
             )}
           </div>
         ) : null}
+
+        <button
+          type="button"
+          className="wcmap-entry__simulate"
+          onClick={onSimulate}
+          disabled={!canSimulate}
+        >
+          Simuler le match
+        </button>
 
         <div className="wcmap-entry__teams">
             <button
@@ -489,6 +502,7 @@ export function WorldCupMapMenu({
   realResults = {},
   onPick: _onPick,
   onPlay,
+  onSimulate,
   onShowBracket,
   onSave,
 }: WorldCupMapMenuProps) {
@@ -582,6 +596,12 @@ export function WorldCupMapMenu({
     onPlay(selectedNode.id, chosenTeamId)
   }
 
+  const handleSimulate = () => {
+    if (!selectedNode) return
+    sfx.click()
+    onSimulate?.(selectedNode.id)
+  }
+
   return (
     <section className="wcmap">
       <div
@@ -630,6 +650,7 @@ export function WorldCupMapMenu({
         onClose={() => setSelectedMatchId(null)}
         onPickTeam={handlePickTeam}
         onPlay={handlePlay}
+        onSimulate={onSimulate ? handleSimulate : undefined}
         onShowBracket={onShowBracket}
         onShare={onSave}
       />
