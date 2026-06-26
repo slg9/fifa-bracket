@@ -1,3 +1,4 @@
+import { isGameMuted } from './useGameAudio'
 /**
  * Synthesized UI sound effects via Web Audio API.
  * No external audio files needed — all sounds are generated programmatically.
@@ -16,6 +17,7 @@ function tone(
   duration: number,
   opts: { type?: OscillatorType; gain?: number; freqEnd?: number; delay?: number } = {},
 ) {
+  if (isGameMuted()) return
   const c = ctx()
   const t = c.currentTime + (opts.delay ?? 0)
   const osc = c.createOscillator()
@@ -34,6 +36,7 @@ function noise(
   duration: number,
   opts: { filterFreq?: number; filterFreqEnd?: number; gain?: number; delay?: number } = {},
 ) {
+  if (isGameMuted()) return
   const c = ctx()
   const t = c.currentTime + (opts.delay ?? 0)
   const bufSize = Math.ceil(c.sampleRate * duration)
@@ -56,12 +59,12 @@ function noise(
 export const sfx = {
   /** General button tap */
   click() {
-    tone(720, 0.07, { type: 'square', gain: 0.1, freqEnd: 360 })
+    tone(760, 0.075, { type: 'square', gain: 0.2, freqEnd: 330 })
   },
 
   /** Arrow / dot navigation */
   nav() {
-    tone(660, 0.055, { type: 'sine', gain: 0.16 })
+    tone(700, 0.06, { type: 'sine', gain: 0.24 })
   },
 
   /** Card thrown off screen */
@@ -78,8 +81,8 @@ export const sfx = {
 
   /** "Bracket" overlay toggle */
   bracket() {
-    noise(0.12, { filterFreq: 2000, filterFreqEnd: 800, gain: 0.12 })
-    tone(440, 0.12, { type: 'sine', gain: 0.18 })
+    noise(0.12, { filterFreq: 2200, filterFreqEnd: 760, gain: 0.18 })
+    tone(480, 0.12, { type: 'sine', gain: 0.24 })
   },
 
   /** Save bracket */
@@ -90,13 +93,13 @@ export const sfx = {
 
   /** Battle / play a match */
   battle() {
-    noise(0.22, { filterFreq: 600, filterFreqEnd: 3000, gain: 0.16 })
-    tone(330, 0.28, { type: 'sawtooth', gain: 0.07, freqEnd: 660 })
+    noise(0.22, { filterFreq: 600, filterFreqEnd: 3200, gain: 0.22 })
+    tone(330, 0.28, { type: 'sawtooth', gain: 0.12, freqEnd: 700 })
   },
 
   /** Big splash JOUER button — epic */
   start() {
-    noise(0.55, { filterFreq: 600, filterFreqEnd: 2400, gain: 0.18 })
+    noise(0.55, { filterFreq: 600, filterFreqEnd: 2500, gain: 0.24 })
     tone(261, 0.55, { type: 'triangle', gain: 0.18 })
     tone(523, 0.5,  { type: 'triangle', gain: 0.24, delay: 0.1 })
     tone(784, 0.42, { type: 'sine',     gain: 0.28, delay: 0.22 })
@@ -105,7 +108,7 @@ export const sfx = {
 
   /** Tab navigation switch */
   tab() {
-    tone(500, 0.08, { type: 'sine', gain: 0.14 })
+    tone(520, 0.08, { type: 'sine', gain: 0.22 })
   },
 
   /** Crowd roar — goal scored */
@@ -125,5 +128,12 @@ export const sfx = {
     tone(330, 0.4, { type: 'sawtooth', gain: 0.14, freqEnd: 220 })
     tone(220, 0.4, { type: 'sawtooth', gain: 0.12, delay: 0.32, freqEnd: 146 })
     tone(146, 0.3, { type: 'sawtooth', gain: 0.08, delay: 0.6,  freqEnd: 110 })
+  },
+
+  /** Referee whistle for kick start */
+  whistle() {
+    noise(0.16, { filterFreq: 2600, filterFreqEnd: 3400, gain: 0.08 })
+    tone(1960, 0.28, { type: 'square', gain: 0.14, freqEnd: 1760 })
+    tone(2380, 0.18, { type: 'sine', gain: 0.11, delay: 0.06, freqEnd: 2100 })
   },
 }

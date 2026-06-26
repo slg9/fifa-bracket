@@ -7,12 +7,14 @@ type MatchResultProps = {
   awayTeamId: string
   homeTeamName?: string
   awayTeamName?: string
+  homeFlag?: string
+  awayFlag?: string
   onContinue: () => void
 }
 
 const CONFETTI_COLORS = ['#ffb800', '#2bff9a', '#ff4455', '#a855f7', '#3b82f6', '#ff6b35']
 
-export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTeamName, awayTeamName, onContinue }: MatchResultProps) {
+export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTeamName, awayTeamName, homeFlag, awayFlag, onContinue }: MatchResultProps) {
   const homeName = homeTeamName ?? homeTeamId
   const awayName = awayTeamName ?? awayTeamId
   return (
@@ -23,7 +25,11 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
         <div className="battle-match-result__trophy">{playerWon ? '🏆' : '◌'}</div>
         <h1>{playerWon ? 'VICTOIRE !' : 'Bien essayé'}</h1>
         <p>{playerWon ? `${homeName} remporte le duel !` : `${awayName} s'impose cette fois`}</p>
-        <div className="battle-match-result__score"><strong>{result.homeScore}</strong><i>—</i><strong>{result.awayScore}</strong></div>
+        <div className="battle-match-result__score">
+          {homeFlag ? <span className="battle-match-result__score-flag">{homeFlag}</span> : null}
+          <strong>{result.homeScore}</strong><i>-</i><strong>{result.awayScore}</strong>
+          {awayFlag ? <span className="battle-match-result__score-flag">{awayFlag}</span> : null}
+        </div>
         <div className="battle-breakdown"><header><span>Round</span><span>Phase</span><span>Résultat</span></header>{result.rounds.map((round, index) => <div key={`${round.type}-${index}`}><b>{index + 1}</b><span>{round.type === 'attack' ? '⚽ Attaque' : '🛡️ Défense'}</span><strong className={round.success ? 'is-success' : 'is-fail'}>{round.success ? 'RÉUSSI' : 'ÉCHEC'}</strong></div>)}</div>
         <button type="button" className="battle-continue" onClick={onContinue}>Continuer <span>→</span></button>
       </div>

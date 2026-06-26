@@ -177,7 +177,7 @@ export type DefenseOutcome =
 
 export type BattleRoundType = 'attack' | 'defense' | 'fruit_ninja'
 
-export type BattlePhase = 'intro' | 'round_start' | 'countdown' | 'playing' | 'round_result' | 'match_result'
+export type BattlePhase = 'intro' | 'round_start' | 'countdown' | 'playing' | 'round_result' | 'penalties' | 'match_result'
 
 export type BattleMatchState = {
   roundIndex: number
@@ -204,4 +204,5 @@ export type BattleResult = {
   winnerId: string
   playerScore: number
   rounds: Array<{ type: BattleRoundType; success: boolean; isGoal: boolean }>
+  penalties?: { home: number; away: number }
 }

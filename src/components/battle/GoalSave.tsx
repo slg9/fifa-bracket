@@ -1,320 +1,654 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { BattleDifficulty } from '../../types'
+import type { TeamKit } from '../../lib/teamKits'
+import { playGameSound } from '../../lib/useGameAudio'
+import { sfx } from '../../lib/sfx'
 
 export type GoalSaveProps = {
   ballCount: number
   difficulty: BattleDifficulty
   onResult: (saved: boolean) => void
+  playerKit?: TeamKit
+  opponentKit?: TeamKit
+  opponentName?: string
+  opponentFlag?: string
+  mode?: 'goal_save' | 'penalty'
+  onAudioOverride?: (src: string | null) => void
 }
 
-type BallState = 'flying' | 'intercepted' | 'scored'
+type BallType = 'normal' | 'fast' | 'curveLeft' | 'curveRight' | 'delayed' | 'doubleTap' | 'fake'
+type BallState = 'waiting' | 'flying' | 'intercepted' | 'scored' | 'expired'
 
 type Ball = {
   id: number
+  wave: number
+  type: BallType
   startX: number
   startY: number
   endX: number
   endY: number
+  cp1X: number
+  cp1Y: number
+  cp2X: number
+  cp2Y: number
   delay: number
   duration: number
+  health: number
+  maxHealth: number
   state: BallState
+  speedFeel: number
+  spinDirection: 1 | -1
+  lastHitAt?: number
 }
 
-function makeBalls(count: number, duration: number): Ball[] {
-  const balls: Ball[] = []
-  for (let i = 0; i < count; i++) {
-    // Spawn from top of screen, fly DOWN toward goal at bottom
-    const sx = 10 + Math.random() * 80
-    const sy = -8 + Math.random() * 12
-    const ex = 28 + Math.random() * 44
-    const ey = 80 + Math.random() * 8
-    balls.push({ id: i, startX: sx, startY: sy, endX: ex, endY: ey, delay: i * 500, duration, state: 'flying' })
+type BallPosition = { x: number; y: number; progress: number; raw: number; started: boolean }
+type Particle = { id: number; x: number; y: number; tone: 'save' | 'score' | 'combo' }
+type TrailSegment = { id: string; x1: number; y1: number; x2: number; y2: number; at: number }
+
+type GoalSaveConfig = {
+  waves: number
+  minBallsPerWave: number
+  maxBallsPerWave: number
+  durationRange: [number, number]
+  delayRange: [number, number]
+  allowedMisses: number
+  swipeRadius: number
+}
+
+const GOAL_SAVE_DIFFICULTY: Record<BattleDifficulty, GoalSaveConfig> = {
+  easy: {
+    waves: 3,
+    minBallsPerWave: 2,
+    maxBallsPerWave: 3,
+    durationRange: [1550, 2100],
+    delayRange: [320, 680],
+    allowedMisses: 0,
+    swipeRadius: 0.085,
+  },
+  medium: {
+    waves: 3,
+    minBallsPerWave: 3,
+    maxBallsPerWave: 4,
+    durationRange: [1200, 1750],
+    delayRange: [220, 520],
+    allowedMisses: 0,
+    swipeRadius: 0.075,
+  },
+  hard: {
+    waves: 3,
+    minBallsPerWave: 4,
+    maxBallsPerWave: 5,
+    durationRange: [900, 1450],
+    delayRange: [140, 390],
+    allowedMisses: 0,
+    swipeRadius: 0.065,
+  },
+}
+
+const GOAL_ZONE = { minX: 8, maxX: 92, minY: 78, scoreY: 94 }
+const MIN_SWIPE_DISTANCE = 5
+const MIN_SWIPE_SPEED = 0.06
+const DOUBLE_TAP_WINDOW_MS = 1050
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
+}
+
+function randomBetween(min: number, max: number) {
+  return min + Math.random() * (max - min)
+}
+
+
+function easeBall(type: BallType, t: number) {
+  if (type === 'fast') return t * t
+  if (type === 'delayed') return t * t * t * (t * (6 * t - 15) + 10)
+  if (type === 'curveLeft' || type === 'curveRight') return 1 - Math.pow(1 - t, 2.35)
+  return t * t * (3 - 2 * t)
+}
+
+function cubicBezierPoint(ball: Ball, t: number) {
+  const mt = 1 - t
+  return {
+    x: mt * mt * mt * ball.startX + 3 * mt * mt * t * ball.cp1X + 3 * mt * t * t * ball.cp2X + t * t * t * ball.endX,
+    y: mt * mt * mt * ball.startY + 3 * mt * mt * t * ball.cp1Y + 3 * mt * t * t * ball.cp2Y + t * t * t * ball.endY,
   }
+}
+
+function getBallPosition(ball: Ball, now: number, startTime: number): BallPosition {
+  const elapsed = now - startTime - ball.delay
+  const raw = clamp(elapsed / ball.duration, 0, 1)
+  const eased = easeBall(ball.type, raw)
+  const point = cubicBezierPoint(ball, eased)
+  return { ...point, progress: eased, raw, started: elapsed >= 0 }
+}
+
+function distancePointToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number) {
+  const dx = x2 - x1
+  const dy = y2 - y1
+  if (dx === 0 && dy === 0) return Math.hypot(px - x1, py - y1)
+  const t = clamp(((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy), 0, 1)
+  const cx = x1 + t * dx
+  const cy = y1 + t * dy
+  return Math.hypot(px - cx, py - cy)
+}
+
+function pointToClient(rect: DOMRect, point: BallPosition) {
+  return {
+    x: rect.left + (point.x / 100) * rect.width,
+    y: rect.top + (point.y / 100) * rect.height,
+  }
+}
+
+function makeGoalSaveBalls(ballCount: number, difficulty: BattleDifficulty, mode: 'goal_save' | 'penalty' = 'goal_save') {
+  const isPenalty = mode === 'penalty'
+  const danger = clamp(ballCount, 1, 3)
+  const balls: Ball[] = []
+  const count = isPenalty ? 1 : danger
+  const durationBase = isPenalty ? (difficulty === 'hard' ? 1240 : difficulty === 'medium' ? 1380 : 1520) : difficulty === 'hard' ? 1120 : difficulty === 'medium' ? 1320 : 1520
+
+  for (let i = 0; i < count; i += 1) {
+    const type: BallType = isPenalty ? (Math.random() < 0.34 ? 'curveLeft' : Math.random() < 0.52 ? 'curveRight' : 'normal') : difficulty === 'hard' && i === 0 ? 'fast' : i % 2 ? 'curveLeft' : 'normal'
+    const endX = clamp((isPenalty ? randomBetween(28, 72) : [34, 50, 66][i]) + randomBetween(-6, 6), 18, 82)
+    const startX = clamp(endX + randomBetween(-24, 24), 8, 92)
+    const startY = isPenalty ? randomBetween(5, 11) : randomBetween(-12, 4)
+    const endY = randomBetween(94, 97)
+    const curveDir = type === 'curveLeft' ? -1 : Math.random() < 0.5 ? -1 : 1
+    const curvePower = type === 'fast' ? 10 : randomBetween(14, 26)
+    const duration = durationBase - (isPenalty ? 0 : (danger - 1) * 80 + i * 45)
+    const delay = isPenalty ? 3100 : 80 + i * 180
+
+    balls.push({
+      id: i + 1,
+      wave: 0,
+      type,
+      startX,
+      startY,
+      endX,
+      endY,
+      cp1X: clamp(startX + (endX - startX) * 0.22 + curveDir * curvePower, -8, 108),
+      cp1Y: randomBetween(8, 24),
+      cp2X: clamp(endX - curveDir * curvePower * 0.32, 0, 100),
+      cp2Y: randomBetween(62, 78),
+      delay,
+      duration,
+      health: 1,
+      maxHealth: 1,
+      state: 'waiting',
+      speedFeel: clamp(1.25 - duration / 2300, 0.25, 1.05),
+      spinDirection: Math.random() < 0.5 ? -1 : 1,
+    })
+  }
+
   return balls
 }
 
-export function GoalSave({ ballCount, difficulty, onResult }: GoalSaveProps) {
-  const duration = difficulty === 'easy' ? 1800 : difficulty === 'medium' ? 1400 : 1000
-  const [balls, setBalls] = useState<Ball[]>(() => makeBalls(Math.min(3, Math.max(1, ballCount)), duration))
-  const [particles, setParticles] = useState<{ id: number; x: number; y: number }[]>([])
+export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentKit, opponentName, opponentFlag, mode = 'goal_save', onAudioOverride }: GoalSaveProps) {
+  const cfg = GOAL_SAVE_DIFFICULTY[difficulty]
+  const isPenalty = mode === 'penalty'
+  const playerJerseyColor = playerKit?.primary ?? '#2bff9a'
+  const playerAccentColor = playerKit?.secondary ?? '#FFB800'
+  const opponentJerseyColor = opponentKit?.primary ?? '#FF4455'
+  const opponentAccentColor = opponentKit?.secondary ?? '#7dd3fc'
+  const [balls, setBalls] = useState<Ball[]>(() => makeGoalSaveBalls(ballCount, difficulty, mode))
+  const [penaltyCountdown, setPenaltyCountdown] = useState<number | null>(() => isPenalty ? 3 : null)
+  const [particles, setParticles] = useState<Particle[]>([])
+  const [trail, setTrail] = useState<TrailSegment[]>([])
   const [resultLabel, setResultLabel] = useState<string | null>(null)
-  const endedRef = useRef(false)
-  const ballsRef = useRef(balls)
-  ballsRef.current = balls
-  // keep latest onResult without making it a dep of the resolution effect
-  const onResultRef = useRef(onResult)
-  onResultRef.current = onResult
-
-  // auto-resolve balls that reach goal
-  useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = []
-    balls.forEach((ball) => {
-      // after delay + duration, if still flying → scored
-      const t = setTimeout(() => {
-        setBalls((prev) => {
-          const target = prev.find((b) => b.id === ball.id)
-          if (!target || target.state !== 'flying') return prev // no change → same ref, no re-render
-          return prev.map((b) => b.id === ball.id ? { ...b, state: 'scored' as const } : b)
-        })
-      }, ball.delay + ball.duration + 50)
-      timers.push(t)
-    })
-    return () => timers.forEach(clearTimeout)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // check resolution — immediate BUT if any ball scored; ARRÊTÉ when all blocked
-  useEffect(() => {
-    if (endedRef.current) return
-    // First ball to reach goal = immediate concede (no cleanup return — endedRef prevents double fire)
-    if (balls.some((b) => b.state === 'scored')) {
-      endedRef.current = true
-      setResultLabel('BUT !')
-      window.setTimeout(() => onResultRef.current(false), 900)
-      return
-    }
-    // Only resolve when no balls remain 'flying' OR 'waiting' (waiting = not yet launched)
-    const allResolved = balls.every((b) => b.state === 'intercepted' || b.state === 'scored')
-    if (!allResolved) return
-    const saved = balls.every((b) => b.state === 'intercepted')
-    endedRef.current = true
-    setResultLabel(saved ? 'ARRÊTÉ !' : 'BUT !')
-    window.setTimeout(() => onResultRef.current(saved), 900)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [balls])
-
-  const interceptBall = (id: number, clientX: number, clientY: number, containerRect: DOMRect) => {
-    if (endedRef.current) return
-    setBalls((prev) => {
-      const target = prev.find((b) => b.id === id)
-      if (!target || target.state !== 'flying') return prev // same ref → no re-render
-      return prev.map((b) => b.id === id ? { ...b, state: 'intercepted' as const } : b)
-    })
-    const px = (clientX - containerRect.left) / containerRect.width * 100
-    const py = (clientY - containerRect.top) / containerRect.height * 100
-    const particleId = Date.now() + id
-    setParticles((prev) => [...prev, { id: particleId, x: px, y: py }])
-    setTimeout(() => setParticles((prev) => prev.filter((p) => p.id !== particleId)), 600)
-  }
+  const [pendingResult, setPendingResult] = useState<boolean | null>(null)
+  const [renderNow, setRenderNow] = useState(() => performance.now())
+  const [scoreFlash, setScoreFlash] = useState(false)
+  const [shake, setShake] = useState(false)
+  const [missedCount, setMissedCount] = useState(0)
+  const [stoppedCount, setStoppedCount] = useState(0)
+  const [combo, setCombo] = useState(0)
+  const [hitFreeze, setHitFreeze] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
+  const startTimeRef = useRef(performance.now())
+  const rafRef = useRef(0)
+  const endedRef = useRef(false)
+  const ballsRef = useRef(balls)
+  const onResultRef = useRef(onResult)
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const swipeRef = useRef<{ x: number; y: number; at: number } | null>(null)
+  const missedRef = useRef(0)
+  const stoppedRef = useRef(0)
+  const comboRef = useRef({ count: 0, lastAt: 0 })
 
-  // Swipe trail visual
-  const [trail, setTrail] = useState<Array<{ id: string; x1: number; y1: number; x2: number; y2: number; at: number }>>([])
-  const trailTimerRef = useRef(0)
+  ballsRef.current = balls
+  onResultRef.current = onResult
 
-  // swipe detection
-  const swipeRef = useRef<{ x: number; y: number } | null>(null)
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!swipeRef.current) return
-    const dx = e.clientX - swipeRef.current.x
-    const dy = e.clientY - swipeRef.current.y
-    const dist = Math.hypot(dx, dy)
-    if (dist < 12) return
+  useEffect(() => {
+    if (isPenalty) {
+      onAudioOverride?.(null)
+      const heart = playGameSound('/audio/heart.mp3', { volume: 0.88, loop: true })
+      return () => {
+        heart?.stop()
+        onAudioOverride?.(null)
+      }
+    }
+    onAudioOverride?.('/audio/save-the-chaos.mp3')
+    return () => onAudioOverride?.(null)
+  }, [isPenalty, onAudioOverride])
+
+  useEffect(() => {
+    if (!isPenalty) return
+    setPenaltyCountdown(3)
+    const t1 = window.setTimeout(() => setPenaltyCountdown(2), 800)
+    const t2 = window.setTimeout(() => setPenaltyCountdown(1), 1600)
+    const t3 = window.setTimeout(() => { setPenaltyCountdown(0); sfx.whistle() }, 2400)
+    const t4 = window.setTimeout(() => setPenaltyCountdown(null), 3050)
+    return () => {
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      window.clearTimeout(t3)
+      window.clearTimeout(t4)
+    }
+  }, [isPenalty])
+
+  const addTimer = useCallback((callback: () => void, ms: number) => {
+    const timer = window.setTimeout(callback, ms)
+    timersRef.current.push(timer)
+    return timer
+  }, [])
+
+  const clearManagedTimers = useCallback(() => {
+    timersRef.current.forEach(clearTimeout)
+    timersRef.current = []
+  }, [])
+
+  const updateBalls = useCallback((updater: (prev: Ball[]) => Ball[]) => {
+    setBalls((prev) => {
+      const next = updater(prev)
+      ballsRef.current = next
+      return next
+    })
+  }, [])
+
+  const addParticle = useCallback((x: number, y: number, tone: Particle['tone']) => {
+    const id = Date.now() + Math.floor(Math.random() * 10000)
+    setParticles((prev) => [...prev, { id, x, y, tone }])
+    addTimer(() => setParticles((prev) => prev.filter((particle) => particle.id !== id)), 720)
+  }, [addTimer])
+
+  const resolve = useCallback((saved: boolean, label: string) => {
+    if (endedRef.current) return
+    endedRef.current = true
+    setResultLabel(label)
+    setPendingResult(saved)
+    if (saved) playGameSound('/audio/goal.mp3', { volume: 0.86 })
+    else playGameSound('/audio/sad.mp3', { volume: 0.86 })
+  }, [])
+
+  const maybeFinishIfComplete = useCallback((nextBalls: Ball[]) => {
+    if (endedRef.current) return
+    const complete = nextBalls.every((ball) => ball.state === 'intercepted' || ball.state === 'scored' || ball.state === 'expired')
+    if (!complete) return
+    resolve(true, 'SAUVE !')
+  }, [cfg.allowedMisses, resolve])
+
+  const missBall = useCallback((ball: Ball, point: BallPosition) => {
+    if (endedRef.current) return
+    if (ball.type === 'fake') {
+      updateBalls((prev) => {
+        const next = prev.map((item) => item.id === ball.id ? { ...item, state: 'expired' as const } : item)
+        maybeFinishIfComplete(next)
+        return next
+      })
+      return
+    }
+
+    missedRef.current += 1
+    setMissedCount(missedRef.current)
+    setScoreFlash(true)
+    setShake(true)
+    addParticle(point.x, point.y, 'score')
+    addTimer(() => setScoreFlash(false), 220)
+    addTimer(() => setShake(false), 180)
+
+    updateBalls((prev) => {
+      const next = prev.map((item) => item.id === ball.id ? { ...item, state: 'scored' as const } : item)
+      resolve(false, 'BUT !')
+      return next
+    })
+  }, [addParticle, addTimer, resolve, updateBalls])
+
+  const registerCombo = useCallback((x: number, y: number) => {
+    const now = performance.now()
+    const nextCombo = now - comboRef.current.lastAt <= 800 ? comboRef.current.count + 1 : 1
+    comboRef.current = { count: nextCombo, lastAt: now }
+    setCombo(nextCombo)
+    if (nextCombo >= 2) addParticle(x, y, 'combo')
+    addTimer(() => {
+      if (performance.now() - comboRef.current.lastAt >= 760) {
+        comboRef.current = { count: 0, lastAt: 0 }
+        setCombo(0)
+      }
+    }, 820)
+  }, [addParticle, addTimer])
+
+  const interceptBall = useCallback((ball: Ball, point: BallPosition, now: number) => {
+    if (endedRef.current || (ball.state !== 'flying' && ball.state !== 'waiting')) return
+
+    updateBalls((prev) => {
+      let didStop = false
+      let didDamage = false
+      const next = prev.map((item) => {
+        if (item.id !== ball.id || item.state === 'intercepted' || item.state === 'scored' || item.state === 'expired') return item
+        if (item.type === 'fake') {
+          didStop = true
+          return { ...item, state: 'intercepted' as const }
+        }
+        if (item.health > 1) {
+          const fastEnoughSecondCut = item.lastHitAt == null || now - item.lastHitAt <= DOUBLE_TAP_WINDOW_MS
+          if (!fastEnoughSecondCut) return { ...item, lastHitAt: now }
+          didDamage = true
+          const nextHealth = item.health - 1
+          if (nextHealth <= 0) {
+            didStop = true
+            return { ...item, health: 0, state: 'intercepted' as const }
+          }
+          return { ...item, health: nextHealth, lastHitAt: now }
+        }
+        didStop = true
+        return { ...item, state: 'intercepted' as const }
+      })
+
+      if (didStop) {
+        stoppedRef.current += ball.type === 'fake' ? 0 : 1
+        setStoppedCount(stoppedRef.current)
+        addParticle(point.x, point.y, 'save')
+        registerCombo(point.x, point.y)
+        maybeFinishIfComplete(next)
+      } else if (didDamage) {
+        addParticle(point.x, point.y, 'combo')
+        setHitFreeze(true)
+        addTimer(() => setHitFreeze(false), 55)
+      }
+      return next
+    })
+  }, [addParticle, addTimer, maybeFinishIfComplete, registerCombo, updateBalls])
+
+  useEffect(() => {
+    startTimeRef.current = performance.now()
+
+    const tick = (now: number) => {
+      setRenderNow(now)
+      if (!endedRef.current) {
+        for (const ball of ballsRef.current) {
+          if (ball.state === 'intercepted' || ball.state === 'scored' || ball.state === 'expired') continue
+          const point = getBallPosition(ball, now, startTimeRef.current)
+          if (!point.started) continue
+          if (ball.state === 'waiting') {
+            updateBalls((prev) => prev.map((item) => item.id === ball.id ? { ...item, state: 'flying' as const } : item))
+          }
+          const crossedGoal = point.raw >= 1 || (point.y >= GOAL_ZONE.scoreY && point.x >= GOAL_ZONE.minX && point.x <= GOAL_ZONE.maxX)
+          if (crossedGoal) {
+            missBall(ball, point)
+            break
+          }
+        }
+      }
+      if (!endedRef.current) rafRef.current = requestAnimationFrame(tick)
+    }
+
+    rafRef.current = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      clearManagedTimers()
+    }
+  }, [clearManagedTimers, missBall, updateBalls])
+
+  const testSwipeSegment = useCallback((x1: number, y1: number, x2: number, y2: number, rect: DOMRect, velocity: number) => {
+    if (velocity < MIN_SWIPE_SPEED) return
+    const now = performance.now()
+    for (const ball of ballsRef.current) {
+      if (ball.state === 'intercepted' || ball.state === 'scored' || ball.state === 'expired') continue
+      const point = getBallPosition(ball, now, startTimeRef.current)
+      if (!point.started || point.raw >= 1) continue
+      const clientPoint = pointToClient(rect, point)
+      const radiusMultiplier = ball.type === 'fast' ? 0.9 : ball.type === 'doubleTap' ? 1.22 : ball.type === 'fake' ? 1 : 1.08
+      const radius = clamp(rect.width * cfg.swipeRadius, 28, 46) * radiusMultiplier
+      if (distancePointToSegment(clientPoint.x, clientPoint.y, x1, y1, x2, y2) <= radius) {
+        interceptBall(ball, point, now)
+      }
+    }
+  }, [cfg.swipeRadius, interceptBall])
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (endedRef.current) return
+    const now = performance.now()
+    swipeRef.current = { x: event.clientX, y: event.clientY, at: now }
+    try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* noop */ }
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
-    const prevX = (swipeRef.current.x - rect.left) / rect.width * 100
-    const prevY = (swipeRef.current.y - rect.top) / rect.height * 100
-    swipeRef.current = { x: e.clientX, y: e.clientY }
-    const mx = (e.clientX - rect.left) / rect.width * 100
-    const my = (e.clientY - rect.top) / rect.height * 100
-    // Add trail segment
-    const seg = { id: crypto.randomUUID(), x1: prevX, y1: prevY, x2: mx, y2: my, at: Date.now() }
-    setTrail((prev) => [...prev.filter((s) => Date.now() - s.at < 400), seg])
-    clearTimeout(trailTimerRef.current)
-    trailTimerRef.current = window.setTimeout(() => setTrail([]), 450)
-    const now = Date.now()
-    ballsRef.current.forEach((ball) => {
-      if (ball.state !== 'flying') return
-      const elapsed = now - ball.delay
-      if (elapsed < 0) return
-      const progress = Math.min(1, elapsed / ball.duration)
-      const bx = ball.startX + (ball.endX - ball.startX) * progress
-      const by = ball.startY + (ball.endY - ball.startY) * progress
-      const d = Math.hypot(mx - bx, my - by)
-      if (d < 22) {
-        interceptBall(ball.id, e.clientX, e.clientY, rect)
+    for (const ball of ballsRef.current) {
+      if (ball.state === 'intercepted' || ball.state === 'scored' || ball.state === 'expired') continue
+      const point = getBallPosition(ball, now, startTimeRef.current)
+      if (!point.started || point.raw >= 1) continue
+      const clientPoint = pointToClient(rect, point)
+      const radiusMultiplier = ball.type === 'fast' ? 0.84 : ball.type === 'doubleTap' ? 1.16 : 1
+      const directRadius = clamp(rect.width * cfg.swipeRadius, 26, 44) * radiusMultiplier
+      if (Math.hypot(clientPoint.x - event.clientX, clientPoint.y - event.clientY) <= directRadius) {
+        interceptBall(ball, point, now)
+        break
       }
-    })
+    }
   }
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!swipeRef.current || endedRef.current) return
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const prev = swipeRef.current
+    const now = performance.now()
+    const distance = Math.hypot(event.clientX - prev.x, event.clientY - prev.y)
+    const dt = Math.max(12, now - prev.at)
+    if (distance < MIN_SWIPE_DISTANCE) return
+    const velocity = distance / dt
+    setTrail((prevTrail) => [
+      ...prevTrail.filter((item) => now - item.at < 280),
+      {
+        id: crypto.randomUUID(),
+        x1: ((prev.x - rect.left) / rect.width) * 100,
+        y1: ((prev.y - rect.top) / rect.height) * 100,
+        x2: ((event.clientX - rect.left) / rect.width) * 100,
+        y2: ((event.clientY - rect.top) / rect.height) * 100,
+        at: now,
+      },
+    ])
+    testSwipeSegment(prev.x, prev.y, event.clientX, event.clientY, rect, velocity)
+    swipeRef.current = { x: event.clientX, y: event.clientY, at: now }
+  }
+
+  const endSwipe = (event?: React.PointerEvent<HTMLDivElement>) => {
+    if (event) {
+      try { event.currentTarget.releasePointerCapture(event.pointerId) } catch { /* noop */ }
+    }
+    swipeRef.current = null
+  }
+
+  useEffect(() => {
+    if (!trail.length) return
+    const timer = window.setTimeout(() => {
+      const now = performance.now()
+      setTrail((prev) => prev.filter((item) => now - item.at < 280))
+    }, 70)
+    return () => clearTimeout(timer)
+  }, [trail])
+
+  const handleResultContinue = useCallback(() => {
+    if (pendingResult === null) return
+    onResultRef.current(pendingResult)
+  }, [pendingResult])
+
+  const activeBalls = balls.map((ball) => ({ ball, point: getBallPosition(ball, renderNow, startTimeRef.current) }))
+  const currentWave = Math.max(0, Math.min(cfg.waves - 1, balls.reduce((wave, ball) => {
+    if (renderNow - startTimeRef.current >= ball.delay - 150) return Math.max(wave, ball.wave)
+    return wave
+  }, 0)))
+  const waveStart = balls.find((ball) => ball.wave === currentWave)?.delay ?? 0
+  const showWaveLabel = renderNow - startTimeRef.current - waveStart < 850
+  const totalRealBalls = balls.filter((ball) => ball.type !== 'fake').length
 
   return (
     <div
       ref={containerRef}
-      className="gs-container"
-      style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#04110a', touchAction: 'none', userSelect: 'none' }}
-      onPointerDown={(e) => { swipeRef.current = { x: e.clientX, y: e.clientY } }}
+      className={`gs-container${isPenalty ? ' is-penalty' : ''}${scoreFlash ? ' is-score-flash' : ''}${shake ? ' is-shaking' : ''}${hitFreeze ? ' is-freeze' : ''}`}
+      onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      onPointerUp={() => { swipeRef.current = null }}
-      onPointerCancel={() => { swipeRef.current = null }}
+      onPointerUp={endSwipe}
+      onPointerCancel={endSwipe}
+      onPointerLeave={endSwipe}
     >
       <style>{`
-        .gs-container { cursor: crosshair; }
-        .gs-goal-frame { position: absolute; inset: 0; pointer-events: none; }
-        .gs-ball {
-          position: absolute;
-          transform: translate(-50%, -50%);
-          pointer-events: auto;
-          cursor: pointer;
-          z-index: 10;
-          touch-action: none;
-        }
-        .gs-ball.is-intercepted { animation: gsBurst 0.35s ease-out forwards; }
-        .gs-ball.is-scored { animation: gsScored 0.4s ease-out forwards; }
-        .gs-particle {
-          position: absolute;
-          transform: translate(-50%, -50%);
-          pointer-events: none;
-          animation: gsParticle 0.55s ease-out forwards;
-          z-index: 20;
-        }
-        .gs-result {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 30;
-          font: 900 clamp(40px, 14vw, 72px) 'Barlow Condensed', sans-serif;
-          letter-spacing: .08em;
-          pointer-events: none;
-          text-shadow: 0 0 36px currentColor;
-          animation: gsResultIn 0.25s ease-out both;
-        }
-        .gs-label {
-          position: absolute;
-          top: 12%;
-          left: 50%;
-          transform: translateX(-50%);
-          font: 800 13px 'Barlow Condensed', sans-serif;
-          letter-spacing: .14em;
-          color: rgba(255,255,255,.7);
-          text-transform: uppercase;
-          pointer-events: none;
-          animation: gsFadeIn 0.4s ease-out both;
-          white-space: nowrap;
-          z-index: 5;
-        }
-        @keyframes gsBurst { to { transform: translate(-50%,-50%) scale(2.2); opacity: 0; } }
-        @keyframes gsScored { to { transform: translate(-50%,-50%) scale(0.3); opacity: 0; } }
-        @keyframes gsParticle {
-          0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-          100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
-        }
-        @keyframes gsResultIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        @keyframes gsFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .gs-container { position:relative; width:100%; height:100%; overflow:hidden; touch-action:none; user-select:none; cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23f7fbff' stroke='%230b1726' stroke-width='4' stroke-linejoin='round' d='M17 45C12 36 12 25 19 19c5-4 10-2 12 4l2-12c1-5 6-7 10-5 4 1 6 5 5 10l-1 11 4-11c2-4 6-5 10-3 4 2 5 6 4 10l-3 12 4-9c2-4 6-4 9-2 3 2 4 6 2 9l-6 16c-3 7-9 12-16 13l-11 2c-8 1-15-2-19-9Z'/%3E%3C/svg%3E") 18 18,crosshair; background:radial-gradient(circle at 50% 11%,rgba(43,255,154,.11),transparent 28%),linear-gradient(180deg,#061426 0%,#081b1a 48%,#07130c 74%,#030806 100%); font-family:'Barlow Condensed',sans-serif; }
+        .gs-container.is-penalty { background:radial-gradient(circle at 50% 14%,rgba(255,68,85,.13),transparent 26%),radial-gradient(circle at 50% 96%,rgba(43,255,154,.11),transparent 32%),linear-gradient(180deg,#061426 0%,#082324 48%,#07130c 74%,#030806 100%); }
+        .gs-penalty-kicker { position:absolute; top:9%; left:50%; z-index:9; transform:translateX(-50%); display:grid; place-items:center; gap:2px; color:#fff; pointer-events:none; filter:drop-shadow(0 10px 18px rgba(0,0,0,.42)); animation:gsKickerPulse .7s ease-in-out infinite alternate; }
+        .gs-penalty-kicker__flag { display:grid; place-items:center; width:31px; height:31px; border-radius:50%; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.22); font-size:19px; margin-bottom:-4px; }
+        .gs-penalty-kicker__name { padding:4px 9px; border-radius:999px; background:rgba(2,8,16,.62); border:1px solid rgba(255,255,255,.12); font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.13em; text-transform:uppercase; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .gs-penalty-countdown { position:absolute; inset:0; z-index:35; display:grid; place-items:center; pointer-events:none; }
+        .gs-penalty-countdown span { display:grid; place-items:center; width:118px; aspect-ratio:1; border-radius:50%; color:#fff; background:radial-gradient(circle,rgba(2,8,16,.86) 0 58%,transparent 60%),conic-gradient(#FFB800 0 80%,rgba(255,255,255,.14) 80%); box-shadow:0 0 42px rgba(255,184,0,.32); font:900 52px 'Barlow Condensed',sans-serif; letter-spacing:.12em; animation:gsPenaltyCount .72s ease-out both; }
+        .gs-container.is-shaking { animation:gsShake .16s linear both; }
+        .gs-container.is-freeze .gs-ball { filter:brightness(1.35) drop-shadow(0 0 18px ${playerJerseyColor}); }
+        .gs-container::after { content:''; position:absolute; inset:0; pointer-events:none; opacity:0; background:radial-gradient(circle at 50% 92%,rgba(255,68,85,.36),transparent 36%); transition:opacity .12s ease-out; z-index:18; }
+        .gs-container.is-score-flash::after { opacity:1; }
+        .gs-goal-frame { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+        .gs-hud { position:absolute; top:8px; left:10px; right:10px; z-index:24; display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:center; pointer-events:none; }
+        .gs-hud__pill { padding:7px 9px; border:1px solid rgba(255,255,255,.12); border-radius:999px; background:rgba(2,8,16,.58); color:rgba(255,255,255,.78); font:900 11px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-transform:uppercase; text-align:center; box-shadow:0 0 24px rgba(43,255,154,.08); }
+        .gs-hud__pill strong { color:#fff; font-size:13px; }
+        .gs-label { position:absolute; top:10%; left:50%; transform:translateX(-50%); z-index:8; padding:8px 14px; border:1px solid rgba(255,255,255,.12); border-radius:999px; background:rgba(2,8,16,.46); color:rgba(255,255,255,.78); font:900 13px 'Barlow Condensed',sans-serif; letter-spacing:.15em; text-transform:uppercase; white-space:nowrap; pointer-events:none; }
+        .gs-wave-label { position:absolute; top:18%; left:50%; z-index:25; transform:translateX(-50%); padding:9px 18px; border-radius:999px; background:rgba(43,255,154,.14); border:1px solid rgba(43,255,154,.44); color:#2bff9a; font:900 18px 'Barlow Condensed'; letter-spacing:.18em; text-shadow:0 0 18px rgba(43,255,154,.55); animation:gsWave .72s ease-out both; pointer-events:none; }
+        .gs-combo { position:absolute; top:26%; left:50%; z-index:26; transform:translateX(-50%); color:${playerJerseyColor}; font:900 25px 'Barlow Condensed'; letter-spacing:.16em; text-shadow:0 0 24px currentColor; animation:gsCombo .35s ease-out both; pointer-events:none; }
+        .gs-ball { position:absolute; left:0; top:0; z-index:12; width:var(--gs-ball-size); height:var(--gs-ball-size); transform:translate(-50%,-50%) scale(var(--gs-scale,1)); pointer-events:auto; opacity:1; filter:drop-shadow(0 12px 14px rgba(0,0,0,.42)) drop-shadow(0 0 14px rgba(255,255,255,.16)); will-change:left,top,width,height,opacity,transform; }
+        .gs-ball.is-waiting { opacity:0; }
+        .gs-ball.is-fake { opacity:.48; filter:drop-shadow(0 0 18px rgba(130,180,255,.24)); }
+        .gs-ball.is-fast { filter:drop-shadow(0 16px 18px rgba(0,0,0,.45)) drop-shadow(0 0 18px rgba(255,216,74,.22)); }
+        .gs-ball.is-doubleTap { filter:drop-shadow(0 16px 18px rgba(0,0,0,.46)) drop-shadow(0 0 20px ${playerJerseyColor}66); }
+        .gs-ball.is-intercepted { opacity:0; transform:translate(-50%,-50%) scale(1.9); transition:opacity .18s ease-out,transform .18s ease-out; }
+        .gs-ball.is-scored,.gs-ball.is-expired { opacity:.1; transform:translate(-50%,-50%) scale(.55); transition:opacity .24s ease-out,transform .24s ease-out; }
+        .gs-ball__svg { display:block; width:100%; height:100%; animation:gsBallSpin var(--gs-spin-speed) linear infinite; animation-direction:var(--gs-spin-direction); }
+        .gs-ball__hp { position:absolute; left:50%; top:-7px; transform:translateX(-50%); display:flex; gap:3px; }
+        .gs-ball__hp i { width:8px; height:4px; border-radius:8px; background:${playerJerseyColor}; box-shadow:0 0 8px ${playerJerseyColor}; }
+        .gs-shadow { position:absolute; left:50%; top:calc(50% + var(--gs-shadow-offset)); width:calc(var(--gs-ball-size) * .84); height:calc(var(--gs-ball-size) * .18); transform:translate(-50%,-50%); border-radius:50%; background:rgba(0,0,0,.28); filter:blur(1px); z-index:-1; }
+        .gs-particle { position:absolute; transform:translate(-50%,-50%); pointer-events:none; animation:gsParticle .68s ease-out forwards; z-index:22; }
+        .gs-particle.is-score { filter:drop-shadow(0 0 16px rgba(255,68,85,.55)); }
+        .gs-particle.is-combo { filter:drop-shadow(0 0 20px ${playerJerseyColor}); }
+        .gs-trail { position:absolute; inset:0; width:100%; height:100%; z-index:21; pointer-events:none; filter:drop-shadow(0 0 11px ${playerJerseyColor}); }
+        .gs-result { position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; gap:18px; align-items:center; justify-content:center; color:#FF4455; font:900 clamp(42px,15vw,78px) 'Barlow Condensed',sans-serif; letter-spacing:.09em; text-shadow:0 0 34px currentColor; pointer-events:auto; background:rgba(2,8,14,.42); animation:gsResultIn .22s ease-out both; }
+        .gs-result.is-save { color:${playerJerseyColor}; }
+        .gs-result__comment { font:800 15px 'Barlow Condensed',sans-serif; letter-spacing:.12em; color:rgba(255,255,255,.8); text-shadow:none; text-align:center; }
+        .gs-result__continue { min-width:190px; padding:13px 24px; border-radius:14px; border:1.5px solid currentColor; background:rgba(255,255,255,.08); color:currentColor; font:900 15px 'Barlow Condensed',sans-serif; letter-spacing:.14em; cursor:pointer; box-shadow:0 0 22px color-mix(in srgb, currentColor 38%, transparent); }
+        @keyframes gsBallSpin { to { rotate:360deg; } }
+        @keyframes gsParticle { 0%{transform:translate(-50%,-50%) scale(.7);opacity:1} 100%{transform:translate(-50%,-50%) scale(3.2);opacity:0} }
+        @keyframes gsResultIn { from{transform:scale(.55);opacity:0} to{transform:scale(1);opacity:1} }
+        @keyframes gsWave { 0%{opacity:0;transform:translateX(-50%) scale(.72)} 24%{opacity:1;transform:translateX(-50%) scale(1.08)} 100%{opacity:0;transform:translateX(-50%) scale(1)} }
+        @keyframes gsCombo { from{opacity:0;transform:translateX(-50%) translateY(8px) scale(.8)} to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)} }
+        @keyframes gsShake { 0%,100%{transform:translate(0,0)} 25%{transform:translate(2px,-1px)} 50%{transform:translate(-2px,1px)} 75%{transform:translate(1px,2px)} }
+        @keyframes gsKickerPulse { to{ transform:translateX(-50%) translateY(4px) scale(1.03); } }
+        @keyframes gsPenaltyCount { 0%{opacity:0;transform:scale(.58)} 30%{opacity:1;transform:scale(1.08)} 100%{opacity:0;transform:scale(.92)} }
       `}</style>
 
-      {/* Goal frame SVG background — goalkeeper perspective, goal at bottom */}
-      <svg className="gs-goal-frame" viewBox="0 0 100 100" preserveAspectRatio="none">
-        {/* Field gradient top */}
-        <rect x="0" y="0" width="100" height="74" fill="rgba(43,255,154,.03)" />
-        {/* Net fill — behind the goal (at bottom) */}
-        <path d="M6 76H94L98 98H2Z" fill="rgba(255,255,255,.04)" />
-        {/* Vertical net lines (perspective: converge upward) */}
-        {[18, 32, 50, 68, 82].map((x) => (
-          <line key={x} x1={x} y1="76" x2={50 + (x - 50) * 0.18} y2="98"
-            stroke="rgba(255,255,255,.14)" strokeWidth="0.5" />
-        ))}
-        {/* Horizontal net lines */}
-        {[80, 86, 92].map((y) => {
-          const progress = (y - 76) / 22
-          const left = 6 - progress * 4
-          const right = 94 + progress * 4
-          return <line key={y} x1={left} y1={y} x2={right} y2={y} stroke="rgba(255,255,255,.14)" strokeWidth="0.5" />
-        })}
-        {/* Goal posts */}
-        <line x1="6" y1="76" x2="2" y2="98" stroke="rgba(255,255,255,.92)" strokeWidth="1.8" strokeLinecap="round" />
-        <line x1="94" y1="76" x2="98" y2="98" stroke="rgba(255,255,255,.92)" strokeWidth="1.8" strokeLinecap="round" />
-        {/* Crossbar (top of goal) */}
-        <line x1="6" y1="76" x2="94" y2="76" stroke="rgba(255,255,255,.92)" strokeWidth="1.8" />
-        {/* Goal line at bottom */}
-        <line x1="2" y1="98" x2="98" y2="98" stroke="rgba(255,255,255,.92)" strokeWidth="1.8" />
-        {/* Ground / field lines */}
-        <line x1="0" y1="74" x2="100" y2="74" stroke="rgba(255,255,255,.15)" strokeWidth="0.5" />
-        {/* Penalty spot */}
-        <circle cx="50" cy="40" r="1.2" fill="rgba(255,255,255,.25)" />
-        {/* Penalty box outline */}
-        <rect x="18" y="55" width="64" height="19" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="0.5" />
-        {/* Goal area box */}
-        <rect x="32" y="66" width="36" height="8" fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="0.5" />
+      <svg className="gs-goal-frame" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <rect x="0" y="0" width="100" height="78" fill="rgba(43,255,154,.025)" />
+        <path d="M0 0 V100 M20 0 V78 M40 0 V78 M60 0 V78 M80 0 V78 M100 0 V100" stroke="rgba(255,255,255,.035)" strokeWidth=".35" />
+        <circle cx="50" cy="42" r="1.1" fill="rgba(255,255,255,.24)" />
+        <rect x="18" y="55" width="64" height="23" fill="none" stroke="rgba(255,255,255,.10)" strokeWidth=".55" />
+        <rect x="32" y="68" width="36" height="10" fill="none" stroke="rgba(255,255,255,.09)" strokeWidth=".5" />
+        <path d="M8 78 H92 L98 98 H2 Z" fill="rgba(255,255,255,.045)" />
+        {[14, 28, 42, 58, 72, 86].map((x) => <line key={x} x1={x} y1="78" x2={50 + (x - 50) * 1.08} y2="98" stroke="rgba(255,255,255,.16)" strokeWidth=".55" />)}
+        {[82, 87, 92, 96].map((y) => { const p = (y - 78) / 20; return <line key={y} x1={8 - p * 6} y1={y} x2={92 + p * 6} y2={y} stroke="rgba(255,255,255,.14)" strokeWidth=".55" /> })}
+        <line x1="8" y1="78" x2="2" y2="98" stroke="rgba(255,255,255,.94)" strokeWidth="2" strokeLinecap="round" />
+        <line x1="92" y1="78" x2="98" y2="98" stroke="rgba(255,255,255,.94)" strokeWidth="2" strokeLinecap="round" />
+        <line x1="8" y1="78" x2="92" y2="78" stroke="rgba(255,255,255,.96)" strokeWidth="2.1" strokeLinecap="round" />
+        <line x1="2" y1="97" x2="98" y2="97" stroke="rgba(255,255,255,.86)" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1={GOAL_ZONE.minX} y1={GOAL_ZONE.scoreY} x2={GOAL_ZONE.maxX} y2={GOAL_ZONE.scoreY} stroke="rgba(255,68,85,.32)" strokeWidth=".65" strokeDasharray="2 2" />
       </svg>
 
-      <div className="gs-label">TOUCHE LES BALLONS !</div>
+      {isPenalty ? (
+        <div className="gs-penalty-kicker" aria-hidden="true">
+          {opponentFlag ? <div className="gs-penalty-kicker__flag">{opponentFlag}</div> : null}
+          <svg viewBox="0 0 80 98" width="62" height="76">
+            <ellipse cx="40" cy="91" rx="24" ry="6" fill="rgba(0,0,0,.28)" />
+            <rect x="27" y="58" width="9" height="23" rx="4.5" fill="#101827" />
+            <rect x="44" y="58" width="9" height="23" rx="4.5" fill="#101827" />
+            <path d="M16 31 q24 -10 48 0 l-4 30 q-20 6 -40 0z" fill={opponentJerseyColor} stroke="rgba(255,255,255,.55)" strokeWidth="1.2" />
+            <path d="M30 27 v31 M50 27 v31" stroke={opponentAccentColor} strokeWidth="3" opacity=".48" />
+            <rect x="7" y="34" width="10" height="22" rx="5" fill={opponentJerseyColor} />
+            <rect x="63" y="34" width="10" height="22" rx="5" fill={opponentJerseyColor} />
+            <circle cx="12" cy="57" r="4" fill="#f3c9a0" />
+            <circle cx="68" cy="57" r="4" fill="#f3c9a0" />
+            <circle cx="40" cy="19" r="18" fill="#f3c9a0" stroke="rgba(255,255,255,.5)" strokeWidth="1" />
+            <path d="M23 16 q17 -20 34 0 q-4 -14 -17 -16 q-13 2 -17 16z" fill="#322012" />
+            <circle cx="33" cy="19" r="3.2" fill="#111" />
+            <circle cx="47" cy="19" r="3.2" fill="#111" />
+            <path d="M35 27 q5 3 10 0" stroke="#111" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+          </svg>
+          <div className="gs-penalty-kicker__name">{opponentName ?? 'TIREUR'}</div>
+        </div>
+      ) : null}
 
-      {/* Balls */}
-      {balls.map((ball) => {
-        // Animate ball position via CSS animation
-        const animName = `gsFly${ball.id}`
-        const radius = ball.state === 'flying' ? undefined : ball.state === 'intercepted' ? 22 : 18
+      {isPenalty && penaltyCountdown !== null ? (
+        <div className="gs-penalty-countdown" aria-live="polite"><span>{penaltyCountdown === 0 ? 'GO' : penaltyCountdown}</span></div>
+      ) : null}
+
+      <div className="gs-hud">
+        <div className="gs-hud__pill">STOP <strong>{stoppedCount}/{totalRealBalls}</strong></div>
+        <div className="gs-hud__pill">VAGUE <strong>{currentWave + 1}/{cfg.waves}</strong></div>
+        <div className="gs-hud__pill">RATE <strong>{missedCount}/1</strong></div>
+      </div>
+      <div className="gs-label">{isPenalty ? 'TIR AU BUT - SWIPE POUR ARRETER' : 'ARRETE LE BALLON ! 1 PASSE = BUT'}</div>
+      {showWaveLabel ? <div className="gs-wave-label">{isPenalty ? 'PREPARE LE PLONGEON' : 'DERNIERE CHANCE'}</div> : null}
+      {combo >= 2 ? <div className="gs-combo">COMBO x{combo}</div> : null}
+
+      {activeBalls.map(({ ball, point }) => {
+        const size = (ball.type === 'fast' ? 20 : ball.type === 'doubleTap' ? 28 : 24) + point.progress * (ball.type === 'fast' ? 30 : 36)
+        const spinMs = clamp(780 - ball.speedFeel * 420, 260, 780)
         return (
-          <div key={ball.id}>
-            <style>{`
-              @keyframes ${animName} {
-                0% { left: ${ball.startX}%; top: ${ball.startY}%; width: 22px; height: 22px; }
-                100% { left: ${ball.endX}%; top: ${ball.endY}%; width: 60px; height: 60px; }
-              }
-              .gs-ball-${ball.id} {
-                animation: ${animName} ${ball.duration}ms cubic-bezier(.2,.4,.6,1) ${ball.delay}ms both;
-              }
-            `}</style>
-            <div
-              className={`gs-ball gs-ball-${ball.id}${ball.state !== 'flying' ? ` is-${ball.state}` : ''}`}
-              style={radius !== undefined ? { width: radius * 2, height: radius * 2 } : undefined}
-              onPointerDown={(e) => {
-                e.stopPropagation()
-                const rect = containerRef.current?.getBoundingClientRect()
-                if (rect && ball.state === 'flying') interceptBall(ball.id, e.clientX, e.clientY, rect)
-              }}
-            >
-              <svg viewBox="0 0 80 80" width="100%" height="100%">
-                <circle cx="40" cy="40" r="34" fill="#f7f9fc" stroke="#101827" strokeWidth="4" />
-                <path d="M40 19 53 28 48 45H32L27 28Z" fill="none" stroke="#101827" strokeWidth="3" />
-                <line x1="40" y1="6" x2="40" y2="19" stroke="#101827" strokeWidth="2" strokeLinecap="round" />
-                <line x1="53" y1="28" x2="66" y2="22" stroke="#101827" strokeWidth="2" strokeLinecap="round" />
-                <line x1="48" y1="45" x2="56" y2="57" stroke="#101827" strokeWidth="2" strokeLinecap="round" />
-                <line x1="32" y1="45" x2="24" y2="57" stroke="#101827" strokeWidth="2" strokeLinecap="round" />
-                <line x1="27" y1="28" x2="14" y2="22" stroke="#101827" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </div>
+          <div
+            key={ball.id}
+            className={`gs-ball is-${ball.type}${!point.started || ball.state === 'waiting' ? ' is-waiting' : ''}${ball.state !== 'flying' && ball.state !== 'waiting' ? ` is-${ball.state}` : ''}`}
+            style={{
+              left: `${point.x}%`,
+              top: `${point.y}%`,
+              '--gs-ball-size': `${size}px`,
+              '--gs-shadow-offset': `${8 + point.progress * 11}px`,
+              '--gs-spin-speed': `${spinMs}ms`,
+              '--gs-spin-direction': ball.spinDirection === 1 ? 'normal' : 'reverse',
+              '--gs-scale': `${1 + point.progress * 0.08}`,
+            } as CSSProperties}
+          >
+            <div className="gs-shadow" />
+            {ball.maxHealth > 1 && ball.state === 'flying' ? <div className="gs-ball__hp">{Array.from({ length: ball.health }, (_, i) => <i key={i} />)}</div> : null}
+            <svg className="gs-ball__svg" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="34" fill={ball.type === 'fake' ? 'rgba(210,230,255,.42)' : '#f7f9fc'} stroke={ball.type === 'fake' ? '#7dd3fc' : '#101827'} strokeWidth="4" strokeDasharray={ball.type === 'fake' ? '7 5' : undefined} />
+              <path d="M40 19 53 28 48 45H32L27 28Z" fill="none" stroke={ball.type === 'fake' ? '#7dd3fc' : '#101827'} strokeWidth="3" />
+              <line x1="40" y1="6" x2="40" y2="19" stroke={ball.type === 'fake' ? '#7dd3fc' : '#101827'} strokeWidth="2" strokeLinecap="round" />
+              <line x1="53" y1="28" x2="66" y2="22" stroke={ball.type === 'fake' ? '#7dd3fc' : '#101827'} strokeWidth="2" strokeLinecap="round" />
+              <line x1="48" y1="45" x2="56" y2="57" stroke={ball.type === 'fake' ? '#7dd3fc' : '#101827'} strokeWidth="2" strokeLinecap="round" />
+              <line x1="32" y1="45" x2="24" y2="57" stroke={ball.type === 'fake' ? '#7dd3fc' : '#101827'} strokeWidth="2" strokeLinecap="round" />
+              <line x1="27" y1="28" x2="14" y2="22" stroke={ball.type === 'fake' ? '#7dd3fc' : '#101827'} strokeWidth="2" strokeLinecap="round" />
+            </svg>
           </div>
         )
       })}
 
-      {/* Swipe trail */}
-      {trail.length > 0 && (
-        <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents:'none', zIndex:25 }}>
-          {trail.map((seg, i) => {
-            const age = (Date.now() - seg.at) / 400
-            return (
-              <line key={seg.id}
-                x1={`${seg.x1}%`} y1={`${seg.y1}%`}
-                x2={`${seg.x2}%`} y2={`${seg.y2}%`}
-                stroke="#2bff9a" strokeWidth={4 - i * 0.5}
-                strokeLinecap="round"
-                opacity={Math.max(0, 1 - age)}
-              />
-            )
-          })}
-        </svg>
-      )}
+      {trail.length > 0 ? <svg className="gs-trail">{trail.map((segment, index) => { const age = clamp((performance.now() - segment.at) / 280, 0, 1); return <line key={segment.id} x1={`${segment.x1}%`} y1={`${segment.y1}%`} x2={`${segment.x2}%`} y2={`${segment.y2}%`} stroke={index % 2 ? playerAccentColor : playerJerseyColor} strokeWidth={Math.max(3, 8 - index)} strokeLinecap="round" opacity={1 - age} /> })}</svg> : null}
 
-      {/* Burst particles */}
-      {particles.map((p) => (
-        <div key={p.id} className="gs-particle" style={{ left: `${p.x}%`, top: `${p.y}%` }}>
-          <svg viewBox="0 0 40 40" width="40" height="40">
-            {Array.from({ length: 8 }, (_, i) => {
-              const angle = (i / 8) * Math.PI * 2
-              return <circle key={i} cx={20 + Math.cos(angle) * 14} cy={20 + Math.sin(angle) * 14} r="4" fill="#FFB800" />
-            })}
+      {particles.map((particle) => (
+        <div key={particle.id} className={`gs-particle is-${particle.tone}`} style={{ left: `${particle.x}%`, top: `${particle.y}%` }}>
+          <svg viewBox="0 0 52 52" width="52" height="52">
+            <circle cx="26" cy="26" r="10" fill={particle.tone === 'score' ? '#FF4455' : playerJerseyColor} opacity=".35" />
+            {Array.from({ length: 11 }, (_, i) => { const angle = (i / 11) * Math.PI * 2; const color = particle.tone === 'score' ? '#FF4455' : (i % 2 ? playerAccentColor : playerJerseyColor); return <circle key={i} cx={26 + Math.cos(angle) * randomBetween(13, 21)} cy={26 + Math.sin(angle) * randomBetween(13, 21)} r="3.8" fill={color} /> })}
           </svg>
         </div>
       ))}
 
-      {/* Result overlay */}
       {resultLabel ? (
-        <div className="gs-result" style={{ color: resultLabel === 'ARRÊTÉ !' ? '#2bff9a' : '#FF4455' }}>
-          {resultLabel}
+        <div className={`gs-result${pendingResult ? ' is-save' : ''}`}>
+          <div>{resultLabel}</div>
+          <div className="gs-result__comment">{pendingResult ? 'TIR BLOQUE - CAGES SAUVEES' : 'BUT ENCAISSE'}</div>
+          <button type="button" className="gs-result__continue" onClick={handleResultContinue}>CONTINUER</button>
         </div>
       ) : null}
     </div>

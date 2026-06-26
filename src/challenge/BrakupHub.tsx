@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useGameAudio } from '../lib/useGameAudio'
+import { setGameMuted, useGameAudio, useGameMuted } from '../lib/useGameAudio'
 import { getBrackets, submitBracket } from '../lib/challengeData'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
 import type { BattleResult, ChallengeEntry, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
@@ -81,10 +81,12 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
   const [brackets, setBrackets] = useState<ChallengeEntry[]>([])
   const [activeBracketId, setActiveBracketId] = useState<string | null>(null)
   const [showEmailEntry, setShowEmailEntry] = useState(false)
+  const [showGameMenu, setShowGameMenu] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
   const challengePreload = useChallengePreload()
+  const audioMuted = useGameMuted()
   // Lobby music: kickoff when on challenge/brackets/board. Null during battle (BattleEngine takes over).
   useGameAudio(view !== 'battle' ? '/audio/kickoff-carnival.mp3' : null)
 
@@ -107,6 +109,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
     if (next === 'board') nextParams.set('board', '')
     if (next === 'battle' && matchId) nextParams.set('match', matchId)
     window.history.pushState({}, '', `?${nextParams.toString().replace(/=$/, '')}`)
+    setShowGameMenu(false)
     setView(next)
     setActiveMatchId(matchId ?? null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -142,9 +145,10 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
   }
 
   const openBracket = (entry: ChallengeEntry) => { setPicks(entry.picks); setBattleBonuses(entry.battleBonuses); setActiveBracketId(entry.id); navigate('challenge') }
+  const introActive = view === 'challenge' && (!challengePreload.ready || showSplash)
 
   return (
-    <div className="brakup-shell">
+    <div className={`brakup-shell${view === 'challenge' ? ' brakup-shell--map-only' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
       {view === 'challenge' && !challengePreload.ready ? <ChallengeLoading progress={challengePreload.progress} /> : null}
       {showSplash && challengePreload.ready ? <ChallengeSplash onPlay={() => setShowSplash(false)} /> : null}
       <header className="brakup-topbar">
@@ -160,7 +164,32 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
         <WorldCupMapMenu matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} onPick={handlePick} onPlay={handlePlay} onShowBracket={() => { sfx.bracket(); setShowBracket(true) }} onSave={() => setShowEmailEntry(true)} />
+        <button type="button" className="game-menu-button" onClick={() => { sfx.click(); setShowGameMenu(true) }} aria-label="Ouvrir le menu jeu">
+          <span />
+          <span />
+          <span />
+        </button>
       </> : null}
+
+      {view === 'challenge' && showGameMenu ? (
+        <div className="game-menu-modal" role="dialog" aria-modal="true" aria-label="Menu jeu">
+          <button type="button" className="game-menu-modal__scrim" onClick={() => setShowGameMenu(false)} aria-label="Fermer le menu" />
+          <div className="game-menu-modal__panel">
+            <div className="game-menu-modal__head">
+              <span>Menu jeu</span>
+              <button type="button" className="game-menu-modal__close" onClick={() => { sfx.click(); setShowGameMenu(false) }} aria-label="Fermer">X</button>
+            </div>
+            <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); setShowBracket(true) }}>Tableau</button>
+            <button type="button" className={`game-menu-modal__item game-menu-modal__item--sound${audioMuted ? ' is-muted' : ''}`} onClick={() => setGameMuted(!audioMuted)}>
+              {audioMuted ? 'Activer le son' : 'Mute le jeu'}
+            </button>
+            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.click(); setShowGameMenu(false); setShowEmailEntry(true) }}>Sauvegarder</button>
+            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('brackets') }}>Mes brackets</button>
+            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
+            <a className="game-menu-modal__item game-menu-modal__item--link" href="/">Simulateur</a>
+          </div>
+        </div>
+      ) : null}
 
       {/* Bracket overlay — fullscreen, opens from the ⊞ button */}
       {view === 'challenge' && showBracket ? (

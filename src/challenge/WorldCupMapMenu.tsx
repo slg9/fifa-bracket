@@ -31,6 +31,9 @@ type DisplayNode = {
   pickedTeamId?: string
 }
 
+type BattleScore = { p: number; o: number }
+type DisplayScore = { home: number; away: number }
+
 const MAP_HEIGHT = 2600
 const ROUTE_Y_START = 2450
 const ROUTE_Y_END = 180
@@ -128,6 +131,19 @@ function displayTeamName(team?: Team, fallback?: string) {
   return fallback ?? 'À déterminer'
 }
 
+function teamFlagImageUrl(team?: Team) {
+  if (!team) return null
+  return `https://flagcdn.com/w80/${team.iso2}.png`
+}
+
+function scoreForNode(node: DisplayNode, score?: BattleScore): DisplayScore | null {
+  if (!score || !node.pickedTeamId || !node.homeTeam || !node.awayTeam) return null
+  const pickedHome = node.pickedTeamId === node.homeTeam.id
+  return pickedHome
+    ? { home: score.p, away: score.o }
+    : { home: score.o, away: score.p }
+}
+
 function buildDisplayNodes(
   matches: KnockoutMatch[],
   teamsById: Map<string, Team>,
@@ -146,8 +162,8 @@ function buildDisplayNodes(
     const pos = NODE_POS[match.id]
     const status: NodeStatus = pickedTeamId
       ? 'completed'
-      : homeTeam && awayTeam
-        ? match.id === firstPlayable ? 'live' : 'available'
+      : homeTeam && awayTeam && match.id === firstPlayable
+        ? 'live'
         : 'locked'
 
     return {
@@ -174,7 +190,7 @@ function MapPathSvg({ nodes }: { nodes: DisplayNode[] }) {
   return (
     <svg
       className="wcmap__paths"
-      viewBox={`0 0 100 ${MAP_HEIGHT}`}
+      viewBox={`0 0 1000 ${MAP_HEIGHT}`}
       preserveAspectRatio="none"
       aria-hidden="true"
     >
@@ -183,9 +199,9 @@ function MapPathSvg({ nodes }: { nodes: DisplayNode[] }) {
         const to = byId.get(id)
         if (!from || !to) return null
 
-        const fx = from.x
+        const fx = from.x * 10
         const fy = from.y
-        const tx = to.x
+        const tx = to.x * 10
         const ty = to.y
         const dx = tx - fx
         const direction = dx >= 0 ? 1 : -1
@@ -202,6 +218,7 @@ function MapPathSvg({ nodes }: { nodes: DisplayNode[] }) {
             key={`${MATCH_SEQUENCE[index]}-${id}`}
             className={`wcmap__path${isActive ? ' is-active' : ''}`}
             d={pathDef}
+            vectorEffect="non-scaling-stroke"
           />
         )
       })}
@@ -212,15 +229,24 @@ function MapPathSvg({ nodes }: { nodes: DisplayNode[] }) {
 function MatchNode({
   node,
   selecting,
+  score,
   onClick,
 }: {
   node: DisplayNode
   selecting: boolean
+  score?: BattleScore
   onClick: () => void
 }) {
   const isLocked = node.status === 'locked'
   const isCompleted = node.status === 'completed'
   const isLive = node.status === 'live'
+  const winnerTeam = isCompleted && node.pickedTeamId
+    ? node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
+    : undefined
+  const loserTeam = isCompleted && node.pickedTeamId
+    ? node.pickedTeamId === node.homeTeam?.id ? node.awayTeam : node.homeTeam
+    : undefined
+  const displayScore = scoreForNode(node, score)
 
   return (
     <button
@@ -240,13 +266,21 @@ function MatchNode({
         <span className="wcmap__match-number">M{node.matchNumber}</span>
 
         {!isLocked ? (
-          <span className="wcmap__flags-vs">
-            <span>{node.homeTeam?.flagEmoji ?? ''}</span>
-            <strong>VS</strong>
-            <span>{node.awayTeam?.flagEmoji ?? ''}</span>
-          </span>
+          displayScore ? (
+            <span className="wcmap__score-badge" aria-label={`Score ${displayScore.home} a ${displayScore.away}`}>
+              <strong>{displayScore.home}</strong>
+              <em>-</em>
+              <strong>{displayScore.away}</strong>
+            </span>
+          ) : (
+            <span className="wcmap__flags-vs">
+              <span>{node.homeTeam?.flagEmoji ?? ''}</span>
+              <strong>VS</strong>
+              <span>{node.awayTeam?.flagEmoji ?? ''}</span>
+            </span>
+          )
         ) : (
-          <span className="wcmap__locked-label">VERROUILLÉ</span>
+          <span className="wcmap__locked-label">VERROUILLE</span>
         )}
       </div>
 
@@ -255,12 +289,39 @@ function MatchNode({
         <div className="wcmap__pitch-circle" />
         <div className="wcmap__goal wcmap__goal--top" />
         <div className="wcmap__goal wcmap__goal--bottom" />
+
+        {winnerTeam && loserTeam ? (
+          <span className="wcmap__result-matchup" aria-label={`Vainqueur ${winnerTeam.name}, perdant ${loserTeam.name}`}>
+            <span className="wcmap__result-flag wcmap__result-flag--winner">
+              {teamFlagImageUrl(winnerTeam) ? (
+                <img src={teamFlagImageUrl(winnerTeam) ?? undefined} alt="" />
+              ) : (
+                <span>{winnerTeam.flagEmoji}</span>
+              )}
+            </span>
+            <span className="wcmap__result-flag wcmap__result-flag--loser">
+              {teamFlagImageUrl(loserTeam) ? (
+                <img src={teamFlagImageUrl(loserTeam) ?? undefined} alt="" />
+              ) : (
+                <span>{loserTeam.flagEmoji}</span>
+              )}
+            </span>
+          </span>
+        ) : null}
+
+        {isLive && node.homeTeam && node.awayTeam ? (
+          <span className="wcmap__live-matchup" aria-hidden="true">
+            {teamFlagImageUrl(node.homeTeam) ? <img src={teamFlagImageUrl(node.homeTeam) ?? undefined} alt="" /> : <span>{node.homeTeam.flagEmoji}</span>}
+            <strong>VS</strong>
+            {teamFlagImageUrl(node.awayTeam) ? <img src={teamFlagImageUrl(node.awayTeam) ?? undefined} alt="" /> : <span>{node.awayTeam.flagEmoji}</span>}
+          </span>
+        ) : null}
       </div>
 
       <span className="wcmap__round-chip">{node.roundShort}</span>
 
-      {isLocked && <span className="wcmap__status-badge wcmap__status-badge--lock">🔒</span>}
-      {isCompleted && <span className="wcmap__status-badge">✕</span>}
+      {isLocked && <span className="wcmap__status-badge wcmap__status-badge--lock">{'\uD83D\uDD12'}</span>}
+      {isCompleted && <span className="wcmap__status-badge">{'\u2713'}</span>}
       {isLive && <span className="wcmap__live-dot" />}
     </button>
   )
@@ -281,7 +342,7 @@ function LevelEntryScreen({
 }: {
   node: DisplayNode | null
   selectedTeamId: string | null
-  score?: { p: number; o: number }
+  score?: BattleScore
   open: boolean
   canShare: boolean
   canShowBracket: boolean
@@ -293,7 +354,8 @@ function LevelEntryScreen({
 }) {
   if (!open || !node) return null
 
-  const canPlay = Boolean(node.homeTeam && node.awayTeam && (selectedTeamId || node.pickedTeamId))
+  const canPlay = Boolean(node.homeTeam && node.awayTeam && selectedTeamId)
+  const displayScore = scoreForNode(node, score)
 
   return (
     <div className="wcmap-entry" role="dialog" aria-modal="true">
@@ -324,11 +386,11 @@ function LevelEntryScreen({
                 </strong>
               </div>
             </div>
-            {score ? (
+            {displayScore ? (
               <div className="wcmap-entry__result-score">
-                <span>{node.homeTeam?.flagEmoji ?? '🌍'}</span>
-                <strong>{score.p} ? {score.o}</strong>
-                <span>{node.awayTeam?.flagEmoji ?? '🌍'}</span>
+                <span>{node.homeTeam?.flagEmoji ?? '??'}</span>
+                <strong>{displayScore.home} - {displayScore.away}</strong>
+                <span>{node.awayTeam?.flagEmoji ?? '??'}</span>
               </div>
             ) : (
               <div className="wcmap-entry__result-vs">
@@ -338,15 +400,18 @@ function LevelEntryScreen({
               </div>
             )}
           </div>
-        ) : (
-          <div className="wcmap-entry__teams">
+        ) : null}
+
+        <div className="wcmap-entry__teams">
             <button
               type="button"
               className={`wcmap-entry__team${selectedTeamId === node.homeTeam?.id ? ' is-selected' : ''}`}
               onClick={() => node.homeTeam && onPickTeam(node.homeTeam.id)}
               disabled={!node.homeTeam}
             >
-              <span className="wcmap-entry__team-flag">{node.homeTeam?.flagEmoji ?? '🌍'}</span>
+              <span className="wcmap-entry__team-flag">
+                {teamFlagImageUrl(node.homeTeam) ? <img src={teamFlagImageUrl(node.homeTeam) ?? undefined} alt="" /> : <span>{node.homeTeam?.flagEmoji ?? '🌍'}</span>}
+              </span>
               <strong>{displayTeamName(node.homeTeam, node.match.home.kind === 'placeholder' ? node.match.home.label : undefined)}</strong>
               <small>{node.homeTeam?.name ?? 'En attente'}</small>
             </button>
@@ -357,12 +422,13 @@ function LevelEntryScreen({
               onClick={() => node.awayTeam && onPickTeam(node.awayTeam.id)}
               disabled={!node.awayTeam}
             >
-              <span className="wcmap-entry__team-flag">{node.awayTeam?.flagEmoji ?? '🌍'}</span>
+              <span className="wcmap-entry__team-flag">
+                {teamFlagImageUrl(node.awayTeam) ? <img src={teamFlagImageUrl(node.awayTeam) ?? undefined} alt="" /> : <span>{node.awayTeam?.flagEmoji ?? '🌍'}</span>}
+              </span>
               <strong>{displayTeamName(node.awayTeam, node.match.away.kind === 'placeholder' ? node.match.away.label : undefined)}</strong>
               <small>{node.awayTeam?.name ?? 'En attente'}</small>
             </button>
           </div>
-        )}
 
         <div className="wcmap-entry__actions">
           <button
@@ -372,8 +438,8 @@ function LevelEntryScreen({
             disabled={!canPlay}
           >
             {node.status === 'completed'
-              ? '↺ Rejouer le match'
-              : node.isFinalBoss ? '🏆 Jouer la finale' : '⚽ Jouer ce match'}
+              ? 'Rejouer avec ce camp'
+              : node.isFinalBoss ? 'Jouer la finale' : 'Jouer ce match'}
           </button>
         </div>
       </aside>
@@ -392,7 +458,7 @@ export function WorldCupMapMenu({
   onSave,
 }: WorldCupMapMenuProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
-  const panInitRef = useRef(false)
+  const panFocusRef = useRef<string | null>(null)
   const dragRef = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null)
   const dragDistRef = useRef(0)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
@@ -404,19 +470,18 @@ export function WorldCupMapMenu({
   const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks), [matches, teamsById, picks])
   const focusNode = nodes.find((node) => node.status === 'live') ?? nodes.find((node) => node.status === 'available') ?? null
   const selectedNode = nodes.find((node) => node.id === selectedMatchId) ?? null
-  const completedCount = nodes.filter((node) => node.status === 'completed').length
 
   useEffect(() => {
     if (!selectedNode) return
-    setSelectedTeamId(selectedNode.pickedTeamId ?? null)
+    setSelectedTeamId(selectedNode.status === 'completed' ? null : selectedNode.pickedTeamId ?? null)
   }, [selectedNode])
 
   useEffect(() => {
-    if (!focusNode || panInitRef.current || !viewportRef.current) return
-    panInitRef.current = true
+    if (!focusNode || !viewportRef.current || panFocusRef.current === focusNode.id) return
+    panFocusRef.current = focusNode.id
     const viewportHeight = viewportRef.current.clientHeight
-    const maxPan = MAP_HEIGHT - viewportHeight
-    const targetOffset = -(focusNode.y - viewportHeight * 0.42)
+    const maxPan = Math.max(0, MAP_HEIGHT - viewportHeight)
+    const targetOffset = -(focusNode.y - viewportHeight * 0.5)
     setOffset({ x: 0, y: Math.max(-maxPan, Math.min(0, targetOffset)) })
   }, [focusNode])
 
@@ -449,15 +514,19 @@ export function WorldCupMapMenu({
   }, [notice])
 
   const handleSelectNode = (node: DisplayNode) => {
-    if (dragDistRef.current > 8) return
+    if (dragDistRef.current > 8) {
+      dragDistRef.current = 0
+      return
+    }
+    dragDistRef.current = 0
     if (node.status === 'locked') {
-      setNotice('Match verrouill?. Termine les matchs précédents pour débloquer.')
+      setNotice('Match verrouillé. Termine le match qui clignote pour débloquer la suite.')
       return
     }
     sfx.tab()
     setSelectingId(node.id)
     setSelectedMatchId(node.id)
-    setSelectedTeamId(node.pickedTeamId ?? null)
+    setSelectedTeamId(node.status === 'completed' ? null : node.pickedTeamId ?? null)
     window.setTimeout(() => setSelectingId(null), 220)
   }
 
@@ -469,7 +538,7 @@ export function WorldCupMapMenu({
 
   const handlePlay = () => {
     if (!selectedNode) return
-    const chosenTeamId = selectedTeamId ?? selectedNode.pickedTeamId
+    const chosenTeamId = selectedTeamId
     if (!chosenTeamId) {
       setNotice('Choisis ton camp avant de jouer.')
       return
@@ -480,24 +549,6 @@ export function WorldCupMapMenu({
 
   return (
     <section className="wcmap">
-      <div className="wcmap__hud">
-        <div>
-          <span className="wcmap__eyebrow">World Cup 2026</span>
-        </div>
-        <div className="wcmap__hud-actions">
-          <div className="wcmap__progress-card">
-            <strong>{completedCount}/{nodes.length}</strong>
-            <span>matchs</span>
-          </div>
-          {onShowBracket && (
-            <button type="button" className="wcmap__ghost" onClick={onShowBracket}>Tableau</button>
-          )}
-          {onSave && (
-            <button type="button" className="wcmap__ghost" onClick={onSave}>Sauvegarder</button>
-          )}
-        </div>
-      </div>
-
       <div
         className="wcmap__viewport"
         ref={viewportRef}
@@ -523,6 +574,7 @@ export function WorldCupMapMenu({
               key={node.id}
               node={node}
               selecting={selectingId === node.id}
+              score={scores[node.id]}
               onClick={() => handleSelectNode(node)}
             />
           ))}

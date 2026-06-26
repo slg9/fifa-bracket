@@ -10,9 +10,12 @@ type RoundResultProps = {
   roundType: BattleRoundType
   playerScore: number
   opponentScore: number
+  homeFlag?: string
+  awayFlag?: string
   scorerName?: string
   keeperName?: string
   opponentName?: string
+  nextRoundType?: BattleRoundType | null
   onContinue?: () => void
 }
 
@@ -21,12 +24,12 @@ const GOAL_CALLS = [
   'COUP DE MAITRE !', 'FANTASTIQUE !', 'INCROYABLE !!!', 'QUEL BUT !!!',
 ]
 const GOAL_WARNINGS = [
-  "Attention, l'adversaire va riposter !",
-  "L'?quipe adverse a les crocs - elle va tout donner !",
-  'Profite du lead... ils reviennent plus forts !',
-  "Beau but ! Mais le match est loin d'?tre fini.",
-  "L'adversaire ne va pas rester sans reagir !",
-  'Reste concentre, ils vont attaquer de plus belle !',
+  "But important, on reste lucide pour la suite.",
+  "Avantage pris, mais le prochain duel compte encore.",
+  'Le score bouge, il faut garder le controle.',
+  "Belle finition, le match continue.",
+  "L'adversaire va devoir reagir.",
+  'Reste concentre, le prochain round arrive vite.',
 ]
 const CONCEDE_CALLS = [
   'Aie... le gardien a ete battu.',
@@ -37,11 +40,11 @@ const CONCEDE_CALLS = [
   'Une frappe imparable pour le portier !',
 ]
 const CONCEDE_ENCOURAGEMENTS = [
-  "On se ressaisit ? Ce n'est pas termine !",
-  "Un but, ca se rattrape - l'equipe garde la tete haute.",
-  "Rien n'est joue, on repart de l'avant !",
-  'Chaque grande equipe encaisse avant de renverser la vapeur.',
-  "Le match n'est pas fini - on revient !",
+  "But encaisse, il faut regarder la suite du match.",
+  "La defense a cede, le prochain round dira si ca bascule.",
+  "Le score change, reste focus.",
+  'Coup dur, mais la sequence suivante arrive.',
+  "Le match avance, chaque round compte.",
 ]
 const INTERCEPT_CALLS = [
   "Zut alors ! C'etait si bien parti...",
@@ -51,10 +54,10 @@ const INTERCEPT_CALLS = [
   "Bloque ! L'adversaire etait bien en place.",
 ]
 const INTERCEPT_ENCOURAGEMENTS = [
-  'Il faut se ressaisir - pret pour la suite ?',
-  'Ca arrive aux meilleurs ! On repart ?',
-  'La prochaine action va tout changer !',
-  'Concentre-toi - ca passe la prochaine fois !',
+  'Le ballon est perdu, on regarde la prochaine phase.',
+  'Action stoppee, le match continue.',
+  'La prochaine phase arrive vite.',
+  'Reste focus, le round suivant compte.',
 ]
 const MISS_CALLS = [
   "Zut alors, c'etait tout proche !",
@@ -64,10 +67,10 @@ const MISS_CALLS = [
   'Ca se joue a presque rien sur cette frappe.',
 ]
 const MISS_ENCOURAGEMENTS = [
-  'On se ressaisit ? La prochaine peut finir au fond.',
+  'Occasion manquee, on regarde la suite.',
   'Le mouvement etait la - il faut finir le travail.',
-  'Tu y etais presque. On repart tout de suite.',
-  'Garde le rythme, la prochaine sera la bonne.',
+  'Tu y etais presque, le match continue.',
+  'Garde le rythme pour la prochaine phase.',
 ]
 
 function pick<T>(arr: T[]): T {
@@ -78,7 +81,7 @@ export function roundResultNeedsClick(outcome: RoundOutcome) {
   return MANUAL_CONTINUE_OUTCOMES.includes(outcome)
 }
 
-export function RoundResult({ outcome, roundType, playerScore, opponentScore, scorerName, keeperName, opponentName, onContinue }: RoundResultProps) {
+export function RoundResult({ outcome, roundType, playerScore, opponentScore, homeFlag, awayFlag, scorerName, keeperName, opponentName, nextRoundType, onContinue }: RoundResultProps) {
   const title = outcome === 'goal'
     ? 'BUT !'
     : outcome === 'saved'
@@ -91,16 +94,23 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, sc
             ? 'INTERCEPTION !'
             : 'RATE !'
 
+  const nextPhaseHint = useMemo(() => {
+    if (!nextRoundType) return 'Coup de sifflet : le resultat du match arrive.'
+    if (nextRoundType === 'attack') return "Prochaine phase : attaque. Il faut dribbler puis finir l'action."
+    if (nextRoundType === 'defense') return "Prochaine phase : defense. L'adversaire lance son offensive."
+    return 'Prochaine phase : chaos fruit ninja. Coupe les ballons.'
+  }, [nextRoundType])
+
   const commentary = useMemo(() => {
     if (outcome === 'goal') {
       const shout = pick(GOAL_CALLS)
       const scorer = scorerName ? `${scorerName} est magistral !` : 'La finition est clinique !'
-      return { accent: '#FFB800', main: shout, sub: `${scorer} ${pick(GOAL_WARNINGS)}` }
+      return { accent: '#FFB800', main: shout, sub: `${scorer} ${pick(GOAL_WARNINGS)} ${nextPhaseHint}` }
     }
     if (outcome === 'goal_conceded') {
       const call = pick(CONCEDE_CALLS)
       const keeper = keeperName ? `${keeperName} s'en mord les doigts.` : 'Le portier a tout tente.'
-      return { accent: '#FF4455', main: call, sub: `${keeper} ${pick(CONCEDE_ENCOURAGEMENTS)}` }
+      return { accent: '#FF4455', main: call, sub: `${keeper} ${pick(CONCEDE_ENCOURAGEMENTS)} ${nextPhaseHint}` }
     }
     if (outcome === 'intercepted') {
       return { accent: '#2bff9a', main: pick(INTERCEPT_CALLS), sub: pick(INTERCEPT_ENCOURAGEMENTS) }
@@ -110,17 +120,23 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, sc
     }
     if (outcome === 'saved') {
       const keeper = keeperName ? `${keeperName} sort le grand jeu !` : 'Parade monumentale !'
-      const sub = opponentName ? `${opponentName} va devoir s'y reprendre.` : "L'attaque adverse est repoussee."
+      const sub = `${opponentName ? `${opponentName} va devoir s'y reprendre.` : "L'attaque adverse est repoussee."} ${nextPhaseHint}`
       return { accent: '#FF4455', main: keeper, sub }
     }
     if (outcome === 'defense_perfect') {
-      return { accent: '#2bff9a', main: "Zero pointe pour l'adversaire !", sub: "Defense de fer - passons a l'attaque !" }
+      return { accent: '#2bff9a', main: "Zero pointe pour l'adversaire !", sub: `Defense de fer. ${nextPhaseHint}` }
     }
     return null
-  }, [keeperName, opponentName, outcome, scorerName])
+  }, [keeperName, nextPhaseHint, opponentName, outcome, scorerName])
 
   const showButton = roundResultNeedsClick(outcome)
-  const buttonLabel = outcome === 'goal' ? 'Continuer' : 'On se ressaisit ?'
+  const buttonLabel = !nextRoundType
+    ? 'Voir le resultat'
+    : nextRoundType === 'attack'
+      ? "Passer a l'attaque"
+      : nextRoundType === 'defense'
+        ? "Defendre l'offensive"
+        : 'Lancer le chaos'
 
   return (
     <section className={`battle-round-result is-${outcome}`}>
@@ -148,7 +164,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, sc
         .battle-result-ball{fill:#f4f7ff!important;stroke:#101827;stroke-width:4;animation:battleCaughtBall .7s both}
         .battle-result-miss{color:#8794a7;font-size:120px;line-height:1;animation:battleMiss .7s both;font-family:'Barlow Condensed',sans-serif}
         .battle-round-result>span{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.45);z-index:6;position:relative}
-        .battle-round-result h2{margin:4px 0 10px;font:900 clamp(38px,12vw,76px) 'Barlow Condensed',sans-serif;letter-spacing:.02em;line-height:.9;z-index:6;position:relative;text-align:center}
+        .battle-round-result h2{box-sizing:border-box;max-width:calc(100% - 18px);margin:2px auto 10px;padding:0 .08em .08em;font:900 clamp(34px,10.2vw,66px) 'Barlow Condensed',sans-serif;letter-spacing:.01em;line-height:1.08;z-index:6;position:relative;text-align:center;white-space:nowrap;overflow:visible}
         .battle-round-result.is-goal h2{color:#FFB800;text-shadow:0 0 4px #FFB800,0 0 24px rgba(255,184,0,.7),3px 3px 0 rgba(255,184,0,.5)}
         .battle-round-result.is-saved h2{color:#FF4455;text-shadow:0 0 24px rgba(255,68,85,.5)}
         .battle-round-result.is-defense_perfect h2{color:#FFB800;text-shadow:0 0 30px rgba(255,184,0,.55)}
@@ -158,8 +174,9 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, sc
         .rr-commentary__main{font:700 clamp(14px,4vw,17px) 'Barlow Condensed',sans-serif;color:#fff;line-height:1.35}
         .rr-commentary__sub{font:500 clamp(11px,3.5vw,13px) 'Barlow',sans-serif;color:rgba(255,255,255,.58);line-height:1.45}
         .rr-continue-btn{z-index:6;position:relative;margin-top:14px;padding:11px 28px;border-radius:12px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.07);color:#fff;font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.12em;cursor:pointer;animation:bk-btn 2s ease-in-out infinite}
-        .battle-round-result__score{display:flex;gap:18px;align-items:center;margin-top:12px;z-index:6;position:relative}
+        .battle-round-result__score{display:flex;gap:14px;align-items:center;margin-top:12px;z-index:6;position:relative}
         .battle-round-result__score strong{font:800 36px 'JetBrains Mono',monospace}
+        .battle-round-result__score-flag{display:grid;place-items:center;min-width:30px;font-size:28px;line-height:1;filter:drop-shadow(0 0 10px rgba(255,255,255,.22))}
         .battle-round-result.is-goal .battle-round-result__score strong:first-child,
         .battle-round-result.is-saved .battle-round-result__score strong:first-child,
         .battle-round-result.is-defense_perfect .battle-round-result__score strong:first-child{color:#FFB800;animation:bk-heart 1s ease-in-out infinite;display:inline-block}
@@ -198,7 +215,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, sc
         ) : null}
 
         {outcome === 'saved' ? (
-          <div className="battle-result-keeper">??</div>
+          <div className="battle-result-keeper">GK</div>
         ) : null}
 
         {outcome === 'defense_perfect' ? (
@@ -227,7 +244,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, sc
           </svg>
         ) : null}
 
-        {outcome === 'miss' ? <div className="battle-result-miss">?</div> : null}
+        {outcome === 'miss' ? <div className="battle-result-miss">X</div> : null}
       </div>
 
       <span>{roundType === 'attack' ? "Phase d'attaque" : 'Phase defensive'}</span>
@@ -241,9 +258,11 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, sc
       ) : null}
 
       <div className="battle-round-result__score">
+        {homeFlag ? <span className="battle-round-result__score-flag">{homeFlag}</span> : null}
         <strong>{playerScore}</strong>
         <i>-</i>
         <strong>{opponentScore}</strong>
+        {awayFlag ? <span className="battle-round-result__score-flag">{awayFlag}</span> : null}
       </div>
 
       {showButton && onContinue ? (

@@ -110,11 +110,6 @@ function BroadcasterBadge({ matchId }: { matchId: string }) {
   return <span className="bcbadge bcbadge--bein">beIN</span>
 }
 
-type WatchOption = {
-  label: string
-  href: string
-}
-
 type StoredSimulation = {
   overrides: Record<string, MatchOverride>
   knockoutPicks: Record<string, string>
@@ -132,22 +127,6 @@ const roundColumns: Array<{ key: string; stage: string; side: 'left' | 'center' 
   { key: 'R32R', stage: 'Round of 32', side: 'right', ids: ['M76', 'M78', 'M79', 'M80', 'M86', 'M88', 'M85', 'M87'] },
 ]
 
-const watchOptionsByCountry: Record<string, WatchOption[]> = {
-  FR: [
-    { label: 'beIN Sports', href: 'https://www.beinsports.com/france/' },
-    { label: 'M6 Direct', href: 'https://www.m6.fr/m6/direct' },
-  ],
-  US: [
-    { label: 'FOX Sports', href: 'https://www.foxsports.com/soccer/fifa-world-cup-men' },
-    { label: 'Telemundo', href: 'https://www.telemundo.com/deportes/fifa-world-cup' },
-  ],
-}
-
-
-function getCountryCodeFromFixturesUrl(url: string): string {
-  const match = url.match(/[?&]country=([A-Z]{2})/i)
-  return match?.[1]?.toUpperCase() ?? 'FR'
-}
 
 // Format live minute for display.
 // rawToken = scraper value like "MT", "45'", "90'+2'", "45", "90+2"
@@ -228,19 +207,6 @@ function formatKickoffTime(match: GroupMatch): string | null {
     minute: '2-digit',
     hour12: false,
   }).format(new Date(match.kickoffIso))
-}
-
-function formatSyncTime(isoDate: string | null): string {
-  if (!isoDate) {
-    return 'Jamais'
-  }
-
-  return new Date(isoDate).toLocaleString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 function readStoredSimulation(): StoredSimulation | null {
@@ -345,6 +311,82 @@ const stageLabels: Record<string, string> = {
 
 function formatStageLabel(stage: string): string {
   return stageLabels[stage] ?? stage
+}
+
+function TeamFocusMenu({
+  teams,
+  focusId,
+  onFocusChange,
+  className = '',
+}: {
+  teams: Team[]
+  focusId: string | null
+  onFocusChange: (teamId: string | null) => void
+  className?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const selectedTeam = focusId ? teams.find((team) => team.id === focusId) ?? null : null
+
+  const choose = (teamId: string | null) => {
+    onFocusChange(teamId)
+    setOpen(false)
+  }
+
+  return (
+    <div className={`bracket-team-menu${open ? ' is-open' : ''}${className ? ` ${className}` : ''}`}>
+      <button
+        type="button"
+        className="bracket-team-menu__button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span>Equipe</span>
+        <b>{selectedTeam ? `${selectedTeam.flagEmoji} ${selectedTeam.name}` : 'Parcours finalistes'}</b>
+        <i aria-hidden="true">v</i>
+      </button>
+
+      {open ? (
+        <>
+          <button type="button" className="bracket-team-menu__scrim" aria-label="Fermer" onClick={() => setOpen(false)} />
+          <div className="bracket-team-menu__panel" role="listbox" aria-label="Choisir une equipe">
+            <button
+              type="button"
+              className={`bracket-team-menu__option${!focusId ? ' is-active' : ''}`}
+              role="option"
+              aria-selected={!focusId}
+              onClick={() => choose(null)}
+            >
+              <span className="bracket-team-menu__flag">*</span>
+              <span>
+                <b>Parcours finalistes</b>
+                <small>Route centrale du tableau</small>
+              </span>
+            </button>
+            {teams.map((team) => {
+              const src = flagUrl(team)
+              return (
+                <button
+                  key={team.id}
+                  type="button"
+                  className={`bracket-team-menu__option${focusId === team.id ? ' is-active' : ''}`}
+                  role="option"
+                  aria-selected={focusId === team.id}
+                  onClick={() => choose(team.id)}
+                >
+                  {src ? <img src={src} alt="" className="bracket-team-menu__flag-image" crossOrigin="anonymous" /> : <span className="bracket-team-menu__flag">{team.flagEmoji}</span>}
+                  <span>
+                    <b>{team.name}</b>
+                    <small>{team.groupId ? `Groupe ${team.groupId}` : team.fifaCode}</small>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </>
+      ) : null}
+    </div>
+  )
 }
 
 function KnockoutTeamBadge({
@@ -771,10 +813,11 @@ function BracketBoard({
       const viewportWidth = viewportRef.current?.clientWidth ?? 0
       const viewportHeight = viewportRef.current?.clientHeight ?? 0
       const scaleByWidth = viewportWidth > 0 && nextWidth > 0 ? (viewportWidth - 24) / nextWidth : 1
-      const scaleByHeight = isFullscreenRef.current && viewportHeight > 0 && nextHeight > 0
-        ? (viewportHeight - 40) / nextHeight
+      const scaleByHeight = viewportHeight > 0 && nextHeight > 0
+        ? (viewportHeight - (isFullscreenRef.current ? 40 : 18)) / nextHeight
         : 1
-      const nextScale = Math.min(1, Math.max(0.35, Math.min(scaleByWidth, scaleByHeight)))
+      const maxScale = isFullscreenRef.current ? 1.8 : 1.65
+      const nextScale = Math.min(maxScale, Math.max(0.35, Math.min(scaleByWidth, scaleByHeight)))
       const boardRect = boardRef.current.getBoundingClientRect()
       const safeScale = nextScale || 1
       const nextLines: Array<{ id: string; d: string; active: boolean }> = []
@@ -978,15 +1021,7 @@ function BracketBoard({
         </div>
 
         <div className="bracket-toolbar">
-          <label className="bracket-select">
-            <span>Equipe</span>
-            <select value={focusId ?? ''} onChange={(event) => onFocusChange(event.target.value || null)}>
-              <option value="">Parcours finalistes</option>
-              {allTeams.map((team) => (
-                <option key={team.id} value={team.id}>{team.flagEmoji} {team.name}</option>
-              ))}
-            </select>
-          </label>
+          <TeamFocusMenu teams={allTeams} focusId={focusId} onFocusChange={onFocusChange} />
 
           {focusId ? (
             <button type="button" className="chip-btn chip-btn--sm" onClick={() => onFocusChange(null)}>
@@ -1077,12 +1112,12 @@ function BracketBoard({
       </div>
 
       <div className="bracket-fit" ref={viewportRef}>
-        <div className="bracket-fit__stage" style={{ height: box.height ? Math.ceil(box.height * visualScale) + 44 : undefined }}>
+        <div className="bracket-fit__stage" style={{ height: box.height ? Math.ceil(box.height * visualScale) + 8 : undefined }}>
           <div
             className="bracket-fit__transform"
             style={{
               width: box.width || undefined,
-              transform: visualScale < 0.999 ? `scale(${visualScale})` : undefined,
+              transform: Math.abs(visualScale - 1) > 0.001 ? `scale(${visualScale})` : undefined,
             }}
           >
             <div className={`bracket-export-wrapper${isExporting ? ' is-exporting' : ''}`} ref={exportRef}>
@@ -1107,7 +1142,8 @@ function BracketBoard({
                           <div key={match.id} className="bracket-final">
                             {match.id === 'M103' ? (
                               <div className="finale__challenge-mark">
-                                <img src="/brakup-challenge-logo-wc.png" alt="Brakup Challenge" className="finale__challenge-logo" />
+                                <img src="/brakup-challenge-logo.png" alt="Brakup Challenge" className="finale__challenge-logo" />
+                                <a href="?challenge" className="finale__challenge-play">JOUER</a>
                               </div>
                             ) : null}
                             <MatchCard
@@ -1271,13 +1307,12 @@ function App() {
   const [mode, setMode] = useState<Mode>('simulation')
   const simulatorMode = useMemo(() => new URLSearchParams(window.location.search).has('simulator'), [])
   const challengeMode = useMemo(() => new URLSearchParams(window.location.search).has('challenge'), [])
-  const [view, setView] = useState<View>('bracket')
+  const view = 'bracket' as View
   const [overrides, setOverrides] = useState<Record<string, MatchOverride>>({})
   const [knockoutPicks, setKnockoutPicks] = useState<Record<string, string>>({})
   const [focusId, setFocusId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [syncing, setSyncing] = useState(false)
   const [, setTick] = useState(0)
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [isCompactGroups, setIsCompactGroups] = useState(() => window.innerWidth <= 680)
@@ -1285,7 +1320,6 @@ function App() {
   const [showDayModal, setShowDayModal] = useState(false)
   const [initialDayModalLoading, setInitialDayModalLoading] = useState(false)
   const [selectedDayKey, setSelectedDayKey] = useState(() => localDateStr())
-  const [menuOpen, setMenuOpen] = useState(false)
   const [headerBracketMenuOpen, setHeaderBracketMenuOpen] = useState(false)
   const [isBracketFullscreen, setIsBracketFullscreen] = useState(false)
   const [sidePanel, setSidePanel] = useState<'qualified' | 'thirds' | 'scorers' | null>(null)
@@ -1294,7 +1328,6 @@ function App() {
   const [matchStatsData, setMatchStatsData] = useState<MatchEventsData | null>(null)
   const [matchStatsLoading, setMatchStatsLoading] = useState(false)
   const [oddsData, setOddsData] = useState<OddsSnapshot | null>(null)
-  const dayModalAutoOpenedRef = useRef(false)
   const initialSyncBaselineRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -1419,40 +1452,6 @@ function App() {
     }
   }, [challengeMode, showDayModal, matchModalGroupId, matchStatsModal])
 
-  useEffect(() => {
-    if (challengeMode || !seed || dayModalAutoOpenedRef.current) {
-      return
-    }
-
-    const hasTodayMatches = liveSource.matches.some((match) => {
-      const seedMatch = seed.matches.find((candidate) => candidate.id === match.id)
-      return seedMatch ? isMatchToday({ ...seedMatch, kickoffIso: match.kickoffIso }) : false
-    })
-    const hasLiveMatch = liveSource.matches.some((m) => m.status === 'live' || isLiveNow(m.kickoffIso))
-    if (!hasTodayMatches && !hasLiveMatch) {
-      return
-    }
-
-    setSelectedDayKey(localDateStr())
-    setShowDayModal(true)
-    dayModalAutoOpenedRef.current = true
-  }, [challengeMode, liveSource.matches, seed])
-
-  async function handleSyncLiveSnapshot() {
-    setSyncing(true)
-    try {
-      const snapshot = await requestLiveSync()
-      setLiveSource((current) => mergeLiveSnapshot(current, snapshot))
-    } catch (caughtError) {
-      setLiveSource((current) => ({
-        ...current,
-        warnings: [caughtError instanceof Error ? caughtError.message : 'Synchronisation live indisponible.'],
-      }))
-    } finally {
-      setSyncing(false)
-    }
-  }
-
   // Silent background sync — no spinner, no error banner
   const silentSyncRef = useRef<() => void>(() => {})
   useEffect(() => {
@@ -1574,13 +1573,7 @@ function App() {
   })
   bestThirds.forEach((row) => projectedQualifiedIds.add(row.teamId))
 
-  const completedGroups = seed.groups.filter((group) =>
-    mergedMatches
-      .filter((match) => match.groupId === group.id)
-      .every((match) => match.homeScore !== null && match.awayScore !== null),
-  ).length
   const visibleGroups = isCompactGroups ? seed.groups.filter((group) => group.id === selectedGroupId) : seed.groups
-  const todayMatches = mergedMatches.filter(isMatchToday)
   const matchDayKeys = [...new Set(mergedMatches.map(matchLocalDateKey))].sort()
   const selectedDayIndex = matchDayKeys.indexOf(selectedDayKey)
   const activeDayIndex = selectedDayIndex >= 0
@@ -1596,15 +1589,9 @@ function App() {
     })
     .slice(0, 10)
   const liveNowMatches = dayMatches.filter((match) => inferStatus(match) === 'live')
-  const featuredDayMatch = liveNowMatches[0] ?? dayMatches[0] ?? null
   const previousDayKey = activeDayIndex > 0 ? matchDayKeys[activeDayIndex - 1] : null
   const nextDayKey = activeDayIndex < matchDayKeys.length - 1 ? matchDayKeys[activeDayIndex + 1] : null
   const isSelectedToday = activeDayKey === localDateStr()
-  const countryCode = getCountryCodeFromFixturesUrl(seed.meta.sourceUrls.fixtures)
-  const watchOptions = [
-    ...(watchOptionsByCountry[countryCode] ?? watchOptionsByCountry.FR),
-    { label: 'Programme FIFA', href: seed.meta.sourceUrls.fixtures },
-  ]
 
   function updateOverride(matchId: string, side: 'homeScore' | 'awayScore', value: string) {
     setOverrides((current) => {
@@ -1641,15 +1628,6 @@ function App() {
     })
 
     setKnockoutPicks({})
-  }
-
-  function clearSimulation() {
-    setOverrides({})
-    setKnockoutPicks({})
-    setFocusId(null)
-    setDragState(null)
-    clearStoredSimulation()
-    setMode('real')
   }
 
   function toggleFocus(teamId: string) {
@@ -1749,11 +1727,6 @@ function App() {
     setMatchStatsLoading(false)
   }
 
-  function reopenDayModal() {
-    setSelectedDayKey(localDateStr())
-    setShowDayModal(true)
-  }
-
   if (challengeMode) {
     return <BrakupHub seed={seed} liveSource={liveSource} standings={standings} teamsById={teamsById} />
   }
@@ -1762,7 +1735,6 @@ function App() {
 
   return (
     <div className={`app-shell${simulatorMode ? ' is-simulator' : ''}${isHomeBracketFocus ? ' is-home-bracket' : ''}`}>
-      {menuOpen ? <div className="menu-scrim" onClick={() => setMenuOpen(false)} /> : null}
       <div className="floods" aria-hidden="true">
         <i />
         <i />
@@ -1776,44 +1748,10 @@ function App() {
 
         {shouldDockBracketHeader ? <div className="topbar__center">Tableau final</div> : null}
 
-        <div className="topactions">
-          <a href="?challenge" className="chip-btn chip-btn--challenge chip-btn--icon-expand" title="Brakup Challenge">
-            <img src="/favicon-512.png" alt="" className="chip-btn__challenge-logo" />
-            <span className="chip-btn__expand-label">Brakup Challenge</span>
-          </a>
-
-          {todayMatches.length > 0 ? (
-            <button type="button" className="chip-btn chip-btn--live chip-btn--icon-expand" onClick={reopenDayModal} title="Matchs du jour">
-              <span className="chip-btn__pulse" aria-hidden="true" />
-              <span className="chip-btn__expand-label">
-                {todayMatches.length} match{todayMatches.length > 1 ? 's' : ''} aujourd&apos;hui
-              </span>
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className={`syncbtn chip-btn--icon-expand${syncing ? ' is-busy' : ''}${pollingInterval ? ' is-polling' : ''}`}
-            onClick={handleSyncLiveSnapshot}
-            title="Synchroniser les donnees live"
-          >
-            <span className="syncbtn__ico">{syncing ? '...' : 'A'}</span>
-            <span className="chip-btn__expand-label">
-              {syncing ? 'Synchro...' : pollingInterval ? `Auto · ${pollingInterval >= 60_000 ? `${pollingInterval / 60_000}min` : `${pollingInterval / 1_000}s`}` : 'Sync'}
-            </span>
-            <span className="syncbtn__meta">{formatSyncTime(liveSource.syncedAt)}</span>
-          </button>
-
+        <div className="topactions topactions--bracket-only">
           {shouldDockBracketHeader ? (
             <>
-              <label className="bracket-select bracket-select--topbar">
-                <span>Equipe</span>
-                <select value={focusId ?? ''} onChange={(event) => setFocusId(event.target.value || null)}>
-                  <option value="">Parcours finalistes</option>
-                  {bracketHeaderTeams.map((team) => (
-                    <option key={team.id} value={team.id}>{team.flagEmoji} {team.name}</option>
-                  ))}
-                </select>
-              </label>
+              <TeamFocusMenu teams={bracketHeaderTeams} focusId={focusId} onFocusChange={setFocusId} className="bracket-team-menu--topbar" />
 
               <button
                 type="button"
@@ -1822,7 +1760,7 @@ function App() {
                 title="Plein ecran"
                 aria-label="Plein ecran"
               >
-                ⛶
+                FS
               </button>
 
               <div className="bracket-actions-wrap--topbar">
@@ -1833,7 +1771,7 @@ function App() {
                   aria-expanded={headerBracketMenuOpen}
                   onClick={() => setHeaderBracketMenuOpen((open) => !open)}
                 >
-                  ☰
+                  Menu
                 </button>
 
                 {headerBracketMenuOpen ? (
@@ -1876,306 +1814,153 @@ function App() {
             </>
           ) : null}
         </div>
-
-        <button
-          type="button"
-          className="menu-toggle"
-          aria-label={menuOpen ? 'Fermer' : 'Menu'}
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((v) => !v)}
-        >
-          {menuOpen ? 'X' : 'Menu'}
-        </button>
-
-        {menuOpen ? (
-          <div className="topmenu" role="menu">
-            {todayMatches.length > 0 ? (
-              <button
-                type="button"
-                className="topmenu__item chip-btn--live"
-                onClick={() => { reopenDayModal(); setMenuOpen(false) }}
-              >
-                <span className="chip-btn__pulse" aria-hidden="true" />
-                {todayMatches.length} match{todayMatches.length > 1 ? 's' : ''} aujourd&apos;hui
-              </button>
-            ) : null}
-            <div className="topmenu__sep" />
-            <a href="?challenge" className="topmenu__item topmenu__item--challenge">
-              <img src="/favicon-512.png" alt="" className="topmenu__challenge-logo" />
-              <span>Brakup Challenge</span>
-            </a>
-            <div className="topmenu__sep" />
-            <button
-              type="button"
-              className={`topmenu__item${view === 'bracket' ? ' is-active' : ''}`}
-              onClick={() => { setView('bracket'); setMenuOpen(false) }}
-            >
-              Tableau final
-            </button>
-            <button
-              type="button"
-              className={`topmenu__item${view === 'groups' ? ' is-active' : ''}`}
-              onClick={() => { setView('groups'); setMenuOpen(false) }}
-            >
-              Groupes
-            </button>
-            <div className="topmenu__sep" />
-            <button
-              type="button"
-              className={`topmenu__item${mode === 'real' ? ' is-active' : ''}`}
-              onClick={() => { setMode('real'); setMenuOpen(false) }}
-            >
-              Vue en direct
-            </button>
-            <button
-              type="button"
-              className={`topmenu__item${mode === 'simulation' ? ' is-active' : ''}`}
-              onClick={() => { setMode('simulation'); setMenuOpen(false) }}
-            >
-              Mode simulation
-            </button>
-            {mode === 'simulation' ? (
-              <button
-                type="button"
-                className="topmenu__item topmenu__item--danger"
-                onClick={() => { clearSimulation(); setMenuOpen(false) }}
-              >
-                Reinitialiser simulation
-              </button>
-            ) : null}
-          </div>
-        ) : null}
       </header>
 
-      {showDayModal && (featuredDayMatch || initialDayModalLoading) ? (
+      {showDayModal && (dayMatches.length > 0 || initialDayModalLoading) ? (
         <div className="daymodal" role="dialog" aria-modal="true" aria-labelledby="daymodal-title">
           <div className="daymodal__scrim" onClick={closeDayModal} />
           <div className="daymodal__panel">
-            <button type="button" className="daymodal__close" onClick={closeDayModal} aria-label="Fermer">
-              ×
-            </button>
-
             {initialDayModalLoading ? (
               <div className="daymodal__loading">
                 <BootLoaderMark />
                 <div className="daymodal__loading-copy">
-                  <span className="boot-loader__label">Récupération FIFA</span>
+                  <span className="boot-loader__label">Recuperation FIFA</span>
                   <span className="boot-loader__status">Chargement des scores et classements du jour</span>
                 </div>
               </div>
-            ) : featuredDayMatch ? (
+            ) : dayMatches.length > 0 ? (
               <>
-            <div className="daymodal__hero">
-              <div className="daymodal__eyebrow">
-                {liveNowMatches.length > 0 ? (
-                  <span className="daymodal__livepill">
-                    <span className="gstatus__pulse" aria-hidden="true" />
-                    En direct
-                  </span>
-                ) : (
-                  <span className="daymodal__livepill daymodal__livepill--upcoming">Aujourd hui</span>
-                )}
-                <span>{formatSyncTime(liveSource.syncedAt)}</span>
-              </div>
+                <div className="daymodal__head">
+                  <button type="button" className="daymodal__close" onClick={closeDayModal} aria-label="Fermer">
+                    X
+                  </button>
 
-              <div className="daymodal__daynav" aria-label="Navigation entre les journées de matchs">
-                <button
-                  type="button"
-                  onClick={() => previousDayKey && setSelectedDayKey(previousDayKey)}
-                  disabled={!previousDayKey}
-                  aria-label="Journée précédente"
-                >
-                  ←
-                </button>
-                <div>
-                  <strong>{isSelectedToday ? 'Aujourd hui' : formatDayLabel(activeDayKey)}</strong>
-                  <span>{dayMatches.length} match{dayMatches.length > 1 ? 's' : ''}</span>
-                </div>
-                <button
-                  type="button"
-                  className="daymodal__todaybtn"
-                  onClick={() => setSelectedDayKey(localDateStr())}
-                  disabled={isSelectedToday}
-                >
-                  Aujourd hui
-                </button>
-                <button
-                  type="button"
-                  onClick={() => nextDayKey && setSelectedDayKey(nextDayKey)}
-                  disabled={!nextDayKey}
-                  aria-label="Journée suivante"
-                >
-                  →
-                </button>
-              </div>
+                  <div className="daymodal__daynav" aria-label="Navigation entre les journees de matchs">
+                    <button
+                      type="button"
+                      onClick={() => previousDayKey && setSelectedDayKey(previousDayKey)}
+                      disabled={!previousDayKey}
+                      aria-label="Journee precedente"
+                    >
+                      {'\u2190'}
+                    </button>
+                    <div>
+                      <strong>{isSelectedToday ? 'Aujourd hui' : formatDayLabel(activeDayKey)}</strong>
+                      <span>{dayMatches.length} match{dayMatches.length > 1 ? 's' : ''}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="daymodal__todaybtn"
+                      onClick={() => setSelectedDayKey(localDateStr())}
+                      disabled={isSelectedToday}
+                    >
+                      Aujourd hui
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => nextDayKey && setSelectedDayKey(nextDayKey)}
+                      disabled={!nextDayKey}
+                      aria-label="Journee suivante"
+                    >
+                      {'\u2192'}
+                    </button>
+                  </div>
 
-              <div className="daymodal__heroheader">
-                <div>
-                  <h2 id="daymodal-title">Soiree Coupe du monde</h2>
-                  <p>
-                    {liveNowMatches.length > 0
-                      ? `${liveNowMatches.length} match${liveNowMatches.length > 1 ? 's' : ''} en direct maintenant.`
-                      : `${dayMatches.length} match${dayMatches.length > 1 ? 's' : ''} au programme ${isSelectedToday ? 'aujourd hui' : formatDayLabel(activeDayKey)}.`}
-                  </p>
-                </div>
-
-                <div className="daymodal__watchlist">
-                  <span>Où regarder</span>
-                  <div className="daymodal__watchchips">
-                    {watchOptions.map((option) => (
-                      <a key={option.label} href={option.href} target="_blank" rel="noreferrer" className="daymodal__watchchip">
-                        {option.label}
-                      </a>
-                    ))}
+                  <div className="daymodal__heroheader">
+                    <div>
+                      <h2 id="daymodal-title">Matchs du jour</h2>
+                      <p>
+                        {liveNowMatches.length > 0
+                          ? `${liveNowMatches.length} match${liveNowMatches.length > 1 ? 's' : ''} en direct maintenant.`
+                          : `${dayMatches.length} match${dayMatches.length > 1 ? 's' : ''} au programme.`}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {(() => {
-                const homeTeam = teamsById.get(featuredDayMatch.homeTeamId)
-                const awayTeam = teamsById.get(featuredDayMatch.awayTeamId)
-                if (!homeTeam || !awayTeam) return null
-                const heroStatus = inferStatus(featuredDayMatch)
-                const heroHHMM = formatKickoffTime(featuredDayMatch)
-                const heroHasScore = hasRenderableScore(featuredDayMatch)
-                const heroFinished = heroStatus === 'finished'
-                const heroHomeWin = heroFinished && heroHasScore && featuredDayMatch.homeScore! > featuredDayMatch.awayScore!
-                const heroAwayWin = heroFinished && heroHasScore && featuredDayMatch.awayScore! > featuredDayMatch.homeScore!
+                <div className="daymodal__grid">
+                  {dayMatches.map((match) => {
+                    const homeTeam = teamsById.get(match.homeTeamId)
+                    const awayTeam = teamsById.get(match.awayTeamId)
+                    if (!homeTeam || !awayTeam) return null
+                    const kickoffTime = formatKickoffTime(match)
+                    const liveStatus = inferStatus(match)
+                    const hasScore = hasRenderableScore(match)
+                    const isFinished = liveStatus === 'finished'
+                    const homeWin = isFinished && hasScore && match.homeScore! > match.awayScore!
+                    const awayWin = isFinished && hasScore && match.awayScore! > match.homeScore!
 
-                return (
-                  <div
-                    className={`daymatch daymatch--hero daymatch--clickable${heroStatus === 'live' ? ' is-live' : heroStatus === 'scheduled' ? ' is-upcoming' : ''}`}
-                    onClick={() => { closeDayModal(); void openMatchStats(featuredDayMatch) }}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { closeDayModal(); void openMatchStats(featuredDayMatch) } }}
-                  >
-                    <div className="daymatch__meta">
-                      <span>Groupe {featuredDayMatch.groupId}</span>
-                      <div className="daymatch__meta-right">
-                        <BroadcasterBadge matchId={featuredDayMatch.id} />
-                        <span>{featuredDayMatch.venue}</span>
-                      </div>
-                    </div>
-
-                    <div className="daymatch__main">
-                      <div className={`daymatch__team${heroHomeWin ? ' is-winner' : heroAwayWin ? ' is-loser' : ''}`}>
-                        {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{homeTeam.flagEmoji}</span>}
-                        <strong>{homeTeam.name}</strong>
-                      </div>
-
-                      <div className="daymatch__scoreblock">
-                        <div className="daymatch__status">
-                          {heroStatus === 'live'
-                            ? formatLiveMinute(featuredDayMatch.liveMinute, liveSource.syncedAt).toUpperCase()
-                            : heroStatus === 'finished' ? 'TERMINÉ' : 'BIENTÔT'}
-                        </div>
-                        {heroStatus === 'scheduled' && heroHHMM ? (
-                          <div className="daymatch__score daymatch__score--time">{heroHHMM}</div>
-                        ) : heroHasScore ? (
-                          <div className="daymatch__score">
-                            <span className={heroHomeWin ? 'is-winner-score' : ''}>{featuredDayMatch.homeScore}</span>
-                            <i>:</i>
-                            <span className={heroAwayWin ? 'is-winner-score' : ''}>{featuredDayMatch.awayScore}</span>
+                    return (
+                      <article
+                        key={match.id}
+                        className={`daymatch daymatch--clickable${liveStatus === 'live' ? ' is-live' : liveStatus === 'scheduled' ? ' is-upcoming' : ''}`}
+                        onClick={() => { closeDayModal(); void openMatchStats(match) }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { closeDayModal(); void openMatchStats(match) } }}
+                      >
+                        <div className="daymatch__meta">
+                          <span>Groupe {match.groupId}</span>
+                          <div className="daymatch__meta-right">
+                            <BroadcasterBadge matchId={match.id} />
+                            <span>{match.venue}</span>
                           </div>
-                        ) : (
-                          <ScoreLoading />
-                        )}
-                      </div>
-
-                      <div className={`daymatch__team daymatch__team--right${heroAwayWin ? ' is-winner' : heroHomeWin ? ' is-loser' : ''}`}>
-                        <strong>{awayTeam.name}</strong>
-                        {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{awayTeam.flagEmoji}</span>}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
-
-            <div className="daymodal__grid">
-              {dayMatches.filter((m) => m.id !== featuredDayMatch.id).map((match) => {
-                const homeTeam = teamsById.get(match.homeTeamId)
-                const awayTeam = teamsById.get(match.awayTeamId)
-                if (!homeTeam || !awayTeam) return null
-                const kickoffTime = formatKickoffTime(match)
-                const liveStatus = inferStatus(match)
-                const miniHasScore = hasRenderableScore(match)
-                const miniFinished = liveStatus === 'finished'
-                const miniHomeWin = miniFinished && miniHasScore && match.homeScore! > match.awayScore!
-                const miniAwayWin = miniFinished && miniHasScore && match.awayScore! > match.homeScore!
-
-                return (
-                  <article
-                    key={match.id}
-                    className={`daymatch daymatch--clickable${liveStatus === 'live' ? ' is-live' : liveStatus === 'scheduled' ? ' is-upcoming' : ''}`}
-                    onClick={() => { closeDayModal(); void openMatchStats(match) }}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { closeDayModal(); void openMatchStats(match) } }}
-                  >
-                    <div className="daymatch__meta">
-                      <span>Groupe {match.groupId}</span>
-                      <div className="daymatch__meta-right">
-                        <BroadcasterBadge matchId={match.id} />
-                        <span>{match.venue}</span>
-                      </div>
-                    </div>
-
-                    <div className="daymatch__main">
-                      <div className={`daymatch__team${miniHomeWin ? ' is-winner' : miniAwayWin ? ' is-loser' : ''}`}>
-                        {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{homeTeam.flagEmoji}</span>}
-                        <strong>{homeTeam.name}</strong>
-                      </div>
-                      <div className="daymatch__scoreblock">
-                        <div className="daymatch__status">
-                          {liveStatus === 'live'
-                            ? formatLiveMinute(match.liveMinute, liveSource.syncedAt).toUpperCase()
-                            : liveStatus === 'finished' ? 'TERMINÉ' : 'BIENTÔT'}
                         </div>
-                        {liveStatus === 'scheduled' && kickoffTime ? (
-                          <div className="daymatch__score daymatch__score--time">{kickoffTime}</div>
-                        ) : miniHasScore ? (
-                          <div className="daymatch__score">
-                            <span className={miniHomeWin ? 'is-winner-score' : ''}>{match.homeScore}</span>
-                            <i>:</i>
-                            <span className={miniAwayWin ? 'is-winner-score' : ''}>{match.awayScore}</span>
-                          </div>
-                        ) : (
-                          <ScoreLoading />
-                        )}
-                      </div>
-                      <div className={`daymatch__team daymatch__team--right${miniAwayWin ? ' is-winner' : miniHomeWin ? ' is-loser' : ''}`}>
-                        <strong>{awayTeam.name}</strong>
-                        {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{awayTeam.flagEmoji}</span>}
-                      </div>
-                    </div>
 
-                    {match.status === 'scheduled' && predMap.has(match.id) ? (
-                      <div className="daymatch__prono">
-                        {(() => {
-                          const pred = predMap.get(match.id)!
-                          return (
-                            <>
-                              <div className="prono__bar">
-                                <div className="prono__seg prono__seg--home" style={{ width: `${pred.homePercent}%` }} />
-                                <div className="prono__seg prono__seg--draw" style={{ width: `${pred.drawPercent}%` }} />
-                                <div className="prono__seg prono__seg--away" style={{ width: `${pred.awayPercent}%` }} />
+                        <div className="daymatch__main">
+                          <div className={`daymatch__team${homeWin ? ' is-winner' : awayWin ? ' is-loser' : ''}`}>
+                            {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{homeTeam.flagEmoji}</span>}
+                            <strong>{homeTeam.name}</strong>
+                          </div>
+                          <div className="daymatch__scoreblock">
+                            <div className="daymatch__status">
+                              {liveStatus === 'live'
+                                ? formatLiveMinute(match.liveMinute, liveSource.syncedAt).toUpperCase()
+                                : liveStatus === 'finished' ? 'TERMINE' : 'BIENTOT'}
+                            </div>
+                            {liveStatus === 'scheduled' && kickoffTime ? (
+                              <div className="daymatch__score daymatch__score--time">{kickoffTime}</div>
+                            ) : hasScore ? (
+                              <div className="daymatch__score">
+                                <span className={homeWin ? 'is-winner-score' : ''}>{match.homeScore}</span>
+                                <i>:</i>
+                                <span className={awayWin ? 'is-winner-score' : ''}>{match.awayScore}</span>
                               </div>
-                              <div className="prono__pcts">
-                                <span className="prono__pct prono__pct--home">{pred.homePercent}%</span>
-                                <span className="prono__pct prono__pct--draw">{pred.drawPercent}% nul</span>
-                                <span className="prono__pct prono__pct--away">{pred.awayPercent}%</span>
-                              </div>
-                            </>
-                          )
-                        })()}
-                      </div>
-                    ) : null}
-                  </article>
-                )
-              })}
-            </div>
+                            ) : (
+                              <ScoreLoading />
+                            )}
+                          </div>
+                          <div className={`daymatch__team daymatch__team--right${awayWin ? ' is-winner' : homeWin ? ' is-loser' : ''}`}>
+                            <strong>{awayTeam.name}</strong>
+                            {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{awayTeam.flagEmoji}</span>}
+                          </div>
+                        </div>
+
+                        {match.status === 'scheduled' && predMap.has(match.id) ? (
+                          <div className="daymatch__prono">
+                            {(() => {
+                              const pred = predMap.get(match.id)!
+                              return (
+                                <>
+                                  <div className="prono__bar">
+                                    <div className="prono__seg prono__seg--home" style={{ width: `${pred.homePercent}%` }} />
+                                    <div className="prono__seg prono__seg--draw" style={{ width: `${pred.drawPercent}%` }} />
+                                    <div className="prono__seg prono__seg--away" style={{ width: `${pred.awayPercent}%` }} />
+                                  </div>
+                                  <div className="prono__pcts">
+                                    <span className="prono__pct prono__pct--home">{pred.homePercent}%</span>
+                                    <span className="prono__pct prono__pct--draw">{pred.drawPercent}% nul</span>
+                                    <span className="prono__pct prono__pct--away">{pred.awayPercent}%</span>
+                                  </div>
+                                </>
+                              )
+                            })()}
+                          </div>
+                        ) : null}
+                      </article>
+                    )
+                  })}
+                </div>
               </>
             ) : null}
           </div>
@@ -2339,59 +2124,6 @@ function App() {
           </div>
         )
       })() : null}
-
-      <div className="controls">
-        {simulatorMode ? null : (
-        <div className="seg">
-          <button type="button" className={`seg__btn${view === 'groups' ? ' is-active' : ''}`} onClick={() => setView('groups')}>
-            ▦ Groupes
-          </button>
-          <button type="button" className={`seg__btn${view === 'bracket' ? ' is-active' : ''}`} onClick={() => setView('bracket')}>
-            🏆 Tableau
-          </button>
-          <div className={`seg__thumb seg__thumb--${view}`} />
-        </div>
-        )}
-
-        <div className="controls__modeseg">
-          <div className="seg seg--mode">
-            <button type="button" className={`seg__btn${mode === 'real' ? ' is-active' : ''}`} onClick={() => setMode('real')}>
-              En direct
-            </button>
-            <button type="button" className={`seg__btn${mode === 'simulation' ? ' is-active' : ''}`} onClick={() => setMode('simulation')}>
-              Simulation
-            </button>
-            <div className={`seg__thumb seg__thumb--${mode === 'real' ? 'groups' : 'bracket'}`} />
-          </div>
-          {mode === 'simulation' ? (
-            <button type="button" className="chip-btn chip-btn--danger chip-btn--sm" onClick={clearSimulation}>
-              Réinitialiser
-            </button>
-          ) : null}
-        </div>
-
-        <div className="controls__right">
-          <div className="progresschip">
-            <span className="progresschip__n">
-              {completedGroups}
-              <i>/12</i>
-            </span>
-            <span className="progresschip__bar">
-              <span style={{ width: `${(completedGroups / 12) * 100}%` }} />
-            </span>
-            <span className="progresschip__lbl">groupes</span>
-          </div>
-
-          {focusId ? (
-            <div className="focuschip">
-              <span>{teamsById.get(focusId)?.name}</span>
-              <button type="button" onClick={() => setFocusId(null)}>
-                ×
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </div>
 
       {liveSource.warnings.length > 0 ? (
         <div className="warning-strip">

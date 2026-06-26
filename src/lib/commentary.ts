@@ -5,13 +5,13 @@ export type { CommentaryPhase }
 
 export const COMMENTARY_TEMPLATES: Record<CommentaryPhase, CommentaryTemplate[]> = {
   pre_attack: [
-    { text: '{attacker} deborde cote droit, entre dans la surface... IL ARME !' },
-    { text: 'Une-deux parfait, {attacker} se retrouve seul face au gardien...' },
-    { text: 'Coup franc a 20 m, {attacker} prend son elan, le mur saute...' },
-    { text: "{attacker} feinte, elimine son adversaire d'un crochet, il vise..." },
-    { text: 'Le {team} presse haut, {attacker} recupere le ballon et fonce !' },
-    { text: 'Passe en profondeur lumineuse, {attacker} surgit dans le dos de la defense...' },
-    { text: '{attacker} regarde le gardien dans les yeux. Le gardien transpire.', funny: true },
+    { text: '{attacker} prend le ballon : slalom obligatoire entre les defenseurs !' },
+    { text: '{attacker} attaque la ligne, il faut passer dans les portes vertes.' },
+    { text: 'La defense de {opponent} descend vite : {attacker} doit enchainer les dribbles.' },
+    { text: "{attacker} provoque balle au pied, crochet gauche ou crochet droit ?" },
+    { text: '{team} lance le raid : {attacker} doit eliminer les defenseurs avant la frappe.' },
+    { text: 'Couloir ferme, espace au centre : {attacker} doit trouver la porte verte.' },
+    { text: '{attacker} a mis les crampons turbo. Maintenant il faut dribbler propre.', funny: true },
   ],
   attack_success: [
     { text: 'BUT ! {attacker} fait exploser le stade !' },
@@ -67,11 +67,15 @@ export function getCommentary(
   phase: CommentaryPhase,
   team: Team,
   opponent: Team,
+  forcedAttacker?: string,
 ): { text: string; tokens: string[] } {
   const pool = COMMENTARY_TEMPLATES[phase]
   const template = pool[Math.floor(Math.random() * pool.length)]
-  const attacker = team.players?.[Math.floor(Math.random() * team.players.length)] ?? `un joueur de ${team.shortName}`
-  const defender = opponent.players?.[0] ?? `le gardien de ${opponent.shortName}`
+  const isDefensePhase = phase === 'pre_defense' || phase === 'defense_success' || phase === 'defense_fail'
+  const attackingTeam = isDefensePhase ? opponent : team
+  const defendingTeam = isDefensePhase ? team : opponent
+  const attacker = forcedAttacker ?? attackingTeam.players?.[Math.floor(Math.random() * attackingTeam.players.length)] ?? `un joueur de ${attackingTeam.shortName}`
+  const defender = defendingTeam.players?.[0] ?? `le gardien de ${defendingTeam.shortName}`
   const values: CommentaryTokens = {
     attacker,
     defender,

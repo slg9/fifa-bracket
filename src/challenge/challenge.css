@@ -1234,6 +1234,31 @@
   font-size: 10px;
 }
 
+.wcmap__score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(48, 227, 255, 0.10);
+  border: 1px solid rgba(48, 227, 255, 0.34);
+  color: #ffffff;
+  font: 900 13px 'JetBrains Mono', monospace;
+  line-height: 1;
+  box-shadow: 0 0 14px rgba(48, 227, 255, 0.18);
+}
+
+.wcmap__score-badge em {
+  color: rgba(255, 255, 255, 0.42);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.wcmap__field-node.is-completed .wcmap__field-panel {
+  min-width: 86px;
+}
+
 .wcmap__locked-label {
   color: rgba(255, 255, 255, 0.58);
   font-size: 10px;
@@ -1440,4 +1465,800 @@
   .wcmap__marker span {
     font-size: 10px;
   }
+}
+
+/* Stabilize the WorldCupMap viewport: prevents the route from collapsing into a single vertical line. */
+.wcmap {
+  width: min(calc(100vw - 24px), 580px);
+  min-width: min(calc(100vw - 24px), 360px);
+}
+
+.wcmap__viewport {
+  flex: 0 0 auto;
+  width: 100%;
+  height: min(760px, calc(100dvh - 154px));
+  min-height: 520px;
+  overflow: hidden;
+}
+
+.wcmap__canvas {
+  min-width: 100%;
+  transform-origin: top center;
+  overflow: visible;
+}
+
+.wcmap__paths {
+  display: block;
+  overflow: visible;
+}
+
+.wcmap__path {
+  vector-effect: non-scaling-stroke;
+}
+
+@media (max-width: 680px) {
+  .wcmap {
+    width: min(calc(100vw - 16px), 430px);
+    min-width: 0;
+  }
+
+  .wcmap__viewport {
+    height: calc(100dvh - 178px);
+    min-height: 460px;
+  }
+}
+
+.wcmap__winner-flag {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(4, 12, 22, 0.92);
+  border: 1px solid rgba(48, 227, 255, 0.42);
+  box-shadow:
+    0 0 18px rgba(48, 227, 255, 0.36),
+    0 10px 24px rgba(0, 0, 0, 0.45);
+  font-size: 24px;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.wcmap__field-node.is-live {
+  animation: wcmapLiveBounce 1.22s cubic-bezier(0.25, 0.75, 0.3, 1) infinite;
+}
+
+.wcmap__field-node.is-live::after {
+  content: "JOUER";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  z-index: 6;
+  margin-top: 8px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(255, 214, 90, 0.96);
+  color: #1a1100;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  transform: translateX(-50%);
+  box-shadow: 0 0 18px rgba(255, 214, 90, 0.4);
+  pointer-events: none;
+}
+
+@keyframes wcmapLiveBounce {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  42% {
+    transform: translate(-50%, calc(-50% - 13px)) scale(1.045);
+  }
+  58% {
+    transform: translate(-50%, calc(-50% + 3px)) scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wcmap__field-node.is-live {
+    animation: none;
+  }
+}
+
+.wcmap__winner-flag {
+  top: 16px;
+  width: 42px;
+  height: 42px;
+  transform: translate(-50%, -100%);
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  background: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.22), rgba(4, 12, 22, 0.96));
+}
+
+.wcmap__winner-flag img {
+  display: block;
+  width: 30px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 5px;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.4);
+}
+
+.wcmap__winner-flag > span {
+  display: block;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 28px;
+  line-height: 1;
+}
+
+/* Match badges are anchored to the mini-stadium, not to the info panel. */
+.wcmap__mini-field {
+  overflow: visible;
+}
+
+.wcmap__winner-flag {
+  left: 50%;
+  top: 50%;
+  z-index: 8;
+  width: 46px;
+  height: 46px;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(255, 255, 255, 0.76);
+  background: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.24), rgba(4, 12, 22, 0.96));
+}
+
+.wcmap__winner-flag img {
+  width: 32px;
+  height: 23px;
+}
+
+.wcmap__live-matchup {
+  position: absolute;
+  left: 50%;
+  top: 7px;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 82px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 214, 90, 0.72);
+  background: rgba(5, 12, 24, 0.88);
+  box-shadow: 0 0 18px rgba(255, 214, 90, 0.32), 0 8px 18px rgba(0, 0, 0, 0.36);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.wcmap__live-matchup img {
+  display: block;
+  width: 23px;
+  height: 16px;
+  border-radius: 3px;
+  object-fit: cover;
+}
+
+.wcmap__live-matchup > span {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.wcmap__live-matchup strong {
+  color: #ffd65a;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.wcmap__field-node.is-live .wcmap__field-panel .wcmap__flags-vs {
+  display: none;
+}
+
+.wcmap__field-node.is-live .wcmap__field-panel {
+  min-width: 54px;
+}
+
+/* Final stadium badge positioning: VS and result flags are centered in the pitch. */
+.wcmap__live-matchup {
+  top: 50%;
+  min-width: 100px;
+  padding: 5px 8px;
+  transform: translate(-50%, -50%);
+}
+
+.wcmap__live-matchup img {
+  width: 27px;
+  height: 19px;
+}
+
+.wcmap__live-matchup strong {
+  font-size: 11px;
+}
+
+.wcmap__winner-flag {
+  width: 42px;
+  height: 42px;
+}
+
+.wcmap__winner-flag img {
+  width: 30px;
+  height: 21px;
+}
+
+.wcmap__loser-flag {
+  position: absolute;
+  left: calc(50% + 20px);
+  top: calc(50% + 16px);
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: rgba(4, 12, 22, 0.72);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.34);
+  opacity: 0.42;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.wcmap__loser-flag img {
+  display: block;
+  width: 18px;
+  height: 13px;
+  border-radius: 3px;
+  object-fit: cover;
+  filter: saturate(0.7);
+}
+
+.wcmap__loser-flag > span {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.wcmap__result-matchup {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 86px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(5, 12, 24, 0.82);
+  border: 1px solid rgba(48, 227, 255, 0.36);
+  box-shadow: 0 0 18px rgba(48, 227, 255, 0.24), 0 8px 18px rgba(0, 0, 0, 0.34);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.wcmap__result-flag {
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+
+.wcmap__result-flag img {
+  display: block;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.wcmap__result-flag > span {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  line-height: 1;
+}
+
+.wcmap__result-flag--winner img {
+  width: 34px;
+  height: 24px;
+}
+
+.wcmap__result-flag--winner > span {
+  font-size: 29px;
+}
+
+.wcmap__result-flag--loser {
+  opacity: 0.38;
+  filter: grayscale(0.6) saturate(0.75);
+  transform: scale(0.82);
+}
+
+.wcmap__result-flag--loser img {
+  width: 23px;
+  height: 16px;
+}
+
+.wcmap__result-flag--loser > span {
+  font-size: 19px;
+}
+
+.wcmap__field-node.is-completed .wcmap__winner-flag,
+.wcmap__field-node.is-completed .wcmap__loser-flag {
+  display: none;
+}
+
+/* Lock future matches until the highlighted stage is completed. */
+.wcmap__field-node.is-locked {
+  cursor: not-allowed;
+}
+
+.wcmap__field-node.is-locked .wcmap__mini-field {
+  border-color: rgba(135, 150, 170, 0.36);
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.025) 50%, transparent 50%),
+    linear-gradient(180deg, #1b2630 0%, #111a22 100%);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
+}
+
+.wcmap__field-node.is-locked .wcmap__mini-field::after {
+  content: "LOCK";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 8;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(4, 8, 14, 0.78);
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  transform: translate(-50%, -50%);
+}
+
+.wcmap__field-node.is-locked .wcmap__field-panel {
+  opacity: 0.72;
+}
+
+/* Center the team-choice modal instead of rendering it as a bottom sheet. */
+.wcmap-entry {
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.wcmap-entry__panel,
+.wcmap-entry__panel.is-final {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  width: min(560px, 100%);
+  max-height: min(86dvh, 760px);
+  border-radius: 28px;
+  transform: none;
+  padding: 0 18px 24px;
+}
+
+.wcmap-entry__grab {
+  display: none;
+}
+
+.wcmap-entry__teams {
+  align-items: stretch;
+}
+
+@media (max-width: 680px) {
+  .wcmap-entry {
+    padding: 12px;
+  }
+
+  .wcmap-entry__panel,
+  .wcmap-entry__panel.is-final {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+  }
+}
+
+/* Full-screen map-only challenge view. */
+.brakup-shell--map-only {
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+.brakup-shell--map-only .brakup-topbar,
+.brakup-shell--map-only .brakup-footer {
+  display: none;
+}
+
+.brakup-shell--map-only .wcmap {
+  width: 100vw;
+  max-width: none;
+  min-width: 0;
+  height: 100dvh;
+  margin: 0;
+}
+
+.brakup-shell--map-only .wcmap__viewport {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.brakup-shell--map-only .wcmap__canvas {
+  width: 100%;
+  min-width: 100%;
+}
+
+
+.game-menu-button {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  z-index: 46;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(7, 28, 23, 0.92), rgba(16, 80, 55, 0.88));
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+}
+
+.game-menu-button span {
+  width: 22px;
+  height: 3px;
+  border-radius: 999px;
+  background: #fff8d7;
+  box-shadow: 0 0 12px rgba(255, 235, 150, 0.45);
+}
+
+.game-menu-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: start end;
+  padding: max(74px, calc(24px + env(safe-area-inset-top))) max(14px, env(safe-area-inset-right)) 14px 14px;
+  pointer-events: none;
+}
+
+.game-menu-modal__scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(3, 12, 10, 0.36);
+  backdrop-filter: blur(5px);
+  pointer-events: auto;
+}
+
+.game-menu-modal__panel {
+  position: relative;
+  width: min(320px, calc(100vw - 28px));
+  max-height: calc(100dvh - 96px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 24px;
+  background: linear-gradient(160deg, rgba(12, 48, 38, 0.96), rgba(7, 22, 26, 0.96));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.44);
+  pointer-events: auto;
+}
+
+.game-menu-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: #fff8d7;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.game-menu-modal__close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.game-menu-modal__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin-top: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 850;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.game-menu-modal__item--primary {
+  background: linear-gradient(135deg, #ffe071, #ff8c42);
+  color: #201302;
+  border-color: rgba(255, 255, 255, 0.48);
+}
+
+.game-menu-modal__item--sound {
+  border-color: rgba(255, 224, 113, 0.42);
+  color: #fff8d7;
+  background: rgba(255, 224, 113, 0.12);
+}
+
+.game-menu-modal__item--sound.is-muted {
+  border-color: rgba(255, 68, 85, 0.52);
+  color: #ffb6c0;
+  background: rgba(255, 68, 85, 0.12);
+}
+
+.game-menu-modal__item--link {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+@media (max-width: 520px) {
+  .game-menu-modal {
+    place-items: end stretch;
+    padding: 14px;
+  }
+
+  .game-menu-modal__panel {
+    width: 100%;
+    max-height: min(420px, calc(100dvh - 28px));
+  }
+}
+
+
+/* Team choice cards: flag above, country name below. */
+.wcmap-entry__team {
+  justify-content: center;
+  min-height: 178px;
+  text-align: center;
+}
+
+.wcmap-entry__team-flag {
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 64px;
+  margin-bottom: 4px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 14px 28px rgba(0, 0, 0, 0.22);
+}
+
+.wcmap-entry__team-flag img {
+  display: block;
+  width: 74px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.34);
+}
+
+.wcmap-entry__team-flag > span {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 48px;
+  line-height: 1;
+}
+
+.wcmap-entry__team strong {
+  display: block;
+  margin-top: 2px;
+}
+
+.wcmap-entry__team small {
+  display: block;
+  min-height: 28px;
+  line-height: 1.2;
+}
+
+@media (max-width: 520px) {
+  .wcmap-entry__team {
+    min-height: 158px;
+    padding-inline: 8px;
+  }
+
+  .wcmap-entry__team-flag {
+    width: 76px;
+    height: 54px;
+  }
+
+  .wcmap-entry__team-flag img {
+    width: 62px;
+    height: 42px;
+  }
+}
+
+
+/* --- Challenge 9:16 stage, loading and splash polish --- */
+.splash,
+.challenge-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(43, 255, 154, .09), transparent 30%),
+    #02060d;
+}
+
+.challenge-loading {
+  z-index: 80;
+}
+
+.splash__frame,
+.challenge-loading__frame,
+.brakup-shell--map-only .wcmap {
+  position: relative;
+  width: min(100vw, calc(100dvh * 9 / 16));
+  height: min(100dvh, calc(100vw * 16 / 9));
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  background: #050b16;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.06), 0 32px 90px rgba(0,0,0,.55);
+}
+
+@media (min-width: 700px) {
+  .splash__frame,
+  .challenge-loading__frame,
+  .brakup-shell--map-only .wcmap {
+    border-radius: 28px;
+  }
+}
+
+.splash__bg,
+.challenge-loading__bg {
+  position: absolute;
+  inset: 0;
+}
+
+.splash__bg {
+  background-image: url('/challenge-splash.png') !important;
+  background-position: center top !important;
+  background-size: cover !important;
+  background-repeat: no-repeat !important;
+  transform: translateZ(0);
+}
+
+.splash__bg::after {
+  background: linear-gradient(to bottom, rgba(5,11,22,0) 0%, rgba(5,11,22,.12) 46%, rgba(5,11,22,.76) 73%, rgba(5,11,22,.98) 100%);
+}
+
+.splash__content {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(38px, env(safe-area-inset-bottom));
+  z-index: 2;
+  padding: 0 18px;
+}
+
+.splash.is-leaving {
+  animation: splashOut .65s both;
+  pointer-events: none;
+}
+
+.challenge-loading__frame {
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(25,211,255,.16), transparent 27%),
+    radial-gradient(circle at 50% 60%, rgba(255,184,0,.08), transparent 28%),
+    linear-gradient(180deg, #08111f 0%, #050b16 100%);
+}
+
+.challenge-loading__content {
+  position: relative;
+  inset: auto;
+  z-index: 2;
+  display: flex;
+  width: min(62%, 250px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0;
+  transform: translateY(-2%);
+}
+
+.challenge-loading__mark {
+  width: min(52vw, 208px);
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  filter: drop-shadow(0 0 32px rgba(25, 211, 255, .16));
+}
+
+.challenge-loading__meter {
+  position: static;
+  left: auto;
+  bottom: auto;
+  width: 100%;
+  transform: none;
+  margin: 2px auto 0;
+  gap: 8px;
+}
+
+.challenge-loading__meter-track {
+  height: 10px;
+}
+
+.challenge-loading__meta {
+  padding: 0 2px;
+}
+
+.brakup-shell--map-only {
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 15%, rgba(43,255,154,.09), transparent 30%),
+    #02060d;
+}
+
+.brakup-shell--intro .wcmap {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.brakup-shell--map-only .wcmap {
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+}
+
+.brakup-shell--map-only .wcmap__viewport {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+}
+
+.brakup-shell--map-only .wcmap__canvas {
+  width: 100%;
+  min-width: 100%;
+}
+
+.brakup-shell--map-only .game-menu-button {
+  top: calc((100dvh - min(100dvh, calc(100vw * 16 / 9))) / 2 + max(14px, env(safe-area-inset-top)));
+  right: calc((100vw - min(100vw, calc(100dvh * 9 / 16))) / 2 + max(14px, env(safe-area-inset-right)));
 }
