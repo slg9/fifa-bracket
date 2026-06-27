@@ -417,7 +417,7 @@ export function AttackPhase({
 
   //  Tutorial 
   const [tutorialDone, setTutorialDone] = useState(
-    () => shotOnly
+    () => shotOnly || sessionStorage.getItem('brakup:tut:atk2') === '1'
   )
 
   //  Top-level phase 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import type { BattleMatchState, BattleResult, BattleRoundType, DefenseOutcome, KnockoutMatch, Team } from '../../types'
 import { getCommentary } from '../../lib/commentary'
 import { playGameSound, setGameMuted, useGameAudio, useGameMuted } from '../../lib/useGameAudio'
@@ -215,6 +215,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     rounds: history,
   }), [awayTeamId, coinFlipWinnerId, history, homeTeamId, state.opponentScore, state.playerScore])
   const displayedResult = simulatedResult ?? result
+  const countdownProgress = countdownNum === 3 ? '100%' : countdownNum === 2 ? '66%' : countdownNum === 1 ? '33%' : '100%'
 
   const startRoundCountdown = () => {
     // Pre-battle already gives the instructions; avoid phase-level tutorial countdowns.
@@ -547,13 +548,13 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
             onResult={handleSuddenGoalSaveEnd}
           />
         : null}
-      {state.phase === 'playing' && currentRound === 'fruit_ninja'
+      {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'fruit_ninja'
         ? <FruitNinjaPhase
             key={`ninja-${state.roundIndex}`}
             attackersInZone={2}
             difficulty={state.difficulty}
             onResult={handleFruitNinjaEnd}
-            isPaused={isPaused}
+            isPaused={isPaused || state.phase === 'countdown'}
             homeTeam={homeTeam}
             keeperName={homeKeeperName}
             opponentKit={awayKit}
@@ -593,7 +594,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
       {/* Countdown overlay */}
       {state.phase === 'countdown' && countdownNum !== null ? (
         <div className="battle-countdown" aria-live="polite">
-          <div key={countdownNum} className={`battle-countdown__circle${countdownNum === 0 ? ' is-go' : ''}`}>
+          <div className={`battle-countdown__circle${countdownNum === 0 ? ' is-go' : ''}`} style={{ '--countdown-progress': countdownProgress } as CSSProperties & Record<'--countdown-progress', string>}>
             <span>{countdownNum === 0 ? 'GO' : countdownNum}</span>
           </div>
         </div>

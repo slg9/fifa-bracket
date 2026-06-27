@@ -334,6 +334,8 @@
 .brakup-bracket-overlay__bar span { font:800 14px 'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.8) }
 .brakup-bracket-overlay__close { padding:8px 14px;border:1px solid rgba(255,255,255,.15);border-radius:9px;background:rgba(255,255,255,.06);color:#EEF3FF;font:700 12px Barlow,sans-serif;cursor:pointer;transition:.15s }
 .brakup-bracket-overlay__close:hover { border-color:rgba(255,68,85,.6);color:#FF4455 }
+.brakup-bracket-overlay__rotate { display:none;padding:8px 12px;border:1px solid rgba(43,255,154,.42);border-radius:9px;background:rgba(43,255,154,.1);color:#2bff9a;font:800 11px Barlow,sans-serif;letter-spacing:.08em;text-transform:uppercase;cursor:pointer }
+.brakup-bracket-overlay__rotate-hint { display:none }
 .brakup-bracket-overlay__body { flex:1;overflow:auto;padding-bottom:24px }
 /* Phone shell — narrow centered container for brackets/board on desktop */
 .brakup-phone-shell { max-width:480px;margin:0 auto;min-height:calc(100vh - 72px);box-sizing:border-box }
@@ -372,6 +374,13 @@
   .brakup-topbar nav { gap:2px; }
   .brakup-topbar nav button { padding:7px 8px; font-size:10px; }
   .brakup-brand > span { width:34px;height:34px;font-size:19px; }
+  .game-menu-modal__item--landscape { display:block;border-color:rgba(43,255,154,.42);color:#2bff9a }
+  .brakup-bracket-overlay__bar { gap:8px;padding:10px 12px }
+  .brakup-bracket-overlay__bar span { min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px }
+  .brakup-bracket-overlay__rotate { display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto }
+  .brakup-bracket-overlay.is-landscape-mode { background:#02060d }
+  .brakup-bracket-overlay.is-landscape-mode .brakup-bracket-overlay__body { padding:0;overflow:auto }
+  .brakup-bracket-overlay.is-landscape-mode .brakup-bracket-overlay__rotate-hint { display:block;padding:7px 12px;background:rgba(255,184,0,.12);border-bottom:1px solid rgba(255,184,0,.28);color:#FFB800;font:900 11px 'Barlow Condensed',sans-serif;letter-spacing:.12em;text-align:center;text-transform:uppercase }
   .mbf { padding:14px 14px max(16px,env(safe-area-inset-bottom)) }
   /* Board */
   .brakup-page__heading { align-items:start;flex-direction:column;gap:16px; }
@@ -385,6 +394,24 @@
   .brakup-scoreboard { gap:8px; }
   .brakup-scoreboard div { padding:8px; }
   .brakup-defense { height:65vh; }
+}
+@media (max-width: 680px) and (orientation: portrait) {
+  .brakup-bracket-overlay.is-landscape-mode .brakup-bracket-overlay__body {
+    position:absolute;
+    left:50%;
+    top:50%;
+    width:100dvh;
+    height:100dvw;
+    transform:translate(-50%,-50%) rotate(90deg);
+    transform-origin:center;
+    padding:0;
+    overflow:auto;
+  }
+  .brakup-bracket-overlay.is-landscape-mode .brakup-bracket-overlay__bar,
+  .brakup-bracket-overlay.is-landscape-mode .brakup-bracket-overlay__rotate-hint {
+    position:relative;
+    z-index:3;
+  }
 }
 @media (prefers-reduced-motion: reduce) { .brakup-shell *, .brakup-shell *::before, .brakup-shell *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; } }
 

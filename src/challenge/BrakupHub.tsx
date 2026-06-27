@@ -90,7 +90,8 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
   const [activeBracketId, setActiveBracketId] = useState<string | null>(null)
   const [showEmailEntry, setShowEmailEntry] = useState(false)
   const [showGameMenu, setShowGameMenu] = useState(false)
-  const [showBattleControls, setShowBattleControls] = useState(() => localStorage.getItem('brakup:show-battle-controls') === '1')
+  const [showBattleControls, setShowBattleControls] = useState(false)
+  const [bracketLandscapeMode, setBracketLandscapeMode] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
@@ -181,6 +182,25 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
   }
 
   const openBracket = (entry: ChallengeEntry) => { setPicks(entry.picks); setBattleBonuses(entry.battleBonuses); setActiveBracketId(entry.id); navigate('challenge') }
+  const openBracketOverlay = (landscape = false) => {
+    setBracketLandscapeMode(landscape)
+    setShowBracket(true)
+    if (!landscape) return
+    const root = document.documentElement
+    const fullscreenRequest = root.requestFullscreen?.()
+    fullscreenRequest?.catch(() => undefined)
+    const orientation = screen.orientation as ScreenOrientation & { lock?: (orientation: OrientationLockType) => Promise<void> }
+    const orientationRequest = orientation.lock?.('landscape')
+    orientationRequest?.catch(() => undefined)
+  }
+  const closeBracketOverlay = () => {
+    setShowBracket(false)
+    setBracketLandscapeMode(false)
+    if (document.fullscreenElement) {
+      const fullscreenExit = document.exitFullscreen?.()
+      fullscreenExit?.catch(() => undefined)
+    }
+  }
   const introActive = view === 'challenge' && (!challengePreload.ready || showSplash)
   const simulatedMatch = simulatedMatchId ? matches.find((match) => match.id === simulatedMatchId) : null
 
@@ -200,7 +220,7 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
       {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} showControls={showBattleControls} /> : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
-        <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} realResults={realResults} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); setShowBracket(true) }} onSave={() => setShowEmailEntry(true)} />
+        <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} realResults={realResults} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); openBracketOverlay(false) }} onSave={() => setShowEmailEntry(true)} />
         <button type="button" className="game-menu-button" onClick={() => { sfx.click(); setShowGameMenu(true) }} aria-label="Ouvrir le menu jeu">
           <span />
           <span />
@@ -216,7 +236,8 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
               <span>Menu jeu</span>
               <button type="button" className="game-menu-modal__close" onClick={() => { sfx.click(); setShowGameMenu(false) }} aria-label="Fermer">X</button>
             </div>
-            <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); setShowBracket(true) }}>Tableau</button>
+            <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay(false) }}>Tableau</button>
+            <button type="button" className="game-menu-modal__item game-menu-modal__item--landscape" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay(true) }}>Tableau plein ecran paysage</button>
             <button type="button" className={`game-menu-modal__item game-menu-modal__item--sound${audioMuted ? ' is-muted' : ''}`} onClick={() => setGameMuted(!audioMuted)}>
               {audioMuted ? 'Activer le son' : 'Mute le jeu'}
             </button>
@@ -248,13 +269,15 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
 
       {/* Bracket overlay — fullscreen, opens from the ⊞ button */}
       {view === 'challenge' && showBracket ? (
-        <div className="brakup-bracket-overlay">
+        <div className={`brakup-bracket-overlay${bracketLandscapeMode ? ' is-landscape-mode' : ''}`}>
           <div className="brakup-bracket-overlay__bar">
             <span>Bracket — Coupe du Monde 2026</span>
-            <button type="button" className="brakup-bracket-overlay__close" onClick={() => { sfx.click(); setShowBracket(false) }}>✕ Fermer</button>
+            <button type="button" className="brakup-bracket-overlay__rotate" onClick={() => { sfx.bracket(); openBracketOverlay(true) }}>Paysage</button>
+            <button type="button" className="brakup-bracket-overlay__close" onClick={() => { sfx.click(); closeBracketOverlay() }}>✕ Fermer</button>
           </div>
+          {bracketLandscapeMode ? <div className="brakup-bracket-overlay__rotate-hint">Tourne le telephone pour voir le vrai tableau en plein ecran</div> : null}
           <div className="brakup-bracket-overlay__body">
-            <BracketChallenge matches={matches} teamsById={teamsById} picks={picks} onPick={handlePick} onPlay={(matchId) => { setShowBracket(false); handlePlay(matchId) }} brackets={brackets} activeBracketId={activeBracketId} onSelectBracket={(id) => { const entry = brackets.find((item) => item.id === id); if (entry) openBracket(entry) }} realResults={realResults} />
+            <BracketChallenge matches={matches} teamsById={teamsById} picks={picks} onPick={handlePick} onPlay={(matchId) => { closeBracketOverlay(); handlePlay(matchId) }} brackets={brackets} activeBracketId={activeBracketId} onSelectBracket={(id) => { const entry = brackets.find((item) => item.id === id); if (entry) openBracket(entry) }} realResults={realResults} />
           </div>
         </div>
       ) : null}
