@@ -30,3 +30,15 @@ dist-ssr
 
 # Claude Code internals
 .claude/
+
+# Local agent / sub-agent workspaces
+.codex/
+.agents/
+.worktrees/
+worktrees/
+agent-*/
+.agent-*/
+
+# Local scratch artifacts
+tmp-*
+*.tmp
