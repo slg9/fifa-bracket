@@ -332,6 +332,16 @@ export function getBestThirdPlacedTeams(groupStandings: Record<string, RankedSta
 }
 
 function resolveThirdPlaceAssignments(qualifiedThirds: RankedStandingRow[], templates: KnockoutTemplate[]) {
+  const slotGroupPriority: Record<string, string[]> = {
+    'M74:away': ['F', 'D', 'A', 'C', 'B'],
+    'M77:away': ['G', 'C', 'D', 'F', 'H'],
+    'M79:away': ['E', 'C', 'H', 'F', 'I'],
+    'M80:away': ['K', 'E', 'H', 'I', 'J'],
+    'M81:away': ['B', 'I', 'E', 'F', 'J'],
+    'M82:away': ['H', 'A', 'E', 'I', 'J'],
+    'M85:away': ['J', 'G', 'E', 'F', 'I'],
+    'M87:away': ['L', 'D', 'E', 'I', 'J'],
+  }
   const thirdPlaceSlots = templates.flatMap((template) => {
     const entries: Array<{ matchId: string; side: 'home' | 'away'; candidateGroups: string[] }> = []
     if (template.home.type === 'third') {
@@ -344,39 +354,52 @@ function resolveThirdPlaceAssignments(qualifiedThirds: RankedStandingRow[], temp
   })
 
   const sortedTeams = [...qualifiedThirds]
-  const assignments = new Map<string, string>()
+  let bestAssignments = new Map<string, string>()
+  let bestScore = -Infinity
+  let bestTieBreak = ''
 
-  function backtrack(slotIndex: number, usedTeamIds: Set<string>): boolean {
+  function scoreCandidate(slotKey: string, groupId: string) {
+    const priority = slotGroupPriority[slotKey] ?? []
+    const index = priority.indexOf(groupId)
+    return index === -1 ? 0 : 100 - index
+  }
+
+  function backtrack(slotIndex: number, usedTeamIds: Set<string>, currentAssignments: Map<string, string>, currentScore: number): void {
     if (slotIndex === thirdPlaceSlots.length) {
-      return true
+      const tieBreak = [...currentAssignments.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, teamId]) => `${key}=${teamId}`).join('|')
+      if (currentScore > bestScore || currentScore === bestScore && tieBreak < bestTieBreak) {
+        bestScore = currentScore
+        bestTieBreak = tieBreak
+        bestAssignments = new Map(currentAssignments)
+      }
+      return
     }
 
     const slot = thirdPlaceSlots[slotIndex]
-    const candidates = sortedTeams.filter(
-      (team) =>
-        slot.candidateGroups.includes(team.groupId) &&
-        !usedTeamIds.has(team.teamId),
-    )
+    const slotKey = `${slot.matchId}:${slot.side}`
+    const priority = slotGroupPriority[slotKey] ?? slot.candidateGroups
+    const candidates = sortedTeams
+      .filter((team) => slot.candidateGroups.includes(team.groupId) && !usedTeamIds.has(team.teamId))
+      .sort((a, b) => {
+        const priorityDiff = (priority.indexOf(a.groupId) === -1 ? 99 : priority.indexOf(a.groupId)) - (priority.indexOf(b.groupId) === -1 ? 99 : priority.indexOf(b.groupId))
+        if (priorityDiff !== 0) return priorityDiff
+        return compareRows(a, b)
+      })
 
     for (const candidate of candidates) {
-      assignments.set(`${slot.matchId}:${slot.side}`, candidate.teamId)
+      currentAssignments.set(slotKey, candidate.teamId)
       usedTeamIds.add(candidate.teamId)
 
-      if (backtrack(slotIndex + 1, usedTeamIds)) {
-        return true
-      }
+      backtrack(slotIndex + 1, usedTeamIds, currentAssignments, currentScore + scoreCandidate(slotKey, candidate.groupId))
 
       usedTeamIds.delete(candidate.teamId)
-      assignments.delete(`${slot.matchId}:${slot.side}`)
+      currentAssignments.delete(slotKey)
     }
-
-    return false
   }
 
-  thirdPlaceSlots.sort((a, b) => a.candidateGroups.length - b.candidateGroups.length)
-  backtrack(0, new Set<string>())
+  backtrack(0, new Set<string>(), new Map<string, string>(), 0)
 
-  return assignments
+  return bestAssignments
 }
 
 function entrantFromStanding(row: RankedStandingRow | undefined): KnockoutEntrant {
