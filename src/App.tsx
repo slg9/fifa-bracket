@@ -1328,7 +1328,7 @@ function App() {
   const [selectedDayKey, setSelectedDayKey] = useState(() => localDateStr())
   const [headerBracketMenuOpen, setHeaderBracketMenuOpen] = useState(false)
   const [isBracketFullscreen, setIsBracketFullscreen] = useState(false)
-  const [sidePanel, setSidePanel] = useState<'qualified' | 'thirds' | 'scorers' | null>(null)
+  const [sidePanel, setSidePanel] = useState<'qualified' | 'thirds' | 'scorers' | 'groups' | 'results' | null>(null)
   const [matchModalGroupId, setMatchModalGroupId] = useState<string | null>(null)
   const [matchStatsModal, setMatchStatsModal] = useState<{ match: GroupMatch; homeTeam: Team; awayTeam: Team } | null>(null)
   const [matchStatsData, setMatchStatsData] = useState<MatchEventsData | null>(null)
@@ -2336,13 +2336,35 @@ function App() {
                     Buteurs
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  className={`float-tab${sidePanel === 'groups' ? ' is-active' : ''}`}
+                  onClick={() => setSidePanel((current) => current === 'groups' ? null : 'groups')}
+                >
+                  Groupes
+                </button>
+                <button
+                  type="button"
+                  className={`float-tab${sidePanel === 'results' ? ' is-active' : ''}`}
+                  onClick={() => setSidePanel((current) => current === 'results' ? null : 'results')}
+                >
+                  Resultats
+                </button>
               </div>
 
               {sidePanel ? (
                 <div className="float-panel">
                   <div className="float-panel__head">
                     <div className="float-panel__title">
-                      {sidePanel === 'qualified' ? 'En route pour les 8es' : sidePanel === 'thirds' ? 'Meilleurs troisiemes' : 'Top buteurs'}
+                      {sidePanel === 'qualified'
+                        ? 'En route pour les 8es'
+                        : sidePanel === 'thirds'
+                          ? 'Meilleurs troisiemes'
+                          : sidePanel === 'scorers'
+                            ? 'Top buteurs'
+                            : sidePanel === 'groups'
+                              ? 'Groupes'
+                              : 'Resultats groupes'}
                     </div>
                     <button type="button" className="float-panel__close" onClick={() => setSidePanel(null)} aria-label="Fermer">
                       X
@@ -2413,6 +2435,84 @@ function App() {
                               <span className="scorerrow__name">{scorer.name}</span>
                               <span className="scorerrow__goals"><b>{scorer.goals}</b></span>
                             </div>
+                          )
+                        })}
+                      </div>
+                    ) : null}
+
+                    {sidePanel === 'groups' ? (
+                      <div className="float-groups">
+                        {seed.groups.map((group) => {
+                          const rows = standings[group.id] ?? []
+                          const groupMatches = mergedMatches.filter((match) => match.groupId === group.id)
+                          const completeCount = groupMatches.filter((match) => inferStatus(match) === 'finished').length
+                          return (
+                            <section key={group.id} className="float-group">
+                              <button type="button" className="float-group__head" onClick={() => setMatchModalGroupId(group.id)}>
+                                <span>Groupe {group.id}</span>
+                                <small>{completeCount}/{groupMatches.length} joues</small>
+                              </button>
+                              <div className="float-group__standings">
+                                {rows.slice(0, 4).map((row) => {
+                                  const team = teamsById.get(row.teamId)
+                                  if (!team) return null
+                                  return (
+                                    <button key={row.teamId} type="button" className={`float-group-row${focusId === team.id ? ' is-focus' : ''}`} onClick={() => setFocusId(focusId === team.id ? null : team.id)}>
+                                      <span className="float-group-row__rank">{row.rank}</span>
+                                      {flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
+                                      <span className="float-group-row__name">{team.shortName || team.name}</span>
+                                      <span className="float-group-row__diff">{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</span>
+                                      <b>{row.points}</b>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </section>
+                          )
+                        })}
+                      </div>
+                    ) : null}
+
+                    {sidePanel === 'results' ? (
+                      <div className="float-results">
+                        {seed.groups.map((group) => {
+                          const groupMatches = mergedMatches
+                            .filter((match) => match.groupId === group.id)
+                            .sort((a, b) => (a.kickoffIso ?? `${a.kickoffDate}T${a.kickoffTime ?? '99:99'}`).localeCompare(b.kickoffIso ?? `${b.kickoffDate}T${b.kickoffTime ?? '99:99'}`))
+                          return (
+                            <section key={group.id} className="float-group">
+                              <button type="button" className="float-group__head" onClick={() => setMatchModalGroupId(group.id)}>
+                                <span>Groupe {group.id}</span>
+                                <small>{groupMatches.length} matchs</small>
+                              </button>
+                              <div className="float-result-list">
+                                {groupMatches.map((match) => {
+                                  const homeTeam = teamsById.get(match.homeTeamId)
+                                  const awayTeam = teamsById.get(match.awayTeamId)
+                                  if (!homeTeam || !awayTeam) return null
+                                  const status = inferStatus(match)
+                                  const canOpenStats = status === 'finished' || status === 'live'
+                                  return (
+                                    <button
+                                      key={match.id}
+                                      type="button"
+                                      className={`float-result${status === 'live' ? ' is-live' : ''}`}
+                                      onClick={canOpenStats ? () => void openMatchStats(match) : () => setMatchModalGroupId(group.id)}
+                                    >
+                                      <span className="float-result__teams">
+                                        <span>{homeTeam.shortName || homeTeam.name}</span>
+                                        <i>{awayTeam.shortName || awayTeam.name}</i>
+                                      </span>
+                                      <span className="float-result__score">
+                                        {status === 'scheduled'
+                                          ? formatKickoffTime(match) || 'A venir'
+                                          : `${match.homeScore ?? '-'}:${match.awayScore ?? '-'}`}
+                                      </span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </section>
                           )
                         })}
                       </div>
