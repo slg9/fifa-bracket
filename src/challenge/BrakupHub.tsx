@@ -4,6 +4,7 @@ import { getBrackets, submitBracket } from '../lib/challengeData'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
 import type { BattleResult, ChallengeEntry, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
 import BattleEngine from '../components/battle/BattleEngine'
+import CoinFlip from '../components/battle/CoinFlip'
 import BracketChallenge from './BracketChallenge'
 import ChallengeSplash from './ChallengeSplash'
 import ChallengeLoading from './ChallengeLoading'
@@ -69,6 +70,8 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
   const [showSplash, setShowSplash] = useState(true)
   const [showBracket, setShowBracket] = useState(false)
   const [activeMatchId, setActiveMatchId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('match'))
+  const [simulatedMatchId, setSimulatedMatchId] = useState<string | null>(null)
+  const [mapResetKey, setMapResetKey] = useState(0)
   const [accessToken] = useState<string | null>(() => new URLSearchParams(window.location.search).get('token') ?? localStorage.getItem('brakup:token'))
   const [picks, setPicks] = useState<Record<string, string>>(() => {
     try { return JSON.parse(localStorage.getItem('brakup:draft') ?? '{}') as Record<string, string> } catch { return {} }
@@ -127,11 +130,37 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
     }
     navigate('battle', matchId)
   }
+  const handleSimulate = (matchId: string) => {
+    setSimulatedMatchId(matchId)
+  }
   const handleBattleComplete = (result: BattleResult) => {
     const mid = activeMatchId ?? ''
     handlePick(mid, result.winnerId)
     setBattleScores((s) => ({ ...s, [mid]: { p: result.playerScore, o: result.awayScore } }))
     setBattleBonuses((current) => Math.min(40, current + Math.max(1, Math.round(result.playerScore / 20))))
+    navigate('challenge')
+  }
+  const handleSimulationComplete = (winnerId: string, score?: { home: number; away: number }) => {
+    const match = matches.find((item) => item.id === simulatedMatchId)
+    if (!match || match.home.kind !== 'team' || match.away.kind !== 'team') {
+      setSimulatedMatchId(null)
+      setMapResetKey((key) => key + 1)
+      return
+    }
+
+    const winnerIsHome = winnerId === match.home.teamId
+    handlePick(match.id, winnerId)
+    if (score) {
+      setBattleScores((current) => ({
+        ...current,
+        [match.id]: {
+          p: winnerIsHome ? score.home : score.away,
+          o: winnerIsHome ? score.away : score.home,
+        },
+      }))
+    }
+    setSimulatedMatchId(null)
+    setMapResetKey((key) => key + 1)
     navigate('challenge')
   }
 
@@ -149,6 +178,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
 
   const openBracket = (entry: ChallengeEntry) => { setPicks(entry.picks); setBattleBonuses(entry.battleBonuses); setActiveBracketId(entry.id); navigate('challenge') }
   const introActive = view === 'challenge' && (!challengePreload.ready || showSplash)
+  const simulatedMatch = simulatedMatchId ? matches.find((match) => match.id === simulatedMatchId) : null
 
   return (
     <div className={`brakup-shell${view === 'challenge' ? ' brakup-shell--map-only' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
@@ -166,7 +196,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
       {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} /> : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
-        <WorldCupMapMenu matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} realResults={realResults} onPick={handlePick} onPlay={handlePlay} onShowBracket={() => { sfx.bracket(); setShowBracket(true) }} onSave={() => setShowEmailEntry(true)} />
+        <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} realResults={realResults} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); setShowBracket(true) }} onSave={() => setShowEmailEntry(true)} />
         <button type="button" className="game-menu-button" onClick={() => { sfx.click(); setShowGameMenu(true) }} aria-label="Ouvrir le menu jeu">
           <span />
           <span />
@@ -191,6 +221,21 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
             <a className="game-menu-modal__item game-menu-modal__item--link" href="/">Simulateur</a>
           </div>
+        </div>
+      ) : null}
+
+      {view === 'challenge' && simulatedMatch?.home.kind === 'team' && simulatedMatch.away.kind === 'team' ? (
+        <div className="brakup-coin-overlay">
+          <CoinFlip
+            homeTeamId={simulatedMatch.home.teamId}
+            awayTeamId={simulatedMatch.away.teamId}
+            homeTeamName={teamsById.get(simulatedMatch.home.teamId)?.name ?? simulatedMatch.home.teamId}
+            awayTeamName={teamsById.get(simulatedMatch.away.teamId)?.name ?? simulatedMatch.away.teamId}
+            homeFlag={teamsById.get(simulatedMatch.home.teamId)?.flagEmoji ?? simulatedMatch.home.teamId.slice(0, 2).toUpperCase()}
+            awayFlag={teamsById.get(simulatedMatch.away.teamId)?.flagEmoji ?? simulatedMatch.away.teamId.slice(0, 2).toUpperCase()}
+            mode="simulation"
+            onComplete={handleSimulationComplete}
+          />
         </div>
       ) : null}
 

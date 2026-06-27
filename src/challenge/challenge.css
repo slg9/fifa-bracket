@@ -892,10 +892,9 @@
 }
 
 .wcmap-entry__actions {
-  display: flex;
+  display: grid;
   gap: 10px;
   margin-top: 20px;
-  flex-wrap: wrap;
 }
 
 /* Completed match result summary */
@@ -951,6 +950,39 @@
 
 .wcmap-entry__play:not(:disabled):hover {
   transform: translateY(-1px);
+}
+
+.wcmap-entry__simulate {
+  width: 100%;
+  min-height: 50px;
+  margin: 0 0 16px;
+  padding: 0 20px;
+  border: 1.5px solid rgba(255, 184, 0, .52);
+  border-radius: 16px;
+  background: rgba(255, 184, 0, .1);
+  color: #FFB800;
+  font: 900 14px/1 'Barlow Condensed', sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 18px rgba(255, 184, 0, .12);
+  transition: opacity .15s ease, transform .15s ease, background .15s ease;
+}
+
+.wcmap-entry__simulate:disabled {
+  opacity: .38;
+  cursor: default;
+}
+
+.wcmap-entry__simulate:not(:disabled):hover {
+  transform: translateY(-1px);
+  background: rgba(255, 184, 0, .16);
+}
+
+.brakup-coin-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
 }
 
 .wcmap-entry__ghost {
