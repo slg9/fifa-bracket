@@ -355,6 +355,11 @@ function MatchNode({
 
       {isLocked && <span className="wcmap__status-badge wcmap__status-badge--lock">{'\uD83D\uDD12'}</span>}
       {isCompleted && <span className="wcmap__status-badge">{'\u2713'}</span>}
+      {node.match.qualificationStatus ? (
+        <span className={`wcmap__qualification-badge is-${node.match.qualificationStatus}`}>
+          {node.match.qualificationStatus === 'confirmed' ? 'SUR' : 'CALC'}
+        </span>
+      ) : null}
       {node.predictionState ? <span className={`wcmap__prediction-dot is-${node.predictionState}`} title={node.predictionState === 'correct' ? 'Prono réussi' : 'Prono raté'} /> : null}
       {realWinnerTeam ? <span className="wcmap__official-winner" title={`Vrai vainqueur: ${realWinnerTeam.name}`}>{realWinnerTeam.flagEmoji}</span> : null}
       {isLive && <span className="wcmap__live-dot" />}
@@ -403,6 +408,11 @@ function LevelEntryScreen({
 
         <div className="wcmap-entry__header">
           <div className="wcmap-entry__badge">{node.roundLabel.toUpperCase()}</div>
+          {node.match.qualificationStatus ? (
+            <div className={`wcmap-entry__qbadge is-${node.match.qualificationStatus}`}>
+              {node.match.qualificationStatus === 'confirmed' ? '16e confirme' : '16e projete'}
+            </div>
+          ) : null}
           <div className="wcmap-entry__match-num">Match {node.matchNumber}</div>
           <button type="button" className="wcmap-entry__close" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
@@ -508,7 +518,10 @@ export function WorldCupMapMenu({
 }: WorldCupMapMenuProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const panFocusRef = useRef<string | null>(null)
-  const dragRef = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null)
+  const dragRef = useRef<{ px: number; py: number; ox: number; oy: number; lastY: number; lastT: number; vy: number } | null>(null)
+  const offsetRef = useRef({ x: 0, y: 0 })
+  const momentumRef = useRef<number | null>(null)
+  const panAnimRef = useRef<number | null>(null)
   const dragDistRef = useRef(0)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
@@ -519,6 +532,75 @@ export function WorldCupMapMenu({
   const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks, realResults), [matches, teamsById, picks, realResults])
   const focusNode = nodes.find((node) => node.status === 'live') ?? nodes.find((node) => node.status === 'available') ?? null
   const selectedNode = nodes.find((node) => node.id === selectedMatchId) ?? null
+
+  const setPanOffset = (next: { x: number; y: number }) => {
+    offsetRef.current = next
+    setOffset(next)
+  }
+
+  const clampPanY = (y: number) => {
+    const viewportHeight = viewportRef.current?.clientHeight ?? 0
+    const maxPan = Math.max(0, MAP_HEIGHT - viewportHeight)
+    return Math.max(-maxPan, Math.min(0, y))
+  }
+
+  const stopPanMotion = () => {
+    if (momentumRef.current !== null) {
+      cancelAnimationFrame(momentumRef.current)
+      momentumRef.current = null
+    }
+    if (panAnimRef.current !== null) {
+      cancelAnimationFrame(panAnimRef.current)
+      panAnimRef.current = null
+    }
+  }
+
+  const animatePanTo = (targetY: number, duration = 620) => {
+    stopPanMotion()
+    const startY = offsetRef.current.y
+    const clampedTarget = clampPanY(targetY)
+    const start = performance.now()
+
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setPanOffset({ x: 0, y: startY + (clampedTarget - startY) * eased })
+      if (progress < 1) {
+        panAnimRef.current = requestAnimationFrame(tick)
+      } else {
+        panAnimRef.current = null
+      }
+    }
+
+    panAnimRef.current = requestAnimationFrame(tick)
+  }
+
+  const startMomentum = (velocityY: number) => {
+    if (Math.abs(velocityY) < 0.04) return
+    let previous = performance.now()
+    let velocity = velocityY
+
+    const tick = (now: number) => {
+      const elapsed = Math.min(32, now - previous)
+      previous = now
+      const currentY = offsetRef.current.y
+      const nextY = clampPanY(currentY + velocity * elapsed)
+      setPanOffset({ x: 0, y: nextY })
+
+      if (nextY !== currentY + velocity * elapsed) {
+        velocity *= 0.35
+      }
+      velocity *= Math.pow(0.94, elapsed / 16.67)
+
+      if (Math.abs(velocity) > 0.02) {
+        momentumRef.current = requestAnimationFrame(tick)
+      } else {
+        momentumRef.current = null
+      }
+    }
+
+    momentumRef.current = requestAnimationFrame(tick)
+  }
 
   useEffect(() => {
     if (!selectedNode) return
@@ -531,30 +613,59 @@ export function WorldCupMapMenu({
     const viewportHeight = viewportRef.current.clientHeight
     const maxPan = Math.max(0, MAP_HEIGHT - viewportHeight)
     const targetOffset = -(focusNode.y - viewportHeight * 0.5)
-    setOffset({ x: 0, y: Math.max(-maxPan, Math.min(0, targetOffset)) })
+    animatePanTo(Math.max(-maxPan, Math.min(0, targetOffset)), 720)
   }, [focusNode])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    const target = event.target as HTMLElement
-    if (target.closest('button')) return
-    event.currentTarget.setPointerCapture(event.pointerId)
-    dragRef.current = { px: event.clientX, py: event.clientY, ox: offset.x, oy: offset.y }
-    dragDistRef.current = 0
+    stopPanMotion()
+
+    // Vérifie si le clic a ciblé un bouton MatchNode
+    const target = event.target as HTMLElement;
+    const nodeButton = target.closest('.wcmap__field-node');
+
+    if (nodeButton) {
+      // Clic sur un match → ne pas capturer, laisser le onClick du bouton agir
+      dragRef.current = null;
+      dragDistRef.current = 0;
+      return;
+    }
+
+    // Clic ailleurs (viewport) → activer le drag
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = {
+      px: event.clientX,
+      py: event.clientY,
+      ox: offsetRef.current.x,
+      oy: offsetRef.current.y,
+      lastY: event.clientY,
+      lastT: performance.now(),
+      vy: 0,
+    };
+    dragDistRef.current = 0;
   }
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current || !viewportRef.current) return
+    event.preventDefault()
     const deltaY = event.clientY - dragRef.current.py
-    dragDistRef.current = Math.abs(deltaY)
-    const viewportHeight = viewportRef.current.clientHeight
-    const maxPan = MAP_HEIGHT - viewportHeight
-    const nextY = Math.max(-maxPan, Math.min(0, dragRef.current.oy + deltaY))
-    setOffset({ x: 0, y: nextY })
+    const deltaX = event.clientX - dragRef.current.px
+    dragDistRef.current = Math.max(dragDistRef.current, Math.hypot(deltaX, deltaY))
+    const now = performance.now()
+    const dt = Math.max(1, now - dragRef.current.lastT)
+    dragRef.current.vy = (event.clientY - dragRef.current.lastY) / dt
+    dragRef.current.lastY = event.clientY
+    dragRef.current.lastT = now
+    const nextY = clampPanY(dragRef.current.oy + deltaY)
+    setPanOffset({ x: 0, y: nextY })
   }
 
   const handlePointerUp = () => {
+    const velocityY = dragRef.current?.vy ?? 0
     dragRef.current = null
+    startMomentum(velocityY)
   }
+
+  useEffect(() => () => stopPanMotion(), [])
 
   useEffect(() => {
     if (!notice) return

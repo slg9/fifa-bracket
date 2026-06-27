@@ -66,12 +66,12 @@ function cubicBezierPoint(p0: Point, p1: Point, p2: Point, p3: Point, t: number)
 }
 
 function goalFrameMetrics(width: number, height: number, compact?: boolean) {
-  const topY = height * (compact ? 0.11 : 0.12)
-  const bottomY = height * (compact ? 0.275 : 0.88)
-  const topLeft = width * (compact ? 0.20 : 0.12)
-  const topRight = width * (compact ? 0.80 : 0.88)
-  const bottomLeft = width * (compact ? 0.14 : 0.06)
-  const bottomRight = width * (compact ? 0.86 : 0.94)
+  const topY = height * (compact ? 0.22 : 0.12)
+  const bottomY = height * (compact ? 0.44 : 0.88)
+  const topLeft = width * (compact ? 0.18 : 0.12)
+  const topRight = width * (compact ? 0.82 : 0.88)
+  const bottomLeft = width * (compact ? 0.12 : 0.06)
+  const bottomRight = width * (compact ? 0.88 : 0.94)
   return { topY, bottomY, topLeft, topRight, bottomLeft, bottomRight }
 }
 

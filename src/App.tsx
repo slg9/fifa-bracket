@@ -74,6 +74,7 @@ type DisplayMatch = {
   dateLabel: string
   home: KnockoutEntrant
   away: KnockoutEntrant
+  qualificationStatus?: 'confirmed' | 'projected'
   winnerId: string | null
   played: boolean
 }
@@ -514,6 +515,11 @@ const MatchCard = memo(function MatchCard({
     >
       <div className="bm__meta">
         <span>{match.label.toUpperCase()}</span>
+        {match.qualificationStatus ? (
+          <span className={`bm__qbadge is-${match.qualificationStatus}`}>
+            {match.qualificationStatus === 'confirmed' ? 'CONFIRME' : 'PROJETE'}
+          </span>
+        ) : null}
         <span>{match.dateLabel.toUpperCase()}</span>
       </div>
       <KnockoutTeamBadge
@@ -1557,7 +1563,7 @@ function App() {
     : computedStandings
   const predMap = new Map(liveSource.predictions.map((p) => [p.matchId, p]))
   const bestThirds = getBestThirdPlacedTeams(standings)
-  const groupBracket = buildKnockoutBracket(standings)
+  const groupBracket = buildKnockoutBracket(standings, mergedMatches)
   const activeKnockoutPicks = mode === 'simulation' ? knockoutPicks : {}
   const displayBracket = resolveDisplayBracket(groupBracket, activeKnockoutPicks)
   const bracketHeaderTeams = [...new Set(displayBracket.flatMap((match) => [getEntrantTeamId(match.home), getEntrantTeamId(match.away)]).filter((teamId): teamId is string => Boolean(teamId)))]
@@ -1566,12 +1572,30 @@ function App() {
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const shouldDockBracketHeader = view === 'bracket' && !isBracketFullscreen
   const projectedQualifiedIds = new Set<string>()
+  const projectedQualifiedRows: Array<{ teamId: string; groupId: string; label: string; rank: number }> = []
   Object.values(standings).forEach((rows) => {
     rows
       .filter((row) => row.rank <= 2)
-      .forEach((row) => projectedQualifiedIds.add(row.teamId))
+      .sort((a, b) => a.rank - b.rank)
+      .forEach((row) => {
+        projectedQualifiedIds.add(row.teamId)
+        projectedQualifiedRows.push({
+          teamId: row.teamId,
+          groupId: row.groupId,
+          label: `${row.rank}${row.rank === 1 ? 'er' : 'e'} ${row.groupId}`,
+          rank: row.rank,
+        })
+      })
   })
-  bestThirds.forEach((row) => projectedQualifiedIds.add(row.teamId))
+  bestThirds.forEach((row, index) => {
+    projectedQualifiedIds.add(row.teamId)
+    projectedQualifiedRows.push({
+      teamId: row.teamId,
+      groupId: row.groupId,
+      label: `3e ${row.groupId}`,
+      rank: index + 25,
+    })
+  })
 
   const visibleGroups = isCompactGroups ? seed.groups.filter((group) => group.id === selectedGroupId) : seed.groups
   const matchDayKeys = [...new Set(mergedMatches.map(matchLocalDateKey))].sort()
@@ -1728,7 +1752,7 @@ function App() {
   }
 
   if (challengeMode) {
-    return <BrakupHub seed={seed} liveSource={liveSource} standings={standings} teamsById={teamsById} />
+    return <BrakupHub seed={seed} liveSource={liveSource} standings={standings} groupMatches={mergedMatches} teamsById={teamsById} />
   }
 
   const isHomeBracketFocus = view === 'bracket' && mode === 'simulation'
@@ -2328,12 +2352,12 @@ function App() {
                   <div className="float-panel__body">
                     {sidePanel === 'qualified' ? (
                       <>
-                        <div className="panel__sub">Top 2 par groupe · meilleurs troisiemes qualifies</div>
+                        <div className="panel__sub">24 top 2 + 8 meilleurs troisiemes = {projectedQualifiedRows.length} qualifies</div>
                         <div className="odds">
-                          {[...projectedQualifiedIds]
-                            .slice(0, 12)
-                            .map((teamId, index) => {
-                              const team = teamsById.get(teamId)
+                          {[...projectedQualifiedRows]
+                            .sort((a, b) => a.rank - b.rank || a.groupId.localeCompare(b.groupId))
+                            .map((row, index) => {
+                              const team = teamsById.get(row.teamId)
                               if (!team) return null
 
                               return (
@@ -2342,9 +2366,9 @@ function App() {
                                   {flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
                                   <span className="oddrow__name">{team.name}</span>
                                   <span className="oddrow__bar">
-                                    <span className="oddrow__fill" style={{ width: `${100 - index * 5}%` }} />
+                                    <span className="oddrow__fill" style={{ width: `${Math.max(8, 100 - index * 2)}%` }} />
                                   </span>
-                                  <span className="oddrow__pct">{team.groupId}</span>
+                                  <span className="oddrow__pct">{row.label}</span>
                                 </button>
                               )
                             })}

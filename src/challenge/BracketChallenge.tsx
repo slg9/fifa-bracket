@@ -156,6 +156,11 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
               const isReady = match.home.kind === 'team' && match.away.kind === 'team' && !isPicked
               const realWinnerId = realResults[match.id]
               return <article className={`brakup-bracket__match${isPicked ? ' is-done' : isReady ? ' is-ready' : ''}`} key={match.id} data-match-id={match.id}>
+                {match.qualificationStatus ? (
+                  <span className={`bkm-qbadge is-${match.qualificationStatus}`}>
+                    {match.qualificationStatus === 'confirmed' ? 'CONFIRME' : 'PROJETE'}
+                  </span>
+                ) : null}
                 {(['home', 'away'] as const).map((side) => {
                   const entrant = match[side]
                   const team = entrant.kind === 'team' ? teamsById.get(entrant.teamId) : undefined

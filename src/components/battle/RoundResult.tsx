@@ -149,7 +149,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
   return (
     <section className={`battle-round-result is-${outcome}`}>
       <style>{`
-        .battle-round-result{font-family:'Barlow Condensed',sans-serif;background:#050b16;overflow:hidden}
+        .battle-round-result{font-family:'Barlow Condensed',sans-serif;background:#050b16;overflow-y:auto;overflow-x:hidden;justify-content:flex-start;min-height:100%;padding:clamp(18px,4.5vh,42px) 16px max(18px,env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
         .battle-round-result.is-goal{background:radial-gradient(90% 50% at 50% 28%,rgba(255,184,0,.16),rgba(5,11,22,0) 60%),#050b16}
         .battle-round-result.is-defense_perfect{background:radial-gradient(90% 50% at 50% 32%,rgba(255,184,0,.18),rgba(5,11,22,0) 62%),#050b16}
         .battle-round-result::before{content:"";position:absolute;inset:0;pointer-events:none;animation:bk-flash 1.6s ease-out both;z-index:5}
@@ -160,7 +160,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         .battle-round-result.is-miss::before,.battle-round-result.is-goal_conceded::before{background:rgba(255,255,255,.3)}
         .rr-confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:4}
         .rr-confetti div{position:absolute;top:0;width:7px;height:15px;animation:bk-conf linear infinite}
-        .battle-round-result__visual{position:relative;width:160px;height:160px;z-index:6}
+        .battle-round-result__visual{position:relative;width:clamp(104px,22vh,160px);height:clamp(104px,22vh,160px);z-index:6;flex:0 0 auto}
         .battle-round-result__visual svg{width:100%;height:100%;overflow:visible}
         .battle-result-ring{fill:none;stroke:#FFB800;stroke-width:5;transform-origin:100px 100px;animation:battleResultRing .8s both}
         .battle-result-ray{stroke:#FFB800;stroke-width:5;stroke-linecap:round;stroke-dasharray:90;animation:battleResultRay .7s both}
@@ -171,7 +171,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         .battle-round-result.is-intercepted svg circle{fill:#d8aa83}
         .battle-round-result.is-intercepted svg path{fill:#FF4455}
         .battle-result-ball{fill:#f4f7ff!important;stroke:#101827;stroke-width:4;animation:battleCaughtBall .7s both}
-        .battle-result-miss{color:#8794a7;font-size:120px;line-height:1;animation:battleMiss .7s both;font-family:'Barlow Condensed',sans-serif}
+        .battle-result-miss{color:#8794a7;font-size:clamp(76px,17vh,120px);line-height:1;animation:battleMiss .7s both;font-family:'Barlow Condensed',sans-serif}
         .battle-round-result>span{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.45);z-index:6;position:relative}
         .battle-round-result h2{box-sizing:border-box;max-width:calc(100% - 18px);margin:2px auto 10px;padding:0 .08em .08em;font:900 clamp(34px,10.2vw,66px) 'Barlow Condensed',sans-serif;letter-spacing:.01em;line-height:1.08;z-index:6;position:relative;text-align:center;white-space:nowrap;overflow:visible}
         .battle-round-result.is-defense_perfect h2{max-width:min(340px,calc(100% - 20px));font-size:clamp(32px,8.8vw,56px);white-space:normal;line-height:.96}
@@ -180,7 +180,8 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         .battle-round-result.is-defense_perfect h2{color:#FFB800;text-shadow:0 0 30px rgba(255,184,0,.55)}
         .battle-round-result.is-intercepted h2{color:#2bff9a;text-shadow:0 0 18px rgba(43,255,154,.5)}
         .battle-round-result.is-miss h2,.battle-round-result.is-goal_conceded h2{color:rgba(255,255,255,.72)}
-        .rr-commentary{z-index:6;position:relative;max-width:320px;display:grid;gap:8px;margin-top:4px;padding:16px 18px;border-left:3px solid var(--rr-accent, rgba(255,255,255,.35));border-radius:0 12px 12px 0;background:rgba(10,21,38,.86);animation:commentaryIn .3s both}
+        .battle-round-result.is-goal_conceded h2{white-space:normal;font-size:clamp(30px,8vw,54px);line-height:.96;max-width:min(330px,calc(100% - 16px))}
+        .rr-commentary{z-index:6;position:relative;max-width:320px;display:grid;gap:8px;margin-top:4px;padding:14px 16px;border-left:3px solid var(--rr-accent, rgba(255,255,255,.35));border-radius:0 12px 12px 0;background:rgba(10,21,38,.86);animation:commentaryIn .3s both}
         .rr-commentary__main{font:700 clamp(14px,4vw,17px) 'Barlow Condensed',sans-serif;color:#fff;line-height:1.35}
         .rr-commentary__sub{font:500 clamp(11px,3.5vw,13px) 'Barlow',sans-serif;color:rgba(255,255,255,.58);line-height:1.45}
         .rr-continue-btn{z-index:6;position:relative;margin-top:14px;padding:11px 28px;border-radius:12px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.07);color:#fff;font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.12em;cursor:pointer;animation:bk-btn 2s ease-in-out infinite}
@@ -191,6 +192,19 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         .battle-round-result.is-saved .battle-round-result__score strong:first-child,
         .battle-round-result.is-defense_perfect .battle-round-result__score strong:first-child{color:#FFB800;animation:bk-heart 1s ease-in-out infinite;display:inline-block}
         .battle-round-result__score i{color:rgba(255,255,255,.4);font-style:normal;font:400 26px 'JetBrains Mono',monospace}
+        @media (max-height: 680px) {
+          .battle-round-result{padding-top:14px;gap:4px}
+          .battle-round-result__visual{width:96px;height:96px}
+          .battle-result-keeper{width:82px;height:82px;margin:7px;font-size:42px}
+          .battle-round-result h2{margin:0 auto 4px;font-size:clamp(30px,8vw,48px)}
+          .battle-round-result.is-goal_conceded h2{font-size:clamp(28px,7.8vw,42px)}
+          .rr-commentary{max-width:min(310px,calc(100% - 18px));padding:10px 12px;gap:5px}
+          .rr-commentary__main{font-size:14px;line-height:1.18}
+          .rr-commentary__sub{font-size:11px;line-height:1.26}
+          .battle-round-result__score{margin-top:6px}
+          .battle-round-result__score strong{font-size:28px}
+          .rr-continue-btn{margin-top:8px;padding:10px 18px;font-size:13px}
+        }
       `}</style>
 
       {(outcome === 'goal' || outcome === 'defense_perfect') ? (

@@ -126,6 +126,7 @@ export type KnockoutMatch = {
   dateLabel: string
   home: KnockoutEntrant
   away: KnockoutEntrant
+  qualificationStatus?: 'confirmed' | 'projected'
 }
 
 export type ChallengeBreakdown = Record<string, {

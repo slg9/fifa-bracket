@@ -552,10 +552,15 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
         .gs-particle.is-score { filter:drop-shadow(0 0 16px rgba(255,68,85,.55)); }
         .gs-particle.is-combo { filter:drop-shadow(0 0 20px ${playerJerseyColor}); }
         .gs-trail { position:absolute; inset:0; width:100%; height:100%; z-index:21; pointer-events:none; filter:drop-shadow(0 0 11px ${playerJerseyColor}); }
-        .gs-result { position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; gap:18px; align-items:center; justify-content:center; color:#FF4455; font:900 clamp(42px,15vw,78px) 'Barlow Condensed',sans-serif; letter-spacing:.09em; text-shadow:0 0 34px currentColor; pointer-events:auto; background:rgba(2,8,14,.42); animation:gsResultIn .22s ease-out both; }
+        .gs-result { position:absolute; inset:0; z-index:30; display:flex; flex-direction:column; gap:18px; align-items:center; justify-content:center; overflow-y:auto; padding:24px 16px max(22px,env(safe-area-inset-bottom)); color:#FF4455; font:900 clamp(42px,15vw,78px) 'Barlow Condensed',sans-serif; letter-spacing:.09em; text-shadow:0 0 34px currentColor; pointer-events:auto; background:rgba(2,8,14,.42); animation:gsResultIn .22s ease-out both; -webkit-overflow-scrolling:touch; }
         .gs-result.is-save { color:${playerJerseyColor}; }
         .gs-result__comment { font:800 15px 'Barlow Condensed',sans-serif; letter-spacing:.12em; color:rgba(255,255,255,.8); text-shadow:none; text-align:center; }
         .gs-result__continue { min-width:190px; padding:13px 24px; border-radius:14px; border:1.5px solid currentColor; background:rgba(255,255,255,.08); color:currentColor; font:900 15px 'Barlow Condensed',sans-serif; letter-spacing:.14em; cursor:pointer; box-shadow:0 0 22px color-mix(in srgb, currentColor 38%, transparent); }
+        @media (max-height: 680px) {
+          .gs-result { gap:10px; justify-content:center; font-size:clamp(34px,11vw,54px); padding-top:16px; }
+          .gs-result__comment { font-size:13px; }
+          .gs-result__continue { min-width:170px; padding:10px 18px; font-size:13px; }
+        }
         @keyframes gsBallSpin { to { rotate:360deg; } }
         @keyframes gsParticle { 0%{transform:translate(-50%,-50%) scale(.7);opacity:1} 100%{transform:translate(-50%,-50%) scale(3.2);opacity:0} }
         @keyframes gsResultIn { from{transform:scale(.55);opacity:0} to{transform:scale(1);opacity:1} }

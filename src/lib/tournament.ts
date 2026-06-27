@@ -7,6 +7,7 @@ import type {
   StandingRow,
   Team,
 } from '../types'
+import { fifaThirdPlaceAllocationTable } from './fifaThirdPlaceTable'
 
 type KnockoutTemplate = {
   id: string
@@ -331,75 +332,36 @@ export function getBestThirdPlacedTeams(groupStandings: Record<string, RankedSta
     }))
 }
 
-function resolveThirdPlaceAssignments(qualifiedThirds: RankedStandingRow[], templates: KnockoutTemplate[]) {
-  const slotGroupPriority: Record<string, string[]> = {
-    'M74:away': ['F', 'D', 'A', 'C', 'B'],
-    'M77:away': ['G', 'C', 'D', 'F', 'H'],
-    'M79:away': ['E', 'C', 'H', 'F', 'I'],
-    'M80:away': ['K', 'E', 'H', 'I', 'J'],
-    'M81:away': ['B', 'I', 'E', 'F', 'J'],
-    'M82:away': ['H', 'A', 'E', 'I', 'J'],
-    'M85:away': ['J', 'G', 'E', 'F', 'I'],
-    'M87:away': ['L', 'D', 'E', 'I', 'J'],
+function resolveThirdPlaceAssignments(qualifiedThirds: RankedStandingRow[]) {
+  const thirdByGroup = new Map(qualifiedThirds.map((team) => [team.groupId, team.teamId]))
+  const allocationKey = [...thirdByGroup.keys()].sort().join('')
+  const allocation = fifaThirdPlaceAllocationTable[allocationKey]
+  const assignments = new Map<string, string>()
+
+  if (!allocation) {
+    return assignments
   }
-  const thirdPlaceSlots = templates.flatMap((template) => {
-    const entries: Array<{ matchId: string; side: 'home' | 'away'; candidateGroups: string[] }> = []
-    if (template.home.type === 'third') {
-      entries.push({ matchId: template.id, side: 'home', candidateGroups: template.home.candidateGroups })
+
+  const allocationSlots = [
+    'M79:away', // 1A
+    'M85:away', // 1B
+    'M81:away', // 1D
+    'M74:away', // 1E
+    'M82:away', // 1G
+    'M77:away', // 1I
+    'M87:away', // 1K
+    'M80:away', // 1L
+  ]
+
+  allocationSlots.forEach((slotKey, index) => {
+    const groupId = allocation[index]
+    const teamId = thirdByGroup.get(groupId)
+    if (teamId) {
+      assignments.set(slotKey, teamId)
     }
-    if (template.away.type === 'third') {
-      entries.push({ matchId: template.id, side: 'away', candidateGroups: template.away.candidateGroups })
-    }
-    return entries
   })
 
-  const sortedTeams = [...qualifiedThirds]
-  let bestAssignments = new Map<string, string>()
-  let bestScore = -Infinity
-  let bestTieBreak = ''
-
-  function scoreCandidate(slotKey: string, groupId: string) {
-    const priority = slotGroupPriority[slotKey] ?? []
-    const index = priority.indexOf(groupId)
-    return index === -1 ? 0 : 100 - index
-  }
-
-  function backtrack(slotIndex: number, usedTeamIds: Set<string>, currentAssignments: Map<string, string>, currentScore: number): void {
-    if (slotIndex === thirdPlaceSlots.length) {
-      const tieBreak = [...currentAssignments.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, teamId]) => `${key}=${teamId}`).join('|')
-      if (currentScore > bestScore || currentScore === bestScore && tieBreak < bestTieBreak) {
-        bestScore = currentScore
-        bestTieBreak = tieBreak
-        bestAssignments = new Map(currentAssignments)
-      }
-      return
-    }
-
-    const slot = thirdPlaceSlots[slotIndex]
-    const slotKey = `${slot.matchId}:${slot.side}`
-    const priority = slotGroupPriority[slotKey] ?? slot.candidateGroups
-    const candidates = sortedTeams
-      .filter((team) => slot.candidateGroups.includes(team.groupId) && !usedTeamIds.has(team.teamId))
-      .sort((a, b) => {
-        const priorityDiff = (priority.indexOf(a.groupId) === -1 ? 99 : priority.indexOf(a.groupId)) - (priority.indexOf(b.groupId) === -1 ? 99 : priority.indexOf(b.groupId))
-        if (priorityDiff !== 0) return priorityDiff
-        return compareRows(a, b)
-      })
-
-    for (const candidate of candidates) {
-      currentAssignments.set(slotKey, candidate.teamId)
-      usedTeamIds.add(candidate.teamId)
-
-      backtrack(slotIndex + 1, usedTeamIds, currentAssignments, currentScore + scoreCandidate(slotKey, candidate.groupId))
-
-      usedTeamIds.delete(candidate.teamId)
-      currentAssignments.delete(slotKey)
-    }
-  }
-
-  backtrack(0, new Set<string>(), new Map<string, string>(), 0)
-
-  return bestAssignments
+  return assignments
 }
 
 function entrantFromStanding(row: RankedStandingRow | undefined): KnockoutEntrant {
@@ -444,9 +406,41 @@ function entrantFromTemplate(
   }
 }
 
-export function buildKnockoutBracket(groupStandings: Record<string, RankedStandingRow[]>): KnockoutMatch[] {
+function isGroupComplete(groupMatches: GroupMatch[], groupId: string): boolean {
+  const matches = groupMatches.filter((match) => match.groupId === groupId)
+  return matches.length > 0 && matches.every((match) => match.status === 'finished' && match.homeScore !== null && match.awayScore !== null)
+}
+
+function getTemplateEntryGroups(entry: KnockoutTemplate['home']): string[] {
+  if (entry.type === 'winner' || entry.type === 'runnerUp') {
+    return [entry.groupId]
+  }
+
+  if (entry.type === 'third') {
+    return ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
+  }
+
+  return []
+}
+
+function qualificationStatusForTemplate(template: KnockoutTemplate, groupMatches: GroupMatch[] | undefined): KnockoutMatch['qualificationStatus'] {
+  if (!groupMatches || template.stage !== 'Round of 32') {
+    return undefined
+  }
+
+  const requiredGroups = new Set([
+    ...getTemplateEntryGroups(template.home),
+    ...getTemplateEntryGroups(template.away),
+  ])
+
+  return [...requiredGroups].every((groupId) => isGroupComplete(groupMatches, groupId))
+    ? 'confirmed'
+    : 'projected'
+}
+
+export function buildKnockoutBracket(groupStandings: Record<string, RankedStandingRow[]>, groupMatches?: GroupMatch[]): KnockoutMatch[] {
   const bestThirds = getBestThirdPlacedTeams(groupStandings)
-  const assignments = resolveThirdPlaceAssignments(bestThirds, knockoutTemplates)
+  const assignments = resolveThirdPlaceAssignments(bestThirds)
 
   return knockoutTemplates.map((template) => ({
     id: template.id,
@@ -455,5 +449,6 @@ export function buildKnockoutBracket(groupStandings: Record<string, RankedStandi
     dateLabel: template.dateLabel,
     home: entrantFromTemplate(template.home, groupStandings, assignments, template.id, 'home'),
     away: entrantFromTemplate(template.away, groupStandings, assignments, template.id, 'away'),
+    qualificationStatus: qualificationStatusForTemplate(template, groupMatches),
   }))
 }

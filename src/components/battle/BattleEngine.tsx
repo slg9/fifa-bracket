@@ -29,6 +29,7 @@ type BattleEngineProps = {
   onComplete: (result: BattleResult) => void
   onQuit?: () => void
   playerSide?: 'home' | 'away'
+  showControls?: boolean
 }
 
 function highlightPlayerName(text: string, playerName: string): ReactNode {
@@ -157,7 +158,7 @@ function SuddenDeathShootout({ history, currentIndex, currentRound, phase }: { h
   )
 }
 
-export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide }: BattleEngineProps) {
+export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false }: BattleEngineProps) {
   const rawHomeId = entrantId(match, 'home')
   const rawAwayId = entrantId(match, 'away')
   const homeTeamId = playerSide === 'away' ? rawAwayId : rawHomeId
@@ -507,7 +508,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
       {/* Game phases */}
       {/* Show during countdown too so the player can preview the game layout */}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'attack' && !suddenDeath
-        ? <AttackPhase key={`attack-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeTeam?.players} awayTeamPlayers={awayTeam?.players} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} />
+        ? <AttackPhase key={`attack-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeTeam?.players} awayTeamPlayers={awayTeam?.players} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} />
         : null}
       {state.phase === 'playing' && currentRound === 'attack' && suddenDeath
         ? <AttackPhase
@@ -525,10 +526,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide 
             shotOnly
             shotAudioMode="heartOnly"
             shotTitle="TIR DE MORT SUBITE"
+            showControls={showControls}
           />
         : null}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'defense' && !suddenDeath
-        ? <DefensePhase key={`defense-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} playerKit={homeKit} opponentKit={awayKit} awayTeamPlayers={awayTeam?.players} defenderName={homeDefenderName} keeperName={homeKeeperName} onRoundEnd={handleDefenseEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} />
+        ? <DefensePhase key={`defense-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} playerKit={homeKit} opponentKit={awayKit} awayTeamPlayers={awayTeam?.players} defenderName={homeDefenderName} keeperName={homeKeeperName} onRoundEnd={handleDefenseEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} />
         : null}
       {state.phase === 'playing' && currentRound === 'defense' && suddenDeath
         ? <GoalSave

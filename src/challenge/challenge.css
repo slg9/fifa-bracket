@@ -185,6 +185,9 @@
 /* Match container: transparent, just a flex column with gap between the two team rects */
 .brakup-bracket__match { background:transparent;border:none;overflow:visible;position:relative;z-index:1;display:flex;flex-direction:column;gap:5px }
 .brakup-bracket__match header { display:none }
+.bkm-qbadge { align-self:flex-start;margin-bottom:1px;padding:2px 6px;border-radius:999px;font:900 8px 'Barlow Condensed',sans-serif;letter-spacing:.08em;line-height:1 }
+.bkm-qbadge.is-confirmed { color:#2bff9a;background:rgba(43,255,154,.14);border:1px solid rgba(43,255,154,.48) }
+.bkm-qbadge.is-projected { color:#ffcf58;background:rgba(255,184,0,.14);border:1px solid rgba(255,184,0,.5) }
 /* Each team row = its own rect */
 .brakup-bracket__match > div { display:flex;align-items:center;gap:7px;height:40px;padding:0 10px;border:1.5px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(255,255,255,.03);cursor:pointer;transition:border-color .15s,background .15s;position:relative;overflow:hidden }
 .brakup-bracket__match > div:hover { border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.06) }
@@ -795,6 +798,27 @@
   text-transform: uppercase;
 }
 
+.wcmap-entry__qbadge {
+  padding: 3px 7px;
+  border-radius: 999px;
+  font: 900 9px/1 'Barlow Condensed', sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.wcmap-entry__qbadge.is-confirmed {
+  color: #2bff9a;
+  background: rgba(43, 255, 154, .14);
+  border: 1px solid rgba(43, 255, 154, .48);
+}
+
+.wcmap-entry__qbadge.is-projected {
+  color: #ffcf58;
+  background: rgba(255, 184, 0, .14);
+  border: 1px solid rgba(255, 184, 0, .5);
+}
+
 .wcmap-entry__match-num {
   color: rgba(180, 200, 230, .5);
   font: 700 11px/1 'Barlow Condensed', sans-serif;
@@ -1220,7 +1244,7 @@
   padding: 0;
   cursor: pointer;
   z-index: 5;
-  touch-action: manipulation;
+  touch-action: none;
 }
 
 .wcmap__field-node:hover {
@@ -1389,6 +1413,30 @@
 .wcmap__prediction-dot.is-wrong {
   color: #ff4455;
   background: #ff4455;
+}
+
+.wcmap__qualification-badge {
+  position: absolute;
+  left: 50%;
+  top: 7px;
+  transform: translateX(-50%);
+  z-index: 6;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font: 900 8px/1 'Barlow Condensed', sans-serif;
+  letter-spacing: .1em;
+}
+
+.wcmap__qualification-badge.is-confirmed {
+  color: #2bff9a;
+  background: rgba(43, 255, 154, .16);
+  border: 1px solid rgba(43, 255, 154, .5);
+}
+
+.wcmap__qualification-badge.is-projected {
+  color: #ffcf58;
+  background: rgba(255, 184, 0, .16);
+  border: 1px solid rgba(255, 184, 0, .52);
 }
 
 .wcmap__official-winner {

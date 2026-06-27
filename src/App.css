@@ -2411,6 +2411,7 @@
 .bm__meta {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 8px;
   padding: 4px 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.03);
@@ -2420,6 +2421,28 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+}
+
+.bm__qbadge {
+  margin-left: auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.bm__qbadge.is-confirmed {
+  background: rgba(43, 255, 154, 0.16);
+  border: 1px solid rgba(43, 255, 154, 0.5);
+  color: #2bff9a;
+}
+
+.bm__qbadge.is-projected {
+  background: rgba(255, 184, 0, 0.16);
+  border: 1px solid rgba(255, 184, 0, 0.55);
+  color: #ffcf58;
 }
 
 

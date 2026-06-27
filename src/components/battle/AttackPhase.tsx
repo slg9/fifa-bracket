@@ -20,13 +20,14 @@ type AttackPhaseProps = {
   shotOnly?: boolean
   shotAudioMode?: 'normal' | 'heartOnly'
   shotTitle?: string
+  showControls?: boolean
 }
 
 //  Config 
 const ATTACK_CFG = {
-  easy:   { waveCount: 12, gateWidth: 34, narrowGateWidth: 26, gdSpeed: 31, difficultyRamp: 0.32, spacing: 41, gaugeGreenPx: 28, gaugeSpeed: 0.78 },
-  medium: { waveCount: 15, gateWidth: 28, narrowGateWidth: 21, gdSpeed: 39, difficultyRamp: 0.5, spacing: 37, gaugeGreenPx: 22, gaugeSpeed: 1.15 },
-  hard:   { waveCount: 18, gateWidth: 23, narrowGateWidth: 17, gdSpeed: 46, difficultyRamp: 0.72, spacing: 33, gaugeGreenPx: 16, gaugeSpeed: 1.6 },
+  easy:   { waveCount: 12, gateWidth: 34, narrowGateWidth: 26, gdSpeed: 31, difficultyRamp: 0.32, spacing: 41, gaugeGreenPx: 42, gaugeSpeed: 0.78 },
+  medium: { waveCount: 15, gateWidth: 28, narrowGateWidth: 21, gdSpeed: 39, difficultyRamp: 0.5, spacing: 37, gaugeGreenPx: 36, gaugeSpeed: 1.15 },
+  hard:   { waveCount: 18, gateWidth: 23, narrowGateWidth: 17, gdSpeed: 46, difficultyRamp: 0.72, spacing: 33, gaugeGreenPx: 30, gaugeSpeed: 1.6 },
 }
 
 const KEEPER_CFG = {
@@ -170,17 +171,38 @@ function pickWaveType(rng: () => number, difficulty: BattleDifficulty, previous:
   return 'gate'
 }
 
-function makeGateDefenders(i: number, center: number, gateWidth: number, players: string[], type: SlalomWaveType, rng: () => number): SlalomDefender[] {
+function makeGateDefenders(i: number, center: number, gateWidth: number, players: string[], type: SlalomWaveType, rng: () => number, bonusGate?: { center: number; width: number }): SlalomDefender[] {
   const half = gateWidth / 2
-  const yJitter = () => Math.round((rng() - 0.5) * 16)
-  const defenders: SlalomDefender[] = [
-    { id: `${i}-left`, x: Math.max(7, center - half - 12 - rng() * 5), yOffset: yJitter(), label: defenderLabel(players, i * 3, String([4, 5, 6, 8, 2][i % 5])), variant: 'normal' },
-    { id: `${i}-right`, x: Math.min(93, center + half + 12 + rng() * 5), yOffset: yJitter(), label: defenderLabel(players, i * 3 + 1, String([3, 7, 10, 11, 9][i % 5])), variant: type === 'diagonal_press' ? 'press' : 'normal' },
-  ]
-  if (type === 'diagonal_press' || type === 'combo_gate_slide' || rng() < 0.35) {
-    defenders.push({ id: `${i}-third`, x: Math.max(9, Math.min(91, center + (center < 50 ? 1 : -1) * (half + 23 + rng() * 8))), yOffset: rng() < 0.5 ? -26 : 26, label: defenderLabel(players, i * 3 + 2, String([6, 8, 5, 2, 4][i % 5])), variant: type === 'combo_gate_slide' ? 'sliding' : 'press' })
+  const yJitter = (index: number) => [-18, 12, -4, 20][index % 4] + Math.round((rng() - 0.5) * 6)
+  const gates = [{ left: center - half, right: center + half }]
+  if (bonusGate) gates.push({ left: bonusGate.center - bonusGate.width / 2, right: bonusGate.center + bonusGate.width / 2 })
+  gates.sort((a, b) => a.left - b.left)
+
+  const blockers: number[] = []
+  const addBlocker = (x: number) => {
+    const clamped = Math.max(7, Math.min(93, x))
+    if (blockers.every((existing) => Math.abs(existing - clamped) >= 9)) blockers.push(clamped)
   }
-  return defenders
+
+  addBlocker(gates[0].left - 9 - rng() * 2)
+  addBlocker(gates[gates.length - 1].right + 9 + rng() * 2)
+
+  for (let g = 0; g < gates.length - 1; g += 1) {
+    const gap = gates[g + 1].left - gates[g].right
+    if (gap > 15) addBlocker((gates[g].right + gates[g + 1].left) / 2)
+  }
+
+  if (!bonusGate && (type === 'diagonal_press' || type === 'combo_gate_slide' || type === 'moving_gate' || rng() < 0.5)) {
+    addBlocker(center + (center < 50 ? 1 : -1) * (half + 23 + rng() * 7))
+  }
+
+  return blockers.slice(0, 4).map((x, index) => ({
+    id: `${i}-block-${index}`,
+    x,
+    yOffset: yJitter(index),
+    label: defenderLabel(players, i * 4 + index, String([4, 5, 6, 8, 2, 3, 7, 10][(i + index) % 8])),
+    variant: type === 'combo_gate_slide' && index === blockers.length - 1 ? 'sliding' : type === 'diagonal_press' || index === 2 ? 'press' : 'normal',
+  }))
 }
 
 function makeSlideDefenders(i: number, players: string[], doubleLine: boolean): SlalomDefender[] {
@@ -219,21 +241,12 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
     const moveAmplitude = isMoving ? (params.difficulty === 'hard' ? 8 + rng() * 4 : params.difficulty === 'medium' ? 6 + rng() * 4 : 4 + rng() * 3) : 0
     const safeCenter = Math.max(16 + moveAmplitude, Math.min(84 - moveAmplitude, center))
     const bonusDirection = safeCenter < 50 ? 1 : -1
-    const bonusGateCenterX = isBonus ? Math.max(18, Math.min(82, safeCenter + bonusDirection * (24 + rng() * 10))) : undefined
-    const bonusGateWidth = isBonus ? Math.max(14, cfg.narrowGateWidth - 3) : undefined
+    const minBonusGap = gateWidth / 2 + Math.max(14, cfg.narrowGateWidth - 2) / 2 + 18
+    const bonusGateCenterX = isBonus ? Math.max(18, Math.min(82, safeCenter + bonusDirection * (minBonusGap + rng() * 6))) : undefined
+    const bonusGateWidth = isBonus ? Math.max(16, cfg.narrowGateWidth - 2) : undefined
     const defenders = isSlide
       ? makeSlideDefenders(i, params.players, type === 'double_slide_wall')
-      : makeGateDefenders(i, safeCenter, gateWidth, params.players, type, rng)
-
-    if (isBonus && bonusGateCenterX != null) {
-      defenders.push({
-        id: `${i}-bonus-guard`,
-        x: Math.max(8, Math.min(92, bonusGateCenterX + (bonusGateCenterX < 50 ? -1 : 1) * 15)),
-        yOffset: 18,
-        label: defenderLabel(params.players, i * 4 + 3, 'B'),
-        variant: 'bonus_guard',
-      })
-    }
+      : makeGateDefenders(i, safeCenter, gateWidth, params.players, type, rng, bonusGateCenterX != null && bonusGateWidth != null ? { center: bonusGateCenterX, width: bonusGateWidth } : undefined)
 
     waves.push({
       id: `wave-${i}`,
@@ -383,6 +396,7 @@ export function AttackPhase({
   shotOnly = false,
   shotAudioMode = 'normal',
   shotTitle,
+  showControls = false,
 }: AttackPhaseProps) {
   const cfg = ATTACK_CFG[difficulty]
   const slalomSeedRef = useRef(`${homeTeamId}-${awayTeamId}-${difficulty}-${Date.now()}-${Math.random()}`)
@@ -403,7 +417,7 @@ export function AttackPhase({
 
   //  Tutorial 
   const [tutorialDone, setTutorialDone] = useState(
-    () => shotOnly || sessionStorage.getItem('brakup:tut:atk2') === '1'
+    () => shotOnly
   )
 
   //  Top-level phase 
@@ -846,9 +860,9 @@ export function AttackPhase({
     const svgY = (clientY - rect.top)  / rect.height  // 0-1
 
     // Compact goal metrics (must match goalFrameMetrics in GoalView)
-    const topY = 0.11, bottomY = 0.275
-    const topLeft = 0.20, topRight = 0.80
-    const bottomLeft = 0.14, bottomRight = 0.86
+    const topY = 0.22, bottomY = 0.44
+    const topLeft = 0.18, topRight = 0.82
+    const bottomLeft = 0.12, bottomRight = 0.88
 
     // Clamp Y into goal
     const cy = Math.max(topY, Math.min(bottomY, svgY))
@@ -1168,6 +1182,10 @@ export function AttackPhase({
         .atk-gd-player.is-flowing .atk-player-inner { filter:drop-shadow(0 0 18px rgba(43,255,154,.82)); }
         .atk-gd-player.is-max-flow .atk-player-inner { filter:drop-shadow(0 0 22px rgba(255,184,0,.9)) drop-shadow(0 0 16px rgba(43,255,154,.62)); }
         .atk-gd-player.is-max-flow::after { content:'TIR BOOSTE'; position:absolute; left:50%; top:-22px; transform:translateX(-50%); color:#ffdd73; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; white-space:nowrap; text-shadow:0 0 12px rgba(255,184,0,.8); }
+        .atk-control-ghost { position:absolute; left:50%; bottom:max(28px,calc(env(safe-area-inset-bottom) + 18px)); z-index:18; display:grid; justify-items:center; gap:8px; width:148px; transform:translateX(-50%); pointer-events:none; opacity:.44; filter:drop-shadow(0 0 16px rgba(43,255,154,.28)); }
+        .atk-control-ghost__player { width:44px; height:54px; border-radius:999px 999px 18px 18px; background:linear-gradient(180deg,rgba(43,255,154,.38),rgba(43,255,154,.12)); border:1px solid rgba(43,255,154,.42); box-shadow:inset 0 0 18px rgba(255,255,255,.12); animation:atkGhostPlayer 1.75s ease-in-out infinite; }
+        .atk-control-ghost__trail { position:relative; width:132px; height:7px; border-radius:999px; background:linear-gradient(90deg,transparent,rgba(43,255,154,.72),transparent); }
+        .atk-control-ghost__trail::after { content:''; position:absolute; left:50%; top:50%; width:18px; height:18px; border-radius:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,.82); box-shadow:0 0 14px rgba(43,255,154,.72); animation:atkGhostFinger 1.75s ease-in-out infinite; }
 
         .atk-slalom-wave.is-moving { animation: atkWaveDrift var(--atk-wave-duration,1.4s) ease-in-out var(--atk-wave-delay,0s) infinite alternate; }
         @keyframes atkWaveDrift { from{ transform:translateX(calc(var(--atk-wave-shift,0%) * -1)); } to{ transform:translateX(var(--atk-wave-shift,0%)); } }
@@ -1183,15 +1201,30 @@ export function AttackPhase({
           animation: atkGatePulse 1.2s ease-in-out infinite;
           z-index: 5;
         }
+        .atk-slalom-gate::before {
+          content: '';
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 38%;
+          min-width: 44px;
+          height: 4px;
+          border-radius: 999px;
+          transform: translate(-50%,-50%);
+          background: #2bff9a;
+          box-shadow: 0 0 16px rgba(43,255,154,.85);
+          opacity: .78;
+        }
         .atk-slalom-gate.is-passed { border-color:#b8ff6a; background:rgba(43,255,154,.2); animation: atkGatePass .42s ease-out both; }
         .atk-slalom-gate.is-failed { border-color:#FF4455; background:rgba(255,68,85,.14); box-shadow:0 0 28px rgba(255,68,85,.45); }
         .atk-slalom-gate.is-combo { border-color:#FFB800;background:radial-gradient(ellipse at center,rgba(255,184,0,.18),rgba(43,255,154,.07) 72%,transparent);box-shadow:0 0 24px rgba(255,184,0,.3),inset 0 0 18px rgba(43,255,154,.18); }
         .atk-slalom-gate.is-narrow { height:50px; border-style:dashed; }
         .atk-slalom-gate.is-moving { border-color:#19d3ff; box-shadow:0 0 24px rgba(25,211,255,.34), inset 0 0 18px rgba(25,211,255,.14); }
         .atk-slalom-gate.is-bonus { border-color:#FFB800; color:#2b1800; background:radial-gradient(ellipse at center,rgba(255,184,0,.28),rgba(255,184,0,.08) 72%,transparent 100%); box-shadow:0 0 30px rgba(255,184,0,.48), inset 0 0 18px rgba(255,255,255,.18); }
+        .atk-slalom-gate.is-bonus::before { background:#FFB800; box-shadow:0 0 16px rgba(255,184,0,.9); }
         .atk-slalom-gate.is-bonus .atk-slalom-gate__label { color:#fff2bf; text-shadow:0 0 12px rgba(255,184,0,.95); }
         .atk-bonus-choice-label { position:absolute; left:50%; top:34px; transform:translateX(-50%); color:#ffdf73; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-shadow:0 0 10px rgba(255,184,0,.8); white-space:nowrap; }
-        .atk-slalom-gate__label { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.16em; color:#dfffee; text-shadow:0 0 10px rgba(43,255,154,.8); }
+        .atk-slalom-gate__label { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:1; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.16em; color:#dfffee; text-shadow:0 0 10px rgba(43,255,154,.8); }
         .atk-slide-wall { position:absolute;left:0;right:0;height:74px;top:0;transform:translateY(-50%);pointer-events:none;z-index:4; }
         .atk-slide-danger { position:absolute;left:4%;right:4%;top:50%;height:34px;transform:translateY(-50%);border-radius:999px;background:rgba(255,184,0,.14);border:1px solid rgba(255,184,0,.55);box-shadow:0 0 18px rgba(255,184,0,.28);animation:slideDangerPulse .45s ease-in-out infinite alternate; }
         .atk-slide-wall.is-failed .atk-slide-danger { background:rgba(255,68,85,.18);border-color:rgba(255,68,85,.7);box-shadow:0 0 24px rgba(255,68,85,.42); }
@@ -1219,6 +1252,8 @@ export function AttackPhase({
         @keyframes atkPassPop { from{opacity:0;transform:translate(-50%,8px) scale(.8)} 20%{opacity:1} to{opacity:0;transform:translate(-50%,-18px) scale(1.1)} }
         @keyframes atkBonusFlash { from{opacity:1; transform:scale(.92)} to{opacity:0; transform:scale(1.08)} }
         @keyframes atkJumpButtonAlert { from{ transform:translateY(0); filter:brightness(1); } to{ transform:translateY(-2px); filter:brightness(1.18); } }
+        @keyframes atkGhostPlayer { 0%,100%{ transform:translateX(-42px); } 50%{ transform:translateX(42px); } }
+        @keyframes atkGhostFinger { 0%,100%{ transform:translate(-62px,-50%); opacity:.35; } 50%{ transform:translate(44px,-50%); opacity:.9; } }
 
         .atk-controls { display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"stat phase" "buttons buttons"; align-items:center; gap:9px 12px; padding:10px 14px max(18px, calc(env(safe-area-inset-bottom) + 12px)); background:linear-gradient(180deg,rgba(7,23,15,.94),#030b08); border-top:1px solid rgba(255,255,255,.1); box-shadow:0 -18px 34px rgba(0,0,0,.34); }
         .atk-controls__stat { grid-area:stat; color:#dffef0; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.1em; text-transform:uppercase; }
@@ -1250,7 +1285,7 @@ export function AttackPhase({
         }
         .atk-shot-title {
           position: absolute;
-          top: max(106px, calc(env(safe-area-inset-top) + 96px));
+          top: max(14px, calc(env(safe-area-inset-top) + 10px));
           left: 50%;
           transform: translateX(-50%);
           z-index: 28;
@@ -1272,12 +1307,11 @@ export function AttackPhase({
           backdrop-filter: blur(8px);
         }
 
-        /*  Gauge at bottom of shot scene  */
+        /*  Gauge above the goal in shot scene  */
         .atk-gauge-bottom {
-          position: absolute; top: 52%; left: 0; right: 0; z-index: 20;
+          position: absolute; top: max(58px, calc(env(safe-area-inset-top) + 50px)); left: 0; right: 0; z-index: 20;
           display: flex; flex-direction: column; align-items: center; gap: 8px;
           padding: 0 20px;
-          transform: translateY(-50%);
           pointer-events: none;
         }
         .atk-gauge-label {
@@ -1289,25 +1323,27 @@ export function AttackPhase({
         @keyframes atkBlink { from{opacity:.65} to{opacity:1} }
         .atk-gauge-track {
           position: relative;
-          width: 78%; max-width: ${GAUGE_TRACK_PX}px; height: 28px;
-          background: #c0392b; border-radius: 12px;
+          width: 86%; max-width: ${GAUGE_TRACK_PX}px; height: 36px;
+          background: #c0392b; border-radius: 14px;
           border: 2px solid rgba(255,255,255,.3);
           overflow: hidden;
+          box-shadow: 0 10px 24px rgba(0,0,0,.36), inset 0 0 0 1px rgba(0,0,0,.22);
         }
         .atk-gauge-green {
           position: absolute; top: 0; bottom: 0;
           background: #2bff9a;
-          border-radius: 0;
+          border-radius: 8px;
+          box-shadow: 0 0 18px rgba(43,255,154,.72), inset 0 0 0 2px rgba(255,255,255,.34);
         }
         .atk-gauge-cursor {
-          position: absolute; top: -3px; bottom: -3px;
-          width: 5px; background: #fff; border-radius: 3px;
-          box-shadow: 0 0 8px rgba(255,255,255,.9);
+          position: absolute; top: -7px; bottom: -7px;
+          width: 12px; background: #fff; border-radius: 8px;
+          box-shadow: 0 0 12px rgba(255,255,255,.96), 0 0 22px rgba(43,255,154,.48);
           transform: translateX(-50%);
         }
 
         .atk-aim-hint {
-          position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+          position: absolute; top: 62%; left: 50%; transform: translate(-50%, -50%);
           z-index: 25; pointer-events: none; text-align: center;
           padding: 8px 12px; border-radius: 999px;
           background: rgba(4, 12, 22, .72); border: 1px solid rgba(43,255,154,.34);
@@ -1317,7 +1353,7 @@ export function AttackPhase({
           animation: atkBlink 0.72s ease-in-out infinite alternate;
         }
         .atk-aim-warning {
-          position: absolute; top: 31%; left: 50%; transform: translate(-50%, -50%);
+          position: absolute; top: 66%; left: 50%; transform: translate(-50%, -50%);
           z-index: 29; pointer-events: none; text-align: center;
           width: min(82%, 330px); padding: 12px 14px; border-radius: 16px;
           background: rgba(255, 68, 85, .18); border: 1.5px solid rgba(255, 68, 85, .72);
@@ -1487,7 +1523,7 @@ export function AttackPhase({
                     ) : null}
                     {!isSlideWave ? (
                       <div className={`atk-slalom-gate${wave.passed ? ' is-passed' : ''}${wave.failed ? ' is-failed' : ''}${isComboWave ? ' is-combo' : ''}${wave.type === 'narrow_gate' ? ' is-narrow' : ''}${wave.type === 'moving_gate' ? ' is-moving' : ''}`} style={{ left: `${wave.gateCenterX}%`, width: gatePxWidth }}>
-                        <span className="atk-slalom-gate__label">VERT</span>
+                        <span className="atk-slalom-gate__label">PASSAGE</span>
                         {wave.passed && !wave.bonusCollected ? <span className="atk-pass-pop">PASSE !</span> : null}
                       </div>
                     ) : wave.passed ? <span className="atk-pass-pop atk-pass-pop--slide">SAUTE !</span> : null}
@@ -1546,6 +1582,12 @@ export function AttackPhase({
             {gdComment && (
               <div className="atk-row-comment">{gdComment}</div>
             )}
+            {!showControls && tutorialDone ? (
+              <div className="atk-control-ghost" aria-hidden="true">
+                <i className="atk-control-ghost__player" />
+                <i className="atk-control-ghost__trail" />
+              </div>
+            ) : null}
           </div>
         )}
       </div>
@@ -1600,7 +1642,7 @@ export function AttackPhase({
         </div>
       )}
 
-      {phase === 'gd' && (
+      {phase === 'gd' && showControls && (
         <div className="atk-controls">
           <div className="atk-controls__stat">FLOW {flow}<small>Combo x{comboDisplay}</small></div>
           <div className="atk-controls__buttons">

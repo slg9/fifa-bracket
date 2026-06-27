@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { setGameMuted, useGameAudio, useGameMuted } from '../lib/useGameAudio'
 import { getBrackets, submitBracket } from '../lib/challengeData'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
-import type { BattleResult, ChallengeEntry, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
+import type { BattleResult, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
 import BattleEngine from '../components/battle/BattleEngine'
 import CoinFlip from '../components/battle/CoinFlip'
 import BracketChallenge from './BracketChallenge'
@@ -20,6 +20,7 @@ export interface BrakupHubProps {
   seed: TournamentSeed
   liveSource?: { source: string; syncedAt: string | null }
   standings: Record<string, RankedStandingRow[]>
+  groupMatches?: GroupMatch[]
   teamsById: Map<string, Team>
 }
 
@@ -49,6 +50,7 @@ function resolveMatches(baseMatches: KnockoutMatch[], picks: Record<string, stri
       stage: template.stage,
       label: template.label,
       dateLabel: template.dateLabel,
+      qualificationStatus: base?.qualificationStatus,
       home: Number(template.id.slice(1)) <= 88 ? base?.home ?? { kind: 'placeholder', label: 'À déterminer' } : resolveSource(template.home),
       away: Number(template.id.slice(1)) <= 88 ? base?.away ?? { kind: 'placeholder', label: 'À déterminer' } : resolveSource(template.away),
     }
@@ -65,7 +67,7 @@ function readInitialView(): HubView {
   return 'challenge'
 }
 
-export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubProps) {
+export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById }: BrakupHubProps) {
   const [view, setView] = useState<HubView>(readInitialView)
   const [showSplash, setShowSplash] = useState(true)
   const [showBracket, setShowBracket] = useState(false)
@@ -88,6 +90,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
   const [activeBracketId, setActiveBracketId] = useState<string | null>(null)
   const [showEmailEntry, setShowEmailEntry] = useState(false)
   const [showGameMenu, setShowGameMenu] = useState(false)
+  const [showBattleControls, setShowBattleControls] = useState(() => localStorage.getItem('brakup:show-battle-controls') === '1')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
@@ -96,12 +99,13 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
   // Lobby music: kickoff when on challenge/brackets/board. Null during battle (BattleEngine takes over).
   useGameAudio(view !== 'battle' ? '/audio/kickoff-carnival.mp3' : null)
 
-  const baseMatches = useMemo(() => buildKnockoutBracket(standings), [standings])
+  const baseMatches = useMemo(() => buildKnockoutBracket(standings, groupMatches), [standings, groupMatches])
   const matches = useMemo(() => resolveMatches(baseMatches, picks), [baseMatches, picks])
   const activeMatch = matches.find((match) => match.id === activeMatchId)
 
   useEffect(() => { localStorage.setItem('brakup:draft', JSON.stringify(picks)) }, [picks])
   useEffect(() => { localStorage.setItem('brakup:scores', JSON.stringify(battleScores)) }, [battleScores])
+  useEffect(() => { localStorage.setItem('brakup:show-battle-controls', showBattleControls ? '1' : '0') }, [showBattleControls])
   useEffect(() => {
     if (!accessToken) return
     localStorage.setItem('brakup:token', accessToken)
@@ -193,7 +197,7 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
         </nav>
         <a href="/" className="brakup-exit">Simulateur ↗</a>
       </header>
-      {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} /> : null}
+      {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} showControls={showBattleControls} /> : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
         <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} realResults={realResults} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); setShowBracket(true) }} onSave={() => setShowEmailEntry(true)} />
@@ -215,6 +219,9 @@ export function BrakupHub({ seed, liveSource, standings, teamsById }: BrakupHubP
             <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); setShowBracket(true) }}>Tableau</button>
             <button type="button" className={`game-menu-modal__item game-menu-modal__item--sound${audioMuted ? ' is-muted' : ''}`} onClick={() => setGameMuted(!audioMuted)}>
               {audioMuted ? 'Activer le son' : 'Mute le jeu'}
+            </button>
+            <button type="button" className="game-menu-modal__item" onClick={() => setShowBattleControls((value) => !value)}>
+              Commandes bas : {showBattleControls ? 'oui' : 'non'}
             </button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.click(); setShowGameMenu(false); setShowEmailEntry(true) }}>Sauvegarder</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('brackets') }}>Mes brackets</button>
