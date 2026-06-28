@@ -308,7 +308,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  width: min(318px, calc(100% - 92px));
+  width: min(342px, calc(100% - 52px));
   min-height: 27px;
   padding: 4px 7px;
   border: 1px solid rgba(255,255,255,.1);
@@ -330,7 +330,7 @@
 .battle-progress-rail__steps {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   justify-content: center;
   min-width: 0;
   flex: 1;
@@ -338,7 +338,7 @@
 .battle-progress-step {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
   flex: 1;
 }
@@ -346,7 +346,7 @@
   display: grid;
   place-items: center;
   width: 100%;
-  min-width: 25px;
+  min-width: 20px;
   height: 18px;
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 7px;
@@ -357,9 +357,9 @@
 }
 .battle-progress-step i {
   display: block;
-  width: 7px;
+  width: 5px;
   height: 3px;
-  flex: 0 0 7px;
+  flex: 0 0 5px;
   border-radius: 99px;
   background: rgba(255,255,255,.12);
 }
@@ -405,12 +405,12 @@
 }
 @media (max-width:370px) {
   .battle-progress-rail {
-    width: min(292px, calc(100% - 86px));
-    gap: 4px;
+    width: min(304px, calc(100% - 38px));
+    gap: 3px;
     padding-inline: 5px;
   }
   .battle-progress-step span {
-    min-width: 22px;
+    min-width: 18px;
     font-size: 9px;
   }
 }

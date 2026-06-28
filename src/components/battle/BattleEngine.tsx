@@ -57,7 +57,7 @@ function pickDefender(players: string[] | undefined, fallback?: string) {
 
 type NextAction = { type: 'next'; append?: BattleRoundType } | { type: 'finish' } | { type: 'coin_flip' }
 
-const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja', 'attack', 'defense', 'fruit_ninja']
+const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'attack', 'fruit_ninja', 'attack', 'defense', 'fruit_ninja', 'attack']
 const MAX_SUDDEN_DEATH_ROUNDS = 4 // 2 full attack+defense cycles before forcing a result
 
 const ROUND_LABELS: Record<BattleRoundType, { short: string; label: string }> = {
