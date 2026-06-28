@@ -2424,6 +2424,21 @@
   letter-spacing: 0.4px;
 }
 
+.bm__dateblock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  margin-left: auto;
+  text-align: right;
+}
+
+.bm__datetime {
+  white-space: nowrap;
+  color: rgba(231, 238, 255, 0.82);
+}
+
 .bm__qbadge {
   margin-left: auto;
   padding: 2px 6px;
@@ -2432,6 +2447,10 @@
   font-weight: 900;
   letter-spacing: 0.08em;
   line-height: 1;
+}
+
+.bm__dateblock .bm__qbadge {
+  margin-left: 0;
 }
 
 .bm__qbadge.is-confirmed {

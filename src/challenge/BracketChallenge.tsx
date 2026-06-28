@@ -2,6 +2,7 @@ import { useLayoutEffect, useState, useRef, useCallback } from 'react'
 import type { ChallengeEntry, KnockoutMatch, Team } from '../types'
 import ScorePanel from './ScorePanel'
 import { sfx } from '../lib/sfx'
+import { formatKnockoutDateTime } from '../lib/knockoutSchedule'
 
 export interface BracketChallengeProps {
   matches: KnockoutMatch[]
@@ -156,6 +157,10 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
               const isReady = match.home.kind === 'team' && match.away.kind === 'team' && !isPicked
               const realWinnerId = realResults[match.id]
               return <article className={`brakup-bracket__match${isPicked ? ' is-done' : isReady ? ' is-ready' : ''}`} key={match.id} data-match-id={match.id}>
+                <header className="bkm-meta">
+                  <span>{match.label}</span>
+                  <time>{formatKnockoutDateTime(match.id, match.dateLabel)}</time>
+                </header>
                 {match.qualificationStatus ? (
                   <span className={`bkm-qbadge is-${match.qualificationStatus}`}>
                     {match.qualificationStatus === 'confirmed' ? 'CONFIRME' : 'PROJETE'}

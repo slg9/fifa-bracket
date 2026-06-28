@@ -5,6 +5,7 @@ import BootLoaderMark from './components/BootLoaderMark'
 import BrakupHub from './challenge/BrakupHub'
 import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
 import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
+import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -195,41 +196,6 @@ const knockoutMonthIndex: Record<string, number> = {
   oct: 9,
   nov: 10,
   dec: 11,
-}
-
-const knockoutKickoffById: Record<string, { kickoffIso: string; venue: string }> = {
-  M73: { kickoffIso: '2026-06-28T19:00:00Z', venue: 'SoFi Stadium' },
-  M74: { kickoffIso: '2026-06-29T20:30:00Z', venue: 'Gillette Stadium' },
-  M75: { kickoffIso: '2026-06-30T01:00:00Z', venue: 'Estadio BBVA' },
-  M76: { kickoffIso: '2026-06-29T17:00:00Z', venue: 'NRG Stadium' },
-  M77: { kickoffIso: '2026-06-30T21:00:00Z', venue: 'MetLife Stadium' },
-  M78: { kickoffIso: '2026-06-30T17:00:00Z', venue: 'AT&T Stadium' },
-  M79: { kickoffIso: '2026-07-01T01:00:00Z', venue: 'Estadio Azteca' },
-  M80: { kickoffIso: '2026-07-01T16:00:00Z', venue: 'Mercedes-Benz Stadium' },
-  M81: { kickoffIso: '2026-07-02T00:00:00Z', venue: "Levi's Stadium" },
-  M82: { kickoffIso: '2026-07-01T20:00:00Z', venue: 'Lumen Field' },
-  M83: { kickoffIso: '2026-07-02T23:00:00Z', venue: 'BMO Field' },
-  M84: { kickoffIso: '2026-07-02T19:00:00Z', venue: 'SoFi Stadium' },
-  M85: { kickoffIso: '2026-07-03T03:00:00Z', venue: 'BC Place' },
-  M86: { kickoffIso: '2026-07-03T22:00:00Z', venue: 'Hard Rock Stadium' },
-  M87: { kickoffIso: '2026-07-04T01:30:00Z', venue: 'Arrowhead Stadium' },
-  M88: { kickoffIso: '2026-07-03T18:00:00Z', venue: 'AT&T Stadium' },
-  M89: { kickoffIso: '2026-07-04T21:00:00Z', venue: 'Lincoln Financial Field' },
-  M90: { kickoffIso: '2026-07-04T17:00:00Z', venue: 'NRG Stadium' },
-  M91: { kickoffIso: '2026-07-05T20:00:00Z', venue: 'MetLife Stadium' },
-  M92: { kickoffIso: '2026-07-06T00:00:00Z', venue: 'Estadio Azteca' },
-  M93: { kickoffIso: '2026-07-06T19:00:00Z', venue: 'AT&T Stadium' },
-  M94: { kickoffIso: '2026-07-07T00:00:00Z', venue: 'Lumen Field' },
-  M95: { kickoffIso: '2026-07-07T16:00:00Z', venue: 'Mercedes-Benz Stadium' },
-  M96: { kickoffIso: '2026-07-07T20:00:00Z', venue: 'BC Place' },
-  M97: { kickoffIso: '2026-07-09T20:00:00Z', venue: 'Gillette Stadium' },
-  M98: { kickoffIso: '2026-07-10T19:00:00Z', venue: 'SoFi Stadium' },
-  M99: { kickoffIso: '2026-07-11T21:00:00Z', venue: 'Hard Rock Stadium' },
-  M100: { kickoffIso: '2026-07-12T01:00:00Z', venue: 'Arrowhead Stadium' },
-  M101: { kickoffIso: '2026-07-14T19:00:00Z', venue: 'AT&T Stadium' },
-  M102: { kickoffIso: '2026-07-15T19:00:00Z', venue: 'Mercedes-Benz Stadium' },
-  M103: { kickoffIso: '2026-07-18T21:00:00Z', venue: 'Hard Rock Stadium' },
-  M104: { kickoffIso: '2026-07-19T19:00:00Z', venue: 'MetLife Stadium' },
 }
 
 function dateKeyFromKnockoutDateLabel(dateLabel: string): string | null {
@@ -568,6 +534,7 @@ const MatchCard = memo(function MatchCard({
 }) {
   const homeTeamId = getEntrantTeamId(match.home)
   const awayTeamId = getEntrantTeamId(match.away)
+  const dateTimeLabel = formatKnockoutDateTime(match.id, match.dateLabel)
 
   return (
     <article
@@ -582,12 +549,14 @@ const MatchCard = memo(function MatchCard({
     >
       <div className="bm__meta">
         <span>{match.label.toUpperCase()}</span>
-        {match.qualificationStatus ? (
-          <span className={`bm__qbadge is-${match.qualificationStatus}`}>
-            {match.qualificationStatus === 'confirmed' ? 'CONFIRME' : 'PROJETE'}
-          </span>
-        ) : null}
-        <span>{match.dateLabel.toUpperCase()}</span>
+        <span className="bm__dateblock">
+          {match.qualificationStatus ? (
+            <span className={`bm__qbadge is-${match.qualificationStatus}`}>
+              {match.qualificationStatus === 'confirmed' ? 'CONFIRME' : 'PROJETE'}
+            </span>
+          ) : null}
+          <span className="bm__datetime">{dateTimeLabel}</span>
+        </span>
       </div>
       <KnockoutTeamBadge
         entrant={match.home}
@@ -1136,7 +1105,7 @@ function BracketBoard({
             <div className="bracket-mobile-path__list">
               {focusedPathMatches.map((match) => (
                 <div key={match.id} className="bracket-mobile-path__item">
-                  <span>{formatStageLabel(match.stage)}</span>
+                  <span>{formatStageLabel(match.stage)} · {formatKnockoutDateTime(match.id, match.dateLabel)}</span>
                   <b>
                     {match.home.kind === 'team' ? teamsById.get(match.home.teamId)?.name : match.home.label}
                     {' vs '}
@@ -1236,7 +1205,9 @@ function BracketBoard({
                               onPreview={setPreviewTeamId}
                             />
                             <div className="finale__caption">
-                              {match.id === 'M103' ? '3E PLACE / 19 JUL' : 'FINALE / 19 JUL'}
+                              {match.id === 'M103'
+                                ? `3E PLACE / ${formatKnockoutDateTime(match.id, match.dateLabel)}`
+                                : `FINALE / ${formatKnockoutDateTime(match.id, match.dateLabel)}`}
                             </div>
                           </div>
                         )
