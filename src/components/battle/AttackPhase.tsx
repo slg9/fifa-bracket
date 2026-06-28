@@ -1620,7 +1620,7 @@ export function AttackPhase({
 
       {!tutorialDone && preCountdownNum !== null ? (
         <div className="atk-pre-countdown">
-          <div className={`atk-pre-countdown__num${preCountdownNum === 0 ? ' is-go' : ''}`}>
+          <div key={preCountdownNum} className={`atk-pre-countdown__num${preCountdownNum === 0 ? ' is-go' : ''}`}>
             {preCountdownNum === 0 ? 'GO !' : preCountdownNum}
           </div>
         </div>

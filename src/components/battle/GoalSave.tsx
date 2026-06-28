@@ -617,7 +617,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
 
       {!tutorialDone && tutorialCountdown !== null ? (
         <div className="gs-tutorial-countdown" aria-live="polite">
-          <span className={tutorialCountdown === 0 ? 'is-go' : ''}>{tutorialCountdown === 0 ? 'GO !' : tutorialCountdown}</span>
+          <span key={tutorialCountdown} className={tutorialCountdown === 0 ? 'is-go' : ''}>{tutorialCountdown === 0 ? 'GO !' : tutorialCountdown}</span>
         </div>
       ) : null}
 
@@ -661,7 +661,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
       ) : null}
 
       {isPenalty && penaltyCountdown !== null ? (
-        <div className="gs-penalty-countdown" aria-live="polite"><span>{penaltyCountdown === 0 ? 'GO' : penaltyCountdown}</span></div>
+        <div className="gs-penalty-countdown" aria-live="polite"><span key={penaltyCountdown}>{penaltyCountdown === 0 ? 'GO' : penaltyCountdown}</span></div>
       ) : null}
 
       <div className="gs-hud">

@@ -619,8 +619,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
       {/* Countdown overlay */}
       {state.phase === 'countdown' && countdownNum !== null ? (
         <div className="battle-countdown" aria-live="polite">
-          <div className={`battle-countdown__circle${countdownNum === 0 ? ' is-go' : ''}`} style={{ '--countdown-progress': countdownProgress } as CSSProperties & Record<'--countdown-progress', string>}>
-            <span>{countdownNum === 0 ? 'GO' : countdownNum}</span>
+          <div key={countdownNum} className={`battle-countdown__circle${countdownNum === 0 ? ' is-go' : ''}`} style={{ '--countdown-progress': countdownProgress } as CSSProperties & Record<'--countdown-progress', string>}>
+            <span key={countdownNum}>{countdownNum === 0 ? 'GO' : countdownNum}</span>
           </div>
         </div>
       ) : null}
