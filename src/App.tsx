@@ -197,6 +197,41 @@ const knockoutMonthIndex: Record<string, number> = {
   dec: 11,
 }
 
+const knockoutKickoffById: Record<string, { kickoffIso: string; venue: string }> = {
+  M73: { kickoffIso: '2026-06-28T19:00:00Z', venue: 'SoFi Stadium' },
+  M74: { kickoffIso: '2026-06-29T20:30:00Z', venue: 'Gillette Stadium' },
+  M75: { kickoffIso: '2026-06-30T01:00:00Z', venue: 'Estadio BBVA' },
+  M76: { kickoffIso: '2026-06-29T17:00:00Z', venue: 'NRG Stadium' },
+  M77: { kickoffIso: '2026-06-30T21:00:00Z', venue: 'MetLife Stadium' },
+  M78: { kickoffIso: '2026-06-30T17:00:00Z', venue: 'AT&T Stadium' },
+  M79: { kickoffIso: '2026-07-01T01:00:00Z', venue: 'Estadio Azteca' },
+  M80: { kickoffIso: '2026-07-01T16:00:00Z', venue: 'Mercedes-Benz Stadium' },
+  M81: { kickoffIso: '2026-07-02T00:00:00Z', venue: "Levi's Stadium" },
+  M82: { kickoffIso: '2026-07-01T20:00:00Z', venue: 'Lumen Field' },
+  M83: { kickoffIso: '2026-07-02T23:00:00Z', venue: 'BMO Field' },
+  M84: { kickoffIso: '2026-07-02T19:00:00Z', venue: 'SoFi Stadium' },
+  M85: { kickoffIso: '2026-07-03T03:00:00Z', venue: 'BC Place' },
+  M86: { kickoffIso: '2026-07-03T22:00:00Z', venue: 'Hard Rock Stadium' },
+  M87: { kickoffIso: '2026-07-04T01:30:00Z', venue: 'Arrowhead Stadium' },
+  M88: { kickoffIso: '2026-07-03T18:00:00Z', venue: 'AT&T Stadium' },
+  M89: { kickoffIso: '2026-07-04T21:00:00Z', venue: 'Lincoln Financial Field' },
+  M90: { kickoffIso: '2026-07-04T17:00:00Z', venue: 'NRG Stadium' },
+  M91: { kickoffIso: '2026-07-05T20:00:00Z', venue: 'MetLife Stadium' },
+  M92: { kickoffIso: '2026-07-06T00:00:00Z', venue: 'Estadio Azteca' },
+  M93: { kickoffIso: '2026-07-06T19:00:00Z', venue: 'AT&T Stadium' },
+  M94: { kickoffIso: '2026-07-07T00:00:00Z', venue: 'Lumen Field' },
+  M95: { kickoffIso: '2026-07-07T16:00:00Z', venue: 'Mercedes-Benz Stadium' },
+  M96: { kickoffIso: '2026-07-07T20:00:00Z', venue: 'BC Place' },
+  M97: { kickoffIso: '2026-07-09T20:00:00Z', venue: 'Gillette Stadium' },
+  M98: { kickoffIso: '2026-07-10T19:00:00Z', venue: 'SoFi Stadium' },
+  M99: { kickoffIso: '2026-07-11T21:00:00Z', venue: 'Hard Rock Stadium' },
+  M100: { kickoffIso: '2026-07-12T01:00:00Z', venue: 'Arrowhead Stadium' },
+  M101: { kickoffIso: '2026-07-14T19:00:00Z', venue: 'AT&T Stadium' },
+  M102: { kickoffIso: '2026-07-15T19:00:00Z', venue: 'Mercedes-Benz Stadium' },
+  M103: { kickoffIso: '2026-07-18T21:00:00Z', venue: 'Hard Rock Stadium' },
+  M104: { kickoffIso: '2026-07-19T19:00:00Z', venue: 'MetLife Stadium' },
+}
+
 function dateKeyFromKnockoutDateLabel(dateLabel: string): string | null {
   const parsed = dateLabel.match(/^(\d{1,2})\s+([A-Za-z]+)$/)
   if (!parsed) return null
@@ -233,7 +268,7 @@ function inferStatus(match: GroupMatch): GroupMatch['status'] {
 }
 
 function formatKickoffTime(match: GroupMatch): string | null {
-  if (!match.kickoffIso) return null
+  if (!match.kickoffIso) return match.kickoffTime ?? null
 
   return new Intl.DateTimeFormat('fr-FR', {
     hour: '2-digit',
@@ -1601,9 +1636,13 @@ function App() {
   const liveMatchesById = new Map(liveSource.matches.map((match) => [match.id, match]))
   const knockoutDayMatches: DayMatch[] = displayBracket
     .map<DayMatch | null>((match) => {
-      const kickoffDate = dateKeyFromKnockoutDateLabel(match.dateLabel)
-      if (!kickoffDate) return null
       const live = liveMatchesById.get(match.id)
+      const fallbackSchedule = knockoutKickoffById[match.id]
+      const kickoffIso = live?.kickoffIso ?? fallbackSchedule?.kickoffIso ?? null
+      const kickoffDate = kickoffIso
+        ? localDateStr(new Date(kickoffIso))
+        : dateKeyFromKnockoutDateLabel(match.dateLabel)
+      if (!kickoffDate) return null
       const homeTeamId = getEntrantTeamId(match.home)
       const awayTeamId = getEntrantTeamId(match.away)
       return {
@@ -1614,15 +1653,15 @@ function App() {
         awayTeamId: awayTeamId ?? `placeholder:${match.id}:away`,
         kickoffDate,
         kickoffTime: live?.kickoffTime ?? null,
-        kickoffIso: live?.kickoffIso ?? null,
+        kickoffIso,
         liveMinute: live?.liveMinute ?? null,
         fifaMatchPath: live?.fifaMatchPath ?? null,
-        venue: match.label,
+        venue: fallbackSchedule?.venue ?? match.label,
         homeScore: live?.homeScore ?? null,
         awayScore: live?.awayScore ?? null,
         status: live?.status ?? 'scheduled',
         dayStageLabel: formatStageLabel(match.stage),
-        dayMatchLabel: match.label,
+        dayMatchLabel: `${match.label} · ${fallbackSchedule?.venue ?? 'Stade a confirmer'}`,
         homeLabel: match.home.kind === 'placeholder' ? match.home.label : undefined,
         awayLabel: match.away.kind === 'placeholder' ? match.away.label : undefined,
         isKnockout: true,
