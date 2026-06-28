@@ -456,42 +456,49 @@ function LevelEntryScreen({
           </div>
         ) : null}
 
-        <button
-          type="button"
-          className="wcmap-entry__simulate"
-          onClick={onSimulate}
-          disabled={!canSimulate}
-        >
-          Simuler le match
-        </button>
+        {node.status !== 'completed' ? (
+          <div className="wcmap-entry__choose">
+            <span>Choisis une equipe</span>
+            <small>Le match demarre avec l'equipe que tu touches.</small>
+          </div>
+        ) : null}
 
         <div className="wcmap-entry__teams">
-            <button
-              type="button"
-              className={`wcmap-entry__team${selectedTeamId === node.homeTeam?.id ? ' is-selected' : ''}`}
-              onClick={() => node.homeTeam && onPickTeam(node.homeTeam.id)}
-              disabled={!node.homeTeam || !node.awayTeam}
-            >
-              <span className="wcmap-entry__team-flag">
-                {teamFlagImageUrl(node.homeTeam) ? <img src={teamFlagImageUrl(node.homeTeam) ?? undefined} alt="" /> : <span>{node.homeTeam?.flagEmoji ?? '🌍'}</span>}
-              </span>
-              <strong>{displayTeamName(node.homeTeam, node.match.home.kind === 'placeholder' ? node.match.home.label : undefined)}</strong>
-              <small>{node.homeTeam?.name ?? 'En attente'}</small>
-            </button>
-            <div className="wcmap-entry__vs">VS</div>
-            <button
-              type="button"
-              className={`wcmap-entry__team${selectedTeamId === node.awayTeam?.id ? ' is-selected' : ''}`}
-              onClick={() => node.awayTeam && onPickTeam(node.awayTeam.id)}
-              disabled={!node.homeTeam || !node.awayTeam}
-            >
-              <span className="wcmap-entry__team-flag">
-                {teamFlagImageUrl(node.awayTeam) ? <img src={teamFlagImageUrl(node.awayTeam) ?? undefined} alt="" /> : <span>{node.awayTeam?.flagEmoji ?? '🌍'}</span>}
-              </span>
-              <strong>{displayTeamName(node.awayTeam, node.match.away.kind === 'placeholder' ? node.match.away.label : undefined)}</strong>
-              <small>{node.awayTeam?.name ?? 'En attente'}</small>
-            </button>
-          </div>
+          <button
+            type="button"
+            className={`wcmap-entry__team${selectedTeamId === node.homeTeam?.id ? ' is-selected' : ''}`}
+            onClick={() => node.homeTeam && onPickTeam(node.homeTeam.id)}
+            disabled={!node.homeTeam || !node.awayTeam}
+          >
+            <span className="wcmap-entry__team-flag">
+              {teamFlagImageUrl(node.homeTeam) ? <img src={teamFlagImageUrl(node.homeTeam) ?? undefined} alt="" /> : <span>{node.homeTeam?.flagEmoji ?? '🌍'}</span>}
+            </span>
+            <strong>{displayTeamName(node.homeTeam, node.match.home.kind === 'placeholder' ? node.match.home.label : undefined)}</strong>
+            <small>{node.homeTeam?.name ?? 'En attente'}</small>
+          </button>
+          <div className="wcmap-entry__vs">VS</div>
+          <button
+            type="button"
+            className={`wcmap-entry__team${selectedTeamId === node.awayTeam?.id ? ' is-selected' : ''}`}
+            onClick={() => node.awayTeam && onPickTeam(node.awayTeam.id)}
+            disabled={!node.homeTeam || !node.awayTeam}
+          >
+            <span className="wcmap-entry__team-flag">
+              {teamFlagImageUrl(node.awayTeam) ? <img src={teamFlagImageUrl(node.awayTeam) ?? undefined} alt="" /> : <span>{node.awayTeam?.flagEmoji ?? '🌍'}</span>}
+            </span>
+            <strong>{displayTeamName(node.awayTeam, node.match.away.kind === 'placeholder' ? node.match.away.label : undefined)}</strong>
+            <small>{node.awayTeam?.name ?? 'En attente'}</small>
+          </button>
+        </div>
+        {canSimulate ? (
+          <button
+            type="button"
+            className="wcmap-entry__simulate"
+            onClick={onSimulate}
+          >
+            Simuler sans jouer
+          </button>
+        ) : null}
       </aside>
     </div>
   )

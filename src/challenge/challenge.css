@@ -920,6 +920,29 @@
   font-size: 13px;
 }
 
+.wcmap-entry__choose {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 14px;
+  padding: 13px 14px;
+  border: 1px solid rgba(43, 255, 154, .42);
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(43,255,154,.14), rgba(22,168,255,.08));
+  box-shadow: 0 0 24px rgba(43, 255, 154, .12);
+}
+
+.wcmap-entry__choose span {
+  color: #2bff9a;
+  font: 900 22px/1 'Barlow Condensed', sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.wcmap-entry__choose small {
+  color: rgba(231, 255, 244, .76);
+  font-size: 12px;
+}
+
 .wcmap-entry__teams {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -1046,20 +1069,22 @@
 }
 
 .wcmap-entry__simulate {
-  width: 100%;
-  min-height: 50px;
-  margin: 0 0 16px;
-  padding: 0 20px;
-  border: 1.5px solid rgba(255, 184, 0, .52);
-  border-radius: 16px;
-  background: rgba(255, 184, 0, .1);
-  color: #FFB800;
-  font: 900 14px/1 'Barlow Condensed', sans-serif;
-  letter-spacing: .12em;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  min-height: 0;
+  margin: 11px auto 0;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, .42);
+  font: 800 11px/1 'Barlow Condensed', sans-serif;
+  letter-spacing: .1em;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow: 0 0 18px rgba(255, 184, 0, .12);
-  transition: opacity .15s ease, transform .15s ease, background .15s ease;
+  box-shadow: none;
+  transition: color .15s ease, background .15s ease;
 }
 
 .wcmap-entry__simulate:disabled {
@@ -1068,8 +1093,8 @@
 }
 
 .wcmap-entry__simulate:not(:disabled):hover {
-  transform: translateY(-1px);
-  background: rgba(255, 184, 0, .16);
+  color: rgba(255, 184, 0, .86);
+  background: rgba(255, 184, 0, .08);
 }
 
 .brakup-coin-overlay {
