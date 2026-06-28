@@ -123,6 +123,7 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
   const baseMatches = useMemo(() => buildKnockoutBracket(standings, groupMatches), [standings, groupMatches])
   const matches = useMemo(() => resolveMatches(baseMatches, picks), [baseMatches, picks])
   const activeMatch = matches.find((match) => match.id === activeMatchId)
+  const hasSyncedProfile = Boolean(savedProfile.email && savedProfile.pseudo)
 
   const rememberProfile = useCallback((values: { email: string; pseudo: string; bracketName: string }) => {
     const next = { ...values, savedAt: new Date().toISOString() }
@@ -174,11 +175,62 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
   const handleSimulate = (matchId: string) => {
     setSimulatedMatchId(matchId)
   }
+
+  const syncBracketSnapshot = useCallback(async ({
+    email,
+    pseudo,
+    bracketName,
+    picksSnapshot,
+    battleBonusesSnapshot,
+    submitted,
+  }: {
+    email: string
+    pseudo: string
+    bracketName: string
+    picksSnapshot: Record<string, string>
+    battleBonusesSnapshot: number
+    submitted: boolean
+  }) => {
+    const current = brackets.find((entry) => entry.id === activeBracketId)
+    const result = await submitBracket({
+      ...current,
+      email,
+      pseudo,
+      bracketName,
+      picks: picksSnapshot,
+      battleBonuses: battleBonusesSnapshot,
+      submittedAt: submitted ? new Date().toISOString() : null,
+    })
+    localStorage.setItem('brakup:token', result.token)
+    setBrackets((entries) => entries.some((entry) => entry.id === result.entry.id) ? entries.map((entry) => entry.id === result.entry.id ? result.entry : entry) : [...entries, result.entry])
+    setActiveBracketId(result.entry.id)
+    return result
+  }, [activeBracketId, brackets])
+
   const handleBattleComplete = (result: BattleResult) => {
     const mid = activeMatchId ?? ''
-    handlePick(mid, result.winnerId)
-    setBattleScores((s) => ({ ...s, [mid]: { p: result.playerScore, o: result.awayScore } }))
-    setBattleBonuses((current) => Math.min(40, current + Math.max(1, Math.round(result.playerScore / 20))))
+    const nextPicks = mid ? { ...picks, [mid]: result.winnerId } : picks
+    const nextBattleBonuses = Math.min(40, battleBonuses + Math.max(1, Math.round(result.playerScore / 20)))
+    setPicks(nextPicks)
+    if (mid) setBattleScores((s) => ({ ...s, [mid]: { p: result.playerScore, o: result.awayScore } }))
+    setBattleBonuses(nextBattleBonuses)
+    if (hasSyncedProfile) {
+      setSaving(true)
+      setSaveError(null)
+      void syncBracketSnapshot({
+        email: savedProfile.email,
+        pseudo: savedProfile.pseudo,
+        bracketName: savedProfile.bracketName || 'Mon bracket',
+        picksSnapshot: nextPicks,
+        battleBonusesSnapshot: nextBattleBonuses,
+        submitted: true,
+      }).catch((caught) => {
+        setSaveError(caught instanceof Error ? caught.message : 'Sauvegarde impossible.')
+        setShowEmailEntry(true)
+      }).finally(() => setSaving(false))
+    } else {
+      setShowEmailEntry(true)
+    }
     navigate('challenge')
   }
   const handleSimulationComplete = (winnerId: string, score?: { home: number; away: number }) => {
@@ -209,11 +261,7 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
     setSaving(true); setSaveError(null)
     rememberProfile({ email, pseudo, bracketName })
     try {
-      const current = brackets.find((entry) => entry.id === activeBracketId)
-      const result = await submitBracket({ ...current, email, pseudo, bracketName, picks, battleBonuses, submittedAt: submitted ? new Date().toISOString() : null })
-      localStorage.setItem('brakup:token', result.token)
-      setBrackets((entries) => entries.some((entry) => entry.id === result.entry.id) ? entries.map((entry) => entry.id === result.entry.id ? result.entry : entry) : [...entries, result.entry])
-      setActiveBracketId(result.entry.id)
+      await syncBracketSnapshot({ email, pseudo, bracketName, picksSnapshot: picks, battleBonusesSnapshot: battleBonuses, submitted })
       setShowEmailEntry(false)
     } catch (caught) { setSaveError(caught instanceof Error ? caught.message : 'Sauvegarde impossible.') } finally { setSaving(false) }
   }
@@ -254,7 +302,7 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
         </nav>
         <a href="/" className="brakup-exit">Simulateur ↗</a>
       </header>
-      {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} showControls={showBattleControls} /> : null}
+      {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} showControls={showBattleControls} syncStatusLabel={hasSyncedProfile ? `Deja synchronise : ${savedProfile.pseudo || 'profil'} sera sauvegarde automatiquement.` : 'Synchro proposee apres ce match pour publier ton score.'} /> : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
         <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} realResults={realResults} autosavedAt={autosavedAt} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); openBracketOverlay(false) }} onSave={() => setShowEmailEntry(true)} />

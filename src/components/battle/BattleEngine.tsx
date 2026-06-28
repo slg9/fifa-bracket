@@ -30,6 +30,7 @@ type BattleEngineProps = {
   onQuit?: () => void
   playerSide?: 'home' | 'away'
   showControls?: boolean
+  syncStatusLabel?: string
 }
 
 type RetrySnapshot = {
@@ -55,9 +56,9 @@ function pickDefender(players: string[] | undefined, fallback?: string) {
   return pool.length ? pool[Math.floor(Math.random() * pool.length)] : players[0]
 }
 
-type NextAction = { type: 'next'; append?: BattleRoundType } | { type: 'finish' } | { type: 'coin_flip' }
+type NextAction = { type: 'next'; append?: BattleRoundType; insertNext?: BattleRoundType } | { type: 'finish' } | { type: 'coin_flip' }
 
-const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'attack', 'fruit_ninja', 'attack', 'defense', 'fruit_ninja', 'attack']
+const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja', 'attack', 'defense', 'fruit_ninja']
 const MAX_SUDDEN_DEATH_ROUNDS = 4 // 2 full attack+defense cycles before forcing a result
 
 const ROUND_LABELS: Record<BattleRoundType, { short: string; label: string }> = {
@@ -81,6 +82,7 @@ function makeInitialState(homeTeamId: string, awayTeamId: string, stage: string,
   return {
     roundIndex: 0,
     rounds: [...STANDARD_ROUNDS],
+    suddenDeathStartIndex: STANDARD_ROUNDS.length,
     playerScore: 0,
     opponentScore: 0,
     phase: skipIntro ? 'round_start' : 'intro',
@@ -90,17 +92,17 @@ function makeInitialState(homeTeamId: string, awayTeamId: string, stage: string,
   }
 }
 
-function roundProgressMeta(round: BattleRoundType, absoluteIndex: number) {
-  if (absoluteIndex >= STANDARD_ROUNDS.length && round === 'defense') return { short: 'GS', label: 'Goal save' }
+function roundProgressMeta(round: BattleRoundType, absoluteIndex: number, suddenDeathStartIndex: number) {
+  if (absoluteIndex >= suddenDeathStartIndex && round === 'defense') return { short: 'GS', label: 'Goal save' }
   return ROUND_LABELS[round]
 }
 
-function BattleProgressRail({ rounds, currentIndex, phase }: { rounds: BattleRoundType[]; currentIndex: number; phase: string }) {
-  const suddenDeath = currentIndex >= STANDARD_ROUNDS.length
-  const visibleStart = suddenDeath ? STANDARD_ROUNDS.length : 0
-  const visibleRounds = suddenDeath ? (['attack', 'defense', 'attack', 'defense'] as BattleRoundType[]) : rounds.slice(0, STANDARD_ROUNDS.length)
+function BattleProgressRail({ rounds, currentIndex, phase, suddenDeathStartIndex }: { rounds: BattleRoundType[]; currentIndex: number; phase: string; suddenDeathStartIndex: number }) {
+  const suddenDeath = currentIndex >= suddenDeathStartIndex
+  const visibleStart = suddenDeath ? suddenDeathStartIndex : 0
+  const visibleRounds = suddenDeath ? (['attack', 'defense', 'attack', 'defense'] as BattleRoundType[]) : rounds.slice(0, suddenDeathStartIndex)
   const activeVisibleIndex = currentIndex - visibleStart
-  const progressLabel = suddenDeath ? 'Mort subite' : `Phase ${Math.min(currentIndex + 1, STANDARD_ROUNDS.length)}/${STANDARD_ROUNDS.length}`
+  const progressLabel = suddenDeath ? 'Mort subite' : `Phase ${Math.min(currentIndex + 1, suddenDeathStartIndex)}/${suddenDeathStartIndex}`
 
   return (
     <div className={`battle-progress-rail${suddenDeath ? ' is-sudden' : ''}`} aria-label={progressLabel}>
@@ -110,7 +112,7 @@ function BattleProgressRail({ rounds, currentIndex, phase }: { rounds: BattleRou
           const absoluteIndex = visibleStart + index
           const isDone = absoluteIndex < currentIndex || phase === 'round_result' && absoluteIndex === currentIndex
           const isActive = index === activeVisibleIndex && phase !== 'round_result'
-          const meta = roundProgressMeta(round, absoluteIndex)
+          const meta = roundProgressMeta(round, absoluteIndex, suddenDeathStartIndex)
           return (
             <div
               key={`${absoluteIndex}-${round}`}
@@ -123,15 +125,15 @@ function BattleProgressRail({ rounds, currentIndex, phase }: { rounds: BattleRou
           )
         })}
       </div>
-      <div className="battle-progress-rail__meta">{suddenDeath ? `${Math.min(Math.max(activeVisibleIndex + 1, 1), MAX_SUDDEN_DEATH_ROUNDS)}/${MAX_SUDDEN_DEATH_ROUNDS}` : `${currentIndex + 1}/${STANDARD_ROUNDS.length}`}</div>
+      <div className="battle-progress-rail__meta">{suddenDeath ? `${Math.min(Math.max(activeVisibleIndex + 1, 1), MAX_SUDDEN_DEATH_ROUNDS)}/${MAX_SUDDEN_DEATH_ROUNDS}` : `${currentIndex + 1}/${suddenDeathStartIndex}`}</div>
     </div>
   )
 }
 
 type SuddenAttempt = 'pending' | 'active' | 'goal' | 'miss'
 
-function SuddenDeathShootout({ history, currentIndex, currentRound, phase }: { history: BattleResult['rounds']; currentIndex: number; currentRound: BattleRoundType; phase: string }) {
-  const suddenHistory = history.slice(STANDARD_ROUNDS.length, STANDARD_ROUNDS.length + MAX_SUDDEN_DEATH_ROUNDS)
+function SuddenDeathShootout({ history, currentIndex, currentRound, phase, suddenDeathStartIndex }: { history: BattleResult['rounds']; currentIndex: number; currentRound: BattleRoundType; phase: string; suddenDeathStartIndex: number }) {
+  const suddenHistory = history.slice(suddenDeathStartIndex, suddenDeathStartIndex + MAX_SUDDEN_DEATH_ROUNDS)
   const playerAttempts: SuddenAttempt[] = ['pending', 'pending']
   const opponentAttempts: SuddenAttempt[] = ['pending', 'pending']
   let playerSlot = 0
@@ -147,7 +149,7 @@ function SuddenDeathShootout({ history, currentIndex, currentRound, phase }: { h
     }
   })
 
-  if (currentIndex >= STANDARD_ROUNDS.length && phase !== 'round_result') {
+  if (currentIndex >= suddenDeathStartIndex && phase !== 'round_result') {
     if (currentRound === 'attack' && playerSlot < playerAttempts.length) playerAttempts[playerSlot] = 'active'
     if (currentRound === 'defense' && opponentSlot < opponentAttempts.length) opponentAttempts[opponentSlot] = 'active'
   }
@@ -163,7 +165,7 @@ function SuddenDeathShootout({ history, currentIndex, currentRound, phase }: { h
   )
 }
 
-export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false }: BattleEngineProps) {
+export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false, syncStatusLabel }: BattleEngineProps) {
   const rawHomeId = entrantId(match, 'home')
   const rawAwayId = entrantId(match, 'away')
   const homeTeamId = playerSide === 'away' ? rawAwayId : rawHomeId
@@ -208,8 +210,10 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const awayKeeperName = pickPlayer(awayTeam?.players, 0, awayTeam?.shortName ? `${awayTeam.shortName} GK` : undefined)
 
   const currentRound = state.rounds[state.roundIndex]
-  const suddenDeath = state.roundIndex >= STANDARD_ROUNDS.length
+  const suddenDeath = state.roundIndex >= state.suddenDeathStartIndex
   const isSuddenGoalSave = suddenDeath && currentRound === 'defense'
+  const previousRound = history[state.roundIndex - 1]
+  const isCounterAttackRound = !suddenDeath && currentRound === 'attack' && !!previousRound && (previousRound.type === 'defense' || previousRound.type === 'fruit_ninja') && previousRound.success
   const roundStartPlayerNumber = currentRound === 'attack' ? '9' : currentRound === 'defense' ? '10' : '1'
   const roundStartPlayerName = currentRound === 'attack' ? homeAttackerName : currentRound === 'defense' ? awayAttackerName : awayKeeperName
   const roundStartCommentaryPlayer = roundStartPlayerName ? `${roundStartPlayerName} #${roundStartPlayerNumber}` : undefined
@@ -249,12 +253,13 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const commentaryData = useMemo(() => {
     if (!homeTeam || !awayTeam) return null
     if (currentRound === 'fruit_ninja') return null
+    if (isCounterAttackRound) return null
     const phase = currentRound === 'attack' ? 'pre_attack' : 'pre_defense'
     const team = homeTeam
     const opponent = awayTeam
     return getCommentary(phase, team, opponent, roundStartCommentaryPlayer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.roundIndex, currentRound, roundStartCommentaryPlayer])
+  }, [state.roundIndex, currentRound, isCounterAttackRound, roundStartCommentaryPlayer])
 
   // Countdown 3-2-1-GO
   useEffect(() => {
@@ -282,7 +287,10 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     } else {
       setState((current) => ({
         ...current,
-        rounds: nextAction.append ? [...current.rounds, nextAction.append] : current.rounds,
+        rounds: nextAction.insertNext
+          ? [...current.rounds.slice(0, current.roundIndex + 1), nextAction.insertNext, ...current.rounds.slice(current.roundIndex + 1)]
+          : nextAction.append ? [...current.rounds, nextAction.append] : current.rounds,
+        suddenDeathStartIndex: nextAction.insertNext ? current.suddenDeathStartIndex + 1 : current.suddenDeathStartIndex,
         roundIndex: current.roundIndex + 1,
         phase: skipScreens ? 'playing' : 'round_start',
       }))
@@ -305,13 +313,16 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     const nextOpponentScore = state.opponentScore + Number(isOpponentScoringRound && isGoal)
     const nextHistory = [...history, { type: currentRound, success, isGoal }]
     let action: NextAction
+    const earnsCounterAttack = !suddenDeath && isOpponentScoringRound && success
 
-    if (!suddenDeath && state.roundIndex < STANDARD_ROUNDS.length - 1) {
+    if (earnsCounterAttack) {
+      action = { type: 'next', insertNext: 'attack' }
+    } else if (!suddenDeath && state.roundIndex < state.suddenDeathStartIndex - 1) {
       action = { type: 'next' }
     } else if (!suddenDeath) {
       action = nextPlayerScore === nextOpponentScore ? { type: 'next', append: 'attack' } : { type: 'finish' }
     } else {
-      const suddenDeathCompleted = state.roundIndex - STANDARD_ROUNDS.length + 1
+      const suddenDeathCompleted = state.roundIndex - state.suddenDeathStartIndex + 1
       if (currentRound === 'attack') {
         action = { type: 'next', append: 'defense' }
       } else if (nextPlayerScore !== nextOpponentScore) {
@@ -405,7 +416,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
 
   // Pause / Restart
   const nextRoundType = nextAction?.type === 'next'
-    ? (nextAction.append ?? state.rounds[state.roundIndex + 1] ?? null)
+    ? (nextAction.insertNext ?? nextAction.append ?? state.rounds[state.roundIndex + 1] ?? null)
     : null
   const roundStartKit = currentRound === 'attack' ? homeKit : awayKit
   const roundStartAccent = roundStartKit.secondary ?? '#0b1422'
@@ -454,7 +465,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           <strong>{state.opponentScore}</strong>
           <span className="battle-score-strip__flag">{awayFlag || awayTeam?.shortName?.slice(0, 2).toUpperCase() || awayTeamId.slice(0, 2).toUpperCase()}</span>
         </div>
-        {suddenDeath ? <SuddenDeathShootout history={history} currentIndex={state.roundIndex} currentRound={currentRound} phase={state.phase} /> : <BattleProgressRail rounds={state.rounds} currentIndex={state.roundIndex} phase={state.phase} />}
+        {suddenDeath ? <SuddenDeathShootout history={history} currentIndex={state.roundIndex} currentRound={currentRound} phase={state.phase} suddenDeathStartIndex={state.suddenDeathStartIndex} /> : <BattleProgressRail rounds={state.rounds} currentIndex={state.roundIndex} phase={state.phase} suddenDeathStartIndex={state.suddenDeathStartIndex} />}
         </>
       ) : null}
 
@@ -497,7 +508,9 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           <p>{commentaryData
             ? highlightPlayerName(commentaryData.text, commentaryData.tokens[0])
             : currentRound === 'attack'
-              ? <><b>{roundStartCommentaryPlayer ?? homeTeam?.name ?? homeTeamId}</b> part en slalom - passe les portes vertes puis arme la frappe !</>
+              ? isCounterAttackRound
+                ? <><b>{homeTeam?.name ?? homeTeamId}</b> recupere haut - contre-attaque immediate, vise la cage et termine l'action !</>
+                : <><b>{roundStartCommentaryPlayer ?? homeTeam?.name ?? homeTeamId}</b> part en slalom - passe les portes vertes puis arme la frappe !</>
               : currentRound === 'defense'
                 ? isSuddenGoalSave
                   ? <><b>{roundStartCommentaryPlayer ?? awayTeam?.name ?? awayTeamId}</b> frappe en mort subite. Ton gardien doit sortir le ballon !</>
@@ -526,14 +539,14 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           <g transform="translate(98 130)"><circle r="13" fill="#f4f7ff" stroke="#0b1422" strokeWidth="1"/><path d="M0 -7 l6.7 4.9 -2.5 7.9 -8.4 0 -2.5 -7.9z" fill="#0b1422"/></g>
         </svg>
         <button type="button" className="battle-round-start__ready" onClick={() => { sfx.click(); startRoundCountdown() }}>
-          {currentRound === 'attack' ? "Pret ? Joue l'attaque >" : currentRound === 'defense' ? isSuddenGoalSave ? 'Pret ? Goal save ! >' : 'Pret ? Defends ! >' : 'Pret ? Tirs massifs ! >'}
+          {currentRound === 'attack' ? isCounterAttackRound ? 'Pret ? Contre-attaque ! >' : "Pret ? Joue l'attaque >" : currentRound === 'defense' ? isSuddenGoalSave ? 'Pret ? Goal save ! >' : 'Pret ? Defends ! >' : 'Pret ? Tirs massifs ! >'}
         </button>
       </section> : null}
 
       {/* Game phases */}
       {/* Show during countdown too so the player can preview the game layout */}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'attack' && !suddenDeath
-        ? <AttackPhase key={`attack-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeTeam?.players} awayTeamPlayers={awayTeam?.players} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} />
+        ? <AttackPhase key={`attack-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeTeam?.players} awayTeamPlayers={awayTeam?.players} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} shotOnly={isCounterAttackRound} shotAudioMode={isCounterAttackRound ? 'heartOnly' : undefined} shotTitle={isCounterAttackRound ? 'CONTRE-ATTAQUE' : undefined} />
         : null}
       {state.phase === 'playing' && currentRound === 'attack' && suddenDeath
         ? <AttackPhase
@@ -614,7 +627,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           onComplete={(winnerId, score, commentary) => { sfx.click(); handleCoinFlipEnd(winnerId, score, commentary) }}
         />
       ) : null}
-      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} onContinue={() => { sfx.click(); onComplete(displayedResult) }} /> : null}
+      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} syncStatusLabel={syncStatusLabel} onContinue={() => { sfx.click(); onComplete(displayedResult) }} /> : null}
 
       {/* Countdown overlay */}
       {state.phase === 'countdown' && countdownNum !== null ? (

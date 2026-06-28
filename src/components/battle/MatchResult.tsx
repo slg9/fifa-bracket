@@ -9,12 +9,13 @@ type MatchResultProps = {
   awayTeamName?: string
   homeFlag?: string
   awayFlag?: string
+  syncStatusLabel?: string
   onContinue: () => void
 }
 
 const CONFETTI_COLORS = ['#ffb800', '#2bff9a', '#ff4455', '#a855f7', '#3b82f6', '#ff6b35']
 
-export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTeamName, awayTeamName, homeFlag, awayFlag, onContinue }: MatchResultProps) {
+export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTeamName, awayTeamName, homeFlag, awayFlag, syncStatusLabel, onContinue }: MatchResultProps) {
   const homeName = homeTeamName ?? homeTeamId
   const awayName = awayTeamName ?? awayTeamId
   return (
@@ -30,6 +31,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
           <strong>{result.homeScore}</strong><i>-</i><strong>{result.awayScore}</strong>
           {awayFlag ? <span className="battle-match-result__score-flag">{awayFlag}</span> : null}
         </div>
+        {syncStatusLabel ? <div className="battle-match-result__sync">{syncStatusLabel}</div> : null}
         <button type="button" className="battle-continue" onClick={onContinue}>Continuer <span>→</span></button>
         <div className="battle-breakdown"><header><span>Round</span><span>Phase</span><span>Résultat</span></header>{result.rounds.length ? result.rounds.map((round, index) => <div key={`${round.type}-${index}`}><b>{index + 1}</b><span>{round.type === 'attack' ? '⚽ Attaque' : round.type === 'fruit_ninja' ? '🔥 Tirs massifs' : '🛡️ Défense'}</span><strong className={round.success ? 'is-success' : 'is-fail'}>{round.success ? 'RÉUSSI' : 'ÉCHEC'}</strong></div>) : <div><b>SIM</b><span>Simulation directe</span><strong className="is-success">VALIDÉ</strong></div>}</div>
       </div>

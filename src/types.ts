@@ -183,6 +183,7 @@ export type BattlePhase = 'intro' | 'round_start' | 'countdown' | 'playing' | 'r
 export type BattleMatchState = {
   roundIndex: number
   rounds: BattleRoundType[]
+  suddenDeathStartIndex: number
   playerScore: number
   opponentScore: number
   phase: BattlePhase
