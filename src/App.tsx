@@ -2052,7 +2052,7 @@ function App() {
                             <div className="daymatch__status">
                               {liveStatus === 'live'
                                 ? formatLiveMinute(match.liveMinute, liveSource.syncedAt).toUpperCase()
-                                : liveStatus === 'finished' ? 'TERMINE' : 'BIENTOT'}
+                                : liveStatus === 'finished' ? 'TERMINE' : kickoffTime ? 'COUP D ENVOI' : 'BIENTOT'}
                             </div>
                             {liveStatus === 'scheduled' ? (
                               <div className="daymatch__score daymatch__score--time">{kickoffTime ?? 'A VENIR'}</div>
