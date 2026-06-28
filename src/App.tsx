@@ -79,6 +79,14 @@ type DisplayMatch = {
   played: boolean
 }
 
+type DayMatch = GroupMatch & {
+  dayStageLabel?: string
+  dayMatchLabel?: string
+  homeLabel?: string
+  awayLabel?: string
+  isKnockout?: boolean
+}
+
 type DragState = {
   groupId: string
   teamId: string
@@ -172,6 +180,30 @@ function isMatchToday(match: Pick<GroupMatch, 'kickoffDate' | 'kickoffIso'>): bo
 
 function matchLocalDateKey(match: Pick<GroupMatch, 'kickoffDate' | 'kickoffIso'>): string {
   return match.kickoffIso ? localDateStr(new Date(match.kickoffIso)) : match.kickoffDate
+}
+
+const knockoutMonthIndex: Record<string, number> = {
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  may: 4,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11,
+}
+
+function dateKeyFromKnockoutDateLabel(dateLabel: string): string | null {
+  const parsed = dateLabel.match(/^(\d{1,2})\s+([A-Za-z]+)$/)
+  if (!parsed) return null
+  const day = Number(parsed[1])
+  const month = knockoutMonthIndex[parsed[2].slice(0, 3).toLowerCase()]
+  if (!Number.isFinite(day) || month === undefined) return null
+  return localDateStr(new Date(2026, month, day, 12))
 }
 
 function formatDayLabel(dateKey: string): string {
@@ -1566,6 +1598,38 @@ function App() {
   const groupBracket = buildKnockoutBracket(standings, mergedMatches)
   const activeKnockoutPicks = mode === 'simulation' ? knockoutPicks : {}
   const displayBracket = resolveDisplayBracket(groupBracket, activeKnockoutPicks)
+  const liveMatchesById = new Map(liveSource.matches.map((match) => [match.id, match]))
+  const knockoutDayMatches: DayMatch[] = displayBracket
+    .map<DayMatch | null>((match) => {
+      const kickoffDate = dateKeyFromKnockoutDateLabel(match.dateLabel)
+      if (!kickoffDate) return null
+      const live = liveMatchesById.get(match.id)
+      const homeTeamId = getEntrantTeamId(match.home)
+      const awayTeamId = getEntrantTeamId(match.away)
+      return {
+        id: match.id,
+        groupId: match.stage,
+        matchday: 4,
+        homeTeamId: homeTeamId ?? `placeholder:${match.id}:home`,
+        awayTeamId: awayTeamId ?? `placeholder:${match.id}:away`,
+        kickoffDate,
+        kickoffTime: live?.kickoffTime ?? null,
+        kickoffIso: live?.kickoffIso ?? null,
+        liveMinute: live?.liveMinute ?? null,
+        fifaMatchPath: live?.fifaMatchPath ?? null,
+        venue: match.label,
+        homeScore: live?.homeScore ?? null,
+        awayScore: live?.awayScore ?? null,
+        status: live?.status ?? 'scheduled',
+        dayStageLabel: formatStageLabel(match.stage),
+        dayMatchLabel: match.label,
+        homeLabel: match.home.kind === 'placeholder' ? match.home.label : undefined,
+        awayLabel: match.away.kind === 'placeholder' ? match.away.label : undefined,
+        isKnockout: true,
+      }
+    })
+    .filter((match): match is DayMatch => match !== null)
+  const dayScheduleMatches: DayMatch[] = [...mergedMatches, ...knockoutDayMatches]
   const bracketHeaderTeams = [...new Set(displayBracket.flatMap((match) => [getEntrantTeamId(match.home), getEntrantTeamId(match.away)]).filter((teamId): teamId is string => Boolean(teamId)))]
     .map((teamId) => teamsById.get(teamId))
     .filter((team): team is Team => Boolean(team))
@@ -1598,13 +1662,13 @@ function App() {
   })
 
   const visibleGroups = isCompactGroups ? seed.groups.filter((group) => group.id === selectedGroupId) : seed.groups
-  const matchDayKeys = [...new Set(mergedMatches.map(matchLocalDateKey))].sort()
+  const matchDayKeys = [...new Set(dayScheduleMatches.map(matchLocalDateKey))].sort()
   const selectedDayIndex = matchDayKeys.indexOf(selectedDayKey)
   const activeDayIndex = selectedDayIndex >= 0
     ? selectedDayIndex
     : Math.max(0, matchDayKeys.findIndex((dateKey) => dateKey >= localDateStr()))
   const activeDayKey = matchDayKeys[activeDayIndex] ?? selectedDayKey
-  const dayMatches = mergedMatches
+  const dayMatches = dayScheduleMatches
     .filter((match) => matchLocalDateKey(match) === activeDayKey)
     .sort((a, b) => {
       const aTime = a.kickoffIso ?? `${a.kickoffDate}T${a.kickoffTime ?? '99:99'}`
@@ -1913,7 +1977,9 @@ function App() {
                   {dayMatches.map((match) => {
                     const homeTeam = teamsById.get(match.homeTeamId)
                     const awayTeam = teamsById.get(match.awayTeamId)
-                    if (!homeTeam || !awayTeam) return null
+                    const homeLabel = homeTeam?.name ?? match.homeLabel ?? 'A determiner'
+                    const awayLabel = awayTeam?.name ?? match.awayLabel ?? 'A determiner'
+                    const canOpenStats = Boolean(homeTeam && awayTeam)
                     const kickoffTime = formatKickoffTime(match)
                     const liveStatus = inferStatus(match)
                     const hasScore = hasRenderableScore(match)
@@ -1924,24 +1990,24 @@ function App() {
                     return (
                       <article
                         key={match.id}
-                        className={`daymatch daymatch--clickable${liveStatus === 'live' ? ' is-live' : liveStatus === 'scheduled' ? ' is-upcoming' : ''}`}
-                        onClick={() => { closeDayModal(); void openMatchStats(match) }}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { closeDayModal(); void openMatchStats(match) } }}
+                        className={`daymatch${canOpenStats ? ' daymatch--clickable' : ''}${liveStatus === 'live' ? ' is-live' : liveStatus === 'scheduled' ? ' is-upcoming' : ''}`}
+                        onClick={canOpenStats ? () => { closeDayModal(); void openMatchStats(match) } : undefined}
+                        role={canOpenStats ? 'button' : undefined}
+                        tabIndex={canOpenStats ? 0 : undefined}
+                        onKeyDown={canOpenStats ? (e) => { if (e.key === 'Enter') { closeDayModal(); void openMatchStats(match) } } : undefined}
                       >
                         <div className="daymatch__meta">
-                          <span>Groupe {match.groupId}</span>
+                          <span>{match.dayStageLabel ?? `Groupe ${match.groupId}`}</span>
                           <div className="daymatch__meta-right">
                             <BroadcasterBadge matchId={match.id} />
-                            <span>{match.venue}</span>
+                            <span>{match.dayMatchLabel ?? match.venue}</span>
                           </div>
                         </div>
 
                         <div className="daymatch__main">
                           <div className={`daymatch__team${homeWin ? ' is-winner' : awayWin ? ' is-loser' : ''}`}>
-                            {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{homeTeam.flagEmoji}</span>}
-                            <strong>{homeTeam.name}</strong>
+                            {homeTeam ? (flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{homeTeam.flagEmoji}</span>) : <span className="daymatch__flag">TBD</span>}
+                            <strong>{homeLabel}</strong>
                           </div>
                           <div className="daymatch__scoreblock">
                             <div className="daymatch__status">
@@ -1949,8 +2015,8 @@ function App() {
                                 ? formatLiveMinute(match.liveMinute, liveSource.syncedAt).toUpperCase()
                                 : liveStatus === 'finished' ? 'TERMINE' : 'BIENTOT'}
                             </div>
-                            {liveStatus === 'scheduled' && kickoffTime ? (
-                              <div className="daymatch__score daymatch__score--time">{kickoffTime}</div>
+                            {liveStatus === 'scheduled' ? (
+                              <div className="daymatch__score daymatch__score--time">{kickoffTime ?? 'A VENIR'}</div>
                             ) : hasScore ? (
                               <div className="daymatch__score">
                                 <span className={homeWin ? 'is-winner-score' : ''}>{match.homeScore}</span>
@@ -1962,8 +2028,8 @@ function App() {
                             )}
                           </div>
                           <div className={`daymatch__team daymatch__team--right${awayWin ? ' is-winner' : homeWin ? ' is-loser' : ''}`}>
-                            <strong>{awayTeam.name}</strong>
-                            {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{awayTeam.flagEmoji}</span>}
+                            <strong>{awayLabel}</strong>
+                            {awayTeam ? (flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{awayTeam.flagEmoji}</span>) : <span className="daymatch__flag">TBD</span>}
                           </div>
                         </div>
 
