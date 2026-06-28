@@ -17,6 +17,7 @@ type RoundResultProps = {
   opponentName?: string
   nextRoundType?: BattleRoundType | null
   onContinue?: () => void
+  onRetry?: () => void
 }
 
 const GOAL_CALLS = [
@@ -89,7 +90,7 @@ export function roundResultNeedsClick(outcome: RoundOutcome) {
   return MANUAL_CONTINUE_OUTCOMES.includes(outcome)
 }
 
-export function RoundResult({ outcome, roundType, playerScore, opponentScore, homeFlag, awayFlag, scorerName, keeperName, opponentName, nextRoundType, onContinue }: RoundResultProps) {
+export function RoundResult({ outcome, roundType, playerScore, opponentScore, homeFlag, awayFlag, scorerName, keeperName, opponentName, nextRoundType, onContinue, onRetry }: RoundResultProps) {
   const title = outcome === 'goal'
     ? 'BUT !'
     : outcome === 'saved'
@@ -184,7 +185,10 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         .rr-commentary{z-index:6;position:relative;max-width:320px;display:grid;gap:8px;margin-top:4px;padding:14px 16px;border-left:3px solid var(--rr-accent, rgba(255,255,255,.35));border-radius:0 12px 12px 0;background:rgba(10,21,38,.86);animation:commentaryIn .3s both}
         .rr-commentary__main{font:700 clamp(14px,4vw,17px) 'Barlow Condensed',sans-serif;color:#fff;line-height:1.35}
         .rr-commentary__sub{font:500 clamp(11px,3.5vw,13px) 'Barlow',sans-serif;color:rgba(255,255,255,.58);line-height:1.45}
-        .rr-continue-btn{z-index:6;position:relative;margin-top:14px;padding:11px 28px;border-radius:12px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.07);color:#fff;font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.12em;cursor:pointer;animation:bk-btn 2s ease-in-out infinite}
+        .rr-actions{z-index:6;position:relative;display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:14px}
+        .rr-continue-btn,.rr-retry-btn{padding:11px 24px;border-radius:12px;font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.12em;cursor:pointer}
+        .rr-continue-btn{border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.07);color:#fff;animation:bk-btn 2s ease-in-out infinite}
+        .rr-retry-btn{border:1.5px solid rgba(255,184,0,.9);background:linear-gradient(180deg,rgba(255,184,0,.24),rgba(255,184,0,.08));color:#FFB800;box-shadow:0 0 26px rgba(255,184,0,.38);animation:rrRetryGold .82s ease-in-out infinite alternate}
         .battle-round-result__score{display:flex;gap:14px;align-items:center;margin-top:12px;z-index:6;position:relative}
         .battle-round-result__score strong{font:800 36px 'JetBrains Mono',monospace}
         .battle-round-result__score-flag{display:grid;place-items:center;min-width:30px;font-size:28px;line-height:1;filter:drop-shadow(0 0 10px rgba(255,255,255,.22))}
@@ -203,8 +207,10 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
           .rr-commentary__sub{font-size:11px;line-height:1.26}
           .battle-round-result__score{margin-top:6px}
           .battle-round-result__score strong{font-size:28px}
-          .rr-continue-btn{margin-top:8px;padding:10px 18px;font-size:13px}
+          .rr-actions{margin-top:8px;gap:7px}
+          .rr-continue-btn,.rr-retry-btn{padding:10px 16px;font-size:13px}
         }
+        @keyframes rrRetryGold{from{filter:brightness(.92);box-shadow:0 0 14px rgba(255,184,0,.26)}to{filter:brightness(1.25);box-shadow:0 0 34px rgba(255,184,0,.72)}}
       `}</style>
 
       {(outcome === 'goal' || outcome === 'defense_perfect') ? (
@@ -289,10 +295,19 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         {awayFlag ? <span className="battle-round-result__score-flag">{awayFlag}</span> : null}
       </div>
 
-      {showButton && onContinue ? (
-        <button type="button" className="rr-continue-btn" onClick={onContinue}>
-          {buttonLabel}
-        </button>
+      {showButton && (onContinue || onRetry) ? (
+        <div className="rr-actions">
+          {onRetry ? (
+            <button type="button" className="rr-retry-btn" onClick={onRetry}>
+              Reessayer
+            </button>
+          ) : null}
+          {onContinue ? (
+            <button type="button" className="rr-continue-btn" onClick={onContinue}>
+              {buttonLabel}
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </section>
   )

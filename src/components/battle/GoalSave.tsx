@@ -203,7 +203,9 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
   const opponentJerseyColor = opponentKit?.primary ?? '#FF4455'
   const opponentAccentColor = opponentKit?.secondary ?? '#7dd3fc'
   const [balls, setBalls] = useState<Ball[]>(() => makeGoalSaveBalls(ballCount, difficulty, mode))
-  const [penaltyCountdown, setPenaltyCountdown] = useState<number | null>(() => isPenalty ? 3 : null)
+  const [penaltyCountdown, setPenaltyCountdown] = useState<number | null>(null)
+  const [tutorialDone, setTutorialDone] = useState(false)
+  const [tutorialCountdown, setTutorialCountdown] = useState<number | null>(null)
   const [particles, setParticles] = useState<Particle[]>([])
   const [trail, setTrail] = useState<TrailSegment[]>([])
   const [resultLabel, setResultLabel] = useState<string | null>(null)
@@ -234,7 +236,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
   useEffect(() => {
     if (isPenalty || isSuddenDeath) {
       onAudioOverride?.(null)
-      const heart = playGameSound('/audio/heart.mp3', { volume: 0.88, loop: true })
+      const heart = playGameSound('/audio/heart.mp3', { volume: 0.88, loop: true, kind: 'ambience' })
       return () => {
         heart?.stop()
         onAudioOverride?.(null)
@@ -245,11 +247,12 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
   }, [isPenalty, isSuddenDeath, onAudioOverride])
 
   useEffect(() => {
-    if (!isPenalty) return
+    if (!isPenalty || !tutorialDone) return
+    sfx.countdownTick()
     setPenaltyCountdown(3)
-    const t1 = window.setTimeout(() => setPenaltyCountdown(2), 800)
-    const t2 = window.setTimeout(() => setPenaltyCountdown(1), 1600)
-    const t3 = window.setTimeout(() => { setPenaltyCountdown(0); sfx.whistle() }, 2400)
+    const t1 = window.setTimeout(() => { setPenaltyCountdown(2); sfx.countdownTick() }, 800)
+    const t2 = window.setTimeout(() => { setPenaltyCountdown(1); sfx.countdownTick() }, 1600)
+    const t3 = window.setTimeout(() => { setPenaltyCountdown(0); sfx.countdownGo(); sfx.whistle() }, 2400)
     const t4 = window.setTimeout(() => setPenaltyCountdown(null), 3050)
     return () => {
       window.clearTimeout(t1)
@@ -257,7 +260,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
       window.clearTimeout(t3)
       window.clearTimeout(t4)
     }
-  }, [isPenalty])
+  }, [isPenalty, tutorialDone])
 
   const addTimer = useCallback((callback: () => void, ms: number) => {
     const timer = window.setTimeout(callback, ms)
@@ -269,6 +272,19 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
     timersRef.current.forEach(clearTimeout)
     timersRef.current = []
   }, [])
+
+  const startGoalSaveTutorial = useCallback(() => {
+    sfx.click()
+    sfx.countdownTick()
+    setTutorialCountdown(3)
+    addTimer(() => { setTutorialCountdown(2); sfx.countdownTick() }, 800)
+    addTimer(() => { setTutorialCountdown(1); sfx.countdownTick() }, 1600)
+    addTimer(() => { setTutorialCountdown(0); sfx.countdownGo(); sfx.whistle() }, 2400)
+    addTimer(() => {
+      setTutorialCountdown(null)
+      setTutorialDone(true)
+    }, 3050)
+  }, [addTimer])
 
   const updateBalls = useCallback((updater: (prev: Ball[]) => Ball[]) => {
     setBalls((prev) => {
@@ -344,6 +360,8 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
 
   const interceptBall = useCallback((ball: Ball, point: BallPosition, now: number) => {
     if (endedRef.current || (ball.state !== 'flying' && ball.state !== 'waiting')) return
+    sfx.slice()
+    playGameSound('/audio/ball-kick.mp3', { volume: 0.82 })
 
     updateBalls((prev) => {
       let didStop = false
@@ -385,6 +403,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
   }, [addParticle, addTimer, maybeFinishIfComplete, registerCombo, updateBalls])
 
   useEffect(() => {
+    if (!tutorialDone || penaltyCountdown !== null) return
     startTimeRef.current = performance.now()
 
     const tick = (now: number) => {
@@ -412,9 +431,10 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
       cancelAnimationFrame(rafRef.current)
       clearManagedTimers()
     }
-  }, [clearManagedTimers, missBall, updateBalls])
+  }, [clearManagedTimers, missBall, penaltyCountdown, tutorialDone, updateBalls])
 
   const testSwipeSegment = useCallback((x1: number, y1: number, x2: number, y2: number, rect: DOMRect, velocity: number) => {
+    if (!tutorialDone || penaltyCountdown !== null) return
     if (velocity < MIN_SWIPE_SPEED) return
     const now = performance.now()
     for (const ball of ballsRef.current) {
@@ -428,10 +448,10 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
         interceptBall(ball, point, now)
       }
     }
-  }, [cfg.swipeRadius, interceptBall])
+  }, [cfg.swipeRadius, interceptBall, penaltyCountdown, tutorialDone])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (endedRef.current) return
+    if (endedRef.current || !tutorialDone || penaltyCountdown !== null) return
     const now = performance.now()
     swipeRef.current = { x: event.clientX, y: event.clientY, at: now }
     try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* noop */ }
@@ -452,7 +472,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
   }
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!swipeRef.current || endedRef.current) return
+    if (!swipeRef.current || endedRef.current || !tutorialDone || penaltyCountdown !== null) return
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
     const prev = swipeRef.current
@@ -494,6 +514,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
 
   const handleResultContinue = useCallback(() => {
     if (pendingResult === null) return
+    sfx.click()
     onResultRef.current(pendingResult)
   }, [pendingResult])
 
@@ -526,6 +547,14 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
         .gs-penalty-kicker__name { padding:4px 9px; border-radius:999px; background:rgba(2,8,16,.62); border:1px solid rgba(255,255,255,.12); font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.13em; text-transform:uppercase; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .gs-penalty-countdown { position:absolute; inset:0; z-index:35; display:grid; place-items:center; pointer-events:none; }
         .gs-penalty-countdown span { display:grid; place-items:center; width:118px; aspect-ratio:1; border-radius:50%; color:#fff; background:radial-gradient(circle,rgba(2,8,16,.86) 0 58%,transparent 60%),conic-gradient(#FFB800 0 80%,rgba(255,255,255,.14) 80%); box-shadow:0 0 42px rgba(255,184,0,.32); font:900 52px 'Barlow Condensed',sans-serif; letter-spacing:.12em; animation:gsPenaltyCount .72s ease-out both; }
+        .gs-tutorial { position:absolute; inset:0; z-index:42; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px; padding:26px 22px; text-align:center; background:rgba(3,7,14,.88); backdrop-filter:blur(4px); color:#fff; }
+        .gs-tutorial__title { font:900 clamp(34px,11vw,58px) 'Barlow Condensed',sans-serif; color:#2bff9a; letter-spacing:.18em; text-transform:uppercase; text-shadow:0 0 28px rgba(43,255,154,.58); }
+        .gs-tutorial__text { max-width:330px; color:rgba(255,255,255,.86); font:700 clamp(13px,4vw,17px) 'Barlow Condensed',sans-serif; line-height:1.42; }
+        .gs-tutorial__sub { max-width:300px; color:rgba(255,255,255,.48); font:600 clamp(11px,3.4vw,13px) 'Barlow',sans-serif; line-height:1.35; }
+        .gs-tutorial__btn { margin-top:4px; padding:12px 30px; border-radius:12px; border:2px solid #2bff9a; background:rgba(43,255,154,.12); color:#2bff9a; font:900 16px 'Barlow Condensed',sans-serif; letter-spacing:.14em; cursor:pointer; }
+        .gs-tutorial-countdown { position:absolute; inset:0; z-index:43; display:grid; place-items:center; background:rgba(3,7,14,.74); backdrop-filter:blur(2px); pointer-events:none; }
+        .gs-tutorial-countdown span { color:#fff; font:900 clamp(80px,25vw,140px) 'Barlow Condensed',sans-serif; text-shadow:0 0 40px rgba(255,255,255,.5); animation:gsTutorialCount .82s both; }
+        .gs-tutorial-countdown span.is-go { color:#2bff9a; text-shadow:0 0 40px rgba(43,255,154,.7); }
         .gs-container.is-shaking { animation:gsShake .16s linear both; }
         .gs-container.is-freeze .gs-ball { filter:brightness(1.35) drop-shadow(0 0 18px ${playerJerseyColor}); }
         .gs-container::after { content:''; position:absolute; inset:0; pointer-events:none; opacity:0; background:radial-gradient(circle at 50% 92%,rgba(255,68,85,.36),transparent 36%); transition:opacity .12s ease-out; z-index:18; }
@@ -570,7 +599,27 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
         @keyframes gsKickerPulse { to{ transform:translateX(-50%) translateY(4px) scale(1.03); } }
         @keyframes gsKickerStrike { to{ transform:translateX(-50%) translateY(7px) scale(1.08); filter:drop-shadow(0 0 22px rgba(255,68,85,.46)) drop-shadow(0 10px 18px rgba(0,0,0,.42)); } }
         @keyframes gsPenaltyCount { 0%{opacity:0;transform:scale(.58)} 30%{opacity:1;transform:scale(1.08)} 100%{opacity:0;transform:scale(.92)} }
+        @keyframes gsTutorialCount { 0%{transform:scale(2.1);opacity:0} 24%{opacity:1} 82%{transform:scale(1)} 100%{transform:scale(.82);opacity:0} }
       `}</style>
+
+      {!tutorialDone && tutorialCountdown === null ? (
+        <div className="gs-tutorial">
+          <div className="gs-tutorial__title">GOAL SAVE</div>
+          <div className="gs-tutorial__text">
+            Swipe vite sur chaque ballon avant qu'il franchisse la ligne de but.
+            <br /><br />
+            Les tirs rapides arrivent plus fort, les ballons lourds peuvent demander deux coupes proches, et les feintes ne comptent pas.
+          </div>
+          <div className="gs-tutorial__sub">Un seul ballon qui passe peut donner but. Garde ton doigt pret devant la cage.</div>
+          <button type="button" className="gs-tutorial__btn" onClick={startGoalSaveTutorial}>OK GARDIEN</button>
+        </div>
+      ) : null}
+
+      {!tutorialDone && tutorialCountdown !== null ? (
+        <div className="gs-tutorial-countdown" aria-live="polite">
+          <span className={tutorialCountdown === 0 ? 'is-go' : ''}>{tutorialCountdown === 0 ? 'GO !' : tutorialCountdown}</span>
+        </div>
+      ) : null}
 
       <svg className="gs-goal-frame" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <rect x="0" y="0" width="100" height="78" fill="rgba(43,255,154,.025)" />

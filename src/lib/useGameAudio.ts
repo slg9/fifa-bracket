@@ -9,11 +9,14 @@ import { useEffect, useState } from 'react'
 const FADE_OUT_MS = 220
 const FADE_IN_MS = 400
 const FADE_STEPS = 24
-const MUSIC_VOLUME = 0.58
+const MUSIC_VOLUME = 0.22
+const GAME_SOUND_VOLUME_MULTIPLIER = 1.18
+const AMBIENCE_SOUND_VOLUME_MULTIPLIER = 0.18
 
 let _audio: HTMLAudioElement | null = null
 let _src: string | null = null
 let _interval: number | null = null
+let _musicVolumeMultiplier = 1
 const MUTE_STORAGE_KEY = 'brakup:audio-muted'
 let _muted = typeof window !== 'undefined' && window.localStorage.getItem(MUTE_STORAGE_KEY) === '1'
 const muteListeners = new Set<(muted: boolean) => void>()
@@ -36,6 +39,10 @@ function rememberPosition(audio: HTMLAudioElement | null, src: string | null) {
 
 function stopInterval() {
   if (_interval !== null) { clearInterval(_interval); _interval = null }
+}
+
+function targetMusicVolume() {
+  return MUSIC_VOLUME * _musicVolumeMultiplier
 }
 
 function startTrack(src: string) {
@@ -61,7 +68,7 @@ function startTrack(src: string) {
   _interval = window.setInterval(() => {
     v = Math.min(1, v + step)
     audio.muted = _muted
-    audio.volume = v * MUSIC_VOLUME
+    audio.volume = v * targetMusicVolume()
     if (v >= 1) stopInterval()
   }, FADE_IN_MS / FADE_STEPS)
 }
@@ -150,6 +157,11 @@ export function setGameMuted(muted: boolean) {
   muteListeners.forEach((listener) => listener(muted))
 }
 
+export function setGameMusicVolumeMultiplier(multiplier: number) {
+  _musicVolumeMultiplier = Math.max(0, Math.min(1, multiplier))
+  if (_audio && !_audio.paused) _audio.volume = targetMusicVolume()
+}
+
 export function toggleGameMuted() {
   setGameMuted(!_muted)
 }
@@ -168,10 +180,15 @@ export function useGameMuted() {
 
 export type GameSoundHandle = { stop: () => void }
 
-export function playGameSound(src: string, options: { volume?: number; loop?: boolean } = {}): GameSoundHandle | null {
+export function playGameSound(
+  src: string,
+  options: { volume?: number; loop?: boolean; kind?: 'sfx' | 'ambience' } = {},
+): GameSoundHandle | null {
   if (_muted) return null
   const audio = new Audio(src)
-  audio.volume = options.volume ?? 1
+  const kind = options.kind ?? (options.loop ? 'ambience' : 'sfx')
+  const multiplier = kind === 'ambience' ? AMBIENCE_SOUND_VOLUME_MULTIPLIER : GAME_SOUND_VOLUME_MULTIPLIER
+  audio.volume = Math.min(1, (options.volume ?? 1) * multiplier)
   audio.loop = options.loop ?? false
   audio.muted = _muted
   overlayAudios.add(audio)

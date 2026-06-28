@@ -5,6 +5,7 @@ import { isGameMuted } from './useGameAudio'
  */
 
 let _ctx: AudioContext | null = null
+const SFX_GAIN_MULTIPLIER = 1.35
 
 function ctx(): AudioContext {
   if (!_ctx) _ctx = new AudioContext()
@@ -26,7 +27,7 @@ function tone(
   osc.type = opts.type ?? 'sine'
   osc.frequency.setValueAtTime(freq, t)
   if (opts.freqEnd) osc.frequency.exponentialRampToValueAtTime(opts.freqEnd, t + duration)
-  const vol = opts.gain ?? 0.22
+  const vol = Math.min(0.95, (opts.gain ?? 0.22) * SFX_GAIN_MULTIPLIER)
   g.gain.setValueAtTime(vol, t)
   g.gain.exponentialRampToValueAtTime(0.0001, t + duration)
   osc.start(t); osc.stop(t + duration + 0.02)
@@ -50,7 +51,7 @@ function noise(
   filter.frequency.setValueAtTime(opts.filterFreq ?? 1200, t)
   if (opts.filterFreqEnd) filter.frequency.exponentialRampToValueAtTime(opts.filterFreqEnd, t + duration)
   const g = c.createGain()
-  g.gain.setValueAtTime(opts.gain ?? 0.14, t)
+  g.gain.setValueAtTime(Math.min(0.95, (opts.gain ?? 0.14) * SFX_GAIN_MULTIPLIER), t)
   g.gain.exponentialRampToValueAtTime(0.0001, t + duration)
   src.connect(filter); filter.connect(g); g.connect(c.destination)
   src.start(t)
@@ -59,7 +60,44 @@ function noise(
 export const sfx = {
   /** General button tap */
   click() {
-    tone(760, 0.075, { type: 'square', gain: 0.2, freqEnd: 330 })
+    tone(760, 0.075, { type: 'square', gain: 0.24, freqEnd: 330 })
+    tone(1280, 0.045, { type: 'sine', gain: 0.08, delay: 0.018, freqEnd: 860 })
+  },
+
+  /** Countdown 3-2-1 */
+  countdownTick() {
+    tone(760, 0.08, { type: 'square', gain: 0.24, freqEnd: 560 })
+    tone(1520, 0.05, { type: 'sine', gain: 0.1, delay: 0.025, freqEnd: 1180 })
+  },
+
+  /** Countdown GO */
+  countdownGo() {
+    noise(0.2, { filterFreq: 1800, filterFreqEnd: 4200, gain: 0.14 })
+    tone(520, 0.18, { type: 'triangle', gain: 0.24, freqEnd: 1040 })
+    tone(1040, 0.22, { type: 'sine', gain: 0.18, delay: 0.06, freqEnd: 1560 })
+  },
+
+  /** Auto defensive shooter kick */
+  defenseShot() {
+    noise(0.055, { filterFreq: 1800, filterFreqEnd: 700, gain: 0.13 })
+    tone(210, 0.07, { type: 'triangle', gain: 0.16, freqEnd: 88 })
+    tone(780, 0.045, { type: 'square', gain: 0.08, delay: 0.015, freqEnd: 440 })
+  },
+
+  /** Bomb touched in save chaos */
+  bomb() {
+    noise(0.42, { filterFreq: 2400, filterFreqEnd: 110, gain: 0.36 })
+    noise(0.24, { filterFreq: 120, filterFreqEnd: 60, gain: 0.22, delay: 0.03 })
+    tone(96, 0.42, { type: 'sawtooth', gain: 0.24, freqEnd: 42 })
+    tone(420, 0.16, { type: 'square', gain: 0.14, delay: 0.02, freqEnd: 90 })
+  },
+
+  /** Red kamikaze player hit by a shot */
+  kamikaze() {
+    tone(1320, 0.07, { type: 'square', gain: 0.14 })
+    tone(880, 0.08, { type: 'square', gain: 0.14, delay: 0.075 })
+    noise(0.34, { filterFreq: 3000, filterFreqEnd: 140, gain: 0.3, delay: 0.12 })
+    tone(120, 0.32, { type: 'sawtooth', gain: 0.22, delay: 0.12, freqEnd: 48 })
   },
 
   /** Arrow / dot navigation */
@@ -139,15 +177,19 @@ export const sfx = {
 
   /** Defensive tackle shockwave */
   tackle() {
-    noise(0.16, { filterFreq: 900, filterFreqEnd: 120, gain: 0.24 })
-    tone(150, 0.18, { type: 'sawtooth', gain: 0.18, freqEnd: 70 })
+    noise(0.2, { filterFreq: 1200, filterFreqEnd: 120, gain: 0.3 })
+    noise(0.12, { filterFreq: 2600, filterFreqEnd: 500, gain: 0.12, delay: 0.03 })
+    tone(150, 0.22, { type: 'sawtooth', gain: 0.22, freqEnd: 60 })
+    tone(55, 0.16, { type: 'triangle', gain: 0.16, delay: 0.035, freqEnd: 35 })
   },
 
   /** Lightning special attack */
   lightning() {
-    noise(0.2, { filterFreq: 4200, filterFreqEnd: 1200, gain: 0.2 })
-    tone(880, 0.12, { type: 'square', gain: 0.16, freqEnd: 1760 })
-    tone(1760, 0.18, { type: 'sawtooth', gain: 0.12, delay: 0.05, freqEnd: 440 })
+    noise(0.28, { filterFreq: 5600, filterFreqEnd: 900, gain: 0.26 })
+    noise(0.14, { filterFreq: 1800, filterFreqEnd: 320, gain: 0.16, delay: 0.1 })
+    tone(880, 0.12, { type: 'square', gain: 0.2, freqEnd: 1760 })
+    tone(1760, 0.2, { type: 'sawtooth', gain: 0.16, delay: 0.05, freqEnd: 440 })
+    tone(2600, 0.09, { type: 'square', gain: 0.12, delay: 0.13, freqEnd: 1200 })
   },
 
   /** Dribble jump */

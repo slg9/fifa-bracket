@@ -116,11 +116,11 @@ function getRoundShort(match: KnockoutMatch) {
 function getStatusHint(status: NodeStatus) {
   switch (status) {
     case 'completed':
-      return 'Choix enregistré — tu peux rejouer.'
+      return 'Choix enregistre. Touche une equipe pour rejouer avec ce camp.'
     case 'live':
-      return 'Ce match est le prochain à jouer.'
+      return 'Choisis une equipe pour lancer le match.'
     case 'available':
-      return 'Choisis ton équipe et lance le match.'
+      return 'Choisis une equipe pour lancer le match.'
     default:
       return 'Termine les matchs précédents pour débloquer.'
   }
@@ -382,7 +382,6 @@ function LevelEntryScreen({
   canShowBracket: _canShowBracket,
   onClose,
   onPickTeam,
-  onPlay,
   onSimulate,
   onShowBracket: _onShowBracket,
   onShare: _onShare,
@@ -395,14 +394,12 @@ function LevelEntryScreen({
   canShowBracket: boolean
   onClose: () => void
   onPickTeam: (teamId: string) => void
-  onPlay: () => void
   onSimulate?: () => void
   onShowBracket?: () => void
   onShare?: () => void
 }) {
   if (!open || !node) return null
 
-  const canPlay = Boolean(node.homeTeam && node.awayTeam && selectedTeamId)
   const canSimulate = Boolean(node.homeTeam && node.awayTeam && onSimulate)
   const displayScore = scoreForNode(node, score)
 
@@ -423,9 +420,7 @@ function LevelEntryScreen({
           <button type="button" className="wcmap-entry__close" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
 
-        {node.status !== 'completed' && (
-          <p className="wcmap-entry__hint">{getStatusHint(node.status)}</p>
-        )}
+        <p className="wcmap-entry__hint">{getStatusHint(node.status)}</p>
 
         {node.status === 'completed' && node.pickedTeamId ? (
           <div className="wcmap-entry__result">
@@ -470,7 +465,7 @@ function LevelEntryScreen({
               type="button"
               className={`wcmap-entry__team${selectedTeamId === node.homeTeam?.id ? ' is-selected' : ''}`}
               onClick={() => node.homeTeam && onPickTeam(node.homeTeam.id)}
-              disabled={!node.homeTeam}
+              disabled={!node.homeTeam || !node.awayTeam}
             >
               <span className="wcmap-entry__team-flag">
                 {teamFlagImageUrl(node.homeTeam) ? <img src={teamFlagImageUrl(node.homeTeam) ?? undefined} alt="" /> : <span>{node.homeTeam?.flagEmoji ?? '🌍'}</span>}
@@ -483,7 +478,7 @@ function LevelEntryScreen({
               type="button"
               className={`wcmap-entry__team${selectedTeamId === node.awayTeam?.id ? ' is-selected' : ''}`}
               onClick={() => node.awayTeam && onPickTeam(node.awayTeam.id)}
-              disabled={!node.awayTeam}
+              disabled={!node.homeTeam || !node.awayTeam}
             >
               <span className="wcmap-entry__team-flag">
                 {teamFlagImageUrl(node.awayTeam) ? <img src={teamFlagImageUrl(node.awayTeam) ?? undefined} alt="" /> : <span>{node.awayTeam?.flagEmoji ?? '🌍'}</span>}
@@ -492,19 +487,6 @@ function LevelEntryScreen({
               <small>{node.awayTeam?.name ?? 'En attente'}</small>
             </button>
           </div>
-
-        <div className="wcmap-entry__actions">
-          <button
-            type="button"
-            className="wcmap-entry__play"
-            onClick={onPlay}
-            disabled={!canPlay}
-          >
-            {node.status === 'completed'
-              ? 'Rejouer avec ce camp'
-              : node.isFinalBoss ? 'Jouer la finale' : 'Jouer ce match'}
-          </button>
-        </div>
       </aside>
     </div>
   )
@@ -617,10 +599,14 @@ export function WorldCupMapMenu({
   useEffect(() => {
     if (!focusNode || !viewportRef.current || panFocusRef.current === focusNode.id) return
     panFocusRef.current = focusNode.id
-    const viewportHeight = viewportRef.current.clientHeight
-    const maxPan = Math.max(0, MAP_HEIGHT - viewportHeight)
-    const targetOffset = -(focusNode.y - viewportHeight * 0.5)
-    animatePanTo(Math.max(-maxPan, Math.min(0, targetOffset)), 720)
+    const frameId = window.requestAnimationFrame(() => {
+      const viewportHeight = viewportRef.current?.clientHeight ?? 0
+      if (!viewportHeight) return
+      const maxPan = Math.max(0, MAP_HEIGHT - viewportHeight)
+      const targetOffset = -(focusNode.y - viewportHeight * 0.52)
+      animatePanTo(Math.max(-maxPan, Math.min(0, targetOffset)), 520)
+    })
+    return () => window.cancelAnimationFrame(frameId)
   }, [focusNode])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -699,19 +685,14 @@ export function WorldCupMapMenu({
 
   const handlePickTeam = (teamId: string) => {
     if (!selectedNode) return
-    sfx.pick()
-    setSelectedTeamId(teamId)
-  }
-
-  const handlePlay = () => {
-    if (!selectedNode) return
-    const chosenTeamId = selectedTeamId
-    if (!chosenTeamId) {
-      setNotice('Choisis ton camp avant de jouer.')
+    if (!selectedNode.homeTeam || !selectedNode.awayTeam) {
+      setNotice('Ce match n est pas encore disponible.')
       return
     }
+    sfx.pick()
+    setSelectedTeamId(teamId)
     sfx.battle()
-    onPlay(selectedNode.id, chosenTeamId)
+    onPlay(selectedNode.id, teamId)
   }
 
   const handleSimulate = () => {
@@ -771,7 +752,6 @@ export function WorldCupMapMenu({
         canShowBracket={Boolean(onShowBracket)}
         onClose={() => setSelectedMatchId(null)}
         onPickTeam={handlePickTeam}
-        onPlay={handlePlay}
         onSimulate={onSimulate ? handleSimulate : undefined}
         onShowBracket={onShowBracket}
         onShare={onSave}

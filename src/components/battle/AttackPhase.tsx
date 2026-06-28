@@ -429,6 +429,7 @@ export function AttackPhase({
   const [tutorialDone, setTutorialDone] = useState(
     () => shotOnly
   )
+  const [preCountdownNum, setPreCountdownNum] = useState<number | null>(null)
 
   //  Top-level phase 
   const [phase, setPhase] = useState<'gd' | 'shot'>(() => shotOnly ? 'shot' : 'gd')
@@ -465,6 +466,25 @@ export function AttackPhase({
   const [flow, setFlow] = useState(0)
   const [bonusFlash, setBonusFlash] = useState(false)
 
+  const startTutorialCountdown = useCallback(() => {
+    sfx.click()
+    sfx.countdownTick()
+    setPreCountdownNum(3)
+    const t1 = window.setTimeout(() => { setPreCountdownNum(2); sfx.countdownTick() }, 800)
+    const t2 = window.setTimeout(() => { setPreCountdownNum(1); sfx.countdownTick() }, 1600)
+    const t3 = window.setTimeout(() => { setPreCountdownNum(0); sfx.countdownGo() }, 2400)
+    const t4 = window.setTimeout(() => {
+      setPreCountdownNum(null)
+      setTutorialDone(true)
+    }, 3050)
+    return () => {
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      window.clearTimeout(t3)
+      window.clearTimeout(t4)
+    }
+  }, [])
+
   // Shot phase: aim cursor follows hold/drag; release fires.
   const aimCursorRef = useRef<{ x: number; y: number } | null>(shotOnly ? { x: 50, y: 30 } : null)
   const [aimCursorPos, setAimCursorPos] = useState<{ x: number; y: number } | null>(() => shotOnly ? { x: 50, y: 30 } : null)
@@ -472,6 +492,14 @@ export function AttackPhase({
   const hasAimedTargetRef = useRef(false)
   const aimStartRef = useRef<{ x: number; y: number } | null>(null)
   const [shotAimWarning, setShotAimWarning] = useState(false)
+  const [shotTutorialDone, setShotTutorialDone] = useState(false)
+  const [shotJoystick, setShotJoystick] = useState<{
+    pullX: number
+    pullY: number
+    distance: number
+    angle: number
+    power: number
+  } | null>(null)
   const aimWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const shotFiredRef = useRef(false)
   const shotGameRef  = useRef<HTMLDivElement>(null)
@@ -512,14 +540,14 @@ export function AttackPhase({
   const shotRectRef      = useRef({ left: 0, top: 0, width: 0, height: 0 })
 
   useEffect(() => {
-    if (phase !== 'shot' || showShotIntro) return
+    if (phase !== 'shot' || showShotIntro || !shotTutorialDone) return
     onAudioOverride?.(shotAudioMode === 'heartOnly' ? null : '/audio/final-kick-freeze.mp3')
-    const heart = playGameSound('/audio/heart.mp3', { volume: shotAudioMode === 'heartOnly' ? 0.88 : 0.7, loop: true })
+    const heart = playGameSound('/audio/heart.mp3', { volume: shotAudioMode === 'heartOnly' ? 0.88 : 0.7, loop: true, kind: 'ambience' })
     return () => {
       heart?.stop()
       onAudioOverride?.(null)
     }
-  }, [phase, showShotIntro, onAudioOverride, shotAudioMode])
+  }, [phase, showShotIntro, onAudioOverride, shotAudioMode, shotTutorialDone])
 
   useEffect(() => {
     if (!shotOnly) return
@@ -719,7 +747,7 @@ export function AttackPhase({
         const isJumpCue = wall.type === 'slide_wall' || wall.type === 'double_slide_wall' || wall.type === 'combo_gate_slide'
         if (isJumpCue && screenY > -4 && !crowdCueRef.current.has(wall.id)) {
           crowdCueRef.current.add(wall.id)
-          playGameSound('/audio/crowd.mp3', { volume: 0.78 })
+          playGameSound('/audio/crowd.mp3', { volume: 0.78, kind: 'ambience' })
         }
 
         // Trigger when wall top edge reaches PLAYER_Y band
@@ -801,7 +829,7 @@ export function AttackPhase({
 
   //  Shot RAF  keeper + aim cursor + gauge all oscillate simultaneously 
   useEffect(() => {
-    if (phase !== 'shot' || showShotIntro) return
+    if (phase !== 'shot' || showShotIntro || !shotTutorialDone) return
     shotFiredRef.current = false
     gaugeTimeRef.current = 0
     let frame = 0
@@ -862,55 +890,63 @@ export function AttackPhase({
 
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [phase, showShotIntro, cfg.gaugeSpeed, difficulty, finish])
+  }, [phase, showShotIntro, shotTutorialDone, cfg.gaugeSpeed, difficulty, finish])
 
-  //  Map screen pointer to goal-normalized coords (0-100), clamped inside goal 
-  const pointerToGoalTarget = (clientX: number, clientY: number): { x: number; y: number } => {
+  const isGoalTargetInsideFrame = (target: { x: number; y: number }) => (
+    target.x >= 0 && target.x <= 100 && target.y >= 0 && target.y <= 100
+  )
+
+  // Angry Birds style shot: pull the ball down from the player's foot.
+  // The release target can be inside or outside the goal frame.
+  const pointerToShotTarget = (clientX: number, clientY: number): { target: { x: number; y: number }; pullX: number; pullY: number; distance: number; angle: number; power: number } => {
     const rect = shotRectRef.current
-    if (!rect.width) return { x: 50, y: 30 }
-    const svgX = (clientX - rect.left) / rect.width   // 0-1
-    const svgY = (clientY - rect.top)  / rect.height  // 0-1
+    if (!rect.width || !rect.height) {
+      return { target: { x: 50, y: 82 }, pullX: 0, pullY: 0, distance: 0, angle: 90, power: 0 }
+    }
 
-    // Compact goal metrics (must match goalFrameMetrics in GoalView)
-    const topY = 0.22, bottomY = 0.44
-    const topLeft = 0.18, topRight = 0.82
-    const bottomLeft = 0.12, bottomRight = 0.88
-
-    // Clamp Y into goal
-    const cy = Math.max(topY, Math.min(bottomY, svgY))
-    const normY = (cy - topY) / (bottomY - topY)  // 0-1 within goal height
-
-    // Left/right edges at this Y
-    const leftEdge  = topLeft  + (bottomLeft  - topLeft)  * normY
-    const rightEdge = topRight + (bottomRight - topRight) * normY
-
-    // Clamp X into goal edges
-    const cx = Math.max(leftEdge, Math.min(rightEdge, svgX))
-    const normX = (cx - leftEdge) / (rightEdge - leftEdge)  // 0-1 within goal width
-
-    return { x: normX * 100, y: normY * 100 }
+    const originX = rect.left + rect.width * 0.5
+    const originY = rect.top + rect.height * 0.86
+    const maxPullX = Math.max(72, rect.width * 0.34)
+    const maxPullY = Math.max(92, rect.height * 0.32)
+    const pullX = Math.max(-maxPullX, Math.min(maxPullX, clientX - originX))
+    const pullY = Math.max(0, Math.min(maxPullY, clientY - originY))
+    const power = Math.max(0, Math.min(1, pullY / maxPullY))
+    const target = {
+      x: 50 - (pullX / maxPullX) * 92,
+      y: 92 - power * 132,
+    }
+    const distance = Math.hypot(pullX, pullY)
+    const angle = Math.atan2(pullY, pullX) * 180 / Math.PI
+    return { target, pullX, pullY, distance, angle, power }
   }
 
   // Shot aiming: hold to aim, release to kick.
   const handleShotPointerMove = (e: React.PointerEvent<HTMLElement>) => {
-    if (shotFiredRef.current || endedRef.current || phase !== 'shot' || ballFlight) return
+    if (shotFiredRef.current || endedRef.current || phase !== 'shot' || !shotTutorialDone || ballFlight) return
     if (!isAimingRef.current) return
 
-    const pos = pointerToGoalTarget(e.clientX, e.clientY)
-    const start = aimStartRef.current
-    if (start && Math.hypot(pos.x - start.x, pos.y - start.y) > 2.5) {
+    const aim = pointerToShotTarget(e.clientX, e.clientY)
+    if (aim.power > 0.08 || Math.abs(aim.pullX) > 10) {
       hasAimedTargetRef.current = true
       setHasAimedTarget(true)
       setShotAimWarning(false)
     }
-    aimCursorRef.current = pos
-    setAimCursorPos(pos)
+    aimCursorRef.current = aim.target
+    setAimCursorPos(aim.target)
+    setShotJoystick({
+      pullX: aim.pullX,
+      pullY: aim.pullY,
+      distance: aim.distance,
+      angle: aim.angle,
+      power: aim.power,
+    })
   }
 
   const fireShot = () => {
     if (shotFiredRef.current || endedRef.current) return
 
     shotFiredRef.current = true
+    setShotJoystick(null)
     setIsKicking(true)
     playGameSound('/audio/ball-kick.mp3', { volume: 0.9 })
 
@@ -922,7 +958,8 @@ export function AttackPhase({
     const at = aimCursorRef.current ?? { x: 50, y: 50 }
     const keeperCfg = KEEPER_CFG[difficulty]
     const saveRadiusMultiplier = shotBonusRef.current.powerShot ? 0.9 : 1
-    const keeperBlocking = inGreen && keeperCoversTarget(
+    const targetInsideFrame = isGoalTargetInsideFrame(at)
+    const keeperBlocking = inGreen && targetInsideFrame && keeperCoversTarget(
       at,
       { x: keeperXRef.current, y: keeperYRef.current },
       keeperCfg,
@@ -932,12 +969,14 @@ export function AttackPhase({
     const FLIGHT_MS = 700
     const KICK_DELAY_MS = 120
     const aimTarget: GoalTarget = { x: at.x, y: at.y, clientX: 0, clientY: 0 }
-    const missTarget: GoalTarget = { x: cursor < greenL ? -18 : 118, y: -18, clientX: 0, clientY: 0 }
+    const missTarget: GoalTarget = targetInsideFrame
+      ? { x: cursor < greenL ? -18 : 118, y: -18, clientX: 0, clientY: 0 }
+      : aimTarget
 
     window.setTimeout(() => setIsKicking(false), 240)
 
     window.setTimeout(() => {
-      if (!inGreen) {
+      if (!inGreen || !targetInsideFrame) {
         setBallFlight({ id: Date.now(), target: missTarget, state: 'miss', duration: FLIGHT_MS })
         window.setTimeout(() => setResultLabel('RATE !'), FLIGHT_MS)
         window.setTimeout(() => finish(false, 'miss'), FLIGHT_MS + 700)
@@ -958,33 +997,41 @@ export function AttackPhase({
   }
 
   const handleShotPointerDown = (e: React.PointerEvent<HTMLElement>) => {
-    if (shotFiredRef.current || endedRef.current || phase !== 'shot' || ballFlight) return
+    if (shotFiredRef.current || endedRef.current || phase !== 'shot' || !shotTutorialDone || ballFlight) return
 
     isAimingRef.current = true
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
 
-    const pos = pointerToGoalTarget(e.clientX, e.clientY)
-    aimStartRef.current = pos
+    const aim = pointerToShotTarget(e.clientX, e.clientY)
+    aimStartRef.current = { x: aim.pullX, y: aim.pullY }
     setShotAimWarning(false)
-    aimCursorRef.current = pos
-    setAimCursorPos(pos)
+    aimCursorRef.current = aim.target
+    setAimCursorPos(aim.target)
+    setShotJoystick({
+      pullX: aim.pullX,
+      pullY: aim.pullY,
+      distance: aim.distance,
+      angle: aim.angle,
+      power: aim.power,
+    })
   }
 
   const handleShotPointerUp = (e: React.PointerEvent<HTMLElement>) => {
-    if (shotFiredRef.current || endedRef.current || phase !== 'shot' || ballFlight) return
+    if (shotFiredRef.current || endedRef.current || phase !== 'shot' || !shotTutorialDone || ballFlight) return
     if (!isAimingRef.current) return
 
     isAimingRef.current = false
     try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* noop */ }
 
-    const pos = pointerToGoalTarget(e.clientX, e.clientY)
+    const aim = pointerToShotTarget(e.clientX, e.clientY)
     const start = aimStartRef.current
-    const hasMovedAim = hasAimedTargetRef.current || !start || Math.hypot(pos.x - start.x, pos.y - start.y) > 2.5
-    aimCursorRef.current = pos
-    setAimCursorPos(pos)
+    const hasMovedAim = hasAimedTargetRef.current || !start || aim.power > 0.1 || Math.hypot(aim.pullX - start.x, aim.pullY - start.y) > 18
+    aimCursorRef.current = aim.target
+    setAimCursorPos(aim.target)
     aimStartRef.current = null
 
     if (!hasMovedAim) {
+      setShotJoystick(null)
       setShotAimWarning(true)
       if (aimWarningTimerRef.current) clearTimeout(aimWarningTimerRef.current)
       aimWarningTimerRef.current = setTimeout(() => setShotAimWarning(false), 1500)
@@ -999,17 +1046,21 @@ export function AttackPhase({
   const handleShotPointerCancel = () => {
     isAimingRef.current = false
     aimStartRef.current = null
+    setShotJoystick(null)
   }
 
   //  Transition from GD to shot 
   const handleStartShot = () => {
+    sfx.click()
     setShowShotIntro(false)
     phaseRef.current = 'shot'
     setPhase('shot')
-    // Default cursor at center of goal so the player always sees their aim point
-    const defaultAim = { x: 50, y: 30 }
+    setShotTutorialDone(false)
+    // Default cursor low in the goal while the visible control starts on the ball.
+    const defaultAim = { x: 50, y: 82 }
     aimCursorRef.current = defaultAim
     setAimCursorPos(defaultAim)
+    setShotJoystick(null)
     aimStartRef.current = null
     hasAimedTargetRef.current = false
     setHasAimedTarget(false)
@@ -1101,6 +1152,19 @@ export function AttackPhase({
           letter-spacing: .1em; cursor: pointer;
           box-shadow: 0 0 16px rgba(43,255,154,.35);
         }
+        .atk-pre-countdown {
+          position: absolute; inset: 0; z-index: 75;
+          display: flex; align-items: center; justify-content: center;
+          background: rgba(5,11,22,.78); backdrop-filter: blur(2px);
+          pointer-events: none;
+        }
+        .atk-pre-countdown__num {
+          font: 900 clamp(78px,24vw,136px) 'Barlow Condensed', sans-serif;
+          color: #fff; text-shadow: 0 0 40px rgba(255,255,255,.55);
+          animation: atkCountdownPop .8s both;
+        }
+        .atk-pre-countdown__num.is-go { color: #2bff9a; text-shadow: 0 0 40px rgba(43,255,154,.75); }
+        @keyframes atkCountdownPop { 0%{transform:scale(2.1);opacity:0} 24%{opacity:1} 82%{transform:scale(1)} 100%{transform:scale(.82);opacity:0} }
 
         /*  Comment popup  */
         .atk-row-comment {
@@ -1356,7 +1420,7 @@ export function AttackPhase({
         }
 
         .atk-aim-hint {
-          position: absolute; top: 62%; left: 50%; transform: translate(-50%, -50%);
+          position: absolute; top: 70%; left: 50%; transform: translate(-50%, -50%);
           z-index: 25; pointer-events: none; text-align: center;
           padding: 8px 12px; border-radius: 999px;
           background: rgba(4, 12, 22, .72); border: 1px solid rgba(43,255,154,.34);
@@ -1364,6 +1428,84 @@ export function AttackPhase({
           letter-spacing: .13em; text-transform: uppercase;
           box-shadow: 0 0 20px rgba(43,255,154,.18);
           animation: atkBlink 0.72s ease-in-out infinite alternate;
+        }
+        .atk-shot-joystick {
+          position: absolute;
+          left: 50%;
+          top: 86%;
+          z-index: 26;
+          width: 0;
+          height: 0;
+          pointer-events: none;
+          filter: drop-shadow(0 0 16px rgba(255,184,0,.34));
+        }
+        .atk-shot-joystick__base,
+        .atk-shot-joystick__thumb,
+        .atk-shot-joystick__rope {
+          position: absolute;
+          left: 0;
+          top: 0;
+          transform-origin: 0 50%;
+        }
+        .atk-shot-joystick__base {
+          width: 86px;
+          height: 86px;
+          transform: translate(-50%, -50%);
+          border-radius: 50%;
+          border: 2px solid rgba(255,184,0,.86);
+          background: radial-gradient(circle, rgba(255,216,74,.22), rgba(255,216,74,.08) 46%, rgba(255,184,0,.02) 72%);
+          box-shadow: inset 0 0 18px rgba(255,184,0,.22), 0 0 24px rgba(255,184,0,.24);
+          animation: atkShotJoystickPulse 0.88s ease-in-out infinite alternate;
+        }
+        .atk-shot-joystick.is-dragging .atk-shot-joystick__base {
+          animation: none;
+          opacity: .82;
+        }
+        .atk-shot-joystick__thumb {
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          border: 2px solid #fff;
+          background: rgba(255,184,0,.32);
+          box-shadow: 0 0 18px rgba(255,184,0,.7), inset 0 0 12px rgba(255,255,255,.2);
+        }
+        .atk-shot-joystick__thumb:after {
+          content: '';
+          position: absolute;
+          inset: 10px;
+          border-radius: 50%;
+          background: #f7f9fc;
+          border: 2px solid #101827;
+          box-shadow: 0 0 10px rgba(255,255,255,.52);
+        }
+        .atk-shot-joystick__rope {
+          height: 4px;
+          width: calc(var(--pull-distance, 0) * 1px);
+          transform: rotate(calc(var(--pull-angle, 90) * 1deg));
+          border-radius: 999px;
+          background: linear-gradient(90deg, rgba(255,184,0,.9), rgba(255,255,255,.55));
+          opacity: .82;
+        }
+        .atk-shot-joystick__power {
+          position: absolute;
+          left: 50%;
+          top: 58px;
+          transform: translateX(-50%);
+          width: 78px;
+          height: 6px;
+          border-radius: 999px;
+          background: rgba(255,255,255,.14);
+          overflow: hidden;
+        }
+        .atk-shot-joystick__power i {
+          display: block;
+          height: 100%;
+          width: calc(var(--pull-power, 0) * 100%);
+          background: linear-gradient(90deg, #FFB800, #2bff9a);
+        }
+        @keyframes atkShotJoystickPulse {
+          from { transform: translate(-50%, -50%) scale(.94); opacity: .72; }
+          to { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
         }
         .atk-aim-warning {
           position: absolute; top: 66%; left: 50%; transform: translate(-50%, -50%);
@@ -1376,6 +1518,28 @@ export function AttackPhase({
           animation: atkWarningPop 1.5s ease-out both;
         }
         @keyframes atkWarningPop { 0%{opacity:0;scale:.86} 12%{opacity:1;scale:1.04} 72%{opacity:1;scale:1} 100%{opacity:0;scale:.96} }
+        .atk-shot-tutorial {
+          position: absolute; inset: 0; z-index: 44;
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          gap: 14px; padding: 24px; text-align: center;
+          background: rgba(5,11,22,.82); backdrop-filter: blur(3px);
+        }
+        .atk-shot-tutorial__title {
+          font: 900 clamp(34px,11vw,58px) 'Barlow Condensed', sans-serif;
+          color: #FFB800; letter-spacing: .18em; text-transform: uppercase;
+          text-shadow: 0 0 30px rgba(255,184,0,.58);
+        }
+        .atk-shot-tutorial__text {
+          max-width: 330px; color: rgba(255,255,255,.86);
+          font: 700 clamp(13px,4vw,17px) 'Barlow Condensed', sans-serif;
+          line-height: 1.42;
+        }
+        .atk-shot-tutorial__btn {
+          margin-top: 4px; padding: 12px 30px; border-radius: 12px;
+          border: 2px solid #2bff9a; background: rgba(43,255,154,.12);
+          color: #2bff9a; font: 900 16px 'Barlow Condensed', sans-serif;
+          letter-spacing: .14em; cursor: pointer; box-shadow: 0 0 18px rgba(43,255,154,.28);
+        }
         /*  Result overlay  */
         .atk-result-overlay {
           position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -1429,13 +1593,17 @@ export function AttackPhase({
       `}</style>
 
       {/*  Tutorial overlay  */}
-      {!tutorialDone && (
+      {!tutorialDone && preCountdownNum === null && (
         <div className="atk-tutorial">
           <div className="atk-tutorial__title">DRIBBLE RUSH</div>
           <div className="atk-tutorial__instruction">
             Passe dans les portes vertes entre les defenseurs.
             <br /><br />
             Utilise <b style={{ color:'#2bff9a' }}>Gauche / Esquive / Droite</b> pour slalomer.
+            <br />
+            Les portes peuvent etre etroites, mobiles, diagonales ou protegees par des murs.
+            <br /><br />
+            Garde le <b style={{ color:'#FFB800' }}>FLOW</b> : les combos agrandissent la zone verte, ralentissent le gardien ou boostent la frappe.
             <br /><br />
             <span style={{ color:'rgba(255,255,255,.5)', fontSize:'0.9em' }}> Clavier :   pour se deplacer  Espace pour sauter</span>
           </div>
@@ -1443,14 +1611,20 @@ export function AttackPhase({
           <button
             type="button"
             className="atk-tutorial__btn"
-            onClick={() => {
-              setTutorialDone(true)
-            }}
+            onClick={startTutorialCountdown}
           >
             OK  Jouer !
           </button>
         </div>
       )}
+
+      {!tutorialDone && preCountdownNum !== null ? (
+        <div className="atk-pre-countdown">
+          <div className={`atk-pre-countdown__num${preCountdownNum === 0 ? ' is-go' : ''}`}>
+            {preCountdownNum === 0 ? 'GO !' : preCountdownNum}
+          </div>
+        </div>
+      ) : null}
 
       {/*  Shot intro transition  */}
       {showShotIntro && (
@@ -1459,8 +1633,9 @@ export function AttackPhase({
           <div className="atk-transition__title">ZONE DE TIR</div>
           <div className="atk-transition__sub">{flow >= 70 || shotBonusRef.current.powerShot ? 'TIR BOOSTE' : 'Maintiens, vise, relache'}</div>
           <div className="atk-transition__desc">
-            Maintiens la cible dans la cage, vise un coin, puis relache quand la jauge est dans le vert.<br /><br />
-            <b style={{ color:'#2bff9a' }}>Vert = tir cadre</b>  Gardien proche = arret  Hors vert = rate
+            Maintiens la balle au pied, tire vers le bas comme un lance-pierre, vise une zone de l'ecran, puis relache quand la jauge est dans le vert.<br /><br />
+            <b style={{ color:'#2bff9a' }}>Vert = tir cadre</b>  Hors cage = rate  Gardien sur la route = arret<br />
+            Plus ton FLOW est haut, plus le tir devient favorable.
           </div>
           <button type="button" className="atk-transition__btn" onClick={handleStartShot}>
              Tirer !
@@ -1626,12 +1801,47 @@ export function AttackPhase({
             isKicking={isKicking}
             targetActive={hasAimedTarget}
           />
+          {!shotTutorialDone && !ballFlight && !resultLabel ? (
+            <div className="atk-shot-tutorial">
+              <div className="atk-shot-tutorial__title">PHASE DE TIR</div>
+              <div className="atk-shot-tutorial__text">
+                Maintiens le rond jaune sur la balle au pied du joueur.
+                <br /><br />
+                Tire vers le bas avec le doigt ou la souris pour viser comme dans Angry Birds. La cible peut aller dans la cage ou dehors.
+                <br /><br />
+                Relache quand le curseur est dans le <b style={{ color: '#2bff9a' }}>vert</b>. Vert + cage + gardien pas sur la route = but. Hors vert, hors cage ou gardien devant = echec.
+              </div>
+              <button type="button" className="atk-shot-tutorial__btn" onClick={() => { sfx.click(); setShotTutorialDone(true) }}>
+                OK TIRER
+              </button>
+            </div>
+          ) : null}
+          {shotTutorialDone && !ballFlight && !resultLabel ? (
+            <div
+              className={`atk-shot-joystick${isAimingRef.current ? ' is-dragging' : ''}`}
+              style={{
+                '--pull-distance': `${shotJoystick?.distance ?? 0}`,
+                '--pull-angle': `${shotJoystick?.angle ?? 90}`,
+                '--pull-power': `${shotJoystick?.power ?? 0}`,
+              } as CSSProperties}
+              aria-hidden="true"
+            >
+              <span className="atk-shot-joystick__rope" />
+              <span className="atk-shot-joystick__base" />
+              <span
+                className="atk-shot-joystick__thumb"
+                style={{ transform: `translate(calc(-50% + ${shotJoystick?.pullX ?? 0}px), calc(-50% + ${shotJoystick?.pullY ?? 0}px))` }}
+              >
+                <span className="atk-shot-joystick__power"><i /></span>
+              </span>
+            </div>
+          ) : null}
           {/* Hint when no aim yet */}
           {!hasAimedTarget && !ballFlight && !resultLabel && (
-            <div className="atk-aim-hint">MAINTIENS ET DEPLACE LA CIBLE</div>
+            <div className="atk-aim-hint">MAINTIENS LA BALLE, TIRE VERS LE BAS</div>
           )}
           {shotAimWarning && !ballFlight && !resultLabel && (
-            <div className="atk-aim-warning">DEPLACE LA CIBLE POUR VISER AVANT PUIS RELACHE AU BON MOMENT</div>
+            <div className="atk-aim-warning">TIRE LE ROND JAUNE VERS LE BAS, VISE, PUIS RELACHE DANS LE VERT</div>
           )}
 
           {/* Gauge  visible until tir fired */}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import type { BattleMatchState, BattleResult, BattleRoundType, DefenseOutcome, KnockoutMatch, Team } from '../../types'
 import { getCommentary } from '../../lib/commentary'
-import { playGameSound, setGameMuted, useGameAudio, useGameMuted } from '../../lib/useGameAudio'
+import { playGameSound, setGameMuted, setGameMusicVolumeMultiplier, useGameAudio, useGameMuted } from '../../lib/useGameAudio'
 import { sfx } from '../../lib/sfx'
 import { resolveTeamKit } from '../../lib/teamKits'
 import AttackPhase, { type AttackEndReason } from './AttackPhase'
@@ -30,6 +30,11 @@ type BattleEngineProps = {
   onQuit?: () => void
   playerSide?: 'home' | 'away'
   showControls?: boolean
+}
+
+type RetrySnapshot = {
+  state: BattleMatchState
+  history: BattleResult['rounds']
 }
 
 function highlightPlayerName(text: string, playerName: string): ReactNode {
@@ -176,6 +181,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const [history, setHistory] = useState<BattleResult['rounds']>([])
   const [roundOutcome, setRoundOutcome] = useState<RoundOutcome>('miss')
   const [nextAction, setNextAction] = useState<NextAction | null>(null)
+  const [retrySnapshot, setRetrySnapshot] = useState<RetrySnapshot | null>(null)
   const [isPaused, setIsPaused] = useState(false)
   const [countdownNum, setCountdownNum] = useState<number | null>(null)
   const [audioOverride, setAudioOverride] = useState<string | null>(null)
@@ -218,7 +224,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const countdownProgress = countdownNum === 3 ? '100%' : countdownNum === 2 ? '66%' : countdownNum === 1 ? '33%' : '100%'
 
   const startRoundCountdown = () => {
-    setState((current) => ({ ...current, phase: 'countdown' }))
+    setState((current) => ({ ...current, phase: 'playing' }))
   }
 
   // Audio
@@ -235,6 +241,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const audioSrc = audioOverride ?? baseAudioSrc
   useGameAudio(audioSrc)
 
+  useEffect(() => {
+    setGameMusicVolumeMultiplier(state.phase === 'intro' || state.phase === 'match_result' ? 1 : 0.14)
+    return () => setGameMusicVolumeMultiplier(1)
+  }, [state.phase])
+
   const commentaryData = useMemo(() => {
     if (!homeTeam || !awayTeam) return null
     if (currentRound === 'fruit_ninja') return null
@@ -248,10 +259,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   // Countdown 3-2-1-GO
   useEffect(() => {
     if (state.phase !== 'countdown') return
+    sfx.countdownTick()
     setCountdownNum(3)
-    const t1 = setTimeout(() => setCountdownNum(2), 900)
-    const t2 = setTimeout(() => setCountdownNum(1), 1800)
-    const t3 = setTimeout(() => setCountdownNum(0), 2700)   // 0 = "GO!"
+    const t1 = setTimeout(() => { setCountdownNum(2); sfx.countdownTick() }, 900)
+    const t2 = setTimeout(() => { setCountdownNum(1); sfx.countdownTick() }, 1800)
+    const t3 = setTimeout(() => { setCountdownNum(0); sfx.countdownGo() }, 2700)   // 0 = "GO!"
     const t4 = setTimeout(() => {
       setCountdownNum(null)
       setState((curr) => ({ ...curr, phase: 'playing' }))
@@ -272,10 +284,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         ...current,
         rounds: nextAction.append ? [...current.rounds, nextAction.append] : current.rounds,
         roundIndex: current.roundIndex + 1,
-        phase: skipScreens ? 'countdown' : 'round_start',
+        phase: skipScreens ? 'playing' : 'round_start',
       }))
     }
     setNextAction(null)
+    setRetrySnapshot(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nextAction, skipScreens])
 
@@ -310,6 +323,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
       }
     }
 
+    setRetrySnapshot({ state, history })
     setHistory(nextHistory)
     setRoundOutcome(outcome)
     setNextAction(action)
@@ -400,14 +414,28 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const roundStartPrimary = roundStartKit.primary ?? (currentRound === 'attack' ? '#2bff9a' : '#FF4455')
 
   const handleRestart = () => {
+    sfx.click()
     setIsPaused(false)
     setHistory([])
     setNextAction(null)
+    setRetrySnapshot(null)
     setRoundOutcome('miss')
     setCoinFlipWinnerId(null)
     setSimulatedResult(null)
     setCoinFlipMode('sudden_death')
     setState(makeInitialState(homeTeamId, awayTeamId, match.stage, skipIntro))
+  }
+
+  const handleRetryRound = () => {
+    if (!retrySnapshot) return
+    sfx.click()
+    setIsPaused(false)
+    setHistory(retrySnapshot.history)
+    setNextAction(null)
+    setRoundOutcome('miss')
+    setAudioOverride(null)
+    setRetrySnapshot(null)
+    setState({ ...retrySnapshot.state, phase: 'round_start' })
   }
 
 
@@ -570,7 +598,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           keeperName={currentRound === 'defense' || currentRound === 'fruit_ninja' ? homeKeeperName : awayKeeperName}
           opponentName={awayTeam?.name}
           nextRoundType={nextRoundType}
-          onContinue={advanceRound}
+          onContinue={() => { sfx.click(); advanceRound() }}
+          onRetry={retrySnapshot ? handleRetryRound : undefined}
         />
       ) : null}
       {state.phase === 'coin_flip' ? (
@@ -582,10 +611,10 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           homeFlag={homeFlag || homeTeam?.shortName?.slice(0, 2).toUpperCase() || homeTeamId.slice(0, 2).toUpperCase()}
           awayFlag={awayFlag || awayTeam?.shortName?.slice(0, 2).toUpperCase() || awayTeamId.slice(0, 2).toUpperCase()}
           mode={coinFlipMode}
-          onComplete={handleCoinFlipEnd}
+          onComplete={(winnerId, score, commentary) => { sfx.click(); handleCoinFlipEnd(winnerId, score, commentary) }}
         />
       ) : null}
-      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} onContinue={() => onComplete(displayedResult)} /> : null}
+      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} onContinue={() => { sfx.click(); onComplete(displayedResult) }} /> : null}
 
       {/* Countdown overlay */}
       {state.phase === 'countdown' && countdownNum !== null ? (
@@ -601,7 +630,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         <button
           type="button"
           className="battle-pause-btn"
-          onClick={() => setIsPaused(true)}
+          onClick={() => { sfx.click(); setIsPaused(true) }}
           aria-label="Pause"
         >⏸</button>
       ) : null}
@@ -611,17 +640,17 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         <div className="battle-pause-modal">
           <div className="battle-pause-modal__inner">
             <div className="battle-pause-modal__title">PAUSE</div>
-            <button type="button" className="battle-pause-modal__btn battle-pause-modal__btn--resume" onClick={() => setIsPaused(false)}>
+            <button type="button" className="battle-pause-modal__btn battle-pause-modal__btn--resume" onClick={() => { sfx.click(); setIsPaused(false) }}>
               Reprendre
             </button>
-            <button type="button" className={`battle-pause-modal__btn battle-pause-modal__btn--sound${audioMuted ? ' is-muted' : ''}`} onClick={() => setGameMuted(!audioMuted)}>
+            <button type="button" className={`battle-pause-modal__btn battle-pause-modal__btn--sound${audioMuted ? ' is-muted' : ''}`} onClick={() => { sfx.click(); setGameMuted(!audioMuted) }}>
               {audioMuted ? 'Activer le son' : 'Mute le jeu'}
             </button>
             <button type="button" className="battle-pause-modal__btn" onClick={handleRestart}>
               Recommencer
             </button>
             {onQuit && (
-              <button type="button" className="battle-pause-modal__btn battle-pause-modal__btn--quit" onClick={() => { setIsPaused(false); onQuit() }}>
+              <button type="button" className="battle-pause-modal__btn battle-pause-modal__btn--quit" onClick={() => { sfx.click(); setIsPaused(false); onQuit() }}>
                 Quitter
               </button>
             )}
