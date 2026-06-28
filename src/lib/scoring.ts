@@ -1,4 +1,4 @@
-import type { ChallengeEntry } from '../types'
+import type { ChallengeEntry } from '../types.ts'
 
 export const STAGE_POINTS: Record<string, number> = {
   'Round of 32': 3,

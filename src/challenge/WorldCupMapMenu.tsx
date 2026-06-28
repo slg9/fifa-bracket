@@ -13,6 +13,7 @@ export interface WorldCupMapMenuProps {
   onSimulate?: (matchId: string) => void
   onShowBracket?: () => void
   onSave?: () => void
+  autosavedAt?: string | null
 }
 
 type NodeStatus = 'locked' | 'available' | 'completed' | 'live'
@@ -133,6 +134,11 @@ function entrantTeam(match: KnockoutMatch, side: 'home' | 'away', teamsById: Map
 function displayTeamName(team?: Team, fallback?: string) {
   if (team) return team.shortName || team.name
   return fallback ?? 'À déterminer'
+}
+
+function formatAutosaveTime(value?: string | null) {
+  if (!value) return 'Brouillon local'
+  return `Sauvé ${new Date(value).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
 function teamFlagImageUrl(team?: Team) {
@@ -515,6 +521,7 @@ export function WorldCupMapMenu({
   onSimulate,
   onShowBracket,
   onSave,
+  autosavedAt,
 }: WorldCupMapMenuProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const panFocusRef = useRef<string | null>(null)
@@ -715,6 +722,10 @@ export function WorldCupMapMenu({
 
   return (
     <section className="wcmap">
+      <div className="wcmap__autosave" aria-live="polite">
+        <span>{formatAutosaveTime(autosavedAt)}</span>
+        {onSave ? <button type="button" onClick={onSave}>Synchro email</button> : null}
+      </div>
       <div
         className="wcmap__viewport"
         ref={viewportRef}

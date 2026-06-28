@@ -501,6 +501,46 @@
   color: #67f7d5;
 }
 
+.wcmap__autosave {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 20px);
+  padding: 7px 9px;
+  border: 1px solid rgba(103, 247, 213, .22);
+  border-radius: 10px;
+  background: rgba(5, 13, 24, .78);
+  color: rgba(238, 245, 255, .76);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .3);
+  backdrop-filter: blur(12px);
+  font: 700 11px Barlow, sans-serif;
+  pointer-events: auto;
+}
+
+.wcmap__autosave span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wcmap__autosave button {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: rgba(43, 255, 154, .14);
+  color: #2bff9a;
+  font: 800 10px Barlow, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  cursor: pointer;
+}
+
 .wcmap__viewport {
   position: relative;
   flex: 1;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { setGameMuted, useGameAudio, useGameMuted } from '../lib/useGameAudio'
 import { getBrackets, submitBracket } from '../lib/challengeData'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
@@ -25,6 +25,24 @@ export interface BrakupHubProps {
 }
 
 type HubView = 'challenge' | 'battle' | 'brackets' | 'board'
+type SavedProfile = { email: string; pseudo: string; bracketName: string; savedAt?: string }
+
+const PROFILE_STORAGE_KEY = 'brakup:profile'
+const AUTOSAVE_STORAGE_KEY = 'brakup:autosave-at'
+
+function readSavedProfile(): SavedProfile {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) ?? '{}') as Partial<SavedProfile>
+    return {
+      email: parsed.email ?? '',
+      pseudo: parsed.pseudo ?? '',
+      bracketName: parsed.bracketName ?? 'Mon bracket',
+      savedAt: parsed.savedAt,
+    }
+  } catch {
+    return { email: '', pseudo: '', bracketName: 'Mon bracket' }
+  }
+}
 
 function resolveMatches(baseMatches: KnockoutMatch[], picks: Record<string, string>): KnockoutMatch[] {
   const baseMap = new Map(baseMatches.map((match) => [match.id, match]))
@@ -86,6 +104,8 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
   })
   const [activeSide, setActiveSide] = useState<'home' | 'away'>('home')
   const [battleBonuses, setBattleBonuses] = useState(0)
+  const [savedProfile, setSavedProfile] = useState<SavedProfile>(readSavedProfile)
+  const [autosavedAt, setAutosavedAt] = useState<string | null>(() => localStorage.getItem(AUTOSAVE_STORAGE_KEY))
   const [brackets, setBrackets] = useState<ChallengeEntry[]>([])
   const [activeBracketId, setActiveBracketId] = useState<string | null>(null)
   const [showEmailEntry, setShowEmailEntry] = useState(false)
@@ -104,8 +124,24 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
   const matches = useMemo(() => resolveMatches(baseMatches, picks), [baseMatches, picks])
   const activeMatch = matches.find((match) => match.id === activeMatchId)
 
-  useEffect(() => { localStorage.setItem('brakup:draft', JSON.stringify(picks)) }, [picks])
-  useEffect(() => { localStorage.setItem('brakup:scores', JSON.stringify(battleScores)) }, [battleScores])
+  const rememberProfile = useCallback((values: { email: string; pseudo: string; bracketName: string }) => {
+    const next = { ...values, savedAt: new Date().toISOString() }
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(next))
+    setSavedProfile(next)
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem('brakup:draft', JSON.stringify(picks))
+    const now = new Date().toISOString()
+    localStorage.setItem(AUTOSAVE_STORAGE_KEY, now)
+    setAutosavedAt(now)
+  }, [picks])
+  useEffect(() => {
+    localStorage.setItem('brakup:scores', JSON.stringify(battleScores))
+    const now = new Date().toISOString()
+    localStorage.setItem(AUTOSAVE_STORAGE_KEY, now)
+    setAutosavedAt(now)
+  }, [battleScores])
   useEffect(() => { localStorage.setItem('brakup:show-battle-controls', showBattleControls ? '1' : '0') }, [showBattleControls])
   useEffect(() => {
     if (!accessToken) return
@@ -171,6 +207,7 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
 
   const save = async ({ email, pseudo, bracketName, submitted }: { email: string; pseudo: string; bracketName: string; submitted: boolean }) => {
     setSaving(true); setSaveError(null)
+    rememberProfile({ email, pseudo, bracketName })
     try {
       const current = brackets.find((entry) => entry.id === activeBracketId)
       const result = await submitBracket({ ...current, email, pseudo, bracketName, picks, battleBonuses, submittedAt: submitted ? new Date().toISOString() : null })
@@ -220,7 +257,7 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
       {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} showControls={showBattleControls} /> : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
-        <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} realResults={realResults} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); openBracketOverlay(false) }} onSave={() => setShowEmailEntry(true)} />
+        <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} realResults={realResults} autosavedAt={autosavedAt} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); openBracketOverlay(false) }} onSave={() => setShowEmailEntry(true)} />
         <button type="button" className="game-menu-button" onClick={() => { sfx.click(); setShowGameMenu(true) }} aria-label="Ouvrir le menu jeu">
           <span />
           <span />
@@ -283,7 +320,7 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
       ) : null}
       {view === 'brackets' ? <div className="brakup-phone-shell"><MyBrackets brackets={brackets} loading={loadingBrackets} onOpen={openBracket} onCreate={() => { setPicks({}); setActiveBracketId(null); navigate('challenge') }} /></div> : null}
       {view === 'board' ? <div className="brakup-phone-shell"><Leaderboard /></div> : null}
-      {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialBracketName={brackets.find((entry) => entry.id === activeBracketId)?.bracketName} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo} onSubmit={save} onCancel={() => setShowEmailEntry(false)} /> : null}
+      {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={savedProfile.email} initialBracketName={brackets.find((entry) => entry.id === activeBracketId)?.bracketName ?? savedProfile.bracketName} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => setShowEmailEntry(false)} /> : null}
       <footer className="brakup-footer"><span>BRAKUP 2026</span><small>Données tournoi : {seed.meta.name} · {liveSource?.syncedAt ? `sync ${new Date(liveSource.syncedAt).toLocaleString('fr-FR')}` : 'projection locale'}</small></footer>
     </div>
   )

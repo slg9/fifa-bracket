@@ -218,10 +218,6 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const countdownProgress = countdownNum === 3 ? '100%' : countdownNum === 2 ? '66%' : countdownNum === 1 ? '33%' : '100%'
 
   const startRoundCountdown = () => {
-    // Pre-battle already gives the instructions; avoid phase-level tutorial countdowns.
-    sessionStorage.setItem('brakup:tut:atk2', '1')
-    sessionStorage.setItem('brakup:tut:def', '1')
-    sessionStorage.setItem('brakup:tut:ninja', '1')
     setState((current) => ({ ...current, phase: 'countdown' }))
   }
 

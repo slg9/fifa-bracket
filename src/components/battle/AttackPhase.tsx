@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import type { BattleDifficulty } from '../../types'
 import type { TeamKit } from '../../lib/teamKits'
 import { playGameSound } from '../../lib/useGameAudio'
+import { sfx } from '../../lib/sfx'
 import GoalView, { type BallFlight, type GoalTarget } from './GoalView'
 
 export type AttackEndReason = 'goal' | 'saved' | 'miss' | 'intercepted' | 'timeout'
@@ -318,6 +319,15 @@ function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive
   return { success: inGate, label: inGate ? 'PASSE !' : 'INTERCEPTE !' }
 }
 
+function isGatePassWave(wave: SlalomWave) {
+  return wave.type === 'gate'
+    || wave.type === 'narrow_gate'
+    || wave.type === 'diagonal_press'
+    || wave.type === 'moving_gate'
+    || wave.type === 'bonus_choice'
+    || wave.type === 'combo_gate_slide'
+}
+
 function flowGainForWave(wave: SlalomWave, bonus?: boolean) {
   if (bonus) return 22
   if (wave.type === 'gate') return 8
@@ -417,7 +427,7 @@ export function AttackPhase({
 
   //  Tutorial 
   const [tutorialDone, setTutorialDone] = useState(
-    () => shotOnly || sessionStorage.getItem('brakup:tut:atk2') === '1'
+    () => shotOnly
   )
 
   //  Top-level phase 
@@ -623,6 +633,7 @@ export function AttackPhase({
   //  Jump handler 
   const handleJump = () => {
     if (isJumpingRef.current) return
+    sfx.jump()
     jumpStartedAtRef.current = performance.now()
     isJumpingRef.current = true
     setGdJumping(true)
@@ -721,6 +732,7 @@ export function AttackPhase({
         if (outcome.success) {
           wall.passed = true
           registerDribbleSuccess(wall, outcome)
+          if (isGatePassWave(wall)) sfx.gatePass()
           gdCheckedRef.current++
           setGdWallsDisplay([...gdWallsRef.current])
           const comboLabel = comboRef.current >= 10 ? 'INARRETABLE !' : comboRef.current >= 7 ? 'FLOW !' : comboRef.current >= 5 ? 'DRIBBLE FOU !' : comboRef.current >= 3 ? 'CROCHET !' : outcome.label
@@ -900,6 +912,7 @@ export function AttackPhase({
 
     shotFiredRef.current = true
     setIsKicking(true)
+    playGameSound('/audio/ball-kick.mp3', { volume: 0.9 })
 
     const cursor = gaugeCursorRef.current
     const greenL = gaugeGreenLeft.current
@@ -1431,7 +1444,6 @@ export function AttackPhase({
             type="button"
             className="atk-tutorial__btn"
             onClick={() => {
-              sessionStorage.setItem('brakup:tut:atk2', '1')
               setTutorialDone(true)
             }}
           >

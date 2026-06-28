@@ -40,7 +40,7 @@
 .battle-engine button { font: inherit; }
 .battle-intro,.battle-round-start,.battle-round-result,.battle-match-result { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding: 40px 20px max(24px,env(safe-area-inset-bottom)); text-align: center; overflow-y: auto; }
 /* Round-start & result need extra top space for the persistent score strip */
-.battle-round-start,.battle-round-result { padding-top: 104px; }
+.battle-round-start,.battle-round-result { padding-top: max(132px, calc(env(safe-area-inset-top) + 124px)); }
 /* Screen 1 — Battle Entry */
 .battle-intro { background:radial-gradient(120% 60% at 50% 0%,rgba(43,255,154,.16),rgba(5,11,22,0) 55%),#050b16; }
 .battle-intro::before { content:""; position:absolute; inset:0; background: repeating-linear-gradient(90deg,transparent 0 49px,rgba(255,255,255,.018) 50px), repeating-linear-gradient(0deg,transparent 0 49px,rgba(255,255,255,.018) 50px); mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent); pointer-events:none; }
@@ -66,7 +66,7 @@
 .battle-intro__simulate { width:100%;height:50px;border:1.5px solid rgba(255,184,0,.48);border-radius:14px;background:rgba(255,184,0,.1);color:#FFB800;font:900 15px 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;box-shadow:0 0 18px rgba(255,184,0,.12); }
 @keyframes bk-btn { 0%,100%{box-shadow:0 0 0 0 rgba(43,255,154,.45),0 8px 24px rgba(43,255,154,.25)}50%{box-shadow:0 0 26px 4px rgba(43,255,154,.45),0 8px 24px rgba(43,255,154,.25)} }
 /* Screen 2 — Commentary / Round Start */
-.battle-round-start { background:radial-gradient(130% 50% at 50% 40%,rgba(43,255,154,.08),rgba(5,11,22,0) 60%),#050b16;justify-content:center;gap:28px;animation:battleRoundStart .4s both }
+.battle-round-start { background:radial-gradient(130% 50% at 50% 40%,rgba(43,255,154,.08),rgba(5,11,22,0) 60%),#050b16;justify-content:center;gap:clamp(14px,3.4vh,28px);animation:battleRoundStart .4s both }
 .battle-round-start__score { display:inline-flex;align-items:center;gap:12px;padding:9px 18px;border-radius:99px;background:rgba(255,255,255,.05);border:1px solid rgba(255,184,0,.5);font:700 15px 'JetBrains Mono',monospace }
 .battle-round-start__score strong { color:#FFB800 }
 .battle-round-start__score em { color:rgba(255,255,255,.35);font-style:normal }
@@ -107,6 +107,83 @@
 @keyframes battleConfettiSpin { to{rotate:360deg} }
 @media (min-width:700px) and (orientation:landscape) { .battle-attack { grid-template-rows:38% 42% 20%; }.battle-defense { grid-template-columns:34% 66%;grid-template-rows:65% 35%; }.battle-opponent { grid-row:1/3; }.battle-defense__goal { grid-column:2;grid-row:1; }.battle-defense__instructions { grid-column:2;grid-row:2; }.battle-match-result { padding-top:22px; }.battle-match-result__trophy { font-size:45px; }.battle-breakdown header,.battle-breakdown > div { min-height:29px; } }
 @media (prefers-reduced-motion:reduce) { .battle-engine *,.battle-engine *::before,.battle-engine *::after { animation-duration:.01ms!important;animation-iteration-count:1!important; } }
+
+.def-float-actions {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: max(108px, calc(env(safe-area-inset-bottom) + 96px));
+  z-index: 30;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.def-float-action {
+  pointer-events: auto;
+  min-width: 96px;
+  height: 52px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255,255,255,.18);
+  background: rgba(4,12,22,.74);
+  color: #fff;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 28px rgba(0,0,0,.34);
+  font: 900 12px 'Barlow Condensed','Arial Narrow',sans-serif;
+  letter-spacing: .12em;
+  touch-action: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.def-float-action:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--fill, 0) * 100%);
+  background: rgba(255,255,255,.16);
+}
+
+.def-float-action span,
+.def-float-action b {
+  position: relative;
+  display: block;
+  line-height: 1;
+}
+
+.def-float-action b {
+  font-size: 21px;
+  margin-bottom: 3px;
+}
+
+.def-float-action--lightning {
+  border-color: rgba(255,216,74,.62);
+  color: #fff4a8;
+  background: rgba(72,52,5,.62);
+}
+
+.def-float-action--lightning:before {
+  background: rgba(255,216,74,.3);
+}
+
+.def-float-action--tackle {
+  border-color: rgba(43,255,154,.56);
+  color: #dfffee;
+  background: rgba(5,48,31,.62);
+}
+
+.def-float-action.is-cooldown {
+  color: #FFB800;
+  border-color: rgba(255,184,0,.38);
+  background: rgba(55,34,4,.64);
+}
+
+.def-float-action.is-charging {
+  animation: ready .26s infinite alternate;
+}
 /* ——— Desktop: mobile-first shell centré avec fond ambiance ——— */
 /* Countdown: circular, centered, non-blocking over the live game screen */
 .battle-countdown {

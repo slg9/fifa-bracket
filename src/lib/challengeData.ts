@@ -11,7 +11,15 @@ async function request<T>(action: string, body: Record<string, unknown> = {}, to
     },
     body: JSON.stringify({ action, ...body }),
   })
-  const payload = await response.json() as ChallengeResponse<T> & { error?: string }
+  const contentType = response.headers.get('content-type') ?? ''
+  let payload: (ChallengeResponse<T> & { error?: string }) | null = null
+  if (contentType.includes('application/json')) {
+    payload = await response.json() as ChallengeResponse<T> & { error?: string }
+  } else {
+    await response.text()
+    if (!response.ok) throw new Error('Service Brakup indisponible. Ton brouillon reste sauvegardé sur cet appareil.')
+  }
+  if (!payload) throw new Error('Réponse Brakup invalide.')
   if (!response.ok) throw new Error(payload.error ?? 'Service Brakup indisponible.')
   return payload.data
 }

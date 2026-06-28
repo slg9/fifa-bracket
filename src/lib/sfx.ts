@@ -136,4 +136,36 @@ export const sfx = {
     tone(1960, 0.28, { type: 'square', gain: 0.14, freqEnd: 1760 })
     tone(2380, 0.18, { type: 'sine', gain: 0.11, delay: 0.06, freqEnd: 2100 })
   },
+
+  /** Defensive tackle shockwave */
+  tackle() {
+    noise(0.16, { filterFreq: 900, filterFreqEnd: 120, gain: 0.24 })
+    tone(150, 0.18, { type: 'sawtooth', gain: 0.18, freqEnd: 70 })
+  },
+
+  /** Lightning special attack */
+  lightning() {
+    noise(0.2, { filterFreq: 4200, filterFreqEnd: 1200, gain: 0.2 })
+    tone(880, 0.12, { type: 'square', gain: 0.16, freqEnd: 1760 })
+    tone(1760, 0.18, { type: 'sawtooth', gain: 0.12, delay: 0.05, freqEnd: 440 })
+  },
+
+  /** Dribble jump */
+  jump() {
+    tone(420, 0.11, { type: 'triangle', gain: 0.18, freqEnd: 760 })
+    noise(0.08, { filterFreq: 2400, gain: 0.08, delay: 0.02 })
+  },
+
+  /** Clean pass through a dribble gate */
+  gatePass() {
+    tone(620, 0.09, { type: 'triangle', gain: 0.16, freqEnd: 920 })
+    tone(930, 0.11, { type: 'sine', gain: 0.14, delay: 0.045, freqEnd: 1240 })
+    noise(0.08, { filterFreq: 3200, filterFreqEnd: 1800, gain: 0.08 })
+  },
+
+  /** Ball sliced / swiped */
+  slice() {
+    noise(0.12, { filterFreq: 3600, filterFreqEnd: 900, gain: 0.18 })
+    tone(980, 0.08, { type: 'triangle', gain: 0.12, freqEnd: 520 })
+  },
 }

@@ -1,5 +1,4 @@
 import { list, put } from '@vercel/blob'
-import { calculateScore } from '../src/lib/scoring'
 import type { ChallengeEntry } from '../src/types'
 
 type ApiRequest = {
@@ -118,6 +117,7 @@ function bearerToken(req: ApiRequest): string | null {
 
 export async function recalculateLeaderboard(realResults: Record<string, string>): Promise<void> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return
+  const { calculateScore } = await import('../src/lib/scoring.ts')
   const result = await list({ prefix: 'challenge/', limit: 1000, token: process.env.BLOB_READ_WRITE_TOKEN })
   const bracketBlobs = result.blobs.filter((blob) => blob.pathname.endsWith('/brackets.json'))
   const allEntries: ChallengeEntry[] = []

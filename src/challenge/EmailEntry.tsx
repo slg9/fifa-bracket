@@ -1,18 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export interface EmailEntryProps {
+  initialEmail?: string
   initialPseudo?: string
   initialBracketName?: string
   busy?: boolean
   error?: string | null
   onSubmit: (values: { email: string; pseudo: string; bracketName: string; submitted: boolean }) => void
+  onDraftChange?: (values: { email: string; pseudo: string; bracketName: string }) => void
   onCancel?: () => void
 }
 
-export function EmailEntry({ initialPseudo = '', initialBracketName = 'Mon bracket', busy = false, error, onSubmit, onCancel }: EmailEntryProps) {
-  const [email, setEmail] = useState('')
+export function EmailEntry({ initialEmail = '', initialPseudo = '', initialBracketName = 'Mon bracket', busy = false, error, onSubmit, onDraftChange, onCancel }: EmailEntryProps) {
+  const [email, setEmail] = useState(initialEmail)
   const [pseudo, setPseudo] = useState(initialPseudo)
   const [bracketName, setBracketName] = useState(initialBracketName)
+
+  useEffect(() => {
+    onDraftChange?.({ email, pseudo, bracketName })
+  }, [bracketName, email, onDraftChange, pseudo])
 
   return (
     <div className="brakup-dialog" role="dialog" aria-modal="true" aria-labelledby="brakup-email-title">
