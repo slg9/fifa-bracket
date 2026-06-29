@@ -346,6 +346,8 @@
 /* Phone shell — narrow centered container for brackets/board on desktop */
 .brakup-phone-shell { max-width:480px;margin:0 auto;min-height:calc(100vh - 72px);box-sizing:border-box }
 @media (min-width:700px) { .brakup-phone-shell { border-left:1px solid rgba(255,255,255,.07);border-right:1px solid rgba(255,255,255,.07) } }
+.brakup-shell--board-page .brakup-topbar { display:none }
+.brakup-shell--board-page .brakup-phone-shell { min-height:100vh }
 /* Page helpers */
 .brakup-page { min-height:0;padding:28px 20px; }
 .brakup-page__heading { display: flex; justify-content: space-between; align-items: end; margin-bottom: 24px; }
@@ -1051,6 +1053,7 @@
 
 .wcmap-entry__verdict.is-correct strong { color: #FFB800; }
 .wcmap-entry__verdict.is-wrong strong { color: #ff6878; }
+.wcmap-entry__verdict.is-pending strong { color: #67f7d5; }
 .wcmap-entry__verdict em { color: #2bff9a; font-weight: 800; }
 
 .wcmap-entry__play {
@@ -1443,6 +1446,11 @@
   text-overflow: ellipsis;
 }
 
+.wcmap__score-compare.is-pending {
+  color: #67f7d5;
+  border-color: rgba(103,247,213,.34);
+}
+
 .wcmap__locked-label {
   color: rgba(255, 255, 255, 0.58);
   font-size: 10px;
@@ -1554,6 +1562,11 @@
 .wcmap__outcome-badge.is-wrong {
   color: #ff4455;
   background: #3a0710;
+}
+
+.wcmap__outcome-badge.is-pending {
+  color: #67f7d5;
+  background: #07322d;
 }
 
 .wcmap__exact-badge {

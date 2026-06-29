@@ -32,7 +32,7 @@ type LiveState = {
   syncedAt: string | null
   source: string
   warnings: string[]
-  matches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null; kickoffIso?: string | null; liveMinute?: string | null; fifaMatchPath?: string | null }>
+  matches: Array<{ id: string; homeScore: number | null; awayScore: number | null; status: GroupMatch['status']; kickoffTime?: string | null; kickoffIso?: string | null; liveMinute?: string | null; fifaMatchPath?: string | null; winnerTeamCode?: string | null }>
   standings: RankedStandingRow[]
   predictions: MatchPrediction[]
   topScorers?: Array<{ name: string; teamCode: string; goals: number }>
@@ -1409,6 +1409,7 @@ function App() {
             matches: staticSnapshot.matches,
             standings: staticSnapshot.standings,
             predictions: staticSnapshot.predictions ?? [],
+            topScorers: staticSnapshot.topScorers,
           })
         }
         setLoading(false)
@@ -1701,8 +1702,14 @@ function App() {
     return scores
   }, {})
   const challengeOfficialResults = knockoutDayMatches.reduce<Record<string, string>>((results, match) => {
-    if (match.homeScore === null || match.awayScore === null || match.homeScore === match.awayScore) return results
     if (match.homeTeamId.startsWith('placeholder:') || match.awayTeamId.startsWith('placeholder:')) return results
+    const live = liveMatchesById.get(match.id)
+    const winnerFromFifa = live?.winnerTeamCode ? teamsByFifaCode.get(live.winnerTeamCode)?.id : null
+    if (winnerFromFifa) {
+      results[match.id] = winnerFromFifa
+      return results
+    }
+    if (match.homeScore === null || match.awayScore === null || match.homeScore === match.awayScore) return results
     results[match.id] = match.homeScore > match.awayScore ? match.homeTeamId : match.awayTeamId
     return results
   }, {})

@@ -4,6 +4,8 @@ const FIFA_LANGUAGE = 'fr'
 const FIFA_API_HEADERS = { 'user-agent': 'Mozilla/5.0 (compatible; fifabracket/1.0)' }
 const fifaStagesUrl =
   `https://api.fifa.com/api/v3/stages?idSeason=${FIFA_SEASON_ID}&language=${FIFA_LANGUAGE}`
+const fifaMatchesUrl =
+  `https://api.fifa.com/api/v3/calendar/matches?idCompetition=${FIFA_COMPETITION_ID}&idSeason=${FIFA_SEASON_ID}&language=${FIFA_LANGUAGE}&count=500`
 
 function buildStandingUrl(stageId) {
   return `https://api.fifa.com/api/v3/calendar/${FIFA_COMPETITION_ID}/${FIFA_SEASON_ID}/${stageId}/standing?language=${FIFA_LANGUAGE}&count=200`
@@ -418,18 +420,54 @@ function buildMatchesFromApiRows(seed, rows, numericTeamIdToCode, stageId, warni
   return Array.from(fixtureByMatchId.values())
 }
 
+function buildKnockoutMatchesFromCalendarRows(rows) {
+  const fixtures = []
+
+  for (const row of rows) {
+    const matchNumber = Number(row?.MatchNumber)
+    if (!Number.isFinite(matchNumber) || matchNumber < 73 || matchNumber > 104) {
+      continue
+    }
+
+    const homeScore = row.HomeTeamScore ?? row.Home?.Score ?? null
+    const awayScore = row.AwayTeamScore ?? row.Away?.Score ?? null
+    const winner = row.Winner === row.Home?.IdTeam
+      ? row.Home?.Abbreviation ?? null
+      : row.Winner === row.Away?.IdTeam
+        ? row.Away?.Abbreviation ?? null
+        : null
+    fixtures.push({
+      id: `M${matchNumber}`,
+      homeScore,
+      awayScore,
+      winnerTeamCode: winner,
+      status: normalizeMatchStatus(row.MatchStatus, homeScore, awayScore),
+      kickoffTime: null,
+      kickoffIso: row.Date ?? null,
+      liveMinute: inferLiveMinute(row),
+      fifaMatchPath: row.IdMatch && row.IdStage ? `${FIFA_COMPETITION_ID}/${FIFA_SEASON_ID}/${row.IdStage}/${row.IdMatch}` : null,
+    })
+  }
+
+  return fixtures.sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)))
+}
+
 export async function buildFifaLiveSnapshot(seed) {
   const warnings = []
   const stageId = await fetchGroupStageId()
   const standingsPayload = await fetchJson(buildStandingUrl(stageId))
   const standingRows = standingsPayload?.Results ?? []
+  const calendarPayload = await fetchJson(fifaMatchesUrl)
+  const calendarRows = calendarPayload?.Results ?? []
 
   const {
     standings: officialStandings,
     numericTeamIdToCode,
   } = buildStandingsFromApiRows(seed, standingRows, warnings)
 
-  const matches = buildMatchesFromApiRows(seed, standingRows, numericTeamIdToCode, stageId, warnings)
+  const groupMatches = buildMatchesFromApiRows(seed, standingRows, numericTeamIdToCode, stageId, warnings)
+  const knockoutMatches = buildKnockoutMatchesFromCalendarRows(calendarRows)
+  const matches = [...groupMatches, ...knockoutMatches]
 
   let standings = officialStandings
   if (officialStandings.length !== seed.teams.length) {
@@ -437,8 +475,12 @@ export async function buildFifaLiveSnapshot(seed) {
     standings = buildFallbackStandings(seed, matches)
   }
 
-  if (matches.length === 0) {
+  if (groupMatches.length === 0) {
     warnings.push('Aucun resultat de groupe n a ete extrait depuis FIFA.')
+  }
+
+  if (knockoutMatches.length === 0) {
+    warnings.push('Aucun match a elimination directe n a ete extrait depuis FIFA.')
   }
 
   if (standings.length === 0) {

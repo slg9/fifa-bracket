@@ -412,14 +412,13 @@ export function BrakupHub({
   }
 
   return (
-    <div className={`brakup-shell${view === 'challenge' ? ' brakup-shell--map-only' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
+    <div className={`brakup-shell${view === 'challenge' ? ' brakup-shell--map-only' : ''}${view === 'board' ? ' brakup-shell--board-page' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
       {view === 'challenge' && !challengePreload.ready ? <ChallengeLoading progress={challengePreload.progress} /> : null}
       {showSplash && challengePreload.ready ? <ChallengeSplash onPlay={() => setShowSplash(false)} /> : null}
       <header className="brakup-topbar">
         <button type="button" className="brakup-brand" onClick={() => { sfx.tab(); navigate('challenge') }}><img src="/favicon-512.png" alt="" className="brakup-brand__ico" /><div><strong>BRAKUP</strong><small>World Cup Challenge</small></div></button>
         <nav>
           <button type="button" className={view === 'challenge' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('challenge') }}>Challenge</button>
-          <button type="button" className={view === 'brackets' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('brackets') }}>Mes brackets</button>
           <button type="button" className={view === 'board' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
         </nav>
       </header>
@@ -450,7 +449,6 @@ export function BrakupHub({
             <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay() }}>Tableau</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); navigate('challenge') }}>Carte des matchs</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
-            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('brackets') }}>Mes brackets</button>
             <div className="game-menu-modal__section">
               <h3>Matchs du jour</h3>
               {todayMatches.length > 0 ? todayMatches.map((match) => (
@@ -513,7 +511,7 @@ export function BrakupHub({
         </div>
       ) : null}
       {view === 'brackets' ? <div className="brakup-phone-shell"><MyBrackets brackets={brackets} loading={loadingBrackets} onOpen={openBracket} onCreate={() => { setPicks({}); setActiveBracketId(null); navigate('challenge') }} /></div> : null}
-      {view === 'board' ? <div className="brakup-phone-shell"><Leaderboard currentEntry={currentLeaderboardEntry} currentStats={progressStats} /></div> : null}
+      {view === 'board' ? <div className="brakup-phone-shell"><Leaderboard currentEntry={currentLeaderboardEntry} currentStats={progressStats} onBackToGame={() => { sfx.tab(); navigate('challenge') }} /></div> : null}
       {outcomeNotice ? (
         <div className={`brakup-outcome${outcomeNotice.progress.correct ? ' is-correct' : ' is-wrong'}`} role="dialog" aria-modal="true">
           <div className="brakup-outcome__panel">

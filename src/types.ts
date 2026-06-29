@@ -62,6 +62,7 @@ export type LiveSnapshot = {
     kickoffIso?: string | null
     liveMinute?: string | null
     fifaMatchPath?: string | null
+    winnerTeamCode?: string | null
   }>
   standings: Array<{
     groupId: string

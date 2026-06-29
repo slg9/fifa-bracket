@@ -7,6 +7,7 @@ export interface LeaderboardProps {
   entries?: ChallengeEntry[]
   currentEntry?: ChallengeEntry | null
   currentStats?: ProgressSummary
+  onBackToGame?: () => void
 }
 
 const AVATAR_GRADIENTS = [
@@ -26,7 +27,7 @@ function breakdownStats(entry: ChallengeEntry): Pick<ProgressSummary, 'correct' 
   }), { correct: 0, exact: 0 })
 }
 
-export function Leaderboard({ entries, currentEntry = null, currentStats }: LeaderboardProps) {
+export function Leaderboard({ entries, currentEntry = null, currentStats, onBackToGame }: LeaderboardProps) {
   const [board, setBoard] = useState<ChallengeEntry[]>(entries ?? [])
   const [loading, setLoading] = useState(!entries)
   const [error, setError] = useState<string | null>(null)
@@ -230,7 +231,26 @@ export function Leaderboard({ entries, currentEntry = null, currentStats }: Lead
           border-color: rgba(255,184,0,.45);
           background: rgba(255,184,0,.08);
         }
+        .lb-back-game {
+          position: fixed;
+          right: max(14px, env(safe-area-inset-right));
+          top: max(14px, env(safe-area-inset-top));
+          z-index: 8;
+          min-height: 42px;
+          padding: 0 14px;
+          border: 1px solid rgba(255,184,0,.48);
+          border-radius: 999px;
+          background: rgba(255,184,0,.14);
+          color: #FFB800;
+          font: 900 12px 'Barlow Condensed','Arial Narrow',sans-serif;
+          letter-spacing: .1em;
+          text-transform: uppercase;
+          cursor: pointer;
+          box-shadow: 0 12px 30px rgba(0,0,0,.35);
+          backdrop-filter: blur(10px);
+        }
       `}</style>
+      {onBackToGame ? <button type="button" className="lb-back-game" onClick={onBackToGame}>Retour jeu</button> : null}
       <div className="brakup-page__heading">
         <div>
           <span className="brakup-eyebrow">Top 50 public</span>

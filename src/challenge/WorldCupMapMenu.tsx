@@ -288,6 +288,7 @@ function MatchNode({
   const resultTeams = isCompleted && node.homeTeam && node.awayTeam && node.pickedTeamId
     ? [node.homeTeam, node.awayTeam] as const
     : null
+  const officialPending = isCompleted && Boolean(node.pickedTeamId) && !node.progress.played
 
   return (
     <button
@@ -327,6 +328,10 @@ function MatchNode({
       {node.progress.played && node.progress.realScore ? (
         <span className="wcmap__score-compare">
           R {formatScore(node.progress.realScore)} · J {formatScore(node.progress.playedScore)}
+        </span>
+      ) : officialPending ? (
+        <span className="wcmap__score-compare is-pending">
+          Officiel en attente · J {formatScore(displayScore)}
         </span>
       ) : null}
 
@@ -370,6 +375,8 @@ function MatchNode({
         <span className={`wcmap__outcome-badge${node.progress.correct ? ' is-correct' : ' is-wrong'}`} title={node.progress.correct ? `Prono reussi +${node.progress.points}` : 'Prono rate'}>
           {node.progress.correct ? `★ +${node.progress.points}` : '!'}
         </span>
+      ) : officialPending ? (
+        <span className="wcmap__outcome-badge is-pending" title="Score officiel en attente">?</span>
       ) : null}
       {node.progress.exact ? <span className="wcmap__exact-badge" title="Score exact">◎</span> : null}
       {realWinnerTeam ? <span className="wcmap__official-winner" title={`Vrai vainqueur: ${realWinnerTeam.name}`}>{realWinnerTeam.flagEmoji}</span> : null}
@@ -407,6 +414,7 @@ function LevelEntryScreen({
 
   const canSimulate = Boolean(node.homeTeam && node.awayTeam && onSimulate)
   const displayScore = scoreForNode(node, score)
+  const officialPending = node.status === 'completed' && Boolean(node.pickedTeamId) && !node.progress.played
 
   return (
     <div className="wcmap-entry" role="dialog" aria-modal="true">
@@ -453,6 +461,11 @@ function LevelEntryScreen({
                 <strong>{node.progress.correct ? `★ Prono reussi +${node.progress.points}` : '! Prono rate'}</strong>
                 <span>Reel {formatScore(node.progress.realScore)} · Ton jeu {formatScore(node.progress.playedScore)}</span>
                 {node.progress.exact ? <em>Score exact +{node.progress.exactPoints}</em> : null}
+              </div>
+            ) : officialPending ? (
+              <div className="wcmap-entry__verdict is-pending">
+                <strong>Score officiel en attente</strong>
+                <span>Ton jeu {formatScore(displayScore)} est sauvegarde. Des que FIFA synchronise ce match, la map affichera reussi ou rate.</span>
               </div>
             ) : null}
           </div>
