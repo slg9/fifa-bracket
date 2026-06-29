@@ -2,6 +2,7 @@
 import type { BattleResult } from '../../types'
 import ShareCard from '../../challenge/ShareCard'
 import { safeFilePart, shareElementImage } from '../../challenge/shareImage'
+import '../../challenge/challenge.css'
 
 type MatchResultProps = {
   result: BattleResult
@@ -29,10 +30,13 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
     if (!shareRef.current) return
     setShareStatus('working')
     try {
+      // Attendre que les images de fond soient chargees
+      await new Promise(resolve => setTimeout(resolve, 150))
       await shareElementImage(shareRef.current, {
         fileName: `brakup-match-${safeFilePart(homeName)}-${safeFilePart(awayName)}.png`,
         title: 'Brakup Challenge',
         text: 'Partage ca avec tes potes et challenge-les sur Brakup.',
+        backgroundColor: '#050b16',
       })
       setShareStatus('done')
     } catch (error) {

@@ -492,10 +492,13 @@ export function BrakupHub({
     if (!outcomeNotice || !outcomeShareRef.current) return
     setShareStatus('working')
     try {
+      // Attendre que les images de fond soient chargees
+      await new Promise(resolve => setTimeout(resolve, 150))
       const status = await shareElementImage(outcomeShareRef.current, {
         fileName: `brakup-${safeFilePart(outcomeNotice.match.id)}-${outcomeNotice.progress.correct ? 'win' : 'loss'}.png`,
         title: 'Brakup Challenge',
         text: 'Partage ca avec tes potes et challenge-les sur Brakup.',
+        backgroundColor: '#050b16',
       })
       setShareStatus(status === 'shared' ? 'done' : 'done')
     } catch (error) {

@@ -21,6 +21,9 @@ type GoalViewProps = {
   keeperY?: number
   goalkeeperColor?: string
   goalkeeperSecondaryColor?: string
+  shooterColor?: string
+  shooterSecondaryColor?: string
+  shooterShortsColor?: string
   target?: GoalTarget | null
   ballFlight?: BallFlight | null
   interactive?: boolean
@@ -187,6 +190,9 @@ export function GoalView({
   keeperY: keeperYProp = 70,
   goalkeeperColor = '#2f7de1',
   goalkeeperSecondaryColor = '#7dd3fc',
+  shooterColor = '#2bff9a',
+  shooterSecondaryColor = '#0b1422',
+  shooterShortsColor = '#101a2c',
   target,
   ballFlight,
   interactive = false,
@@ -728,15 +734,15 @@ export function GoalView({
                   <ellipse cx="55" cy="130" rx="12" ry="7" fill="#0b1422"/>
                   <ellipse cx="79" cy="122" rx="12" ry="7" fill="#0b1422" transform="rotate(22 79 122)"/>
                   {/* Shorts */}
-                  <rect x="46" y="90" width="36" height="18" rx="5" fill="#101a2c"/>
+                  <rect x="46" y="90" width="36" height="18" rx="5" fill={shooterShortsColor}/>
                   {/* Jersey  from behind with number */}
-                  <path d="M40 62 q24 -10 48 0 l-3 32 q-21 6 -42 0 z" fill="#2bff9a"/>
-                  <path d="M54 56 v36 M74 56 v36" stroke="#0b1422" strokeWidth="3" opacity=".35"/>
-                  <text x="64" y="86" fontFamily="Barlow Condensed" fontWeight="900" fontSize="20" fill="#0b1422" textAnchor="middle">9</text>
+                  <path d="M40 62 q24 -10 48 0 l-3 32 q-21 6 -42 0 z" fill={shooterColor}/>
+                  <path d="M54 56 v36 M74 56 v36" stroke={shooterSecondaryColor} strokeWidth="3" opacity=".35"/>
+                  <text x="64" y="86" fontFamily="Barlow Condensed" fontWeight="900" fontSize="20" fill={shooterSecondaryColor} textAnchor="middle">9</text>
                   {/* Left arm (balance, slightly out) */}
-                  <rect x="29" y="66" width="10" height="24" rx="5" fill="#2bff9a"/>
+                  <rect x="29" y="66" width="10" height="24" rx="5" fill={shooterColor}/>
                   {/* Right arm (raised forward with kick momentum) */}
-                  <rect x="89" y="58" width="10" height="24" rx="5" fill="#2bff9a" transform="rotate(-28 94 70)"/>
+                  <rect x="89" y="58" width="10" height="24" rx="5" fill={shooterColor} transform="rotate(-28 94 70)"/>
                   <circle cx="34" cy="92" r="5" fill="#f3c9a0"/>
                   <circle cx="99" cy="82" r="5" fill="#f3c9a0"/>
                   {/* Head  back of head, hair visible from behind */}

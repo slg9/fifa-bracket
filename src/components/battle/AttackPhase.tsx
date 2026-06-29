@@ -1630,8 +1630,6 @@ export function AttackPhase({
         .atk-shooter-select__avatar .atk-kawaii {
           width: min(48vw, 190px);
           height: auto;
-          transform: scale(2.38);
-          transform-origin: center;
         }
         .atk-shooter-select__name {
           max-width: 100%;
@@ -1690,27 +1688,7 @@ export function AttackPhase({
           color: #2bff9a; font: 900 16px 'Barlow Condensed', sans-serif;
           letter-spacing: .14em; cursor: pointer; box-shadow: 0 0 18px rgba(43,255,154,.28);
         }
-        .atk-shot-shooter {
-          position:absolute; left:50%; bottom:max(44px, calc(env(safe-area-inset-bottom) + 34px)); z-index:18;
-          display:grid; justify-items:center; gap:2px;
-          transform:translateX(-50%);
-          pointer-events:none;
-          filter:drop-shadow(0 0 16px rgba(43,255,154,.42));
-        }
-        .atk-shot-shooter .atk-kawaii { width:78px; height:auto; }
-        .atk-shot-shooter__name {
-          max-width: 190px;
-          padding: 4px 8px;
-          border-radius: 999px;
-          background: rgba(4,12,22,.76);
-          color: #eafff5;
-          font:900 11px 'Barlow Condensed',sans-serif;
-          letter-spacing:.09em;
-          text-transform:uppercase;
-          overflow:hidden;
-          text-overflow:ellipsis;
-          white-space:nowrap;
-        }
+
         /*  Result overlay  */
         .atk-result-overlay {
           position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1979,6 +1957,9 @@ export function AttackPhase({
             interactive={false}
             goalkeeperColor={opponentJerseyColor}
             goalkeeperSecondaryColor={opponentAccentColor}
+            shooterColor={playerJerseyColor}
+            shooterSecondaryColor={playerAccentColor}
+            shooterShortsColor={playerShortsColor}
             isKicking={isKicking}
             targetActive={hasAimedTarget}
           />
@@ -2034,20 +2015,7 @@ export function AttackPhase({
               </button>
             </div>
           ) : null}
-          {shooterSelectionDone && shotTutorialDone && !ballFlight && !resultLabel ? (
-            <div className="atk-shot-shooter" aria-hidden="true">
-              <KawaiiFootballer
-                label={String(selectedShooter.number ?? 9)}
-                jerseyColor={playerJerseyColor}
-                accentColor={playerAccentColor}
-                shortsColor={playerShortsColor}
-                textColor={playerTextColor}
-                withBall
-                isPlayer
-              />
-              <span className="atk-shot-shooter__name">{selectedShooter.name}</span>
-            </div>
-          ) : null}
+
           {shooterSelectionDone && shotTutorialDone && !ballFlight && !resultLabel ? (
             <div
               className={`atk-shot-joystick${isAimingRef.current ? ' is-dragging' : ''}`}

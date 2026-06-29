@@ -4,6 +4,7 @@ type ShareImageOptions = {
   fileName: string
   title: string
   text: string
+  backgroundColor?: string
 }
 
 function downloadBlob(blob: Blob, fileName: string) {
@@ -19,7 +20,7 @@ export async function shareElementImage(element: HTMLElement, options: ShareImag
   const blob = await toBlob(element, {
     cacheBust: true,
     pixelRatio: Math.min(3, Math.max(2, window.devicePixelRatio || 1)),
-    backgroundColor: '#d40012',
+    backgroundColor: options.backgroundColor ?? '#d40012',
   })
 
   if (!blob) {
