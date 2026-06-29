@@ -20,7 +20,7 @@ import ProfileSettings from './ProfileSettings'
 import { blobToShareFile, safeFilePart, shareFile } from './shareImage'
 import { renderResultShareCanvas } from './shareCanvas'
 import { sfx } from '../lib/sfx'
-import { evaluateMatchProgress, formatScore, summarizeProgress, type OfficialScore, type RealScorer } from './progress'
+import { evaluateMatchProgress, formatScore, summarizeProgress, teamLabel, type OfficialScore, type RealScorer } from './progress'
 import './challenge.css'
 
 export type ChallengeMenuMatch = GroupMatch & {
@@ -775,7 +775,7 @@ export function BrakupHub({
     if (!parts.length) {
       parts.push("J'ai tente mon prono sur Brakup")
     }
-    return `${parts.join(', ')}. Et toi, tu veux essayer ?`
+    return `Brakup ${outcomeMatchLabel}: reel ${formatScore(outcomeNotice.progress.realScore)} (${outcomeRealWinnerLabel}), mon prono ${formatScore(outcomeNotice.progress.playedScore)} (${outcomePickedWinnerLabel}). ${parts.join(', ')}. Et toi, tu veux essayer ?`
   }
 
   const handleOutcomeShare = async () => {
@@ -810,6 +810,7 @@ export function BrakupHub({
         boomLabel: outcomeBoomLabel,
         headline: outcomeHeadline,
         subline: `${outcomeNotice.match.label} - reel ${formatScore(outcomeNotice.progress.realScore)} - ton pari ${formatScore(outcomeNotice.progress.playedScore)}`,
+        messageLines: outcomeShareMessageLines,
         pointsLabel: `+${outcomeBreakdownTotal} points gagnes`,
         rows: outcomeShareRows,
         cta: 'Tente ta chance avec ton prono.',
@@ -838,10 +839,23 @@ export function BrakupHub({
   const outcomeIsPartial = Boolean(outcomeNotice && !outcomeNotice.progress.correct && outcomeHasPoints)
   const outcomeBoomLabel = outcomeNotice?.progress.correct ? 'PRONO OK' : outcomeIsPartial ? 'BONUS OK' : 'PRONO RATE'
   const outcomeHeadline = outcomeNotice?.progress.correct ? 'Points gagnes' : outcomeIsPartial ? 'Bonus gagne' : 'Rien gagne'
+  const outcomeMatchLabel = outcomeNotice?.match.label ?? 'Match Brakup'
+  const outcomeRealWinnerLabel = outcomeNotice?.progress.realWinnerTeamId
+    ? teamLabel(teamsById.get(outcomeNotice.progress.realWinnerTeamId), outcomeNotice.progress.realWinnerTeamId)
+    : 'vainqueur reel inconnu'
+  const outcomePickedTeamId = outcomeNotice ? picks[outcomeNotice.match.id] : undefined
+  const outcomePickedWinnerLabel = outcomePickedTeamId
+    ? teamLabel(teamsById.get(outcomePickedTeamId), outcomePickedTeamId)
+    : 'aucun prono'
+  const outcomeShareMessageLines = outcomeNotice ? [
+    `Match ${outcomeMatchLabel}`,
+    `Vainqueur reel: ${outcomeRealWinnerLabel}`,
+    `Ton prono: ${outcomePickedWinnerLabel}`,
+  ] : []
   const outcomeShareRows = [
     ...(outcomeNotice?.progress.correct ? [{ label: `Vainqueur +${outcomeNotice.progress.stagePoints}`, tone: 'win' as const }] : []),
     ...(outcomeNotice?.progress.exact ? [{ label: `Score exact +${outcomeNotice.progress.exactPoints}`, tone: 'win' as const }] : []),
-    ...(outcomeNotice && outcomeScorerNames.length ? [{ label: `Buteur +${outcomeNotice.progress.scorerPoints}: ${outcomeScorerNames.join(', ')}`, tone: 'win' as const }] : []),
+    ...(outcomeNotice && outcomeScorerNames.length ? [{ label: `Buteur ${outcomeMatchLabel} +${outcomeNotice.progress.scorerPoints}: ${outcomeScorerNames.join(', ')}`, tone: 'win' as const }] : []),
   ]
   const menuPseudo = savedProfile.pseudo || brackets.find((entry) => entry.id === activeBracketId)?.pseudo || 'Invite'
   const singleBracketEntry = currentLeaderboardEntry ?? brackets[0] ?? null

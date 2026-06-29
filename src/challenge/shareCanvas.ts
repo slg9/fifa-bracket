@@ -9,6 +9,7 @@ export type ResultShareCanvasInput = {
   boomLabel: string
   headline: string
   subline: string
+  messageLines?: string[]
   pointsLabel: string
   rows: ShareCanvasRow[]
   cta: string
@@ -95,15 +96,25 @@ export async function renderResultShareCanvas(input: ResultShareCanvasInput): Pr
   ctx.shadowColor = 'rgba(255,184,0,.72)'
   ctx.shadowBlur = 32
   fitText(ctx, input.pointsLabel, 930, 124, 64, (size) => `900 ${size}px 'Barlow Condensed', Arial, sans-serif`)
-  ctx.fillText(input.pointsLabel, width / 2, 720)
+  ctx.fillText(input.pointsLabel, width / 2, 690)
   ctx.shadowBlur = 0
+
+  const messageLines = (input.messageLines ?? []).filter(Boolean).slice(0, 3)
+  if (messageLines.length) {
+    ctx.textAlign = 'center'
+    ctx.fillStyle = 'rgba(255,255,255,.92)'
+    messageLines.forEach((line, index) => {
+      fitText(ctx, line, 880, 34, 23, (size) => `900 ${size}px 'Barlow Condensed', Arial, sans-serif`)
+      ctx.fillText(line, width / 2, 790 + index * 48)
+    })
+  }
 
   const panelX = 90
   const panelW = width - 180
   const rowH = 78
   const rows = input.rows.slice(0, 4)
   const panelH = Math.max(150, rows.length * (rowH + 16) + 52)
-  const panelY = 960
+  const panelY = 980
   roundRect(ctx, panelX, panelY, panelW, panelH, 26)
   ctx.fillStyle = 'rgba(6, 16, 31, .82)'
   ctx.fill()
