@@ -485,9 +485,9 @@ function LevelEntryScreen({
             </div>
             {resultScore ? (
               <div className="wcmap-entry__result-score">
-                <span>{teamFlagEmoji(node.homeTeam)}</span>
+                {!isClosed ? <span>{teamFlagEmoji(node.homeTeam)}</span> : null}
                 <strong>{resultScore.home} - {resultScore.away}</strong>
-                <span>{teamFlagEmoji(node.awayTeam)}</span>
+                {!isClosed ? <span>{teamFlagEmoji(node.awayTeam)}</span> : null}
               </div>
             ) : (
               <div className="wcmap-entry__result-vs">
@@ -504,8 +504,7 @@ function LevelEntryScreen({
             ) : null}
             {node.progress.played ? (
               <div className={`wcmap-entry__verdict${node.progress.correct ? ' is-correct' : ' is-wrong'}`}>
-                <strong>{node.progress.correct ? `★ Prono reussi +${node.progress.points}` : '! Prono rate'}</strong>
-                <span>Reel {formatScore(node.progress.realScore)} · Ton jeu {formatScore(node.progress.playedScore)}</span>
+                <strong>{node.progress.correct ? 'Prono reussi' : 'Prono rate'}</strong>
                 {node.progress.exact ? <em>Score exact +{node.progress.exactPoints}</em> : null}
                 {node.progress.scorerHits.length ? <em>Buteur trouve +{node.progress.scorerPoints} : {node.progress.scorerHits.map((scorer) => scorer.name).join(', ')}</em> : null}
               </div>
