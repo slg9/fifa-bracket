@@ -20,7 +20,7 @@ function initials(pseudo: string) {
 }
 
 export function ScorePanel({ brackets, activeBracketId, onSelect, realResults }: ScorePanelProps) {
-  const visible = brackets.slice(0, 3)
+  const visible = brackets.slice(0, 1)
   const active = visible.find((entry) => entry.id === activeBracketId) ?? visible[0]
   const maxScore = 280
 
@@ -85,7 +85,7 @@ export function ScorePanel({ brackets, activeBracketId, onSelect, realResults }:
         <div className="bksp__spacer" />
         <button type="button" className="bksp__leaderboard" onClick={() => undefined}>Leaderboard →</button>
       </> : (
-        <p className="bksp__empty">Crée ton premier bracket pour suivre ton score.</p>
+        <p className="bksp__empty">Ton score apparaîtra ici dès tes premiers choix.</p>
       )}
     </aside>
   )

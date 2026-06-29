@@ -273,7 +273,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const emailHash = await sha256(input.email)
       const pathname = `challenge/${emailHash}/brackets.json`
       const entries = await readJson<ChallengeEntry[]>(pathname, [])
-      const current = input.id ? entries.find((entry) => entry.id === input.id) : undefined
+      const current = input.id ? entries.find((entry) => entry.id === input.id) : entries[0]
       const pseudo = sanitizePseudo(input.pseudo)
       const bracketName = sanitizeBracketName(input.bracketName)
       const conflicts = await findCredentialConflicts({ emailHash, pseudo, ignoreEmailHash: emailHash })
@@ -296,7 +296,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         battleBonuses: Math.min(40, Math.max(0, input.battleBonuses ?? current?.battleBonuses ?? 0)),
         createdAt: current?.createdAt ?? new Date().toISOString(),
       }
-      const updated = current ? entries.map((item) => item.id === entry.id ? entry : item) : [...entries, entry]
+      const updated = [entry]
       await writeJson(pathname, updated)
       const board = await rebuildLeaderboardFromStoredScores()
       const rankedEntry = board.find((item) => item.id === entry.id) ?? entry

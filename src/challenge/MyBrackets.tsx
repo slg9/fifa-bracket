@@ -4,10 +4,10 @@ export interface MyBracketsProps {
   brackets: ChallengeEntry[]
   loading?: boolean
   onOpen: (entry: ChallengeEntry) => void
-  onCreate: () => void
+  onCreate?: () => void
 }
 
-export function MyBrackets({ brackets, loading = false, onOpen, onCreate }: MyBracketsProps) {
+export function MyBrackets({ brackets, loading = false, onOpen }: MyBracketsProps) {
   return (
     <section className="brakup-page brakup-my-brackets">
       <style>{`
@@ -100,22 +100,20 @@ export function MyBrackets({ brackets, loading = false, onOpen, onCreate }: MyBr
       <div className="mb-heading">
         <div>
           <span className="brakup-eyebrow">Espace personnel</span>
-          <h1>Mes brackets</h1>
+          <h1>Mon bracket</h1>
         </div>
-        <button type="button" className="mb-new-btn" onClick={onCreate}>+ Nouveau</button>
       </div>
       {loading ? (
         <p>Chargement…</p>
       ) : brackets.length === 0 ? (
         <div className="brakup-empty">
           <span>🏆</span>
-          <h2>Aucun bracket sauvegardé</h2>
-          <p>Compose tes choix puis sauvegarde-les ici.</p>
-          <button type="button" className="brakup-button" onClick={onCreate}>Créer mon bracket</button>
+          <h2>Bracket non synchronisé</h2>
+          <p>Tes choix locaux sont suivis automatiquement. Connecte ton compte pour les retrouver partout.</p>
         </div>
       ) : (
         <div className="brakup-card-grid">
-          {brackets.map((entry) => {
+          {brackets.slice(0, 1).map((entry) => {
             const finalistId = entry.picks['M104'] ?? null
             return (
               <article className="mb-card" key={entry.id}>

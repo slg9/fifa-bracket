@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { setGameAudioVolume, setGameMuted, useGameAudio, useGameAudioVolume, useGameMuted } from '../lib/useGameAudio'
-import { getBrackets, getProfileStatus, submitBracket, updateProfile, verifyOTP } from '../lib/challengeData'
+import { getBrackets, getProfileStatus, resendMagicLink, submitBracket, updateProfile, verifyOTP } from '../lib/challengeData'
 import { alternateLanguageHref, localizedRootPath, type Locale } from '../lib/i18n'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
 import type { BattleResult, BattleScorer, ChallengeBreakdown, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
@@ -13,6 +13,7 @@ import WorldCupMapMenu from './WorldCupMapMenu'
 import useChallengePreload from './useChallengePreload'
 import EmailEntry from './EmailEntry'
 import OTPEntry from './OTPEntry'
+import LoginEntry from './LoginEntry'
 import Leaderboard from './Leaderboard'
 import MyBrackets from './MyBrackets'
 import ProfileSettings from './ProfileSettings'
@@ -210,6 +211,7 @@ export function BrakupHub({
   const [activeBracketId, setActiveBracketId] = useState<string | null>(null)
   const [viewedBracketEntry, setViewedBracketEntry] = useState<ChallengeEntry | null>(null)
   const [showEmailEntry, setShowEmailEntry] = useState(false)
+  const [showLoginEntry, setShowLoginEntry] = useState(false)
   const [showOTPEntry, setShowOTPEntry] = useState(false)
   const [pendingEmail, setPendingEmail] = useState<string | null>(null)
   const [pendingPseudo, setPendingPseudo] = useState<string | null>(null)
@@ -223,6 +225,9 @@ export function BrakupHub({
   const [showBattleControls, setShowBattleControls] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [loginBusy, setLoginBusy] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null)
+  const [loginSent, setLoginSent] = useState(false)
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
   const [shareStatus, setShareStatus] = useState<'idle' | 'working' | 'done' | 'error'>('idle')
   const outcomeShareRef = useRef<HTMLDivElement>(null)
@@ -559,6 +564,35 @@ export function BrakupHub({
     } catch (caught) { setSaveError(caught instanceof Error ? caught.message : 'Sauvegarde impossible.') } finally { setSaving(false) }
   }
 
+  const handleLogin = async (email: string) => {
+    setLoginBusy(true)
+    setLoginError(null)
+    setLoginSent(false)
+    try {
+      const result = await resendMagicLink(email)
+      setLoginSent(true)
+      if (result.token) {
+        localStorage.setItem('brakup:token', result.token)
+        setAccessToken(result.token)
+        const entries = await getBrackets(result.token)
+        setBrackets(entries)
+        if (entries[0]) {
+          setActiveBracketId(entries[0].id)
+          setPicks(entries[0].picks ?? {})
+          setBattleScores(entries[0].battleScores ?? {})
+          setScorers(entries[0].scorers ?? {})
+          setBattleBonuses(entries[0].battleBonuses ?? 0)
+          rememberProfile({ email, pseudo: entries[0].pseudo, bracketName: entries[0].bracketName })
+          setShowLoginEntry(false)
+        }
+      }
+    } catch (caught) {
+      setLoginError(caught instanceof Error ? caught.message : 'Connexion impossible.')
+    } finally {
+      setLoginBusy(false)
+    }
+  }
+
   const openBracket = (entry: ChallengeEntry) => { setPicks(entry.picks); setBattleScores(entry.battleScores ?? {}); setScorers(entry.scorers ?? {}); setBattleBonuses(entry.battleBonuses); setActiveBracketId(entry.id); navigate('challenge') }
   const openBracketOverlay = () => {
     setShowBracket(true)
@@ -633,6 +667,7 @@ export function BrakupHub({
     : null
   const outcomeBreakdownTotal = outcomeNotice?.progress.points ?? 0
   const menuPseudo = savedProfile.pseudo || brackets.find((entry) => entry.id === activeBracketId)?.pseudo || 'Invite'
+  const singleBracketEntry = currentLeaderboardEntry ?? brackets[0] ?? null
 
   const handleProfileUpdate = async ({ email, pseudo }: { email: string; pseudo: string }) => {
     if (!accessToken) {
@@ -710,6 +745,9 @@ export function BrakupHub({
             <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay() }}>Tableau</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); navigate('challenge') }}>Carte des matchs</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
+            <button type="button" className="game-menu-modal__item" onClick={() => { setLoginError(null); setLoginSent(false); setShowLoginEntry(true); setShowGameMenu(false) }}>
+              {hasSyncedProfile ? 'Reconnecter un compte' : 'Se connecter'}
+            </button>
             <button type="button" className="game-menu-modal__item" onClick={() => { setProfileError(null); setShowProfileSettings(true); setShowGameMenu(false) }}>Parametres du compte</button>
             <div className="game-menu-modal__section">
               <h3>Matchs du jour</h3>
@@ -779,7 +817,7 @@ export function BrakupHub({
             <button type="button" className="brakup-bracket-overlay__close" onClick={() => { sfx.click(); closeBracketOverlay() }}>Retour au jeu</button>
           </div>
           <div className="brakup-bracket-overlay__body">
-            <BracketChallenge matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} officialScores={officialScoreMap} onPick={handlePick} onPlay={(matchId, teamId) => { closeBracketOverlay(); handlePlay(matchId, teamId) }} brackets={brackets} activeBracketId={activeBracketId} onSelectBracket={(id) => { const entry = brackets.find((item) => item.id === id); if (entry) openBracket(entry) }} realResults={realResults} />
+            <BracketChallenge matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} officialScores={officialScoreMap} onPick={handlePick} onPlay={(matchId, teamId) => { closeBracketOverlay(); handlePlay(matchId, teamId) }} brackets={singleBracketEntry ? [singleBracketEntry] : []} activeBracketId={singleBracketEntry?.id ?? activeBracketId} onSelectBracket={(id) => { const entry = brackets.find((item) => item.id === id); if (entry) openBracket(entry) }} realResults={realResults} />
           </div>
         </div>
       ) : null}
@@ -855,6 +893,7 @@ export function BrakupHub({
         </div>
       ) : null}
       {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={savedProfile.email} initialBracketName={brackets.find((entry) => entry.id === activeBracketId)?.bracketName ?? savedProfile.bracketName} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => setShowEmailEntry(false)} /> : null}
+      {showLoginEntry ? <LoginEntry initialEmail={savedProfile.email} busy={loginBusy} error={loginError} sent={loginSent} onSubmit={handleLogin} onCancel={() => setShowLoginEntry(false)} /> : null}
       {showOTPEntry && pendingEmail && pendingPseudo ? <OTPEntry email={pendingEmail} pseudo={pendingPseudo} busy={otpBusy} error={otpError} onSubmit={handleOTPSubmit} onCancel={() => { setShowOTPEntry(false); setPendingEmail(null); setPendingPseudo(null); setShowEmailEntry(true) }} /> : null}
       {showProfileSettings ? <ProfileSettings initialEmail={savedProfile.email} initialPseudo={savedProfile.pseudo} busy={profileBusy} error={profileError} status={profileStatus} onSubmit={handleProfileUpdate} onClose={() => setShowProfileSettings(false)} /> : null}
       <footer className="brakup-footer"><span>BRAKUP 2026</span><small>Données tournoi : {seed.meta.name} · {liveSource?.syncedAt ? `sync ${new Date(liveSource.syncedAt).toLocaleString('fr-FR')}` : 'projection locale'}</small></footer>
