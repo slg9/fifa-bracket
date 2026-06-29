@@ -13,13 +13,41 @@ function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob)
   link.href = url
   link.download = fileName
+  link.rel = 'noopener'
+  document.body.appendChild(link)
   link.click()
-  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  window.setTimeout(() => {
+    link.remove()
+    URL.revokeObjectURL(url)
+  }, 0)
 }
 
-async function resolveImagesAsDataUrls(element: HTMLElement): Promise<() => void> {
+async function waitForImages(element: HTMLElement) {
   const imgs = Array.from(element.querySelectorAll('img')) as HTMLImageElement[]
-  const originals = new Map<HTMLImageElement, string>()
+  await Promise.all(imgs.map(async (img) => {
+    if (img.complete && img.naturalWidth > 0) return
+    try {
+      if (typeof img.decode === 'function') {
+        await img.decode()
+        return
+      }
+    } catch {
+      // Fall through to load/error listeners.
+    }
+    await new Promise<void>((resolve) => {
+      const done = () => {
+        img.removeEventListener('load', done)
+        img.removeEventListener('error', done)
+        resolve()
+      }
+      img.addEventListener('load', done, { once: true })
+      img.addEventListener('error', done, { once: true })
+    })
+  }))
+}
+
+async function resolveImagesAsDataUrls(element: HTMLElement) {
+  const imgs = Array.from(element.querySelectorAll('img')) as HTMLImageElement[]
   await Promise.all(imgs.map(async (img) => {
     const src = img.getAttribute('src')
     if (!src || src.startsWith('data:')) return
@@ -32,14 +60,11 @@ async function resolveImagesAsDataUrls(element: HTMLElement): Promise<() => void
         reader.onerror = reject
         reader.readAsDataURL(blob)
       })
-      originals.set(img, src)
       img.src = dataUrl
     } catch {
       // ignore – keep original src
     }
   }))
-  // Return a cleanup function to restore originals
-  return () => { originals.forEach((src, img) => { img.src = src }) }
 }
 
 export async function shareElementImage(element: HTMLElement, options: ShareImageOptions) {
@@ -47,14 +72,14 @@ export async function shareElementImage(element: HTMLElement, options: ShareImag
   const clone = element.cloneNode(true) as HTMLElement
   
   // Resoudre les images dans le clone
-  const restoreImages = await resolveImagesAsDataUrls(clone)
+  await resolveImagesAsDataUrls(clone)
   
   // Configurer le clone pour la capture
   clone.style.visibility = 'visible'
   clone.style.transform = 'none'
   clone.style.position = 'fixed'
   clone.style.zIndex = '999999'
-  clone.style.left = '0'
+  clone.style.left = '-10000px'
   clone.style.top = '0'
   clone.style.opacity = '1'
   clone.style.display = 'block'
@@ -69,6 +94,7 @@ export async function shareElementImage(element: HTMLElement, options: ShareImag
   
   // Forcer le reflow et attendre que les images soient pretes
   clone.getBoundingClientRect()
+  await waitForImages(clone)
   await new Promise(resolve => requestAnimationFrame(resolve))
   await new Promise(resolve => setTimeout(resolve, 100))
   
@@ -80,9 +106,8 @@ export async function shareElementImage(element: HTMLElement, options: ShareImag
       backgroundColor: options.backgroundColor ?? '#050b16',
     })
   } finally {
-    restoreImages()
     // Retirer le clone du DOM
-    document.body.removeChild(clone)
+    clone.remove()
   }
 
   if (!blob) {
@@ -93,13 +118,31 @@ export async function shareElementImage(element: HTMLElement, options: ShareImag
   const canShareFile = typeof navigator.share === 'function' && Boolean(navigator.canShare?.({ files: [file] }))
 
   if (canShareFile) {
-    await navigator.share({
-      title: options.title,
-      text: options.text,
-      ...(options.url ? { url: options.url } : {}),
-      files: [file],
-    })
-    return 'shared' as const
+    try {
+      await navigator.share({
+        title: options.title,
+        text: options.text,
+        files: [file],
+      })
+      return 'shared' as const
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error
+      try {
+        if (typeof navigator.share === 'function') {
+          await navigator.share({
+            title: options.title,
+            text: options.text,
+            ...(options.url ? { url: options.url } : {}),
+          })
+          return 'shared' as const
+        }
+      } catch {
+        // If the browser lost user activation while generating the image,
+        // still leave the user with the generated result instead of an error.
+      }
+      downloadBlob(blob, options.fileName)
+      return 'downloaded' as const
+    }
   }
 
   downloadBlob(blob, options.fileName)

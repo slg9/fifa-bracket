@@ -180,14 +180,16 @@ function teamFlagImgUrl(iso2?: string) {
 }
 
 function BattleFlag({ team, emoji }: { team?: Team; emoji: string }) {
+  const [failed, setFailed] = useState(false)
   const src = teamFlagImgUrl(team?.iso2)
-  if (src) {
+  if (src && !failed) {
     return (
       <img
         src={src}
         alt={team?.name ?? ''}
         crossOrigin="anonymous"
-        style={{ width: 22, height: 15, objectFit: 'cover', borderRadius: 2, display: 'block' }}
+        onError={() => setFailed(true)}
+        style={{ width: 22, height: 15, objectFit: 'cover', borderRadius: 2, display: 'block', flexShrink: 0 }}
       />
     )
   }
@@ -256,7 +258,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     rounds: history,
     scorers: matchScorers,
   }), [awayTeamId, coinFlipWinnerId, history, homeTeamId, matchScorers, state.opponentScore, state.playerScore])
-  const displayedResult = simulatedResult ?? result
+  const displayedResult = existingResult ?? simulatedResult ?? result
   const countdownProgress = countdownNum === 3 ? '100%' : countdownNum === 2 ? '66%' : countdownNum === 1 ? '33%' : '100%'
 
   const startRoundCountdown = () => {
@@ -264,7 +266,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   }
 
   // Audio
-  const playerWon = result.winnerId === homeTeamId
+  const playerWon = displayedResult.winnerId === homeTeamId
   const baseAudioSrc = (() => {
     if (suddenDeath && state.phase !== 'match_result' && state.phase !== 'coin_flip') return null
     if (state.phase === 'intro') return AUDIO.kickoff
@@ -695,7 +697,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           onComplete={(winnerId, score, commentary) => { sfx.click(); handleCoinFlipEnd(winnerId, score, commentary) }}
         />
       ) : null}
-      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} syncStatusLabel={syncStatusLabel} onContinue={() => { sfx.click(); onComplete(displayedResult) }} /> : null}
+      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} syncStatusLabel={syncStatusLabel} onContinue={() => { sfx.click(); existingResult ? onQuit?.() : onComplete(displayedResult) }} /> : null}
 
       {/* Countdown overlay */}
       {state.phase === 'countdown' && countdownNum !== null ? (

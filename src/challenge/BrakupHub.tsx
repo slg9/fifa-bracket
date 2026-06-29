@@ -318,25 +318,24 @@ export function BrakupHub({
     const scoreData = battleScores[matchId]
     if (!scoreData) return null
     
-    const homeTeamId = match.home.teamId
-    const awayTeamId = match.away.teamId
-    const homeScore = scoreData.p
-    const awayScore = scoreData.o
-    const playerWon = homeScore > awayScore
-    const winnerId = playerWon ? homeTeamId : awayTeamId
+    const pickedTeamId = picks[matchId]
+    const playerTeamId = pickedTeamId === match.away.teamId ? match.away.teamId : match.home.teamId
+    const opponentTeamId = playerTeamId === match.home.teamId ? match.away.teamId : match.home.teamId
+    const playerWon = scoreData.p > scoreData.o
+    const winnerId = playerWon ? playerTeamId : opponentTeamId
     
     return {
-      homeScore,
-      awayScore,
+      homeScore: scoreData.p,
+      awayScore: scoreData.o,
       winnerId,
-      playerScore: homeScore + awayScore,
+      playerScore: scoreData.p,
       rounds: [], // Pas de rounds detailles pour un match deja joue
       scorers: scorers[matchId] ?? [],
       penalties: undefined,
       simulated: true,
       commentary: playerWon 
-        ? `Victoire contre ${teamsById.get(awayTeamId)?.name || awayTeamId} !`
-        : `Defaite contre ${teamsById.get(homeTeamId)?.name || homeTeamId}.`,
+        ? `Victoire contre ${teamsById.get(opponentTeamId)?.name || opponentTeamId} !`
+        : `Defaite contre ${teamsById.get(opponentTeamId)?.name || opponentTeamId}.`,
     }
   }
 
@@ -435,10 +434,10 @@ export function BrakupHub({
       }
       // Si on a deja joue, autoriser pour permettre le partage
     }
-    if (teamId) {
-      const m = matches.find((mx) => mx.id === matchId)
-      const side: 'home' | 'away' = m?.home.kind === 'team' && m.home.teamId === teamId ? 'home' : 'away'
-      setActiveSide(side)
+    const m = matches.find((mx) => mx.id === matchId)
+    const selectedTeamId = teamId ?? picks[matchId]
+    if (selectedTeamId && m?.home.kind === 'team' && m.away.kind === 'team') {
+      setActiveSide(m.home.teamId === selectedTeamId ? 'home' : 'away')
     }
     navigate('battle', matchId)
   }
@@ -893,7 +892,7 @@ export function BrakupHub({
                     Se reconnecter
                   </button>
                 ) : (
-                  <button type="button" onClick={() => { setLoginError(null); setLoginSent(false); setShowLoginEntry(true); setShowGameMenu(false) }}>
+                  <button type="button" onClick={() => { setSaveError(null); setPendingEmail(null); setLoginToken(null); setShowEmailEntry(true); setShowGameMenu(false) }}>
                     Créer mon compte
                   </button>
                 )}

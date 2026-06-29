@@ -299,10 +299,18 @@
 .battle-score-strip__flag {
   display: grid;
   place-items: center;
-  min-width: 18px;
+  width: 24px;
+  min-width: 24px;
+  height: 18px;
   font-size: 15px;
   line-height: 1;
   filter: drop-shadow(0 0 8px rgba(255,255,255,.22));
+  overflow: visible;
+}
+.battle-score-strip__flag span {
+  display: block;
+  min-width: 18px;
+  line-height: 1;
 }
 
 /* Match timeline — vertical strip on right side, transparent */

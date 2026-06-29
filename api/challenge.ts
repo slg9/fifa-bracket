@@ -472,36 +472,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       
       // Verifier si le compte existe
       const entries = await readJson<ChallengeEntry[]>(`challenge/${emailHash}/brackets.json`, [])
-      let needsProfile = false
-      
-      // Si aucun compte n'existe, en créer un
       if (entries.length === 0) {
-        const newPseudo = pseudo.trim() || email.split('@')[0].slice(0, 20).replace(/[^a-zA-Z0-9_]/g, '_') || 'Joueur'
-        const newEntry: ChallengeEntry = {
-          id: crypto.randomUUID(),
-          emailHash,
-          pseudo: newPseudo,
-          bracketName: 'Mon bracket',
-          picks: {},
-          battleScores: {},
-          scorers: {},
-          score: 0,
-          rank: null,
-          submittedAt: null,
-          breakdown: {},
-          battleBonuses: 0,
-          createdAt: new Date().toISOString(),
-        }
-        await writeJson(`challenge/${emailHash}/brackets.json`, [newEntry])
-        await rebuildLeaderboardFromStoredScores()
-        needsProfile = !pseudo.trim() // Si pseudo n'a pas ete fourni, il faut le demander
+        res.status(404).json({ error: 'Aucun compte Brakup trouvé pour cet email. Crée ton compte depuis le menu.' })
+        return
       }
       
       const token = await signToken(emailHash)
       res.status(200).json({ 
         data: { 
           token,
-          needsProfile,
+          needsProfile: false,
           email
         } 
       })
