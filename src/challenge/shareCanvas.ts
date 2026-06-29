@@ -250,28 +250,34 @@ export async function renderResultShareCanvas(input: ResultShareCanvasInput): Pr
   }
 
   if (input.matchup) {
-    const boxW = 330
-    const boxH = 98
-    const boxX = width - boxW - 42
-    const boxY = 54
-    roundRect(ctx, boxX, boxY, boxW, boxH, 24)
+    const boxW = 430
+    const boxH = 138
+    const boxX = width - boxW - 36
+    const boxY = 42
+    roundRect(ctx, boxX, boxY, boxW, boxH, 30)
     ctx.fillStyle = 'rgba(5, 12, 26, .74)'
     ctx.fill()
     ctx.strokeStyle = 'rgba(255,255,255,.18)'
-    ctx.lineWidth = 2
+    ctx.lineWidth = 3
     ctx.stroke()
     ctx.shadowBlur = 0
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = '#ffffff'
-    ctx.font = "900 32px 'Barlow Condensed', Arial, sans-serif"
-    ctx.fillText(input.matchup.homeFlag || input.matchup.homeLabel.slice(0, 3).toUpperCase(), boxX + 74, boxY + 48)
+    ctx.font = "900 58px 'Barlow Condensed', Arial, sans-serif"
+    ctx.fillText(input.matchup.homeFlag || input.matchup.homeLabel.slice(0, 3).toUpperCase(), boxX + 98, boxY + 54)
     ctx.fillStyle = 'rgba(255,255,255,.72)'
-    ctx.font = "900 24px 'Barlow Condensed', Arial, sans-serif"
-    ctx.fillText('VS', boxX + boxW / 2, boxY + 48)
-    ctx.fillStyle = '#ffffff'
     ctx.font = "900 32px 'Barlow Condensed', Arial, sans-serif"
-    ctx.fillText(input.matchup.awayFlag || input.matchup.awayLabel.slice(0, 3).toUpperCase(), boxX + boxW - 74, boxY + 48)
+    ctx.fillText('VS', boxX + boxW / 2, boxY + 56)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = "900 58px 'Barlow Condensed', Arial, sans-serif"
+    ctx.fillText(input.matchup.awayFlag || input.matchup.awayLabel.slice(0, 3).toUpperCase(), boxX + boxW - 98, boxY + 54)
+    ctx.fillStyle = 'rgba(255,255,255,.82)'
+    ctx.font = "900 22px 'Barlow Condensed', Arial, sans-serif"
+    fitText(ctx, input.matchup.homeLabel, 140, 22, 16, (size) => `900 ${size}px 'Barlow Condensed', Arial, sans-serif`)
+    ctx.fillText(input.matchup.homeLabel, boxX + 98, boxY + 104)
+    fitText(ctx, input.matchup.awayLabel, 140, 22, 16, (size) => `900 ${size}px 'Barlow Condensed', Arial, sans-serif`)
+    ctx.fillText(input.matchup.awayLabel, boxX + boxW - 98, boxY + 104)
   }
 
   ctx.textAlign = 'center'

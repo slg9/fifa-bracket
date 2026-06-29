@@ -34,7 +34,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
     : `Brakup ${matchLabel}: j'ai tente mon duel ${scoreLabel}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. A toi de faire mieux ?`
 
   const shareRows = result.scorers?.length
-    ? result.scorers.slice(0, 4).map((scorer) => ({ label: `Buteur ${matchLabel}: ${scorer.name}`, tone: 'win' as const }))
+    ? result.scorers.slice(0, 4).map((scorer) => ({ label: `Buteur: ${scorer.name}`, tone: 'win' as const }))
     : [{ label: playerWon ? 'Duel gagne' : 'Duel joue', tone: playerWon ? 'win' as const : 'neutral' as const }]
 
   useEffect(() => {
