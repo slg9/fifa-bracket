@@ -16,7 +16,6 @@ export interface WorldCupMapMenuProps {
   onPlay: (matchId: string, teamId: string) => void
   onSimulate?: (matchId: string) => void
   onShowBracket?: () => void
-  onSave?: () => void
   autosavedAt?: string | null
 }
 
@@ -421,13 +420,13 @@ function LevelEntryScreen({
   score,
   scorers = [],
   open,
-  canShare: _canShare,
+  canShare,
   canShowBracket: _canShowBracket,
   onClose,
   onPickTeam,
   onSimulate,
   onShowBracket: _onShowBracket,
-  onShare: _onShare,
+  onShare,
 }: {
   node: DisplayNode | null
   selectedTeamId: string | null
@@ -454,6 +453,7 @@ function LevelEntryScreen({
   const predictedWinnerTeam = node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
   const resultWinnerTeam = isClosed ? officialWinnerTeam : predictedWinnerTeam
   const officialPending = node.status === 'completed' && Boolean(node.pickedTeamId) && !node.progress.played
+  const canSharePlayedMatch = canShare && node.status === 'completed' && Boolean(node.pickedTeamId && displayScore)
 
   return (
     <div className="wcmap-entry" role="dialog" aria-modal="true">
@@ -519,6 +519,12 @@ function LevelEntryScreen({
                 <span>{scorers.map((scorer) => `#${scorer.number ?? 9} ${scorer.name}`).join(' · ')}</span>
               </div>
             ) : null}
+            {canSharePlayedMatch ? (
+              <button type="button" className="wcmap-entry__share" onClick={onShare}>
+                <span aria-hidden="true">↗</span>
+                Partager
+              </button>
+            ) : null}
           </div>
         ) : null}
 
@@ -583,7 +589,6 @@ export function WorldCupMapMenu({
   onPlay,
   onSimulate,
   onShowBracket,
-  onSave,
   autosavedAt,
 }: WorldCupMapMenuProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -812,6 +817,12 @@ export function WorldCupMapMenu({
     onSimulate?.(selectedNode.id)
   }
 
+  const handleSharePlayedMatch = () => {
+    if (!selectedNode?.pickedTeamId) return
+    sfx.click()
+    onPlay(selectedNode.id, selectedNode.pickedTeamId)
+  }
+
   return (
     <section className="wcmap">
       <div className="wcmap__autosave" aria-live="polite">
@@ -860,13 +871,13 @@ export function WorldCupMapMenu({
         score={selectedNode ? scores[selectedNode.id] : undefined}
         scorers={selectedNode ? scorers[selectedNode.id] : undefined}
         open={Boolean(selectedNode)}
-        canShare={Boolean(onSave)}
+        canShare={Boolean(selectedNode?.pickedTeamId && selectedNode ? scores[selectedNode.id] : undefined)}
         canShowBracket={Boolean(onShowBracket)}
         onClose={() => setSelectedMatchId(null)}
         onPickTeam={handlePickTeam}
         onSimulate={onSimulate ? handleSimulate : undefined}
         onShowBracket={onShowBracket}
-        onShare={onSave}
+        onShare={handleSharePlayedMatch}
       />
     </section>
   )

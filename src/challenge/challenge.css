@@ -1062,6 +1062,32 @@
   font: 800 12px 'Barlow Condensed', sans-serif;
   letter-spacing: .06em;
 }
+.wcmap-entry__share {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid rgba(255, 184, 0, .56);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(255,226,122,.96));
+  color: #241400;
+  font: 900 13px/1 'Barlow Condensed', sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(255, 184, 0, .2);
+}
+.wcmap-entry__share span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(36, 20, 0, .12);
+  font: 900 15px/1 Barlow, sans-serif;
+}
 .wcmap-entry__result-score strong {
   font: 800 22px 'JetBrains Mono',monospace; color: #FFB800; letter-spacing: .04em;
 }
