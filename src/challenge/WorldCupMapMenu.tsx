@@ -281,16 +281,13 @@ function MatchNode({
   const isLocked = node.status === 'locked'
   const isCompleted = node.status === 'completed'
   const isLive = node.status === 'live'
-  const winnerTeam = isCompleted && node.pickedTeamId
-    ? node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
-    : undefined
-  const loserTeam = isCompleted && node.pickedTeamId
-    ? node.pickedTeamId === node.homeTeam?.id ? node.awayTeam : node.homeTeam
-    : undefined
   const displayScore = scoreForNode(node, score)
   const realWinnerTeam = node.pickedTeamId && node.realWinnerTeamId
     ? node.realWinnerTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
     : undefined
+  const resultTeams = isCompleted && node.homeTeam && node.awayTeam && node.pickedTeamId
+    ? [node.homeTeam, node.awayTeam] as const
+    : null
 
   return (
     <button
@@ -339,22 +336,20 @@ function MatchNode({
         <div className="wcmap__goal wcmap__goal--top" />
         <div className="wcmap__goal wcmap__goal--bottom" />
 
-        {winnerTeam && loserTeam ? (
-          <span className="wcmap__result-matchup" aria-label={`Vainqueur ${winnerTeam.name}, perdant ${loserTeam.name}`}>
-            <span className="wcmap__result-flag wcmap__result-flag--winner">
-              {teamFlagImageUrl(winnerTeam) ? (
-                <img src={teamFlagImageUrl(winnerTeam) ?? undefined} alt="" />
-              ) : (
-                <span>{winnerTeam.flagEmoji}</span>
-              )}
-            </span>
-            <span className="wcmap__result-flag wcmap__result-flag--loser">
-              {teamFlagImageUrl(loserTeam) ? (
-                <img src={teamFlagImageUrl(loserTeam) ?? undefined} alt="" />
-              ) : (
-                <span>{loserTeam.flagEmoji}</span>
-              )}
-            </span>
+        {resultTeams ? (
+          <span className="wcmap__result-matchup" aria-label={`${resultTeams[0].name} a gauche, ${resultTeams[1].name} a droite`}>
+            {resultTeams.map((team) => {
+              const isPickedWinner = node.pickedTeamId === team.id
+              return (
+                <span key={team.id} className={`wcmap__result-flag wcmap__result-flag--${isPickedWinner ? 'winner' : 'loser'}`}>
+                  {teamFlagImageUrl(team) ? (
+                    <img src={teamFlagImageUrl(team) ?? undefined} alt="" />
+                  ) : (
+                    <span>{team.flagEmoji}</span>
+                  )}
+                </span>
+              )
+            })}
           </span>
         ) : null}
 
