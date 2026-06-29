@@ -1,6 +1,6 @@
 import type { Ref } from 'react'
 
-type ShareCardProps = {
+export type ShareCardProps = {
   captureRef?: Ref<HTMLDivElement>
   variant: 'win' | 'loss'
   kicker: string
