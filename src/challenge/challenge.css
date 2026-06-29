@@ -3186,6 +3186,14 @@
   font-size: min(9vw, 36px);
   text-shadow: 0 0 16px rgba(43,255,154,.35);
 }
+.brakup-share-card__match-title {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.brakup-share-card.is-prono .brakup-share-card__match-title strong {
+  font-size: min(6.5vw, 27px);
+}
 
 .brakup-share-card__ticket p {
   margin: min(4vh, 16px) 0;
@@ -3198,8 +3206,11 @@
 }
 
 .brakup-share-card__scorelines {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex-wrap: nowrap;
   margin: min(4vh, 16px) 0;
 }
 
@@ -3207,12 +3218,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 34px;
+  gap: 5px;
+  min-height: 32px;
+  min-width: 0;
+  padding: 0 9px;
   border-radius: 10px;
-  font: 900 min(6vw, 22px)/1.05 'Barlow Condensed','Arial Narrow',sans-serif;
+  font: 900 min(4.8vw, 18px)/1.05 'Barlow Condensed','Arial Narrow',sans-serif;
   letter-spacing: .04em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .brakup-share-card__scorelines .is-real {

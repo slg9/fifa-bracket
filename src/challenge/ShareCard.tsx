@@ -9,7 +9,7 @@ export type ShareCardProps = {
   scoreLabel: string
   matchLabel: string
   detailLabel: string
-  pointsLabel: string
+  pointsLabel?: string
   homeFlag?: string
   awayFlag?: string
   exactLabel?: string
@@ -40,6 +40,7 @@ export function ShareCard({
   playedScoreStruck = false,
 }: ShareCardProps) {
   const backgroundSrc = '/brakup-share-bg-brakup.png'
+  const hasBadges = Boolean(pointsLabel || exactLabel || scorerLabel)
   const badgeClass = (label: string) => (
     /non trouve|aucun|retente|revanche/i.test(label) ? 'is-lost' : 'is-won'
   )
@@ -54,11 +55,17 @@ export function ShareCard({
       <div className="brakup-share-card__boom">{boomLabel}</div>
       <div className="brakup-share-card__score">{scoreLabel}</div>
       <div className="brakup-share-card__ticket">
-        <div>
-          {homeFlag ? <span>{homeFlag}</span> : null}
-          <strong>{theme === 'prono' && homeFlag && awayFlag ? `${homeFlag} VS ${awayFlag}` : matchLabel}</strong>
-          {awayFlag ? <span>{awayFlag}</span> : null}
-        </div>
+        {theme === 'prono' ? (
+          <div className="brakup-share-card__match-title">
+            <strong>{matchLabel}</strong>
+          </div>
+        ) : (
+          <div>
+            {homeFlag ? <span>{homeFlag}</span> : null}
+            <strong>{matchLabel}</strong>
+            {awayFlag ? <span>{awayFlag}</span> : null}
+          </div>
+        )}
         {realScoreLabel && playedScoreLabel ? (
           <div className="brakup-share-card__scorelines">
             <span className="is-real">{realScoreLabel}</span>
@@ -67,11 +74,13 @@ export function ShareCard({
         ) : (
           <p>{detailLabel}</p>
         )}
-        <div className="brakup-share-card__badges">
-          <b className={badgeClass(pointsLabel)}>{pointsLabel}</b>
-          {exactLabel ? <b className={badgeClass(exactLabel)}>{exactLabel}</b> : null}
-          {scorerLabel ? <b className={badgeClass(scorerLabel)}>{scorerLabel}</b> : null}
-        </div>
+        {hasBadges ? (
+          <div className="brakup-share-card__badges">
+            {pointsLabel ? <b className={badgeClass(pointsLabel)}>{pointsLabel}</b> : null}
+            {exactLabel ? <b className={badgeClass(exactLabel)}>{exactLabel}</b> : null}
+            {scorerLabel ? <b className={badgeClass(scorerLabel)}>{scorerLabel}</b> : null}
+          </div>
+        ) : null}
       </div>
       <div className="brakup-share-card__cta">A toi de tenter ton prono sur Brakup</div>
     </div>

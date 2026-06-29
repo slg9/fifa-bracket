@@ -793,6 +793,14 @@ export function BrakupHub({
   const outcomeAwayTeam = outcomeNotice?.match.away.kind === 'team' ? teamsById.get(outcomeNotice.match.away.teamId) : undefined
   const outcomeHomeFlag = outcomeHomeTeam?.flagEmoji
   const outcomeAwayFlag = outcomeAwayTeam?.flagEmoji
+  const outcomeMatchLabel = outcomeHomeTeam && outcomeAwayTeam
+    ? `${outcomeHomeTeam.shortName || outcomeHomeTeam.name} - ${outcomeAwayTeam.shortName || outcomeAwayTeam.name}`
+    : outcomeNotice?.match.label ?? ''
+  const outcomeWinnerGainLabel = outcomeNotice?.progress.correct ? `Vainqueur +${outcomeNotice.progress.stagePoints}` : undefined
+  const outcomeExactGainLabel = outcomeNotice?.progress.exact ? `Score exact +${outcomeNotice.progress.exactPoints}` : undefined
+  const outcomeScorerGainLabel = outcomeScorerNames.length && outcomeNotice
+    ? `Buteur +${outcomeNotice.progress.scorerPoints}: ${outcomeScorerNames.join(', ')}`
+    : undefined
   const menuPseudo = savedProfile.pseudo || brackets.find((entry) => entry.id === activeBracketId)?.pseudo || 'Invite'
   const singleBracketEntry = currentLeaderboardEntry ?? brackets[0] ?? null
 
@@ -1032,15 +1040,15 @@ export function BrakupHub({
                 headline: outcomeHeadline,
                 boomLabel: outcomeBoomLabel,
                 scoreLabel: outcomeBreakdownTotal > 0 ? `+${outcomeBreakdownTotal} PTS GAGNES` : '0 PT GAGNE',
-                matchLabel: `${outcomeHomeFlag ?? ''} VS ${outcomeAwayFlag ?? ''}`.trim() || outcomeNotice.match.label,
+                matchLabel: outcomeMatchLabel,
                 detailLabel: `Reel ${formatScore(outcomeNotice.progress.realScore)} · Ton pari ${formatScore(outcomeNotice.progress.playedScore)}`,
-                pointsLabel: outcomeNotice.progress.correct ? 'Vainqueur trouve' : 'Vainqueur non trouve',
-                exactLabel: outcomeNotice.progress.exact ? `Score exact +${outcomeNotice.progress.exactPoints}` : 'Score exact non trouve',
-                scorerLabel: outcomeScorerNames.length ? `Buteur trouve: ${outcomeScorerNames.join(', ')}` : 'Aucun buteur trouve',
+                pointsLabel: outcomeWinnerGainLabel,
+                exactLabel: outcomeExactGainLabel,
+                scorerLabel: outcomeScorerGainLabel,
                 homeFlag: outcomeHomeFlag,
                 awayFlag: outcomeAwayFlag,
                 realScoreLabel: `${outcomeHomeFlag ?? ''} Reel ${formatScore(outcomeNotice.progress.realScore)} ${outcomeAwayFlag ?? ''}`,
-                playedScoreLabel: `${outcomeHomeFlag ?? ''} Ton pari ${formatScore(outcomeNotice.progress.playedScore)} ${outcomeAwayFlag ?? ''}`,
+                playedScoreLabel: `ton pari ${formatScore(outcomeNotice.progress.playedScore)}`,
                 playedScoreStruck: !outcomeNotice.progress.exact,
               }}
               fileName={`brakup-${safeFilePart(outcomeNotice.match.id)}-${outcomeNotice.progress.correct ? 'win' : 'loss'}.png`}
