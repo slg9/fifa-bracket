@@ -524,6 +524,33 @@
 .battle-pause-modal__btn--sound.is-muted { border-color: rgba(255,68,85,.48); color: #FF4455; }
 .battle-pause-modal__btn--quit { border-color: rgba(255,68,85,.4); color: #FF4455; }
 .battle-pause-modal__btn--quit:hover { background: rgba(255,68,85,.1); }
+.battle-pause-modal__volume {
+  width: 100%;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid rgba(255,184,0,.32);
+  border-radius: 12px;
+  background: rgba(255,184,0,.08);
+  color: #FFB800;
+}
+.battle-pause-modal__volume span {
+  font: 900 12px 'Barlow Condensed', sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.battle-pause-modal__volume input {
+  width: 100%;
+  accent-color: #FFB800;
+}
+.battle-pause-modal__volume strong {
+  min-width: 28px;
+  text-align: right;
+  font: 900 12px 'JetBrains Mono', monospace;
+}
 
 /* ── Stadium crowd borders ───────────────────────────────── */
 .battle-crowd-borders {

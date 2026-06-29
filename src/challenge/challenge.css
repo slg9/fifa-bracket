@@ -2307,7 +2307,7 @@
 .game-menu-modal__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   margin-bottom: 12px;
   color: #fff8d7;
@@ -2316,15 +2316,24 @@
   text-transform: uppercase;
 }
 
-.game-menu-modal__close {
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #ffffff;
-  font-weight: 900;
-  cursor: pointer;
+.game-menu-modal__profile {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 12px;
+  border: 1px solid rgba(43, 255, 154, 0.24);
+  border-radius: 16px;
+  background: rgba(43, 255, 154, 0.08);
+}
+
+.game-menu-modal__profile strong {
+  color: #fff;
+  font: 900 18px/1 'Barlow Condensed', sans-serif;
+}
+
+.game-menu-modal__profile small {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
 }
 
 .game-menu-modal__item {
@@ -2464,6 +2473,65 @@
   border-color: rgba(255, 68, 85, 0.52);
   color: #ffb6c0;
   background: rgba(255, 68, 85, 0.12);
+}
+
+.game-menu-modal__volume {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 224, 113, 0.28);
+  border-radius: 16px;
+  background: rgba(255, 224, 113, 0.08);
+  color: #fff8d7;
+}
+
+.game-menu-modal__volume span {
+  font: 850 12px 'Barlow Condensed', sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.game-menu-modal__volume input {
+  width: 100%;
+  accent-color: #FFB800;
+}
+
+.game-menu-modal__volume strong {
+  min-width: 28px;
+  text-align: right;
+  color: #FFB800;
+  font: 900 12px 'JetBrains Mono', monospace;
+}
+
+.brakup-settings {
+  display: grid;
+  gap: 8px;
+}
+
+.brakup-settings__status {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding: 12px 13px;
+  border: 1px solid #243149;
+  border-radius: 10px;
+  background: #050c18;
+}
+
+.brakup-settings__status strong {
+  color: #a9b5c7;
+  font-size: 12px;
+}
+
+.brakup-settings__status span {
+  color: #fff;
+  font-size: 12px;
+  text-align: right;
 }
 
 .game-menu-modal__item--link {

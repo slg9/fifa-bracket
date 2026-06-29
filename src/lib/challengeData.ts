@@ -164,3 +164,27 @@ export async function verifyOTP(email: string, pseudo: string, otp: string): Pro
 export function resendMagicLink(email: string): Promise<{ sent: boolean; token?: string }> {
   return request('resend', { email })
 }
+
+export function getProfileStatus(token: string): Promise<{
+  blobConfigured: boolean
+  bracketCount: number
+  hasEntries: boolean
+  emailHash: string
+  pseudo: string
+  lastSavedAt: string | null
+}> {
+  return request('profileStatus', {}, token)
+}
+
+export function updateProfile(token: string, values: { email: string; pseudo: string }): Promise<{
+  token: string
+  entries: ChallengeEntry[]
+  profile: {
+    email: string
+    pseudo: string
+    bracketCount: number
+    blobConfigured: boolean
+  }
+}> {
+  return request('updateProfile', values, token)
+}

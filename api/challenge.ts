@@ -88,10 +88,68 @@ async function writeJson(pathname: string, value: unknown): Promise<void> {
   })
 }
 
-async function readAllBracketEntries(): Promise<ChallengeEntry[]> {
+async function listBracketBlobs() {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return []
-  const result = await list({ prefix: 'challenge/', limit: 1000, token: process.env.BLOB_READ_WRITE_TOKEN })
-  const bracketBlobs = result.blobs.filter((blob) => blob.pathname.endsWith('/brackets.json'))
+  const blobs: Array<{ pathname: string; url: string }> = []
+  let cursor: string | undefined
+
+  do {
+    const result = await list({
+      prefix: 'challenge/',
+      limit: 1000,
+      cursor,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    })
+    blobs.push(...result.blobs.filter((blob) => blob.pathname.endsWith('/brackets.json')).map((blob) => ({
+      pathname: blob.pathname,
+      url: blob.url,
+    })))
+    cursor = result.hasMore ? result.cursor : undefined
+  } while (cursor)
+
+  return blobs
+}
+
+function normalizePseudo(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function sanitizePseudo(value: string) {
+  return value.trim().slice(0, 40)
+}
+
+function sanitizeBracketName(value: string) {
+  return value.trim().slice(0, 60)
+}
+
+async function findCredentialConflicts(params: { emailHash: string; pseudo: string; ignoreEmailHash?: string }) {
+  const bracketBlobs = await listBracketBlobs()
+  let pseudoExists = false
+  let emailExists = false
+  const normalizedPseudo = normalizePseudo(params.pseudo)
+
+  for (const blob of bracketBlobs) {
+    const ownerHash = blob.pathname.replace(/^challenge\/(.+)\/brackets\.json$/, '$1')
+    if (params.ignoreEmailHash && ownerHash === params.ignoreEmailHash) continue
+
+    const response = await fetch(blob.url, { cache: 'no-store' })
+    if (!response.ok) continue
+    const entries = await response.json() as ChallengeEntry[]
+
+    if (!pseudoExists) {
+      pseudoExists = entries.some((entry) => normalizePseudo(entry.pseudo ?? '') === normalizedPseudo)
+    }
+    if (!emailExists) {
+      emailExists = entries.some((entry) => entry.emailHash === params.emailHash)
+    }
+    if (pseudoExists && emailExists) break
+  }
+
+  return { exists: pseudoExists || emailExists, pseudoExists, emailExists }
+}
+
+async function readAllBracketEntries(): Promise<ChallengeEntry[]> {
+  const bracketBlobs = await listBracketBlobs()
   const allEntries: ChallengeEntry[] = []
 
   for (const blob of bracketBlobs) {
@@ -172,8 +230,7 @@ function bearerToken(req: ApiRequest): string | null {
 export async function recalculateLeaderboard(realResults: Record<string, string>): Promise<void> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return
   const { calculateScore } = await import('../src/lib/scoring.ts')
-  const result = await list({ prefix: 'challenge/', limit: 1000, token: process.env.BLOB_READ_WRITE_TOKEN })
-  const bracketBlobs = result.blobs.filter((blob) => blob.pathname.endsWith('/brackets.json'))
+  const bracketBlobs = await listBracketBlobs()
   const allEntries: ChallengeEntry[] = []
 
   for (const blob of bracketBlobs) {
@@ -217,11 +274,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const pathname = `challenge/${emailHash}/brackets.json`
       const entries = await readJson<ChallengeEntry[]>(pathname, [])
       const current = input.id ? entries.find((entry) => entry.id === input.id) : undefined
+      const pseudo = sanitizePseudo(input.pseudo)
+      const bracketName = sanitizeBracketName(input.bracketName)
+      const conflicts = await findCredentialConflicts({ emailHash, pseudo, ignoreEmailHash: emailHash })
+      if (conflicts.pseudoExists) {
+        res.status(409).json({ error: `Le pseudo "${pseudo}" est déjà utilisé.` })
+        return
+      }
       const entry: ChallengeEntry = {
         id: current?.id ?? crypto.randomUUID(),
         emailHash,
-        pseudo: input.pseudo.trim().slice(0, 40),
-        bracketName: input.bracketName.trim().slice(0, 60),
+        pseudo,
+        bracketName,
         picks: input.picks ?? current?.picks ?? {},
         battleScores: input.battleScores ?? current?.battleScores ?? {},
         scorers: input.scorers ?? current?.scorers ?? {},
@@ -276,14 +340,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         res.status(500).json({ error: 'Service Brakup indisponible.' })
         return
       }
-      const result = await list({ prefix: 'challenge/', limit: 1000, token: process.env.BLOB_READ_WRITE_TOKEN })
-      const bracketBlobs = result.blobs.filter((blob) => blob.pathname.endsWith('/brackets.json'))
-      
+      const bracketBlobs = await listBracketBlobs()
+
       for (const blob of bracketBlobs) {
         const response = await fetch(blob.url, { cache: 'no-store' })
         if (!response.ok) continue
         const entries = await response.json() as ChallengeEntry[]
-        const exists = entries.some((entry) => entry.pseudo?.toLowerCase() === pseudo.trim().toLowerCase())
+        const exists = entries.some((entry) => normalizePseudo(entry.pseudo ?? '') === normalizePseudo(pseudo))
         if (exists) {
           res.status(200).json({ data: { exists: true } })
           return
@@ -305,28 +368,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return
       }
       const emailHash = await sha256(email)
-      const result = await list({ prefix: 'challenge/', limit: 1000, token: process.env.BLOB_READ_WRITE_TOKEN })
-      const bracketBlobs = result.blobs.filter((blob) => blob.pathname.endsWith('/brackets.json'))
-      
-      let pseudoExists = false
-      let emailExists = false
-      
-      for (const blob of bracketBlobs) {
-        const response = await fetch(blob.url, { cache: 'no-store' })
-        if (!response.ok) continue
-        const entries = await response.json() as ChallengeEntry[]
-        
-        if (!pseudoExists) {
-          pseudoExists = entries.some((entry) => entry.pseudo?.toLowerCase() === pseudo.trim().toLowerCase())
-        }
-        if (!emailExists) {
-          emailExists = entries.some((entry) => entry.emailHash === emailHash)
-        }
-        
-        if (pseudoExists && emailExists) break
-      }
-      
-      res.status(200).json({ data: { exists: pseudoExists || emailExists, pseudoExists, emailExists } })
+      const conflicts = await findCredentialConflicts({ emailHash, pseudo })
+      res.status(200).json({ data: conflicts })
       return
     }
 
@@ -398,8 +441,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         res.status(500).json({ error: 'Service Brakup indisponible.' })
         return
       }
-      const result = await list({ prefix: 'challenge/', limit: 1000, token: process.env.BLOB_READ_WRITE_TOKEN })
-      const bracketBlobs = result.blobs.filter((blob) => blob.pathname.endsWith('/brackets.json'))
+      const bracketBlobs = await listBracketBlobs()
       
       for (const blob of bracketBlobs) {
         const response = await fetch(blob.url, { cache: 'no-store' })
@@ -412,6 +454,86 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         }
       }
       res.status(404).json({ error: 'Bracket non trouvé.' })
+      return
+    }
+
+    if (action === 'profileStatus') {
+      const token = bearerToken(req) ?? String(body.token ?? '')
+      const payload = token ? await verifyToken(token) : null
+      if (!payload) {
+        res.status(401).json({ error: 'Lien expiré ou invalide.' })
+        return
+      }
+      const entries = await readJson<ChallengeEntry[]>(`challenge/${payload.emailHash}/brackets.json`, [])
+      const latestEntry = [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
+      res.status(200).json({
+        data: {
+          blobConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+          bracketCount: entries.length,
+          hasEntries: entries.length > 0,
+          emailHash: payload.emailHash,
+          pseudo: latestEntry?.pseudo ?? '',
+          lastSavedAt: latestEntry?.createdAt ?? null,
+        },
+      })
+      return
+    }
+
+    if (action === 'updateProfile') {
+      const token = bearerToken(req) ?? String(body.token ?? '')
+      const payload = token ? await verifyToken(token) : null
+      if (!payload) {
+        res.status(401).json({ error: 'Lien expiré ou invalide.' })
+        return
+      }
+      const email = String(body.email ?? '')
+      const pseudo = sanitizePseudo(String(body.pseudo ?? ''))
+      if (!email.includes('@') || !pseudo) {
+        res.status(400).json({ error: 'Email et pseudo requis.' })
+        return
+      }
+
+      const currentPath = `challenge/${payload.emailHash}/brackets.json`
+      const currentEntries = await readJson<ChallengeEntry[]>(currentPath, [])
+      const nextEmailHash = await sha256(email)
+      const conflicts = await findCredentialConflicts({
+        emailHash: nextEmailHash,
+        pseudo,
+        ignoreEmailHash: payload.emailHash,
+      })
+
+      if (conflicts.pseudoExists) {
+        res.status(409).json({ error: `Le pseudo "${pseudo}" est déjà utilisé.` })
+        return
+      }
+      if (conflicts.emailExists) {
+        res.status(409).json({ error: `Un compte existe déjà avec l'email "${email}".` })
+        return
+      }
+
+      const updatedEntries = currentEntries.map((entry) => ({
+        ...entry,
+        emailHash: nextEmailHash,
+        pseudo,
+      }))
+      await writeJson(`challenge/${nextEmailHash}/brackets.json`, updatedEntries)
+      if (nextEmailHash !== payload.emailHash) {
+        await writeJson(currentPath, [])
+      }
+      await rebuildLeaderboardFromStoredScores()
+      const nextToken = await signToken(nextEmailHash)
+      res.status(200).json({
+        data: {
+          token: nextToken,
+          entries: updatedEntries,
+          profile: {
+            email,
+            pseudo,
+            bracketCount: updatedEntries.length,
+            blobConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+          },
+        },
+      })
       return
     }
 

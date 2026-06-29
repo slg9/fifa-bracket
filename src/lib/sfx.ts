@@ -1,17 +1,10 @@
-import { isGameMuted } from './useGameAudio'
+import { getSharedAudioContext, getSharedAudioDestination, isGameMuted, unlockGameAudio } from './useGameAudio'
 /**
  * Synthesized UI sound effects via Web Audio API.
  * No external audio files needed — all sounds are generated programmatically.
  */
 
-let _ctx: AudioContext | null = null
 const SFX_GAIN_MULTIPLIER = 1.35
-
-function ctx(): AudioContext {
-  if (!_ctx) _ctx = new AudioContext()
-  if (_ctx.state === 'suspended') void _ctx.resume()
-  return _ctx
-}
 
 function tone(
   freq: number,
@@ -19,11 +12,14 @@ function tone(
   opts: { type?: OscillatorType; gain?: number; freqEnd?: number; delay?: number } = {},
 ) {
   if (isGameMuted()) return
-  const c = ctx()
+  unlockGameAudio()
+  const c = getSharedAudioContext()
+  const destination = getSharedAudioDestination()
+  if (!c || !destination) return
   const t = c.currentTime + (opts.delay ?? 0)
   const osc = c.createOscillator()
   const g = c.createGain()
-  osc.connect(g); g.connect(c.destination)
+  osc.connect(g); g.connect(destination)
   osc.type = opts.type ?? 'sine'
   osc.frequency.setValueAtTime(freq, t)
   if (opts.freqEnd) osc.frequency.exponentialRampToValueAtTime(opts.freqEnd, t + duration)
@@ -38,7 +34,10 @@ function noise(
   opts: { filterFreq?: number; filterFreqEnd?: number; gain?: number; delay?: number } = {},
 ) {
   if (isGameMuted()) return
-  const c = ctx()
+  unlockGameAudio()
+  const c = getSharedAudioContext()
+  const destination = getSharedAudioDestination()
+  if (!c || !destination) return
   const t = c.currentTime + (opts.delay ?? 0)
   const bufSize = Math.ceil(c.sampleRate * duration)
   const buf = c.createBuffer(1, bufSize, c.sampleRate)
@@ -53,7 +52,7 @@ function noise(
   const g = c.createGain()
   g.gain.setValueAtTime(Math.min(0.95, (opts.gain ?? 0.14) * SFX_GAIN_MULTIPLIER), t)
   g.gain.exponentialRampToValueAtTime(0.0001, t + duration)
-  src.connect(filter); filter.connect(g); g.connect(c.destination)
+  src.connect(filter); filter.connect(g); g.connect(destination)
   src.start(t)
 }
 

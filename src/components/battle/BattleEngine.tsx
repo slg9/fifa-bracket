@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import type { BattleMatchState, BattleResult, BattleRoundType, BattleScorer, DefenseOutcome, KnockoutMatch, Team } from '../../types'
 import { getCommentary } from '../../lib/commentary'
-import { playGameSound, setGameMuted, setGameMusicVolumeMultiplier, useGameAudio, useGameMuted } from '../../lib/useGameAudio'
+import { playGameSound, setGameAudioVolume, setGameMuted, setGameMusicVolumeMultiplier, useGameAudio, useGameAudioVolume, useGameMuted } from '../../lib/useGameAudio'
 import { sfx } from '../../lib/sfx'
 import { resolveTeamKit } from '../../lib/teamKits'
 import AttackPhase, { type AttackEndReason } from './AttackPhase'
@@ -193,6 +193,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const [roundScorer, setRoundScorer] = useState<BattleScorer | null>(null)
   const [matchScorers, setMatchScorers] = useState<BattleScorer[]>([])
   const audioMuted = useGameMuted()
+  const audioVolume = useGameAudioVolume()
 
   // Pick stable player names for this match (avoid re-computing each render)
   const homeAttackerName = useMemo(() => {
@@ -688,6 +689,17 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
             <button type="button" className={`battle-pause-modal__btn battle-pause-modal__btn--sound${audioMuted ? ' is-muted' : ''}`} onClick={() => { sfx.click(); setGameMuted(!audioMuted) }}>
               {audioMuted ? 'Activer le son' : 'Mute le jeu'}
             </button>
+            <label className="battle-pause-modal__volume">
+              <span>Volume</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={Math.round(audioVolume * 100)}
+                onChange={(event) => setGameAudioVolume(Number(event.currentTarget.value) / 100)}
+              />
+              <strong>{Math.round(audioVolume * 100)}</strong>
+            </label>
             <button type="button" className="battle-pause-modal__btn" onClick={handleRestart}>
               Recommencer
             </button>
