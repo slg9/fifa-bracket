@@ -88,6 +88,7 @@ async function writeJson(pathname: string, value: unknown): Promise<void> {
   await put(pathname, JSON.stringify(value), {
     access: BLOB_ACCESS,
     addRandomSuffix: false,
+    allowOverwrite: true,
     contentType: 'application/json',
     token: process.env.BLOB_READ_WRITE_TOKEN,
   })

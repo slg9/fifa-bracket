@@ -52,8 +52,16 @@ function pickPlayer(players: string[] | undefined, start: number, fallback?: str
 
 function pickDefender(players: string[] | undefined, fallback?: string) {
   if (!players?.length) return fallback
-  const pool = players.slice(1, Math.min(players.length, 5))
+  // indices 1-6 = defenders (index 0 is GK)
+  const pool = players.slice(1, Math.min(players.length, 7))
   return pool.length ? pool[Math.floor(Math.random() * pool.length)] : players[0]
+}
+
+function pickForward(players: string[] | undefined, fallback?: string) {
+  if (!players?.length) return fallback
+  // last 6 players = forwards/attackers
+  const pool = players.slice(Math.max(1, players.length - 6))
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : players[players.length - 1]
 }
 
 type NextAction = { type: 'next'; append?: BattleRoundType; insertNext?: BattleRoundType } | { type: 'finish' } | { type: 'coin_flip' }
@@ -196,18 +204,12 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const audioVolume = useGameAudioVolume()
 
   // Pick stable player names for this match (avoid re-computing each render)
-  const homeAttackerName = useMemo(() => {
-    const players = homeTeam?.players
-    if (!players?.length) return undefined
-    return players[Math.floor(Math.random() * Math.min(players.length, 5))]
+  const homeAttackerName = useMemo(() => pickForward(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} ATT` : undefined),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [homeTeamId])
-  const awayAttackerName = useMemo(() => {
-    const players = awayTeam?.players
-    if (!players?.length) return undefined
-    return players[Math.floor(Math.random() * Math.min(players.length, 5))]
+  [homeTeamId])
+  const awayAttackerName = useMemo(() => pickForward(awayTeam?.players, awayTeam?.shortName ? `${awayTeam.shortName} ATT` : undefined),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [awayTeamId])
+  [awayTeamId])
   const homeDefenderName = useMemo(() => pickDefender(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} DEF` : undefined), [homeTeam?.players, homeTeam?.shortName])
   const homeKeeperName = pickPlayer(homeTeam?.players, 0, homeTeam?.shortName ? `${homeTeam.shortName} GK` : undefined)
   const awayKeeperName = pickPlayer(awayTeam?.players, 0, awayTeam?.shortName ? `${awayTeam.shortName} GK` : undefined)

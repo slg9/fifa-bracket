@@ -207,7 +207,12 @@ function buildDisplayNodes(
     .map((id) => byId.get(id))
     .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
 
-  const firstPlayable = orderedResolved.find((entry) => !entry.pickedTeamId && entry.homeTeam && entry.awayTeam)?.match.id
+  const firstPlayable = orderedResolved.find((entry) =>
+    !entry.pickedTeamId &&
+    !realResults[entry.match.id] &&
+    entry.homeTeam &&
+    entry.awayTeam,
+  )?.match.id
 
   return orderedResolved.map(({ match, homeTeam, awayTeam, pickedTeamId }) => {
     const pos = NODE_POS[match.id]
