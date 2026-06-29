@@ -170,10 +170,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         bracketName: input.bracketName.trim().slice(0, 60),
         picks: input.picks ?? current?.picks ?? {},
         battleScores: input.battleScores ?? current?.battleScores ?? {},
-        score: current?.score ?? 0,
+        scorers: input.scorers ?? current?.scorers ?? {},
+        score: Math.max(0, Math.round(input.score ?? current?.score ?? 0)),
         rank: current?.rank ?? null,
         submittedAt: input.submittedAt ?? current?.submittedAt ?? null,
-        breakdown: current?.breakdown ?? {},
+        breakdown: input.breakdown ?? current?.breakdown ?? {},
         battleBonuses: Math.min(40, Math.max(0, input.battleBonuses ?? current?.battleBonuses ?? 0)),
         createdAt: current?.createdAt ?? new Date().toISOString(),
       }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import type { BattleMatchState, BattleResult, BattleRoundType, DefenseOutcome, KnockoutMatch, Team } from '../../types'
+import type { BattleMatchState, BattleResult, BattleRoundType, BattleScorer, DefenseOutcome, KnockoutMatch, Team } from '../../types'
 import { getCommentary } from '../../lib/commentary'
 import { playGameSound, setGameMuted, setGameMusicVolumeMultiplier, useGameAudio, useGameMuted } from '../../lib/useGameAudio'
 import { sfx } from '../../lib/sfx'
@@ -190,6 +190,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const [coinFlipWinnerId, setCoinFlipWinnerId] = useState<string | null>(null)
   const [coinFlipMode, setCoinFlipMode] = useState<'sudden_death' | 'simulation'>('sudden_death')
   const [simulatedResult, setSimulatedResult] = useState<BattleResult | null>(null)
+  const [roundScorer, setRoundScorer] = useState<BattleScorer | null>(null)
+  const [matchScorers, setMatchScorers] = useState<BattleScorer[]>([])
   const audioMuted = useGameMuted()
 
   // Pick stable player names for this match (avoid re-computing each render)
@@ -215,7 +217,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const previousRound = history[state.roundIndex - 1]
   const isCounterAttackRound = !suddenDeath && currentRound === 'attack' && !!previousRound && (previousRound.type === 'defense' || previousRound.type === 'fruit_ninja') && previousRound.success
   const roundStartPlayerNumber = currentRound === 'attack' ? '9' : currentRound === 'defense' ? '10' : '1'
-  const roundStartPlayerName = currentRound === 'attack' ? homeAttackerName : currentRound === 'defense' ? awayAttackerName : awayKeeperName
+  const roundStartPlayerName = currentRound === 'attack' ? undefined : currentRound === 'defense' ? awayAttackerName : awayKeeperName
   const roundStartCommentaryPlayer = roundStartPlayerName ? `${roundStartPlayerName} #${roundStartPlayerNumber}` : undefined
   const result = useMemo<BattleResult>(() => ({
     homeScore: state.playerScore,
@@ -223,7 +225,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     winnerId: coinFlipWinnerId ?? (state.playerScore > state.opponentScore ? homeTeamId : awayTeamId),
     playerScore: state.playerScore,
     rounds: history,
-  }), [awayTeamId, coinFlipWinnerId, history, homeTeamId, state.opponentScore, state.playerScore])
+    scorers: matchScorers,
+  }), [awayTeamId, coinFlipWinnerId, history, homeTeamId, matchScorers, state.opponentScore, state.playerScore])
   const displayedResult = simulatedResult ?? result
   const countdownProgress = countdownNum === 3 ? '100%' : countdownNum === 2 ? '66%' : countdownNum === 1 ? '33%' : '100%'
 
@@ -253,11 +256,9 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const commentaryData = useMemo(() => {
     if (!homeTeam || !awayTeam) return null
     if (currentRound === 'fruit_ninja') return null
+    if (currentRound === 'attack') return null
     if (isCounterAttackRound) return null
-    const phase = currentRound === 'attack' ? 'pre_attack' : 'pre_defense'
-    const team = homeTeam
-    const opponent = awayTeam
-    return getCommentary(phase, team, opponent, roundStartCommentaryPlayer)
+    return getCommentary('pre_defense', homeTeam, awayTeam, roundStartCommentaryPlayer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.roundIndex, currentRound, isCounterAttackRound, roundStartCommentaryPlayer])
 
@@ -297,6 +298,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     }
     setNextAction(null)
     setRetrySnapshot(null)
+    setRoundScorer(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nextAction, skipScreens])
 
@@ -307,11 +309,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     return () => window.clearTimeout(timer)
   }, [advanceRound, nextAction, roundOutcome, state.phase])
 
-  const completeRound = (success: boolean, isGoal: boolean, outcome: RoundOutcome) => {
+  const completeRound = (success: boolean, isGoal: boolean, outcome: RoundOutcome, scorer?: BattleScorer) => {
     const isOpponentScoringRound = currentRound === 'defense' || currentRound === 'fruit_ninja'
     const nextPlayerScore = state.playerScore + Number(currentRound === 'attack' && isGoal)
     const nextOpponentScore = state.opponentScore + Number(isOpponentScoringRound && isGoal)
-    const nextHistory = [...history, { type: currentRound, success, isGoal }]
+    const nextHistory = [...history, { type: currentRound, success, isGoal, ...(scorer ? { scorer } : {}) }]
     let action: NextAction
     const earnsCounterAttack = !suddenDeath && isOpponentScoringRound && success
 
@@ -335,54 +337,77 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     }
 
     setRetrySnapshot({ state, history })
+    setRoundScorer(scorer ?? null)
+    setMatchScorers(nextHistory.flatMap((round) => round.isGoal && round.scorer ? [round.scorer] : []))
     setHistory(nextHistory)
     setRoundOutcome(outcome)
     setNextAction(action)
     setState((current) => ({ ...current, playerScore: nextPlayerScore, opponentScore: nextOpponentScore, phase: 'round_result' }))
   }
 
-  const handleAttackEnd = (isGoal: boolean, reason: AttackEndReason = isGoal ? 'goal' : 'miss') => {
-    const outcome: RoundOutcome = isGoal ? 'goal' : reason === 'intercepted' ? 'intercepted' : 'miss'
+  const handleAttackEnd = (isGoal: boolean, reason: AttackEndReason = isGoal ? 'goal' : 'miss', scorer?: BattleScorer) => {
+    const outcome: RoundOutcome = isGoal ? 'goal' : reason === 'saved' ? 'saved' : reason === 'intercepted' ? 'intercepted' : 'miss'
     if (isGoal) {
       playGameSound('/audio/goal.mp3', { volume: 1 })
       sfx.goal()
     } else {
       playGameSound('/audio/sad.mp3', { volume: 0.95 })
     }
-    completeRound(isGoal, isGoal, outcome)
+    completeRound(isGoal, isGoal, outcome, scorer)
   }
 
   const handleDefenseEnd = (outcome: DefenseOutcome) => {
+    const opponentScorer: BattleScorer = {
+      name: awayAttackerName ?? awayTeam?.name ?? awayTeamId,
+      teamId: awayTeamId,
+      teamCode: awayTeam?.fifaCode,
+      number: 9,
+      controlled: false,
+    }
     if (outcome.path === 'space_invaders') {
       const success = outcome.blocked === outcome.total
       if (!success) {
         playGameSound('/audio/sad.mp3', { volume: 0.95 })
         sfx.concede()
       }
-      completeRound(success, !success, success ? 'defense_perfect' : 'goal_conceded')
+      completeRound(success, !success, success ? 'defense_perfect' : 'goal_conceded', success ? undefined : opponentScorer)
       return
     }
     if (!outcome.saved) {
       playGameSound('/audio/sad.mp3', { volume: 0.95 })
       sfx.concede()
     }
-    completeRound(outcome.saved, !outcome.saved, outcome.saved ? 'saved' : 'goal_conceded')
+    completeRound(outcome.saved, !outcome.saved, outcome.saved ? 'saved' : 'goal_conceded', outcome.saved ? undefined : opponentScorer)
   }
 
   const handleSuddenGoalSaveEnd = (saved: boolean) => {
+    const opponentScorer: BattleScorer = {
+      name: awayAttackerName ?? awayTeam?.name ?? awayTeamId,
+      teamId: awayTeamId,
+      teamCode: awayTeam?.fifaCode,
+      number: 9,
+      controlled: false,
+    }
     if (!saved) {
       playGameSound('/audio/sad.mp3', { volume: 0.95 })
       sfx.concede()
     }
-    completeRound(saved, !saved, saved ? 'saved' : 'goal_conceded')
+    completeRound(saved, !saved, saved ? 'saved' : 'goal_conceded', saved ? undefined : opponentScorer)
   }
 
   const handleFruitNinjaEnd = (saved: boolean) => {
+    const opponentScorer: BattleScorer = {
+      name: awayAttackerName ?? awayTeam?.name ?? awayTeamId,
+      teamId: awayTeamId,
+      teamCode: awayTeam?.fifaCode,
+      number: 9,
+      controlled: false,
+    }
     if (!saved) {
       playGameSound('/audio/sad.mp3', { volume: 0.95 })
       sfx.concede()
     }
-    completeRound(saved, !saved, saved ? 'defense_perfect' : 'goal_conceded')
+    completeRound(saved, !saved, saved ? 'defense_perfect' : 'goal_conceded', saved ? undefined : opponentScorer)
   }
 
   const handleCoinFlipEnd = (winnerId: string, score?: { home: number; away: number }, commentary?: string) => {
@@ -428,6 +453,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     sfx.click()
     setIsPaused(false)
     setHistory([])
+    setMatchScorers([])
+    setRoundScorer(null)
     setNextAction(null)
     setRetrySnapshot(null)
     setRoundOutcome('miss')
@@ -442,6 +469,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     sfx.click()
     setIsPaused(false)
     setHistory(retrySnapshot.history)
+    setMatchScorers(retrySnapshot.history.flatMap((round) => round.isGoal && round.scorer ? [round.scorer] : []))
+    setRoundScorer(null)
     setNextAction(null)
     setRoundOutcome('miss')
     setAudioOverride(null)
@@ -607,7 +636,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           opponentScore={state.opponentScore}
           homeFlag={homeFlag}
           awayFlag={awayFlag}
-          scorerName={currentRound === 'attack' ? homeAttackerName : undefined}
+          scorerName={currentRound === 'attack' ? roundScorer?.name ?? homeAttackerName : undefined}
           keeperName={currentRound === 'defense' || currentRound === 'fruit_ninja' ? homeKeeperName : awayKeeperName}
           opponentName={awayTeam?.name}
           nextRoundType={nextRoundType}

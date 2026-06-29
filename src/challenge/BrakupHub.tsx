@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { setGameMuted, useGameAudio, useGameMuted } from '../lib/useGameAudio'
 import { getBrackets, submitBracket } from '../lib/challengeData'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
-import type { BattleResult, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
+import type { BattleResult, BattleScorer, ChallengeBreakdown, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
 import BattleEngine from '../components/battle/BattleEngine'
 import CoinFlip from '../components/battle/CoinFlip'
 import BracketChallenge from './BracketChallenge'
@@ -16,7 +16,7 @@ import MyBrackets from './MyBrackets'
 import ShareCard from './ShareCard'
 import { safeFilePart, shareElementImage } from './shareImage'
 import { sfx } from '../lib/sfx'
-import { evaluateMatchProgress, formatScore, summarizeProgress, type OfficialScore } from './progress'
+import { evaluateMatchProgress, formatScore, summarizeProgress, type OfficialScore, type RealScorer } from './progress'
 import './challenge.css'
 
 export type ChallengeMenuMatch = GroupMatch & {
@@ -47,6 +47,7 @@ const AUTOSAVE_STORAGE_KEY = 'brakup:autosave-at'
 const OFFICIAL_RESULTS_STORAGE_KEY = 'brakup:official-results'
 const OFFICIAL_SCORES_STORAGE_KEY = 'brakup:official-scores'
 const SEEN_OUTCOMES_STORAGE_KEY = 'brakup:seen-outcomes'
+const SCORERS_STORAGE_KEY = 'brakup:scorers'
 
 function readSavedProfile(): SavedProfile {
   try {
@@ -81,6 +82,30 @@ function readSeenOutcomeKeys() {
 
 function outcomeStorageKey(matchId: string, winnerId: string | undefined, score?: OfficialScore) {
   return `${matchId}:${winnerId ?? 'unknown'}:${score ? `${score.home}-${score.away}` : 'score'}`
+}
+
+function buildProgressBreakdown(
+  matches: KnockoutMatch[],
+  picks: Record<string, string>,
+  scores: Record<string, { p: number; o: number }>,
+  realResults: Record<string, string>,
+  officialScores: Record<string, OfficialScore>,
+  scorers: Record<string, BattleScorer[]>,
+  realScorers: RealScorer[],
+): ChallengeBreakdown {
+  return Object.fromEntries(matches.map((match) => {
+    const progress = evaluateMatchProgress(match, picks, scores, realResults, officialScores, scorers, realScorers)
+    return [match.id, {
+      points: progress.points,
+      correct: progress.correct,
+      played: progress.played,
+      stage: match.stage,
+      exact: progress.exact,
+      exactPoints: progress.exactPoints,
+      scorerHits: progress.scorerHits.length,
+      scorerPoints: progress.scorerPoints,
+    }]
+  }))
 }
 
 function formatMenuKickoff(match: ChallengeMenuMatch) {
@@ -166,6 +191,9 @@ export function BrakupHub({
   const [battleScores, setBattleScores] = useState<Record<string, { p: number; o: number }>>(() => {
     try { return JSON.parse(localStorage.getItem('brakup:scores') ?? '{}') } catch { return {} }
   })
+  const [scorers, setScorers] = useState<Record<string, BattleScorer[]>>(() => {
+    try { return JSON.parse(localStorage.getItem(SCORERS_STORAGE_KEY) ?? '{}') as Record<string, BattleScorer[]> } catch { return {} }
+  })
   const [storedRealResults] = useState<Record<string, string>>(() => readStorageMap<Record<string, string>>(OFFICIAL_RESULTS_STORAGE_KEY, {}))
   const [storedRealScores] = useState<Record<string, OfficialScore>>(() => readStorageMap<Record<string, OfficialScore>>(OFFICIAL_SCORES_STORAGE_KEY, {}))
   const [activeSide, setActiveSide] = useState<'home' | 'away'>('home')
@@ -189,8 +217,9 @@ export function BrakupHub({
   } | null>(null)
   const challengePreload = useChallengePreload()
   const audioMuted = useGameMuted()
+  const hubAudioSrc = outcomeNotice?.progress.correct ? '/audio/cup-victory-parade.mp3' : view !== 'battle' ? '/audio/kickoff-carnival.mp3' : null
   // Lobby music: kickoff when on challenge/brackets/board. Null during battle (BattleEngine takes over).
-  useGameAudio(view !== 'battle' ? '/audio/kickoff-carnival.mp3' : null)
+  useGameAudio(hubAudioSrc)
 
   const baseMatches = useMemo(() => buildKnockoutBracket(standings, groupMatches), [standings, groupMatches])
   const matches = useMemo(() => resolveMatches(baseMatches, picks), [baseMatches, picks])
@@ -209,11 +238,19 @@ export function BrakupHub({
     }, {})
     return { ...storedRealResults, ...officialResults, ...derivedFromScores }
   }, [matches, officialResults, officialScoreMap, storedRealResults])
-  const progressStats = useMemo(
-    () => summarizeProgress(matches, picks, battleScores, realResults, officialScoreMap, battleBonuses),
-    [battleBonuses, battleScores, matches, officialScoreMap, picks, realResults],
-  )
   const teamsByFifaCode = useMemo(() => new Map([...teamsById.values()].map((team) => [team.fifaCode, team])), [teamsById])
+  const realScorers = useMemo<RealScorer[]>(() => topScorers.flatMap((scorer) => {
+    const team = teamsByFifaCode.get(scorer.teamCode)
+    return team ? [{ name: scorer.name, teamId: team.id, teamCode: scorer.teamCode, goals: scorer.goals }] : []
+  }), [teamsByFifaCode, topScorers])
+  const progressStats = useMemo(
+    () => summarizeProgress(matches, picks, battleScores, realResults, officialScoreMap, battleBonuses, scorers, realScorers),
+    [battleBonuses, battleScores, matches, officialScoreMap, picks, realResults, realScorers, scorers],
+  )
+  const progressBreakdown = useMemo(
+    () => buildProgressBreakdown(matches, picks, battleScores, realResults, officialScoreMap, scorers, realScorers),
+    [battleScores, matches, officialScoreMap, picks, realResults, realScorers, scorers],
+  )
   const currentLeaderboardEntry = useMemo<ChallengeEntry | null>(() => {
     const current = brackets.find((entry) => entry.id === activeBracketId)
     if (!current && !savedProfile.pseudo && Object.keys(picks).length === 0) return null
@@ -224,14 +261,15 @@ export function BrakupHub({
       bracketName: current?.bracketName ?? (savedProfile.bracketName || 'Mon bracket'),
       picks,
       battleScores,
+      scorers,
       score: progressStats.points,
       rank: current?.rank ?? null,
       submittedAt: current?.submittedAt ?? null,
-      breakdown: current?.breakdown ?? {},
+      breakdown: progressBreakdown,
       battleBonuses,
       createdAt: current?.createdAt ?? savedProfile.savedAt ?? new Date().toISOString(),
     }
-  }, [activeBracketId, battleBonuses, battleScores, brackets, picks, progressStats.points, savedProfile])
+  }, [activeBracketId, battleBonuses, battleScores, brackets, picks, progressBreakdown, progressStats.points, savedProfile, scorers])
 
   const rememberProfile = useCallback((values: { email: string; pseudo: string; bracketName: string }) => {
     const next = { ...values, savedAt: new Date().toISOString() }
@@ -251,6 +289,12 @@ export function BrakupHub({
     localStorage.setItem(AUTOSAVE_STORAGE_KEY, now)
     setAutosavedAt(now)
   }, [battleScores])
+  useEffect(() => {
+    localStorage.setItem(SCORERS_STORAGE_KEY, JSON.stringify(scorers))
+    const now = new Date().toISOString()
+    localStorage.setItem(AUTOSAVE_STORAGE_KEY, now)
+    setAutosavedAt(now)
+  }, [scorers])
   useEffect(() => { localStorage.setItem('brakup:show-battle-controls', showBattleControls ? '1' : '0') }, [showBattleControls])
   useEffect(() => {
     if (!accessToken) return
@@ -290,7 +334,10 @@ export function BrakupHub({
     bracketName,
     picksSnapshot,
     battleScoresSnapshot,
+    scorersSnapshot,
     battleBonusesSnapshot,
+    scoreSnapshot,
+    breakdownSnapshot,
     submitted,
   }: {
     email: string
@@ -298,7 +345,10 @@ export function BrakupHub({
     bracketName: string
     picksSnapshot: Record<string, string>
     battleScoresSnapshot: Record<string, { p: number; o: number }>
+    scorersSnapshot: Record<string, BattleScorer[]>
     battleBonusesSnapshot: number
+    scoreSnapshot: number
+    breakdownSnapshot: ChallengeBreakdown
     submitted: boolean
   }) => {
     const current = brackets.find((entry) => entry.id === activeBracketId)
@@ -309,6 +359,9 @@ export function BrakupHub({
       bracketName,
       picks: picksSnapshot,
       battleScores: battleScoresSnapshot,
+      scorers: scorersSnapshot,
+      score: scoreSnapshot,
+      breakdown: breakdownSnapshot,
       battleBonuses: battleBonusesSnapshot,
       submittedAt: submitted ? new Date().toISOString() : null,
     })
@@ -322,9 +375,13 @@ export function BrakupHub({
     const mid = activeMatchId ?? ''
     const nextPicks = mid ? { ...picks, [mid]: result.winnerId } : picks
     const nextBattleScores = mid ? { ...battleScores, [mid]: { p: result.playerScore, o: result.awayScore } } : battleScores
+    const nextScorers = mid ? { ...scorers, [mid]: result.scorers ?? [] } : scorers
     const nextBattleBonuses = Math.min(40, battleBonuses + Math.max(1, Math.round(result.playerScore / 20)))
+    const nextProgressStats = summarizeProgress(matches, nextPicks, nextBattleScores, realResults, officialScoreMap, nextBattleBonuses, nextScorers, realScorers)
+    const nextBreakdown = buildProgressBreakdown(matches, nextPicks, nextBattleScores, realResults, officialScoreMap, nextScorers, realScorers)
     setPicks(nextPicks)
     if (mid) setBattleScores(nextBattleScores)
+    if (mid) setScorers(nextScorers)
     setBattleBonuses(nextBattleBonuses)
     if (hasSyncedProfile) {
       setSaving(true)
@@ -335,7 +392,10 @@ export function BrakupHub({
         bracketName: savedProfile.bracketName || 'Mon bracket',
         picksSnapshot: nextPicks,
         battleScoresSnapshot: nextBattleScores,
+        scorersSnapshot: nextScorers,
         battleBonusesSnapshot: nextBattleBonuses,
+        scoreSnapshot: nextProgressStats.points,
+        breakdownSnapshot: nextBreakdown,
         submitted: true,
       }).catch((caught) => {
         setSaveError(caught instanceof Error ? caught.message : 'Sauvegarde impossible.')
@@ -365,6 +425,7 @@ export function BrakupHub({
         },
       }))
     }
+    setScorers((current) => ({ ...current, [match.id]: [] }))
     setSimulatedMatchId(null)
     setMapResetKey((key) => key + 1)
     navigate('challenge')
@@ -374,12 +435,23 @@ export function BrakupHub({
     setSaving(true); setSaveError(null)
     rememberProfile({ email, pseudo, bracketName })
     try {
-      await syncBracketSnapshot({ email, pseudo, bracketName, picksSnapshot: picks, battleScoresSnapshot: battleScores, battleBonusesSnapshot: battleBonuses, submitted })
+      await syncBracketSnapshot({
+        email,
+        pseudo,
+        bracketName,
+        picksSnapshot: picks,
+        battleScoresSnapshot: battleScores,
+        scorersSnapshot: scorers,
+        battleBonusesSnapshot: battleBonuses,
+        scoreSnapshot: progressStats.points,
+        breakdownSnapshot: progressBreakdown,
+        submitted,
+      })
       setShowEmailEntry(false)
     } catch (caught) { setSaveError(caught instanceof Error ? caught.message : 'Sauvegarde impossible.') } finally { setSaving(false) }
   }
 
-  const openBracket = (entry: ChallengeEntry) => { setPicks(entry.picks); setBattleScores(entry.battleScores ?? {}); setBattleBonuses(entry.battleBonuses); setActiveBracketId(entry.id); navigate('challenge') }
+  const openBracket = (entry: ChallengeEntry) => { setPicks(entry.picks); setBattleScores(entry.battleScores ?? {}); setScorers(entry.scorers ?? {}); setBattleBonuses(entry.battleBonuses); setActiveBracketId(entry.id); navigate('challenge') }
   const openBracketOverlay = () => {
     setShowBracket(true)
   }
@@ -398,13 +470,13 @@ export function BrakupHub({
     const seen = new Set(readSeenOutcomeKeys())
     const next = matches
       .map((match) => {
-        const progress = evaluateMatchProgress(match, picks, battleScores, realResults, officialScoreMap)
+        const progress = evaluateMatchProgress(match, picks, battleScores, realResults, officialScoreMap, scorers, realScorers)
         const key = outcomeStorageKey(match.id, progress.realWinnerTeamId, progress.realScore)
         return { key, match, progress }
       })
       .find((item) => item.progress.played && !seen.has(item.key))
     if (next) setOutcomeNotice(next)
-  }, [battleScores, challengePreload.ready, matches, officialScoreMap, outcomeNotice, picks, realResults, showSplash])
+  }, [battleScores, challengePreload.ready, matches, officialScoreMap, outcomeNotice, picks, realResults, realScorers, scorers, showSplash])
 
   const closeOutcomeNotice = () => {
     if (outcomeNotice) {
@@ -436,6 +508,13 @@ export function BrakupHub({
     }
   }
 
+  const outcomeScorerNames = outcomeNotice?.progress.scorerHits.map((scorer) => scorer.name) ?? []
+  const outcomeExactLabel = outcomeNotice?.progress.exact ? `Score exact +${outcomeNotice.progress.exactPoints}` : null
+  const outcomeScorerLabel = outcomeNotice && outcomeNotice.progress.scorerPoints > 0
+    ? `Buteur trouve +${outcomeNotice.progress.scorerPoints}`
+    : null
+  const outcomeBreakdownTotal = outcomeNotice?.progress.points ?? 0
+
   return (
     <div className={`brakup-shell${view === 'challenge' ? ' brakup-shell--map-only' : ''}${view === 'board' ? ' brakup-shell--board-page' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
       {view === 'challenge' && !challengePreload.ready ? <ChallengeLoading progress={challengePreload.progress} /> : null}
@@ -450,7 +529,7 @@ export function BrakupHub({
       {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} showControls={showBattleControls} syncStatusLabel={hasSyncedProfile ? `Deja synchronise : ${savedProfile.pseudo || 'profil'} sera sauvegarde automatiquement.` : 'Synchro proposee apres ce match pour publier ton score.'} /> : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
-        <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} realResults={realResults} officialScores={officialScoreMap} autosavedAt={autosavedAt} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); openBracketOverlay() }} />
+        <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} scorers={scorers} realScorers={realScorers} realResults={realResults} officialScores={officialScoreMap} autosavedAt={autosavedAt} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); openBracketOverlay() }} />
         <button type="button" className="game-menu-button" onClick={() => { sfx.click(); setShowGameMenu(true) }} aria-label="Ouvrir le menu jeu">
           <span />
           <span />
@@ -469,7 +548,7 @@ export function BrakupHub({
             <div className="game-menu-modal__score">
               <strong>{progressStats.points}</strong>
               <span>pts</span>
-              <small>{progressStats.correct} pronos OK · {progressStats.exact} scores exacts</small>
+              <small>{progressStats.correct} pronos OK · {progressStats.exact} scores exacts · {progressStats.scorers} buteurs</small>
             </div>
             <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay() }}>Tableau</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); navigate('challenge') }}>Carte des matchs</button>
@@ -540,15 +619,23 @@ export function BrakupHub({
       {outcomeNotice ? (
         <div className={`brakup-outcome${outcomeNotice.progress.correct ? ' is-correct' : ' is-wrong'}`} role="dialog" aria-modal="true">
           <div className="brakup-outcome__panel">
-            <span className="brakup-outcome__icon">{outcomeNotice.progress.correct ? '★' : '!'}</span>
+            <div className="brakup-outcome__blast" aria-hidden="true">
+              <i />
+              {Array.from({ length: 14 }, (_, index) => <span key={index} style={{ ['--ray-rot' as string]: `${index * (360 / 14)}deg` }} />)}
+            </div>
+            <img className="brakup-outcome__logo" src="/brakup-logo.png" alt="Brakup" />
+            <div className="brakup-outcome__boom">{outcomeNotice.progress.correct ? 'BOOOOOM' : 'REMATCH'}</div>
             <h2>{outcomeNotice.progress.correct ? 'Prono reussi' : 'Dommage'}</h2>
-            <p>
-              {outcomeNotice.match.label} · score reel {formatScore(outcomeNotice.progress.realScore)}
-            </p>
+            <p>{outcomeNotice.match.label} · reel {formatScore(outcomeNotice.progress.realScore)} · toi {formatScore(outcomeNotice.progress.playedScore)}</p>
+            <div className="brakup-outcome__points">
+              <strong>+{outcomeBreakdownTotal}</strong>
+              <span>points gagnes</span>
+            </div>
             <div className="brakup-outcome__scores">
-              <span>Ton jeu <strong>{formatScore(outcomeNotice.progress.playedScore)}</strong></span>
-              <span>Points <strong>{outcomeNotice.progress.correct ? `+${outcomeNotice.progress.points}` : '0'}</strong></span>
-              {outcomeNotice.progress.exact ? <span>Score exact <strong>+{outcomeNotice.progress.exactPoints}</strong></span> : null}
+              <span>Vainqueur trouve <strong>{outcomeNotice.progress.correct ? `+${outcomeNotice.progress.stagePoints}` : '0'}</strong></span>
+              {outcomeExactLabel ? <span>Score exact reussi <strong>{outcomeExactLabel}</strong></span> : null}
+              {outcomeScorerLabel ? <span>Buteur trouve <strong>{outcomeScorerLabel}</strong></span> : null}
+              {outcomeScorerNames.length ? <span>Scoreurs Brakup <strong>{outcomeScorerNames.join(', ')}</strong></span> : null}
             </div>
             <div className="brakup-outcome__share-copy">Partage-la avec tes potes et challenge-les sur Brakup.</div>
             <button type="button" className="brakup-share-button" onClick={() => { sfx.click(); void handleOutcomeShare() }} disabled={shareStatus === 'working'}>
@@ -565,11 +652,12 @@ export function BrakupHub({
               kicker={outcomeNotice.progress.correct ? 'Bien joue' : 'Dommage'}
               headline={outcomeNotice.progress.correct ? 'Prono reussi' : 'Prono rate'}
               boomLabel={outcomeNotice.progress.correct ? 'BOOOOOM' : 'REMATCH'}
-              scoreLabel={outcomeNotice.progress.correct ? `+${outcomeNotice.progress.points} PTS` : '0 PT'}
+              scoreLabel={outcomeBreakdownTotal > 0 ? `+${outcomeBreakdownTotal} PTS` : '0 PT'}
               matchLabel={outcomeNotice.match.label}
               detailLabel={`Reel ${formatScore(outcomeNotice.progress.realScore)} · Ton jeu ${formatScore(outcomeNotice.progress.playedScore)}`}
-              pointsLabel={outcomeNotice.progress.exact ? `Score exact +${outcomeNotice.progress.exactPoints}` : outcomeNotice.progress.correct ? 'Vainqueur trouve' : 'Retente le prochain'}
+              pointsLabel={outcomeExactLabel ?? outcomeScorerLabel ?? (outcomeNotice.progress.correct ? 'Vainqueur trouve' : 'Retente le prochain')}
               exactLabel={outcomeNotice.progress.exact ? 'Master score' : undefined}
+              scorerLabel={outcomeScorerNames.length ? `Buteur: ${outcomeScorerNames.join(', ')}` : undefined}
             />
           </div>
         </div>

@@ -9,6 +9,7 @@ export const STAGE_POINTS: Record<string, number> = {
 }
 
 export const CHAMPION_BONUS = 30
+export const EXACT_SCORE_BONUS = 5
 const EARLY_BIRD_DEADLINE = Date.parse('2026-06-28T22:00:00Z')
 
 export function calculateScore(
@@ -24,12 +25,16 @@ export function calculateScore(
   for (const matchId of orderedIds) {
     const pick = entry.picks[matchId]
     const winner = realResults[matchId]
-    const priorStage = entry.breakdown[matchId]?.stage
+    const storedBreakdown = entry.breakdown[matchId]
+    const priorStage = storedBreakdown?.stage
     const matchNumber = Number(matchId.slice(1))
     const stage = priorStage ?? (matchNumber <= 88 ? 'Round of 32' : matchNumber <= 96 ? 'Round of 16' : matchNumber <= 100 ? 'Quarter-final' : matchNumber <= 102 ? 'Semi-final' : 'Finale')
     const played = Boolean(winner)
     const correct = played && pick === winner
     let points = correct ? (STAGE_POINTS[stage] ?? 0) : 0
+    const exactPoints = correct && storedBreakdown?.exact ? storedBreakdown.exactPoints ?? EXACT_SCORE_BONUS : 0
+    const scorerPoints = played ? storedBreakdown?.scorerPoints ?? 0 : 0
+    points += exactPoints + scorerPoints
 
     if (correct) {
       streak.push(matchId)
@@ -50,7 +55,16 @@ export function calculateScore(
       streak = []
     }
 
-    breakdown[matchId] = { points, correct, played, stage }
+    breakdown[matchId] = {
+      points,
+      correct,
+      played,
+      stage,
+      exact: Boolean(correct && storedBreakdown?.exact),
+      exactPoints,
+      scorerHits: storedBreakdown?.scorerHits ?? 0,
+      scorerPoints,
+    }
     baseScore += points
   }
 

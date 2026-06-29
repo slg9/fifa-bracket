@@ -1025,6 +1025,29 @@
 .wcmap-entry__result-score {
   display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 20px;
 }
+
+.wcmap-entry__scorers {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(43, 255, 154, .24);
+  border-radius: 12px;
+  background: rgba(43, 255, 154, .08);
+}
+
+.wcmap-entry__scorers strong {
+  color: #2bff9a;
+  font: 900 11px 'Barlow Condensed', sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.wcmap-entry__scorers span {
+  color: rgba(238, 245, 255, .82);
+  font: 800 12px 'Barlow Condensed', sans-serif;
+  letter-spacing: .06em;
+}
 .wcmap-entry__result-score strong {
   font: 800 22px 'JetBrains Mono',monospace; color: #FFB800; letter-spacing: .04em;
 }
@@ -2414,21 +2437,86 @@
   display: grid;
   place-items: center;
   padding: 18px;
-  background: rgba(2, 6, 13, .86);
-  backdrop-filter: blur(12px);
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(4, 8, 20, .12), rgba(4, 8, 20, .55)),
+    url('/brakup-share-bg-brakup.png') center / cover no-repeat,
+    #050b16;
+}
+
+.brakup-outcome::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 48%, rgba(43, 255, 154, .12), rgba(5, 11, 22, .18) 38%, rgba(5, 11, 22, .7) 100%);
+  pointer-events: none;
 }
 
 .brakup-outcome__panel {
   width: min(100%, 430px);
+  position: relative;
+  z-index: 1;
   display: grid;
   justify-items: center;
-  gap: 14px;
-  padding: 30px 24px;
-  border: 1px solid rgba(255,255,255,.16);
-  border-radius: 24px;
-  background: linear-gradient(180deg, rgba(8,22,38,.98), rgba(4,10,20,.98));
-  box-shadow: 0 30px 90px rgba(0,0,0,.56);
+  gap: 11px;
+  padding: 26px 20px;
   text-align: center;
+  color: #fff;
+  text-shadow: 0 6px 24px rgba(0, 0, 0, .48);
+}
+
+.brakup-outcome__blast {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 220px;
+  height: 220px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: .9;
+}
+
+.brakup-outcome__blast i {
+  position: absolute;
+  inset: 38px;
+  border: 3px solid rgba(43, 255, 154, .82);
+  border-radius: 999px;
+  box-shadow: 0 0 34px rgba(43, 255, 154, .42);
+  animation: outcomeShockwave .78s ease-out both;
+}
+
+.brakup-outcome__blast span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 96px;
+  border-radius: 999px;
+  transform-origin: 50% 0;
+  background: linear-gradient(180deg, rgba(255, 184, 0, .95), rgba(43, 255, 154, 0));
+  animation: outcomeRay .68s ease-out both;
+}
+
+.brakup-outcome__logo {
+  width: min(220px, 58vw);
+  height: auto;
+  margin-bottom: 2px;
+  filter: drop-shadow(0 0 26px rgba(168, 85, 247, .5));
+  animation: outcomePop .48s .1s cubic-bezier(.2, 1.35, .32, 1) both;
+}
+
+.brakup-outcome__boom {
+  position: relative;
+  color: #2bff9a;
+  font: 900 clamp(46px, 16vw, 86px)/.78 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  transform: rotate(-4deg);
+  text-shadow:
+    0 0 8px rgba(43, 255, 154, .9),
+    0 0 34px rgba(43, 255, 154, .64),
+    4px 4px 0 rgba(168, 85, 247, .86);
+  animation: outcomeBoom .64s .18s cubic-bezier(.12, 1.5, .32, 1) both;
 }
 
 .brakup-outcome__icon {
@@ -2454,21 +2542,49 @@
 
 .brakup-outcome h2 {
   margin: 0;
-  color: #eef3ff;
-  font: 900 44px/0.92 'Barlow Condensed', sans-serif;
-  letter-spacing: .04em;
+  color: #ffffff;
+  font: 900 clamp(32px, 10vw, 54px)/0.9 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: .08em;
   text-transform: uppercase;
+  animation: outcomePop .5s .32s both;
 }
 
 .brakup-outcome p {
   margin: 0;
-  color: rgba(238,245,255,.72);
+  color: rgba(238,245,255,.82);
+  font: 800 13px/1.25 'Barlow Condensed', sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  animation: outcomePop .5s .4s both;
+}
+
+.brakup-outcome__points {
+  display: grid;
+  justify-items: center;
+  gap: 0;
+  margin: 2px 0;
+  animation: outcomePop .5s .48s both;
+}
+
+.brakup-outcome__points strong {
+  color: #FFB800;
+  font: 900 clamp(62px, 20vw, 110px)/.78 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: .02em;
+  text-shadow: 0 0 30px rgba(255, 184, 0, .72), 4px 4px 0 rgba(0, 0, 0, .38);
+}
+
+.brakup-outcome__points span {
+  color: #fff;
+  font: 900 13px 'Barlow Condensed', sans-serif;
+  letter-spacing: .2em;
+  text-transform: uppercase;
 }
 
 .brakup-outcome__scores {
   width: 100%;
   display: grid;
-  gap: 8px;
+  gap: 7px;
+  animation: outcomePop .5s .56s both;
 }
 
 .brakup-outcome__scores span {
@@ -2476,17 +2592,20 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 12px;
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 12px;
-  background: rgba(255,255,255,.045);
-  color: rgba(238,245,255,.72);
+  padding: 8px 10px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 10px;
+  background: rgba(5, 11, 22, .62);
+  color: rgba(238,245,255,.86);
   font-size: 13px;
+  backdrop-filter: blur(8px);
 }
 
 .brakup-outcome__scores strong {
   color: #FFB800;
-  font: 900 15px 'JetBrains Mono', monospace;
+  font: 900 13px 'Barlow Condensed', sans-serif;
+  letter-spacing: .07em;
+  text-transform: uppercase;
 }
 
 .brakup-outcome__share-copy {
@@ -2494,6 +2613,7 @@
   font: 900 13px/1.2 'Barlow Condensed', sans-serif;
   letter-spacing: .08em;
   text-transform: uppercase;
+  animation: outcomePop .5s .64s both;
 }
 
 .brakup-share-button {
@@ -2524,6 +2644,28 @@
   color: #ff6878;
 }
 
+@keyframes outcomeShockwave {
+  0% { transform: scale(.12); opacity: 0; }
+  22% { opacity: 1; }
+  100% { transform: scale(1.72); opacity: 0; }
+}
+
+@keyframes outcomeRay {
+  0% { transform: rotate(var(--ray-rot, 0deg)) scaleY(0); opacity: 1; }
+  100% { transform: rotate(var(--ray-rot, 0deg)) scaleY(1.15); opacity: 0; }
+}
+
+@keyframes outcomeBoom {
+  0% { transform: rotate(-8deg) scale(.2); opacity: 0; filter: blur(6px); }
+  62% { transform: rotate(-4deg) scale(1.12); opacity: 1; filter: blur(0); }
+  100% { transform: rotate(-4deg) scale(1); opacity: 1; }
+}
+
+@keyframes outcomePop {
+  from { transform: translateY(18px) scale(.94); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
 .brakup-share-capture {
   position: fixed;
   left: -10000px;
@@ -2546,9 +2688,9 @@
   overflow: hidden;
   color: #fff;
   background:
-    linear-gradient(180deg, rgba(120,0,10,.12), rgba(170,0,14,.36)),
-    url('/brakup-share-bg.png') center / cover no-repeat,
-    #d40012;
+    linear-gradient(180deg, rgba(7,10,28,.05), rgba(7,10,28,.42)),
+    url('/brakup-share-bg-brakup.png') center / cover no-repeat,
+    #050b16;
   font-family: Barlow, system-ui, sans-serif;
 }
 
@@ -2556,7 +2698,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 50% 55%, rgba(255,0,0,0) 0 25%, rgba(110,0,8,.45) 75%);
+  background: radial-gradient(circle at 50% 55%, rgba(43,255,154,0) 0 25%, rgba(5,7,31,.5) 75%);
   pointer-events: none;
 }
 
@@ -2576,7 +2718,7 @@
   padding: 10px 20px;
   border: 2px solid rgba(255,255,255,.36);
   border-radius: 999px;
-  background: rgba(120,0,10,.34);
+  background: rgba(7,10,36,.58);
   font: 900 28px/1 'Barlow Condensed','Arial Narrow',sans-serif;
   letter-spacing: .18em;
 }

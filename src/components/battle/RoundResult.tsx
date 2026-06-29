@@ -125,11 +125,14 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
       return { accent: '#2bff9a', main: pick(INTERCEPT_CALLS), sub: pick(INTERCEPT_ENCOURAGEMENTS) }
     }
     if (outcome === 'miss') {
-      return { accent: '#8794a7', main: pick(MISS_CALLS), sub: pick(MISS_ENCOURAGEMENTS) }
+      const sub = scorerName ? `${scorerName} rate sa frappe. ${pick(MISS_ENCOURAGEMENTS)}` : pick(MISS_ENCOURAGEMENTS)
+      return { accent: '#8794a7', main: pick(MISS_CALLS), sub }
     }
     if (outcome === 'saved') {
       const keeper = keeperName ? `${keeperName} sort le grand jeu !` : 'Parade monumentale !'
-      const sub = `${opponentName ? `${opponentName} va devoir s'y reprendre.` : "L'attaque adverse est repoussee."} ${nextPhaseHint}`
+      const sub = scorerName
+        ? `${scorerName} bute sur le gardien. ${nextPhaseHint}`
+        : `${opponentName ? `${opponentName} va devoir s'y reprendre.` : "L'attaque adverse est repoussee."} ${nextPhaseHint}`
       return { accent: '#2bff9a', main: keeper, sub }
     }
     if (outcome === 'defense_perfect') {

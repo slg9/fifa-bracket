@@ -13,6 +13,7 @@ type ShareCardProps = {
   homeFlag?: string
   awayFlag?: string
   exactLabel?: string
+  scorerLabel?: string
 }
 
 export function ShareCard({
@@ -28,6 +29,7 @@ export function ShareCard({
   homeFlag,
   awayFlag,
   exactLabel,
+  scorerLabel,
 }: ShareCardProps) {
   return (
     <div ref={captureRef} className={`brakup-share-card is-${variant}`}>
@@ -46,6 +48,7 @@ export function ShareCard({
         <div className="brakup-share-card__badges">
           <b>{pointsLabel}</b>
           {exactLabel ? <b>{exactLabel}</b> : null}
+          {scorerLabel ? <b>{scorerLabel}</b> : null}
         </div>
       </div>
       <div className="brakup-share-card__cta">Partage avec tes potes · challenge-les sur Brakup</div>

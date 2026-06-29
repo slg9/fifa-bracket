@@ -20,11 +20,12 @@ function initials(name: string) {
   return name.slice(0, 2).toUpperCase()
 }
 
-function breakdownStats(entry: ChallengeEntry): Pick<ProgressSummary, 'correct' | 'exact'> {
+function breakdownStats(entry: ChallengeEntry): Pick<ProgressSummary, 'correct' | 'exact' | 'scorers'> {
   return Object.values(entry.breakdown ?? {}).reduce((stats, item) => ({
     correct: stats.correct + (item.correct ? 1 : 0),
     exact: stats.exact + (item.exact ? 1 : 0),
-  }), { correct: 0, exact: 0 })
+    scorers: stats.scorers + (item.scorerHits ?? 0),
+  }), { correct: 0, exact: 0, scorers: 0 })
 }
 
 export function Leaderboard({ entries, currentEntry = null, currentStats, onBackToGame }: LeaderboardProps) {
@@ -282,6 +283,7 @@ export function Leaderboard({ entries, currentEntry = null, currentStats, onBack
                     <div className="lb-podium__badges">
                       <span className="lb-badge lb-badge--correct">★ {stats.correct}</span>
                       <span className="lb-badge lb-badge--exact">◎ {stats.exact}</span>
+                      <span className="lb-badge lb-badge--exact">⚽ {stats.scorers}</span>
                     </div>
                     <div className={`lb-podium__bar lb-podium__bar--${rank}`}>
                       <span className="lb-podium__rank">#{rank}</span>
@@ -309,6 +311,7 @@ export function Leaderboard({ entries, currentEntry = null, currentStats, onBack
                       <div className="lb-row__badges">
                         <span className="lb-badge lb-badge--correct">★ {stats.correct} pronos</span>
                         <span className="lb-badge lb-badge--exact">◎ {stats.exact} exacts</span>
+                        <span className="lb-badge lb-badge--exact">⚽ {stats.scorers} buteurs</span>
                       </div>
                       <div className="lb-row__bar-track">
                         <div className="lb-row__bar-fill" style={{ width: `${pct}%` }} />

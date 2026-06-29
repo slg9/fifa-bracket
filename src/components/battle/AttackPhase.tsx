@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
-import type { BattleDifficulty } from '../../types'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import type { BattleDifficulty, BattleScorer } from '../../types'
 import type { TeamKit } from '../../lib/teamKits'
 import { playGameSound } from '../../lib/useGameAudio'
 import { sfx } from '../../lib/sfx'
@@ -15,7 +15,7 @@ type AttackPhaseProps = {
   awayTeamPlayers?: string[]
   playerKit?: TeamKit
   opponentKit?: TeamKit
-  onRoundEnd: (isGoal: boolean, reason?: AttackEndReason) => void
+  onRoundEnd: (isGoal: boolean, reason?: AttackEndReason, scorer?: BattleScorer) => void
   isPaused?: boolean
   onAudioOverride?: (src: string | null) => void
   shotOnly?: boolean
@@ -64,6 +64,24 @@ const GD_COMMENTS = [
 ]
 
 const GAUGE_TRACK_PX = 260
+const FALLBACK_ATTACKER_NUMBERS = [9, 10, 11, 7, 20, 19, 21, 18, 14, 17]
+const KNOWN_PLAYER_NUMBERS: Record<string, number> = {
+  'kylian mbappe': 10,
+  'ousmane dembele': 11,
+  'marcus thuram': 9,
+  'lionel messi': 10,
+  'julian alvarez': 9,
+  'lautaro martinez': 22,
+  'vinicius junior': 7,
+  rodrygo: 10,
+  endrick: 9,
+  'harry kane': 9,
+  'jude bellingham': 10,
+  'phil foden': 11,
+  'jonathan david': 9,
+  'alphonso davies': 19,
+  'cyle larin': 17,
+}
 
 type SlalomWaveType = 'gate' | 'narrow_gate' | 'slide_wall' | 'double_slide_wall' | 'diagonal_press' | 'moving_gate' | 'bonus_choice' | 'combo_gate_slide'
 
@@ -126,6 +144,31 @@ function pickWeighted<T extends string>(rng: () => number, weights: Array<[T, nu
 function defenderLabel(players: string[], index: number, fallback: string) {
   if (!players.length) return fallback
   return players[index % players.length].split(' ').pop()?.slice(0, 8) ?? fallback
+}
+
+function normalizePlayerName(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function playerLastName(value: string) {
+  const parts = value.trim().split(/\s+/)
+  return parts[parts.length - 1] || value
+}
+
+function buildShooterOptions(players: string[], teamId: string): BattleScorer[] {
+  const uniquePlayers = Array.from(new Set(players.map((name) => name.trim()).filter(Boolean)))
+  const source = uniquePlayers.length ? uniquePlayers : [`Buteur ${teamId.toUpperCase()}`]
+  return source.map((name, index) => ({
+    name,
+    teamId,
+    number: KNOWN_PLAYER_NUMBERS[normalizePlayerName(name)] ?? FALLBACK_ATTACKER_NUMBERS[index % FALLBACK_ATTACKER_NUMBERS.length],
+    controlled: true,
+  }))
 }
 
 function pickGateCenter(rng: () => number, previous: number[], difficulty: BattleDifficulty) {
@@ -417,13 +460,14 @@ export function AttackPhase({
   const opponentJerseyColor = opponentKit?.primary ?? '#FF4455'
   const opponentAccentColor = opponentKit?.secondary ?? '#7dd3fc'
 
-  //  Real player names 
-  const attackerName = useRef(
-    homeTeamPlayers.length > 0
-      ? homeTeamPlayers[Math.floor(Math.random() * Math.min(homeTeamPlayers.length, 3))]
-      : null
-  ).current
-  const attackerShort = attackerName ? attackerName.split(' ').pop()!.slice(0, 7) : null
+  const shooterOptions = useMemo(() => buildShooterOptions(homeTeamPlayers, homeTeamId), [homeTeamId, homeTeamPlayers])
+  const [shooterIndex, setShooterIndex] = useState(0)
+  const selectedShooterIndex = shooterIndex % shooterOptions.length
+  const selectedShooter = shooterOptions[selectedShooterIndex] ?? shooterOptions[0]
+  const selectedShooterRef = useRef<BattleScorer>(selectedShooter)
+  selectedShooterRef.current = selectedShooter
+  const attackerName = selectedShooter.name
+  const attackerShort = playerLastName(attackerName).slice(0, 7)
 
   //  Tutorial 
   const [tutorialDone, setTutorialDone] = useState(
@@ -492,6 +536,7 @@ export function AttackPhase({
   const hasAimedTargetRef = useRef(false)
   const aimStartRef = useRef<{ x: number; y: number } | null>(null)
   const [shotAimWarning, setShotAimWarning] = useState(false)
+  const [shooterSelectionDone, setShooterSelectionDone] = useState(false)
   const [shotTutorialDone, setShotTutorialDone] = useState(false)
   const [shotJoystick, setShotJoystick] = useState<{
     pullX: number
@@ -540,14 +585,14 @@ export function AttackPhase({
   const shotRectRef      = useRef({ left: 0, top: 0, width: 0, height: 0 })
 
   useEffect(() => {
-    if (phase !== 'shot' || showShotIntro || !shotTutorialDone) return
+    if (phase !== 'shot' || showShotIntro || !shooterSelectionDone || !shotTutorialDone) return
     onAudioOverride?.(shotAudioMode === 'heartOnly' ? null : '/audio/final-kick-freeze.mp3')
     const heart = playGameSound('/audio/heart.mp3', { volume: shotAudioMode === 'heartOnly' ? 0.88 : 0.7, loop: true, kind: 'ambience' })
     return () => {
       heart?.stop()
       onAudioOverride?.(null)
     }
-  }, [phase, showShotIntro, onAudioOverride, shotAudioMode, shotTutorialDone])
+  }, [phase, showShotIntro, onAudioOverride, shotAudioMode, shooterSelectionDone, shotTutorialDone])
 
   useEffect(() => {
     if (!shotOnly) return
@@ -556,6 +601,8 @@ export function AttackPhase({
     const defaultAim = { x: 50, y: 30 }
     aimCursorRef.current = defaultAim
     setAimCursorPos(defaultAim)
+    setShooterSelectionDone(false)
+    setShotTutorialDone(false)
     gaugeGreenLeft.current = 0.34
   }, [shotOnly])
 
@@ -610,10 +657,10 @@ export function AttackPhase({
   }, [phase])
 
   //  Finish callback 
-  const finish = useCallback((isGoal: boolean, reason: AttackEndReason) => {
+  const finish = useCallback((isGoal: boolean, reason: AttackEndReason, scorer?: BattleScorer) => {
     if (endedRef.current) return
     endedRef.current = true
-    onRoundEnd(isGoal, reason)
+    onRoundEnd(isGoal, reason, scorer)
   }, [onRoundEnd])
 
   const getEffectiveGaugeGreenPx = useCallback(() => {
@@ -829,7 +876,7 @@ export function AttackPhase({
 
   //  Shot RAF  keeper + aim cursor + gauge all oscillate simultaneously 
   useEffect(() => {
-    if (phase !== 'shot' || showShotIntro || !shotTutorialDone) return
+    if (phase !== 'shot' || showShotIntro || !shooterSelectionDone || !shotTutorialDone) return
     shotFiredRef.current = false
     gaugeTimeRef.current = 0
     let frame = 0
@@ -880,7 +927,7 @@ export function AttackPhase({
         window.setTimeout(() => {
           setBallFlight({ id: Date.now(), target: { x: 118, y: -18, clientX: 0, clientY: 0 }, state: 'miss', duration: FLIGHT_MS })
           window.setTimeout(() => setResultLabel('RATE !'), FLIGHT_MS)
-          window.setTimeout(() => finish(false, 'miss'), FLIGHT_MS + 700)
+          window.setTimeout(() => finish(false, 'miss', selectedShooterRef.current), FLIGHT_MS + 700)
         }, KICK_DELAY_MS)
         return
       }
@@ -890,7 +937,7 @@ export function AttackPhase({
 
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [phase, showShotIntro, shotTutorialDone, cfg.gaugeSpeed, difficulty, finish])
+  }, [phase, showShotIntro, shooterSelectionDone, shotTutorialDone, cfg.gaugeSpeed, difficulty, finish])
 
   const isGoalTargetInsideFrame = (target: { x: number; y: number }) => (
     target.x >= 0 && target.x <= 100 && target.y >= 0 && target.y <= 100
@@ -922,7 +969,7 @@ export function AttackPhase({
 
   // Shot aiming: hold to aim, release to kick.
   const handleShotPointerMove = (e: React.PointerEvent<HTMLElement>) => {
-    if (shotFiredRef.current || endedRef.current || phase !== 'shot' || !shotTutorialDone || ballFlight) return
+    if (shotFiredRef.current || endedRef.current || phase !== 'shot' || !shooterSelectionDone || !shotTutorialDone || ballFlight) return
     if (!isAimingRef.current) return
 
     const aim = pointerToShotTarget(e.clientX, e.clientY)
@@ -979,25 +1026,25 @@ export function AttackPhase({
       if (!inGreen || !targetInsideFrame) {
         setBallFlight({ id: Date.now(), target: missTarget, state: 'miss', duration: FLIGHT_MS })
         window.setTimeout(() => setResultLabel('RATE !'), FLIGHT_MS)
-        window.setTimeout(() => finish(false, 'miss'), FLIGHT_MS + 700)
+        window.setTimeout(() => finish(false, 'miss', selectedShooterRef.current), FLIGHT_MS + 700)
         return
       }
 
       if (keeperBlocking) {
         setBallFlight({ id: Date.now(), target: aimTarget, state: 'saved', duration: FLIGHT_MS })
         window.setTimeout(() => setResultLabel('ARRETE !'), FLIGHT_MS)
-        window.setTimeout(() => finish(false, 'saved'), FLIGHT_MS + 800)
+        window.setTimeout(() => finish(false, 'saved', selectedShooterRef.current), FLIGHT_MS + 800)
         return
       }
 
       setBallFlight({ id: Date.now(), target: aimTarget, state: 'goal', duration: FLIGHT_MS })
       window.setTimeout(() => setResultLabel('BUT !'), FLIGHT_MS)
-      window.setTimeout(() => finish(true, 'goal'), FLIGHT_MS + 800)
+      window.setTimeout(() => finish(true, 'goal', selectedShooterRef.current), FLIGHT_MS + 800)
     }, KICK_DELAY_MS)
   }
 
   const handleShotPointerDown = (e: React.PointerEvent<HTMLElement>) => {
-    if (shotFiredRef.current || endedRef.current || phase !== 'shot' || !shotTutorialDone || ballFlight) return
+    if (shotFiredRef.current || endedRef.current || phase !== 'shot' || !shooterSelectionDone || !shotTutorialDone || ballFlight) return
 
     isAimingRef.current = true
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
@@ -1017,7 +1064,7 @@ export function AttackPhase({
   }
 
   const handleShotPointerUp = (e: React.PointerEvent<HTMLElement>) => {
-    if (shotFiredRef.current || endedRef.current || phase !== 'shot' || !shotTutorialDone || ballFlight) return
+    if (shotFiredRef.current || endedRef.current || phase !== 'shot' || !shooterSelectionDone || !shotTutorialDone || ballFlight) return
     if (!isAimingRef.current) return
 
     isAimingRef.current = false
@@ -1049,12 +1096,24 @@ export function AttackPhase({
     setShotJoystick(null)
   }
 
+  const changeShooter = (direction: -1 | 1) => {
+    sfx.nav()
+    setShooterIndex((index) => (index + direction + shooterOptions.length) % shooterOptions.length)
+  }
+
+  const confirmShooter = () => {
+    sfx.pick()
+    setShooterSelectionDone(true)
+    setShotTutorialDone(false)
+  }
+
   //  Transition from GD to shot 
   const handleStartShot = () => {
     sfx.click()
     setShowShotIntro(false)
     phaseRef.current = 'shot'
     setPhase('shot')
+    setShooterSelectionDone(false)
     setShotTutorialDone(false)
     // Default cursor low in the goal while the visible control starts on the ball.
     const defaultAim = { x: 50, y: 82 }
@@ -1518,6 +1577,97 @@ export function AttackPhase({
           animation: atkWarningPop 1.5s ease-out both;
         }
         @keyframes atkWarningPop { 0%{opacity:0;scale:.86} 12%{opacity:1;scale:1.04} 72%{opacity:1;scale:1} 100%{opacity:0;scale:.96} }
+        .atk-shooter-select {
+          position: absolute; inset: 0; z-index: 46;
+          display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+          gap: 12px; padding: max(24px, env(safe-area-inset-top)) 22px max(24px, calc(env(safe-area-inset-bottom) + 18px));
+          text-align: center;
+          background:
+            radial-gradient(circle at 50% 42%, rgba(43,255,154,.18), transparent 35%),
+            linear-gradient(180deg, rgba(5,11,22,.95), rgba(9,4,28,.92));
+          backdrop-filter: blur(4px);
+        }
+        .atk-shooter-select__title {
+          display: grid; gap: 4px; justify-items: center;
+          color: rgba(255,255,255,.76);
+          font: 900 13px 'Barlow Condensed',sans-serif;
+          letter-spacing: .2em; text-transform: uppercase;
+        }
+        .atk-shooter-select__title strong {
+          color: #FFB800;
+          font-size: clamp(30px,9vw,50px);
+          line-height: .9;
+          text-shadow: 0 0 28px rgba(255,184,0,.46);
+        }
+        .atk-shooter-select__stage {
+          min-height: 0;
+          display: grid;
+          grid-template-columns: 50px minmax(0,1fr) 50px;
+          align-items: center;
+          gap: 8px;
+        }
+        .atk-shooter-select__arrow {
+          width: 46px; height: 58px; border-radius: 16px;
+          border: 1px solid rgba(255,255,255,.18);
+          background: rgba(255,255,255,.08);
+          color: #fff;
+          font: 900 32px/1 'Barlow Condensed',sans-serif;
+          cursor: pointer;
+          box-shadow: 0 12px 30px rgba(0,0,0,.26);
+        }
+        .atk-shooter-select__arrow:active { transform: translateY(2px); background: rgba(43,255,154,.16); }
+        .atk-shooter-select__card {
+          min-width: 0;
+          display: grid; justify-items: center; align-content: center; gap: 12px;
+        }
+        .atk-shooter-select__avatar {
+          width: min(58vw, 230px);
+          aspect-ratio: 1 / 1.16;
+          display: grid; place-items: center;
+          filter: drop-shadow(0 0 32px rgba(43,255,154,.34));
+          animation: atkShooterPop .46s cubic-bezier(.2,1.28,.32,1) both;
+        }
+        .atk-shooter-select__avatar .atk-kawaii {
+          width: min(48vw, 190px);
+          height: auto;
+          transform: scale(2.38);
+          transform-origin: center;
+        }
+        .atk-shooter-select__name {
+          max-width: 100%;
+          margin: 0;
+          color: #fff;
+          font: 900 clamp(28px,8.2vw,44px)/.9 'Barlow Condensed',sans-serif;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+          text-shadow: 0 0 22px rgba(43,255,154,.34);
+          overflow-wrap: anywhere;
+        }
+        .atk-shooter-select__meta {
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 7px 12px; border-radius: 999px;
+          border: 1px solid rgba(43,255,154,.36);
+          color: #2bff9a;
+          background: rgba(43,255,154,.08);
+          font: 900 12px 'Barlow Condensed',sans-serif;
+          letter-spacing: .14em;
+          text-transform: uppercase;
+        }
+        .atk-shooter-select__btn {
+          min-height: 58px;
+          width: min(100%, 360px);
+          justify-self: center;
+          border: 0;
+          border-radius: 16px;
+          background: linear-gradient(90deg,#2bff9a,#FFB800);
+          color: #061013;
+          font: 900 18px 'Barlow Condensed',sans-serif;
+          letter-spacing: .18em;
+          text-transform: uppercase;
+          cursor: pointer;
+          box-shadow: 0 0 34px rgba(43,255,154,.32), 0 18px 38px rgba(0,0,0,.34);
+        }
+        @keyframes atkShooterPop { from{opacity:0; transform:scale(.82)} to{opacity:1; transform:scale(1)} }
         .atk-shot-tutorial {
           position: absolute; inset: 0; z-index: 44;
           display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1540,12 +1690,43 @@ export function AttackPhase({
           color: #2bff9a; font: 900 16px 'Barlow Condensed', sans-serif;
           letter-spacing: .14em; cursor: pointer; box-shadow: 0 0 18px rgba(43,255,154,.28);
         }
+        .atk-shot-shooter {
+          position:absolute; left:50%; bottom:max(44px, calc(env(safe-area-inset-bottom) + 34px)); z-index:18;
+          display:grid; justify-items:center; gap:2px;
+          transform:translateX(-50%);
+          pointer-events:none;
+          filter:drop-shadow(0 0 16px rgba(43,255,154,.42));
+        }
+        .atk-shot-shooter .atk-kawaii { width:78px; height:auto; }
+        .atk-shot-shooter__name {
+          max-width: 190px;
+          padding: 4px 8px;
+          border-radius: 999px;
+          background: rgba(4,12,22,.76);
+          color: #eafff5;
+          font:900 11px 'Barlow Condensed',sans-serif;
+          letter-spacing:.09em;
+          text-transform:uppercase;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          white-space:nowrap;
+        }
         /*  Result overlay  */
         .atk-result-overlay {
-          position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+          position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+          gap: 4px;
           font: 900 clamp(40px,14vw,72px) 'Barlow Condensed', sans-serif;
           letter-spacing: .08em; text-shadow: 0 0 36px currentColor;
           animation: atkResultIn .25s ease-out both; z-index: 30; pointer-events: none;
+        }
+        .atk-result-overlay small {
+          max-width: min(86%, 320px);
+          color: #fff;
+          font: 900 clamp(15px,4.4vw,22px) 'Barlow Condensed',sans-serif;
+          letter-spacing: .08em;
+          text-align:center;
+          text-transform:uppercase;
+          text-shadow: 0 0 18px rgba(0,0,0,.65);
         }
         @keyframes atkResultIn { from{transform:scale(.5);opacity:0} to{transform:scale(1);opacity:1} }
 
@@ -1801,10 +1982,47 @@ export function AttackPhase({
             isKicking={isKicking}
             targetActive={hasAimedTarget}
           />
-          {!shotTutorialDone && !ballFlight && !resultLabel ? (
+          {!shooterSelectionDone && !ballFlight && !resultLabel ? (
+            <div
+              className="atk-shooter-select"
+              onPointerDown={(event) => event.stopPropagation()}
+              onPointerMove={(event) => event.stopPropagation()}
+              onPointerUp={(event) => event.stopPropagation()}
+            >
+              <div className="atk-shooter-select__title">
+                <span>Choisis ton</span>
+                <strong>TIREUR</strong>
+              </div>
+              <div className="atk-shooter-select__stage">
+                <button type="button" className="atk-shooter-select__arrow" onClick={() => changeShooter(-1)} aria-label="Tireur precedent">&lt;</button>
+                <div className="atk-shooter-select__card" key={`${selectedShooter.name}-${selectedShooter.number}`}>
+                  <div className="atk-shooter-select__avatar">
+                    <KawaiiFootballer
+                      label={String(selectedShooter.number ?? 9)}
+                      jerseyColor={playerJerseyColor}
+                      accentColor={playerAccentColor}
+                      shortsColor={playerShortsColor}
+                      textColor={playerTextColor}
+                      withBall
+                      isPlayer
+                    />
+                  </div>
+                  <h3 className="atk-shooter-select__name">{selectedShooter.name}</h3>
+                  <div className="atk-shooter-select__meta">#{selectedShooter.number ?? 9} · {selectedShooterIndex + 1}/{shooterOptions.length}</div>
+                </div>
+                <button type="button" className="atk-shooter-select__arrow" onClick={() => changeShooter(1)} aria-label="Tireur suivant">&gt;</button>
+              </div>
+              <button type="button" className="atk-shooter-select__btn" onClick={confirmShooter}>
+                Tirer
+              </button>
+            </div>
+          ) : null}
+          {shooterSelectionDone && !shotTutorialDone && !ballFlight && !resultLabel ? (
             <div className="atk-shot-tutorial">
               <div className="atk-shot-tutorial__title">PHASE DE TIR</div>
               <div className="atk-shot-tutorial__text">
+                {selectedShooter.name} attend ton geste.
+                <br /><br />
                 Maintiens le rond jaune sur la balle au pied du joueur.
                 <br /><br />
                 Tire vers le bas avec le doigt ou la souris pour viser comme dans Angry Birds. La cible peut aller dans la cage ou dehors.
@@ -1816,7 +2034,21 @@ export function AttackPhase({
               </button>
             </div>
           ) : null}
-          {shotTutorialDone && !ballFlight && !resultLabel ? (
+          {shooterSelectionDone && shotTutorialDone && !ballFlight && !resultLabel ? (
+            <div className="atk-shot-shooter" aria-hidden="true">
+              <KawaiiFootballer
+                label={String(selectedShooter.number ?? 9)}
+                jerseyColor={playerJerseyColor}
+                accentColor={playerAccentColor}
+                shortsColor={playerShortsColor}
+                textColor={playerTextColor}
+                withBall
+                isPlayer
+              />
+              <span className="atk-shot-shooter__name">{selectedShooter.name}</span>
+            </div>
+          ) : null}
+          {shooterSelectionDone && shotTutorialDone && !ballFlight && !resultLabel ? (
             <div
               className={`atk-shot-joystick${isAimingRef.current ? ' is-dragging' : ''}`}
               style={{
@@ -1837,15 +2069,15 @@ export function AttackPhase({
             </div>
           ) : null}
           {/* Hint when no aim yet */}
-          {!hasAimedTarget && !ballFlight && !resultLabel && (
+          {shooterSelectionDone && shotTutorialDone && !hasAimedTarget && !ballFlight && !resultLabel && (
             <div className="atk-aim-hint">MAINTIENS LA BALLE, TIRE VERS LE BAS</div>
           )}
-          {shotAimWarning && !ballFlight && !resultLabel && (
+          {shooterSelectionDone && shotTutorialDone && shotAimWarning && !ballFlight && !resultLabel && (
             <div className="atk-aim-warning">TIRE LE ROND JAUNE VERS LE BAS, VISE, PUIS RELACHE DANS LE VERT</div>
           )}
 
           {/* Gauge  visible until tir fired */}
-          {!resultLabel && (
+          {shooterSelectionDone && shotTutorialDone && !resultLabel && (
             <div className="atk-gauge-bottom">
               <div className="atk-gauge-label">RELACHE DANS LE VERT !</div>
               <div className="atk-gauge-track">
@@ -1858,7 +2090,14 @@ export function AttackPhase({
           {/* Result overlay */}
           {resultLabel && (
             <div className="atk-result-overlay" style={{ color: resultLabel === 'BUT !' ? '#2bff9a' : resultLabel === 'ARRETE !' ? '#FFB800' : '#FF4455' }}>
-              {resultLabel}
+              <span>{resultLabel}</span>
+              <small>
+                {resultLabel === 'BUT !'
+                  ? `${selectedShooter.name} marque`
+                  : resultLabel === 'ARRETE !'
+                    ? `${selectedShooter.name} tombe sur le gardien`
+                    : `${selectedShooter.name} rate sa frappe`}
+              </small>
             </div>
           )}
         </div>

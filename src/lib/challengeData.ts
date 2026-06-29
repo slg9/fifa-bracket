@@ -53,10 +53,11 @@ export async function submitBracket(entry: Partial<ChallengeEntry> & { email: st
       bracketName: entry.bracketName ?? current?.bracketName ?? 'Mon bracket',
       picks: entry.picks ?? current?.picks ?? {},
       battleScores: entry.battleScores ?? current?.battleScores ?? {},
-      score: current?.score ?? 0,
+      scorers: entry.scorers ?? current?.scorers ?? {},
+      score: Math.max(0, Math.round(entry.score ?? current?.score ?? 0)),
       rank: null,
       submittedAt: entry.submittedAt ?? null,
-      breakdown: current?.breakdown ?? {},
+      breakdown: entry.breakdown ?? current?.breakdown ?? {},
       battleBonuses: entry.battleBonuses ?? current?.battleBonuses ?? 0,
       createdAt: current?.createdAt ?? new Date().toISOString(),
     }

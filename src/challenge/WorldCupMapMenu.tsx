@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { sfx } from '../lib/sfx'
-import type { KnockoutMatch, Team } from '../types'
-import { evaluateMatchProgress, formatScore, scoreForPick, type BattleScore, type DisplayScore, type MatchProgress, type OfficialScore } from './progress'
+import type { BattleScorer, KnockoutMatch, Team } from '../types'
+import { evaluateMatchProgress, formatScore, scoreForPick, type BattleScore, type DisplayScore, type MatchProgress, type OfficialScore, type RealScorer } from './progress'
 
 export interface WorldCupMapMenuProps {
   matches: KnockoutMatch[]
   teamsById: Map<string, Team>
   picks: Record<string, string>
   scores?: Record<string, { p: number; o: number }>
+  scorers?: Record<string, BattleScorer[]>
+  realScorers?: RealScorer[]
   realResults?: Record<string, string>
   officialScores?: Record<string, OfficialScore>
   onPick: (matchId: string, teamId: string) => void
@@ -179,6 +181,8 @@ function buildDisplayNodes(
   scores: Record<string, BattleScore>,
   realResults: Record<string, string>,
   officialScores: Record<string, OfficialScore>,
+  scorers: Record<string, BattleScorer[]>,
+  realScorers: RealScorer[],
 ): DisplayNode[] {
   const resolved = matches.map((match) => ({
     match,
@@ -192,7 +196,7 @@ function buildDisplayNodes(
   return resolved.map(({ match, homeTeam, awayTeam, pickedTeamId }) => {
     const pos = NODE_POS[match.id]
     const realWinnerTeamId = realResults[match.id]
-    const progress = evaluateMatchProgress(match, picks, scores, realResults, officialScores)
+    const progress = evaluateMatchProgress(match, picks, scores, realResults, officialScores, scorers, realScorers)
     const isNextPlayable = match.id === firstPlayable
     const isUnlockedByDate = homeTeam && awayTeam && isMatchDayOrPast(match)
     const status: NodeStatus = pickedTeamId
@@ -389,6 +393,7 @@ function LevelEntryScreen({
   node,
   selectedTeamId,
   score,
+  scorers = [],
   open,
   canShare: _canShare,
   canShowBracket: _canShowBracket,
@@ -401,6 +406,7 @@ function LevelEntryScreen({
   node: DisplayNode | null
   selectedTeamId: string | null
   score?: BattleScore
+  scorers?: BattleScorer[]
   open: boolean
   canShare: boolean
   canShowBracket: boolean
@@ -461,11 +467,18 @@ function LevelEntryScreen({
                 <strong>{node.progress.correct ? `★ Prono reussi +${node.progress.points}` : '! Prono rate'}</strong>
                 <span>Reel {formatScore(node.progress.realScore)} · Ton jeu {formatScore(node.progress.playedScore)}</span>
                 {node.progress.exact ? <em>Score exact +{node.progress.exactPoints}</em> : null}
+                {node.progress.scorerHits.length ? <em>Buteur trouve +{node.progress.scorerPoints} : {node.progress.scorerHits.map((scorer) => scorer.name).join(', ')}</em> : null}
               </div>
             ) : officialPending ? (
               <div className="wcmap-entry__verdict is-pending">
                 <strong>Score officiel en attente</strong>
                 <span>Ton jeu {formatScore(displayScore)} est sauvegarde. Des que FIFA synchronise ce match, la map affichera reussi ou rate.</span>
+              </div>
+            ) : null}
+            {scorers.length ? (
+              <div className="wcmap-entry__scorers">
+                <strong>Buteurs Brakup</strong>
+                <span>{scorers.map((scorer) => `#${scorer.number ?? 9} ${scorer.name}`).join(' · ')}</span>
               </div>
             ) : null}
           </div>
@@ -524,6 +537,8 @@ export function WorldCupMapMenu({
   teamsById,
   picks,
   scores = {},
+  scorers = {},
+  realScorers = [],
   realResults = {},
   officialScores = {},
   onPick: _onPick,
@@ -546,7 +561,7 @@ export function WorldCupMapMenu({
   const [selectingId, setSelectingId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks, scores, realResults, officialScores), [matches, teamsById, picks, scores, realResults, officialScores])
+  const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks, scores, realResults, officialScores, scorers, realScorers), [matches, teamsById, picks, scores, realResults, officialScores, scorers, realScorers])
   const focusNode = nodes.find((node) => node.isNextPlayable) ?? nodes.find((node) => node.status === 'live') ?? nodes.find((node) => node.status === 'available') ?? null
   const selectedNode = nodes.find((node) => node.id === selectedMatchId) ?? null
 
@@ -800,6 +815,7 @@ export function WorldCupMapMenu({
         node={selectedNode}
         selectedTeamId={selectedTeamId}
         score={selectedNode ? scores[selectedNode.id] : undefined}
+        scorers={selectedNode ? scorers[selectedNode.id] : undefined}
         open={Boolean(selectedNode)}
         canShare={Boolean(onSave)}
         canShowBracket={Boolean(onShowBracket)}

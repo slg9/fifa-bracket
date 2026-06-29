@@ -136,7 +136,19 @@ export type ChallengeBreakdown = Record<string, {
   played: boolean
   stage: string
   exact?: boolean
+  exactPoints?: number
+  scorerHits?: number
+  scorerPoints?: number
 }>
+
+export type BattleScorer = {
+  name: string
+  teamId: string
+  teamCode?: string
+  number?: number
+  goals?: number
+  controlled?: boolean
+}
 
 export interface ChallengeEntry {
   id: string
@@ -145,6 +157,7 @@ export interface ChallengeEntry {
   bracketName: string
   picks: Record<string, string>
   battleScores?: Record<string, { p: number; o: number }>
+  scorers?: Record<string, BattleScorer[]>
   score: number
   rank: number | null
   submittedAt: string | null
@@ -208,7 +221,8 @@ export type BattleResult = {
   awayScore: number
   winnerId: string
   playerScore: number
-  rounds: Array<{ type: BattleRoundType; success: boolean; isGoal: boolean }>
+  rounds: Array<{ type: BattleRoundType; success: boolean; isGoal: boolean; scorer?: BattleScorer }>
+  scorers?: BattleScorer[]
   penalties?: { home: number; away: number }
   simulated?: boolean
   commentary?: string
