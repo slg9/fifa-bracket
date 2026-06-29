@@ -621,18 +621,27 @@ export function BrakupHub({
   }
 
   const handleLogout = () => {
-    // Marquer que l'utilisateur avait un compte pour afficher "Se reconnecter"
-    if (accessToken || savedProfile.email) {
-      localStorage.setItem(HAD_ACCOUNT_KEY, 'true')
-      setHadAccount(true)
-    }
-    localStorage.removeItem('brakup:token')
-    localStorage.removeItem(PROFILE_STORAGE_KEY)
+    localStorage.clear()
+    sessionStorage.clear()
     setAccessToken(null)
     setSavedProfile({ email: '', pseudo: '', bracketName: 'Mon bracket' })
+    setHadAccount(false)
+    setPicks({})
+    setBattleScores({})
+    setScorers({})
+    setBattleBonuses(0)
     setBrackets([])
     setActiveBracketId(null)
+    setViewedBracketEntry(null)
+    setAutosavedAt(null)
+    setOutcomeNotice(null)
+    setShareStatus('idle')
+    setShowEmailEntry(false)
+    setShowLoginEntry(false)
+    setShowOTPEntry(false)
+    setShowProfileSettings(false)
     setShowGameMenu(false)
+    setMapResetKey((key) => key + 1)
   }
 
   const handleLogin = async (email: string) => {
