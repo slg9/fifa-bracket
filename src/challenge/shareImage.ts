@@ -44,6 +44,30 @@ async function resolveImagesAsDataUrls(element: HTMLElement): Promise<() => void
 
 export async function shareElementImage(element: HTMLElement, options: ShareImageOptions) {
   const restoreImages = await resolveImagesAsDataUrls(element)
+  
+  // Sauvegarder les styles originaux pour restauration
+  const originalVisibility = element.style.visibility
+  const originalTransform = element.style.transform
+  const originalPosition = element.style.position
+  const originalZIndex = element.style.zIndex
+  const originalLeft = element.style.left
+  const originalTop = element.style.top
+  const originalOpacity = element.style.opacity
+  const originalDisplay = element.style.display
+  
+  // Rendre l'element visible et positionne pour la capture
+  element.style.visibility = 'visible'
+  element.style.transform = 'none'
+  element.style.position = 'fixed'
+  element.style.zIndex = '999999'
+  element.style.left = '0'
+  element.style.top = '0'
+  element.style.opacity = '1'
+  element.style.display = 'block'
+  
+  // Forcer le navigateur a appliquer les styles avant capture
+  await new Promise(resolve => requestAnimationFrame(resolve))
+  
   let blob: Blob | null = null
   try {
     blob = await toBlob(element, {
@@ -53,6 +77,15 @@ export async function shareElementImage(element: HTMLElement, options: ShareImag
     })
   } finally {
     restoreImages()
+    // Restaurer les styles originaux
+    element.style.visibility = originalVisibility
+    element.style.transform = originalTransform
+    element.style.position = originalPosition
+    element.style.zIndex = originalZIndex
+    element.style.left = originalLeft
+    element.style.top = originalTop
+    element.style.opacity = originalOpacity
+    element.style.display = originalDisplay
   }
 
   if (!blob) {

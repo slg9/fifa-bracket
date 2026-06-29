@@ -461,7 +461,9 @@ export function AttackPhase({
   const opponentJerseyColor = opponentKit?.primary ?? '#FF4455'
   const opponentAccentColor = opponentKit?.secondary ?? '#7dd3fc'
 
-  const forwardPlayers = useMemo(() => homeTeamPlayers.length > 6 ? homeTeamPlayers.slice(homeTeamPlayers.length - 6) : homeTeamPlayers, [homeTeamPlayers])
+  // Utiliser tous les joueurs de l'equipe (plus de limite a 6)
+  // Pour commencer par les attaquants, il faudrait avoir les roles dans les donnees
+  const forwardPlayers = useMemo(() => [...homeTeamPlayers], [homeTeamPlayers])
   const shooterOptions = useMemo(() => buildShooterOptions(forwardPlayers, homeTeamId), [homeTeamId, forwardPlayers])
   const [shooterIndex, setShooterIndex] = useState(0)
   const selectedShooterIndex = shooterIndex % shooterOptions.length
