@@ -1,4 +1,7 @@
-﻿import type { BattleResult } from '../../types'
+﻿import { useRef, useState } from 'react'
+import type { BattleResult } from '../../types'
+import ShareCard from '../../challenge/ShareCard'
+import { safeFilePart, shareElementImage } from '../../challenge/shareImage'
 
 type MatchResultProps = {
   result: BattleResult
@@ -16,8 +19,32 @@ type MatchResultProps = {
 const CONFETTI_COLORS = ['#ffb800', '#2bff9a', '#ff4455', '#a855f7', '#3b82f6', '#ff6b35']
 
 export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTeamName, awayTeamName, homeFlag, awayFlag, syncStatusLabel, onContinue }: MatchResultProps) {
+  const shareRef = useRef<HTMLDivElement>(null)
+  const [shareStatus, setShareStatus] = useState<'idle' | 'working' | 'done' | 'error'>('idle')
   const homeName = homeTeamName ?? homeTeamId
   const awayName = awayTeamName ?? awayTeamId
+  const shareMatchLabel = `${homeName} vs ${awayName}`
+
+  const handleShare = async () => {
+    if (!shareRef.current) return
+    setShareStatus('working')
+    try {
+      await shareElementImage(shareRef.current, {
+        fileName: `brakup-match-${safeFilePart(homeName)}-${safeFilePart(awayName)}.png`,
+        title: 'Brakup Challenge',
+        text: 'Partage ca avec tes potes et challenge-les sur Brakup.',
+      })
+      setShareStatus('done')
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setShareStatus('idle')
+        return
+      }
+      console.error('Match result share failed:', error)
+      setShareStatus('error')
+    }
+  }
+
   return (
     <section className={`battle-match-result${playerWon ? ' is-win' : ' is-loss'}`}>
       {playerWon ? <svg className="battle-match-confetti" viewBox="0 0 400 600" preserveAspectRatio="none" aria-hidden="true">{Array.from({ length: 44 }, (_, index) => <rect key={index} className="battle-match-confetti__piece" x={(index * 67) % 390} y={-60 - (index * 47) % 620} width="8" height="15" rx="2" fill={CONFETTI_COLORS[index % CONFETTI_COLORS.length]} style={{ animationDelay: `${(index % 14) * -.18}s`, animationDuration: `${2.9 + (index % 7) * .18}s` }} />)}</svg> : null}
@@ -32,8 +59,29 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
           {awayFlag ? <span className="battle-match-result__score-flag">{awayFlag}</span> : null}
         </div>
         {syncStatusLabel ? <div className="battle-match-result__sync">{syncStatusLabel}</div> : null}
+        <p className="battle-match-result__share-copy">Partage l'image avec tes potes et challenge-les sur Brakup.</p>
+        <button type="button" className="battle-share" onClick={() => void handleShare()} disabled={shareStatus === 'working'}>
+          {shareStatus === 'working' ? "Generation de l'image..." : "Partager l'image"}
+        </button>
+        {shareStatus === 'done' ? <small className="battle-share__feedback">Image prete a partager.</small> : null}
+        {shareStatus === 'error' ? <small className="battle-share__feedback is-error">Partage indisponible pour le moment.</small> : null}
         <button type="button" className="battle-continue" onClick={onContinue}>Continuer <span>→</span></button>
         <div className="battle-breakdown"><header><span>Round</span><span>Phase</span><span>Résultat</span></header>{result.rounds.length ? result.rounds.map((round, index) => <div key={`${round.type}-${index}`}><b>{index + 1}</b><span>{round.type === 'attack' ? '⚽ Attaque' : round.type === 'fruit_ninja' ? '🔥 Tirs massifs' : '🛡️ Défense'}</span><strong className={round.success ? 'is-success' : 'is-fail'}>{round.success ? 'RÉUSSI' : 'ÉCHEC'}</strong></div>) : <div><b>SIM</b><span>Simulation directe</span><strong className="is-success">VALIDÉ</strong></div>}</div>
+      </div>
+      <div className="brakup-share-capture" aria-hidden="true">
+        <ShareCard
+          captureRef={shareRef}
+          variant={playerWon ? 'win' : 'loss'}
+          kicker={playerWon ? 'Bien joue' : 'Bien tente'}
+          headline={playerWon ? 'Victoire Brakup' : 'Defaite Brakup'}
+          boomLabel={playerWon ? 'BOOOOOM' : 'REMATCH'}
+          scoreLabel={playerWon ? 'MATCH GAGNE' : 'A REJOUER'}
+          matchLabel={shareMatchLabel}
+          detailLabel={`${homeFlag ?? ''} ${result.homeScore} - ${result.awayScore} ${awayFlag ?? ''}`}
+          pointsLabel={playerWon ? 'Duel valide' : 'Revanche ouverte'}
+          homeFlag={homeFlag}
+          awayFlag={awayFlag}
+        />
       </div>
     </section>
   )

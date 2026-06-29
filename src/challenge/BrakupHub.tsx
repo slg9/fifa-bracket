@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { setGameMuted, useGameAudio, useGameMuted } from '../lib/useGameAudio'
 import { getBrackets, submitBracket } from '../lib/challengeData'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
@@ -13,6 +13,8 @@ import useChallengePreload from './useChallengePreload'
 import EmailEntry from './EmailEntry'
 import Leaderboard from './Leaderboard'
 import MyBrackets from './MyBrackets'
+import ShareCard from './ShareCard'
+import { safeFilePart, shareElementImage } from './shareImage'
 import { sfx } from '../lib/sfx'
 import { evaluateMatchProgress, formatScore, summarizeProgress, type OfficialScore } from './progress'
 import './challenge.css'
@@ -178,6 +180,8 @@ export function BrakupHub({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
+  const [shareStatus, setShareStatus] = useState<'idle' | 'working' | 'done' | 'error'>('idle')
+  const outcomeShareRef = useRef<HTMLDivElement>(null)
   const [outcomeNotice, setOutcomeNotice] = useState<{
     key: string
     match: KnockoutMatch
@@ -409,6 +413,27 @@ export function BrakupHub({
       localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify([...seen]))
     }
     setOutcomeNotice(null)
+    setShareStatus('idle')
+  }
+
+  const handleOutcomeShare = async () => {
+    if (!outcomeNotice || !outcomeShareRef.current) return
+    setShareStatus('working')
+    try {
+      const status = await shareElementImage(outcomeShareRef.current, {
+        fileName: `brakup-${safeFilePart(outcomeNotice.match.id)}-${outcomeNotice.progress.correct ? 'win' : 'loss'}.png`,
+        title: 'Brakup Challenge',
+        text: 'Partage ca avec tes potes et challenge-les sur Brakup.',
+      })
+      setShareStatus(status === 'shared' ? 'done' : 'done')
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setShareStatus('idle')
+        return
+      }
+      console.error('Outcome share failed:', error)
+      setShareStatus('error')
+    }
   }
 
   return (
@@ -525,7 +550,27 @@ export function BrakupHub({
               <span>Points <strong>{outcomeNotice.progress.correct ? `+${outcomeNotice.progress.points}` : '0'}</strong></span>
               {outcomeNotice.progress.exact ? <span>Score exact <strong>+{outcomeNotice.progress.exactPoints}</strong></span> : null}
             </div>
+            <div className="brakup-outcome__share-copy">Partage-la avec tes potes et challenge-les sur Brakup.</div>
+            <button type="button" className="brakup-share-button" onClick={() => { sfx.click(); void handleOutcomeShare() }} disabled={shareStatus === 'working'}>
+              {shareStatus === 'working' ? "Generation de l'image..." : "Partager l'image"}
+            </button>
+            {shareStatus === 'done' ? <small className="brakup-share-feedback">Image prete a partager.</small> : null}
+            {shareStatus === 'error' ? <small className="brakup-share-feedback is-error">Partage indisponible pour le moment.</small> : null}
             <button type="button" className="brakup-button" onClick={() => { sfx.click(); closeOutcomeNotice() }}>Continuer</button>
+          </div>
+          <div className="brakup-share-capture" aria-hidden="true">
+            <ShareCard
+              captureRef={outcomeShareRef}
+              variant={outcomeNotice.progress.correct ? 'win' : 'loss'}
+              kicker={outcomeNotice.progress.correct ? 'Bien joue' : 'Dommage'}
+              headline={outcomeNotice.progress.correct ? 'Prono reussi' : 'Prono rate'}
+              boomLabel={outcomeNotice.progress.correct ? 'BOOOOOM' : 'REMATCH'}
+              scoreLabel={outcomeNotice.progress.correct ? `+${outcomeNotice.progress.points} PTS` : '0 PT'}
+              matchLabel={outcomeNotice.match.label}
+              detailLabel={`Reel ${formatScore(outcomeNotice.progress.realScore)} · Ton jeu ${formatScore(outcomeNotice.progress.playedScore)}`}
+              pointsLabel={outcomeNotice.progress.exact ? `Score exact +${outcomeNotice.progress.exactPoints}` : outcomeNotice.progress.correct ? 'Vainqueur trouve' : 'Retente le prochain'}
+              exactLabel={outcomeNotice.progress.exact ? 'Master score' : undefined}
+            />
           </div>
         </div>
       ) : null}

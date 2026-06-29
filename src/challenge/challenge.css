@@ -2489,6 +2489,199 @@
   font: 900 15px 'JetBrains Mono', monospace;
 }
 
+.brakup-outcome__share-copy {
+  color: #fff1b8;
+  font: 900 13px/1.2 'Barlow Condensed', sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.brakup-share-button {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid rgba(255,255,255,.45);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ffffff, #ffe27a);
+  color: #271500;
+  font: 900 14px 'Barlow Condensed','Arial Narrow',sans-serif;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 12px 34px rgba(255,184,0,.28);
+}
+
+.brakup-share-button:disabled {
+  opacity: .68;
+  cursor: wait;
+}
+
+.brakup-share-feedback {
+  color: #2bff9a;
+  font: 800 12px Barlow, sans-serif;
+}
+
+.brakup-share-feedback.is-error {
+  color: #ff6878;
+}
+
+.brakup-share-capture {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 720px;
+  height: 1280px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.brakup-share-card {
+  position: relative;
+  width: 720px;
+  height: 1280px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 54px 44px 46px;
+  overflow: hidden;
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(120,0,10,.12), rgba(170,0,14,.36)),
+    url('/brakup-share-bg.png') center / cover no-repeat,
+    #d40012;
+  font-family: Barlow, system-ui, sans-serif;
+}
+
+.brakup-share-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 55%, rgba(255,0,0,0) 0 25%, rgba(110,0,8,.45) 75%);
+  pointer-events: none;
+}
+
+.brakup-share-card__brand,
+.brakup-share-card__kicker,
+.brakup-share-card__headline,
+.brakup-share-card__boom,
+.brakup-share-card__score,
+.brakup-share-card__ticket,
+.brakup-share-card__cta {
+  position: relative;
+  z-index: 1;
+}
+
+.brakup-share-card__brand {
+  align-self: center;
+  padding: 10px 20px;
+  border: 2px solid rgba(255,255,255,.36);
+  border-radius: 999px;
+  background: rgba(120,0,10,.34);
+  font: 900 28px/1 'Barlow Condensed','Arial Narrow',sans-serif;
+  letter-spacing: .18em;
+}
+
+.brakup-share-card__kicker {
+  margin-top: 44px;
+  color: #FFB800;
+  font: 900 38px/1 'Barlow Condensed','Arial Narrow',sans-serif;
+  letter-spacing: .04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.brakup-share-card__headline {
+  margin-top: 12px;
+  font: 900 58px/.9 'Barlow Condensed','Arial Narrow',sans-serif;
+  letter-spacing: .03em;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 8px 28px rgba(0,0,0,.28);
+}
+
+.brakup-share-card__boom {
+  margin-top: 190px;
+  transform: rotate(-5deg);
+  font: 900 86px/.82 'Barlow Condensed','Arial Narrow',sans-serif;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  text-shadow: 0 10px 30px rgba(0,0,0,.34);
+}
+
+.brakup-share-card__score {
+  margin-top: 14px;
+  transform: rotate(-5deg);
+  color: #FFB800;
+  font: 900 104px/.86 'Barlow Condensed','Arial Narrow',sans-serif;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  text-shadow: 0 8px 26px rgba(0,0,0,.28);
+}
+
+.brakup-share-card.is-loss .brakup-share-card__score {
+  color: #ffffff;
+}
+
+.brakup-share-card__ticket {
+  margin-top: auto;
+  padding: 24px 24px 22px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 18px 44px rgba(0,0,0,.24);
+}
+
+.brakup-share-card__ticket > div:first-child {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  font-size: 36px;
+}
+
+.brakup-share-card__ticket strong {
+  min-width: 0;
+  color: #111827;
+  font: 900 30px/1 'Barlow Condensed','Arial Narrow',sans-serif;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.brakup-share-card__ticket p {
+  margin: 16px 0;
+  color: #4b5563;
+  font: 800 22px/1.15 Barlow, sans-serif;
+  text-align: center;
+}
+
+.brakup-share-card__badges {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.brakup-share-card__badges b {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #49c915;
+  color: #ffffff;
+  font: 900 20px/1 'Barlow Condensed','Arial Narrow',sans-serif;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.brakup-share-card__cta {
+  margin-top: 24px;
+  color: #ffffff;
+  font: 900 26px/1.1 'Barlow Condensed','Arial Narrow',sans-serif;
+  letter-spacing: .08em;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 6px 18px rgba(0,0,0,.32);
+}
+
 @media (max-width: 520px) {
   .game-menu-modal {
     place-items: end stretch;
