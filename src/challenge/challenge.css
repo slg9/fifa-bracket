@@ -2905,6 +2905,8 @@
 .brakup-share-preview .brakup-share-card__boom {
   margin-top: auto;
   font-size: clamp(38px, 13vw, 68px);
+  line-height: .98;
+  overflow: visible;
 }
 
 .brakup-share-preview .brakup-share-card__score {
@@ -3106,16 +3108,18 @@
 .brakup-share-card__boom {
   margin-top: min(24vh, 190px);
   transform: rotate(-5deg);
-  font: 900 min(22vw, 86px)/.82 'Barlow Condensed','Arial Narrow',sans-serif;
+  font: 900 min(22vw, 86px)/.98 'Barlow Condensed','Arial Narrow',sans-serif;
   letter-spacing: .02em;
   text-transform: uppercase;
   text-align: center;
   text-shadow: 0 10px 30px rgba(0,0,0,.34);
-  overflow: hidden;
+  max-width: 100%;
+  overflow: visible;
   text-overflow: ellipsis;
 }
 .brakup-share-card.is-prono .brakup-share-card__boom {
   color: #2bff9a;
+  font-size: min(18vw, 76px);
   text-shadow: 0 0 7px #2bff9a, 0 0 30px rgba(43,255,154,.82), 4px 4px 0 rgba(10,92,56,.62);
 }
 
@@ -3151,6 +3155,12 @@
   color: #111827;
   box-shadow: 0 18px 44px rgba(0,0,0,.24);
 }
+.brakup-share-card.is-prono .brakup-share-card__ticket {
+  border: 1px solid rgba(43, 255, 154, .28);
+  background: rgba(4, 14, 24, .86);
+  color: #eafff4;
+  box-shadow: 0 18px 44px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.06);
+}
 
 .brakup-share-card__ticket > div:first-child {
   display: grid;
@@ -3171,12 +3181,55 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.brakup-share-card.is-prono .brakup-share-card__ticket strong {
+  color: #dfffee;
+  font-size: min(9vw, 36px);
+  text-shadow: 0 0 16px rgba(43,255,154,.35);
+}
 
 .brakup-share-card__ticket p {
   margin: min(4vh, 16px) 0;
   color: #4b5563;
   font: 800 min(6vw, 22px)/1.15 Barlow, sans-serif;
   text-align: center;
+}
+.brakup-share-card.is-prono .brakup-share-card__ticket p {
+  color: rgba(234, 255, 244, .76);
+}
+
+.brakup-share-card__scorelines {
+  display: grid;
+  gap: 8px;
+  margin: min(4vh, 16px) 0;
+}
+
+.brakup-share-card__scorelines span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+  border-radius: 10px;
+  font: 900 min(6vw, 22px)/1.05 'Barlow Condensed','Arial Narrow',sans-serif;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.brakup-share-card__scorelines .is-real {
+  background: rgba(43, 255, 154, .16);
+  color: #bfffe1;
+  box-shadow: inset 0 0 0 2px rgba(43, 255, 154, .36);
+}
+
+.brakup-share-card__scorelines .is-played {
+  color: rgba(234, 255, 244, .58);
+  background: rgba(255, 255, 255, .06);
+}
+
+.brakup-share-card__scorelines .is-struck {
+  text-decoration: line-through;
+  text-decoration-thickness: 3px;
+  text-decoration-color: rgba(255, 68, 85, .78);
 }
 
 .brakup-share-card__badges {
@@ -3195,6 +3248,14 @@
   letter-spacing: .06em;
   text-transform: uppercase;
   white-space: nowrap;
+}
+.brakup-share-card__badges b.is-won {
+  background: #22c55e;
+  color: #ffffff;
+}
+.brakup-share-card__badges b.is-lost {
+  background: #ff4455;
+  color: #ffffff;
 }
 
 .brakup-share-card__cta {
