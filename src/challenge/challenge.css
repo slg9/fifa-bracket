@@ -1442,8 +1442,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 2px 7px;
+  gap: 4px;
+  padding: 2px 6px;
   border-radius: 999px;
   background: rgba(48, 227, 255, 0.10);
   border: 1px solid rgba(48, 227, 255, 0.34);
@@ -1451,6 +1451,12 @@
   font: 900 13px 'JetBrains Mono', monospace;
   line-height: 1;
   box-shadow: 0 0 14px rgba(48, 227, 255, 0.18);
+}
+
+.wcmap__score-flag {
+  font-family: Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif;
+  font-size: 12px;
+  line-height: 1;
 }
 
 .wcmap__score-badge em {
@@ -2326,9 +2332,34 @@
   background: rgba(43, 255, 154, 0.08);
 }
 
+.game-menu-modal__profile-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .game-menu-modal__profile strong {
   color: #fff;
   font: 900 18px/1 'Barlow Condensed', sans-serif;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-menu-modal__profile button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid rgba(43, 255, 154, 0.42);
+  border-radius: 999px;
+  background: rgba(43, 255, 154, 0.12);
+  color: #2bff9a;
+  font: 900 10px 'Barlow Condensed', sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
 }
 
 .game-menu-modal__profile small {

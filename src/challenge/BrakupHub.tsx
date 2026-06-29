@@ -787,7 +787,12 @@ export function BrakupHub({
               <span>Menu jeu</span>
             </div>
             <div className="game-menu-modal__profile">
-              <strong>{menuPseudo}</strong>
+              <div className="game-menu-modal__profile-main">
+                <strong>{menuPseudo}</strong>
+                <button type="button" onClick={() => { setLoginError(null); setLoginSent(false); setShowLoginEntry(true); setShowGameMenu(false) }}>
+                  {hasSyncedProfile ? 'Reconnecter' : 'Se connecter'}
+                </button>
+              </div>
               <small>{savedProfile.email || 'Profil local sur cet appareil'}</small>
             </div>
             <div className="game-menu-modal__score">
@@ -798,9 +803,6 @@ export function BrakupHub({
             <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay() }}>Tableau</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); navigate('challenge') }}>Carte des matchs</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
-            <button type="button" className="game-menu-modal__item" onClick={() => { setLoginError(null); setLoginSent(false); setShowLoginEntry(true); setShowGameMenu(false) }}>
-              {hasSyncedProfile ? 'Reconnecter un compte' : 'Se connecter'}
-            </button>
             <button type="button" className="game-menu-modal__item" onClick={() => { setProfileError(null); setShowProfileSettings(true); setShowGameMenu(false) }}>Parametres du compte</button>
             <div className="game-menu-modal__section">
               <h3>Matchs du jour</h3>

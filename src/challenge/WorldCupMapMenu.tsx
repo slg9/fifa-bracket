@@ -146,9 +146,8 @@ function formatAutosaveTime(value?: string | null) {
   return `Sauvé ${new Date(value).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
-function teamFlagImageUrl(team?: Team) {
-  if (!team) return null
-  return `https://flagcdn.com/w80/${team.iso2}.png`
+function teamFlagEmoji(team?: Team) {
+  return team?.flagEmoji || '🌍'
 }
 
 function scoreForNode(node: DisplayNode, score?: BattleScore): DisplayScore | null {
@@ -326,15 +325,17 @@ function MatchNode({
         {!isLocked ? (
           panelScore ? (
             <span className={`wcmap__score-badge${isClosed ? ' is-official' : ''}`} aria-label={`Score ${panelScore.home} a ${panelScore.away}`}>
+              <span className="wcmap__score-flag">{teamFlagEmoji(node.homeTeam)}</span>
               <strong>{panelScore.home}</strong>
               <em>-</em>
               <strong>{panelScore.away}</strong>
+              <span className="wcmap__score-flag">{teamFlagEmoji(node.awayTeam)}</span>
             </span>
           ) : (
             <span className="wcmap__flags-vs">
-              <span>{node.homeTeam?.flagEmoji ?? ''}</span>
+              <span>{teamFlagEmoji(node.homeTeam)}</span>
               <strong>VS</strong>
-              <span>{node.awayTeam?.flagEmoji ?? ''}</span>
+              <span>{teamFlagEmoji(node.awayTeam)}</span>
             </span>
           )
         ) : (
@@ -363,11 +364,7 @@ function MatchNode({
               const isWinner = isClosed ? node.realWinnerTeamId === team.id : node.pickedTeamId === team.id
               return (
                 <span key={team.id} className={`wcmap__result-flag wcmap__result-flag--${isWinner ? 'winner' : 'loser'}`}>
-                  {teamFlagImageUrl(team) ? (
-                    <img src={teamFlagImageUrl(team) ?? undefined} alt="" />
-                  ) : (
-                    <span>{team.flagEmoji}</span>
-                  )}
+                  <span>{teamFlagEmoji(team)}</span>
                 </span>
               )
             })}
@@ -376,9 +373,9 @@ function MatchNode({
 
         {isLive && node.homeTeam && node.awayTeam ? (
           <span className="wcmap__live-matchup" aria-hidden="true">
-            {teamFlagImageUrl(node.homeTeam) ? <img src={teamFlagImageUrl(node.homeTeam) ?? undefined} alt="" /> : <span>{node.homeTeam.flagEmoji}</span>}
+            <span>{teamFlagEmoji(node.homeTeam)}</span>
             <strong>VS</strong>
-            {teamFlagImageUrl(node.awayTeam) ? <img src={teamFlagImageUrl(node.awayTeam) ?? undefined} alt="" /> : <span>{node.awayTeam.flagEmoji}</span>}
+            <span>{teamFlagEmoji(node.awayTeam)}</span>
           </span>
         ) : null}
       </div>
@@ -395,7 +392,7 @@ function MatchNode({
         <span className="wcmap__outcome-badge is-pending" title="Score officiel en attente">?</span>
       ) : null}
       {node.progress.exact ? <span className="wcmap__exact-badge" title="Score exact">◎</span> : null}
-      {realWinnerTeam ? <span className="wcmap__official-winner" title={`Vrai vainqueur: ${realWinnerTeam.name}`}>{realWinnerTeam.flagEmoji}</span> : null}
+      {realWinnerTeam ? <span className="wcmap__official-winner" title={`Vrai vainqueur: ${realWinnerTeam.name}`}>{teamFlagEmoji(realWinnerTeam)}</span> : null}
       {isLive && <span className="wcmap__live-dot" />}
     </button>
   )
@@ -459,7 +456,7 @@ function LevelEntryScreen({
           <div className="wcmap-entry__result">
             <div className="wcmap-entry__result-winner">
               <span className="wcmap-entry__result-flag">
-                {resultWinnerTeam?.flagEmoji ?? '🌍'}
+                {teamFlagEmoji(resultWinnerTeam)}
               </span>
               <div>
                 <small className="wcmap-entry__result-label">{isClosed ? 'VAINQUEUR OFFICIEL' : 'VAINQUEUR'}</small>
@@ -470,15 +467,15 @@ function LevelEntryScreen({
             </div>
             {resultScore ? (
               <div className="wcmap-entry__result-score">
-                <span>{node.homeTeam?.flagEmoji ?? '??'}</span>
+                <span>{teamFlagEmoji(node.homeTeam)}</span>
                 <strong>{resultScore.home} - {resultScore.away}</strong>
-                <span>{node.awayTeam?.flagEmoji ?? '??'}</span>
+                <span>{teamFlagEmoji(node.awayTeam)}</span>
               </div>
             ) : (
               <div className="wcmap-entry__result-vs">
-                <span>{node.homeTeam?.flagEmoji ?? '🌍'} {displayTeamName(node.homeTeam)}</span>
+                <span>{teamFlagEmoji(node.homeTeam)} {displayTeamName(node.homeTeam)}</span>
                 <em>vs</em>
-                <span>{displayTeamName(node.awayTeam)} {node.awayTeam?.flagEmoji ?? '🌍'}</span>
+                <span>{teamFlagEmoji(node.awayTeam)} {displayTeamName(node.awayTeam)}</span>
               </div>
             )}
             {node.progress.played ? (
@@ -523,7 +520,7 @@ function LevelEntryScreen({
             disabled={isClosed || !node.homeTeam || !node.awayTeam}
           >
             <span className="wcmap-entry__team-flag">
-              {teamFlagImageUrl(node.homeTeam) ? <img src={teamFlagImageUrl(node.homeTeam) ?? undefined} alt="" /> : <span>{node.homeTeam?.flagEmoji ?? '🌍'}</span>}
+              <span>{teamFlagEmoji(node.homeTeam)}</span>
             </span>
             <strong>{displayTeamName(node.homeTeam, node.match.home.kind === 'placeholder' ? node.match.home.label : undefined)}</strong>
             <small>{node.homeTeam?.name ?? 'En attente'}</small>
@@ -536,7 +533,7 @@ function LevelEntryScreen({
             disabled={isClosed || !node.homeTeam || !node.awayTeam}
           >
             <span className="wcmap-entry__team-flag">
-              {teamFlagImageUrl(node.awayTeam) ? <img src={teamFlagImageUrl(node.awayTeam) ?? undefined} alt="" /> : <span>{node.awayTeam?.flagEmoji ?? '🌍'}</span>}
+              <span>{teamFlagEmoji(node.awayTeam)}</span>
             </span>
             <strong>{displayTeamName(node.awayTeam, node.match.away.kind === 'placeholder' ? node.match.away.label : undefined)}</strong>
             <small>{node.awayTeam?.name ?? 'En attente'}</small>

@@ -1,4 +1,4 @@
-import { list, put } from '@vercel/blob'
+import { get, list, put } from '@vercel/blob'
 import type { ChallengeEntry } from '../src/types'
 
 type ApiRequest = {
@@ -19,6 +19,7 @@ const encoder = new TextEncoder()
 const DEV_SECRET = 'brakup-local-development-secret-32'
 const PUBLIC_SITE_URL = (process.env.PUBLIC_SITE_URL ?? 'https://brakup.app').replace(/\/$/, '')
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? process.env.BRAKUP_FROM_EMAIL ?? 'Brakup <no-reply@brakup.app>'
+const BLOB_ACCESS = process.env.BRAKUP_BLOB_ACCESS === 'public' ? 'public' : 'private'
 
 function base64Url(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('base64url')
@@ -69,11 +70,14 @@ async function verifyToken(token: string): Promise<TokenPayload | null> {
 
 async function readJson<T>(pathname: string, fallback: T): Promise<T> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return fallback
-  const result = await list({ prefix: pathname, limit: 1, token: process.env.BLOB_READ_WRITE_TOKEN })
-  const blob = result.blobs.find((item) => item.pathname === pathname)
-  if (!blob) return fallback
-  const response = await fetch(blob.url, { cache: 'no-store' })
-  return response.ok ? response.json() as Promise<T> : fallback
+  const result = await get(pathname, {
+    access: BLOB_ACCESS,
+    token: process.env.BLOB_READ_WRITE_TOKEN,
+    useCache: false,
+  })
+  if (!result || result.statusCode !== 200 || !result.stream) return fallback
+  const text = await new Response(result.stream).text()
+  return text.trim() ? JSON.parse(text) as T : fallback
 }
 
 async function writeJson(pathname: string, value: unknown): Promise<void> {
@@ -82,7 +86,7 @@ async function writeJson(pathname: string, value: unknown): Promise<void> {
     return
   }
   await put(pathname, JSON.stringify(value), {
-    access: 'public',
+    access: BLOB_ACCESS,
     addRandomSuffix: false,
     contentType: 'application/json',
     token: process.env.BLOB_READ_WRITE_TOKEN,
@@ -91,7 +95,7 @@ async function writeJson(pathname: string, value: unknown): Promise<void> {
 
 async function listBracketBlobs() {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return []
-  const blobs: Array<{ pathname: string; url: string }> = []
+  const blobs: Array<{ pathname: string }> = []
   let cursor: string | undefined
 
   do {
@@ -103,7 +107,6 @@ async function listBracketBlobs() {
     })
     blobs.push(...result.blobs.filter((blob) => blob.pathname.endsWith('/brackets.json')).map((blob) => ({
       pathname: blob.pathname,
-      url: blob.url,
     })))
     cursor = result.hasMore ? result.cursor : undefined
   } while (cursor)
@@ -133,9 +136,7 @@ async function findCredentialConflicts(params: { emailHash: string; pseudo: stri
     const ownerHash = blob.pathname.replace(/^challenge\/(.+)\/brackets\.json$/, '$1')
     if (params.ignoreEmailHash && ownerHash === params.ignoreEmailHash) continue
 
-    const response = await fetch(blob.url, { cache: 'no-store' })
-    if (!response.ok) continue
-    const entries = await response.json() as ChallengeEntry[]
+    const entries = await readJson<ChallengeEntry[]>(blob.pathname, [])
 
     if (!pseudoExists) {
       pseudoExists = entries.some((entry) => normalizePseudo(entry.pseudo ?? '') === normalizedPseudo)
@@ -154,9 +155,7 @@ async function readAllBracketEntries(): Promise<ChallengeEntry[]> {
   const allEntries: ChallengeEntry[] = []
 
   for (const blob of bracketBlobs) {
-    const response = await fetch(blob.url, { cache: 'no-store' })
-    if (!response.ok) continue
-    const entries = await response.json() as ChallengeEntry[]
+    const entries = await readJson<ChallengeEntry[]>(blob.pathname, [])
     allEntries.push(...entries)
   }
 
@@ -333,9 +332,7 @@ export async function recalculateLeaderboard(realResults: Record<string, string>
   const allEntries: ChallengeEntry[] = []
 
   for (const blob of bracketBlobs) {
-    const response = await fetch(blob.url, { cache: 'no-store' })
-    if (!response.ok) continue
-    const entries = await response.json() as ChallengeEntry[]
+    const entries = await readJson<ChallengeEntry[]>(blob.pathname, [])
     const scored = entries.map((entry) => ({ ...entry, ...calculateScore(entry, realResults) }))
     await writeJson(blob.pathname, scored)
     allEntries.push(...scored.filter((entry) => entry.submittedAt))
@@ -485,9 +482,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const bracketBlobs = await listBracketBlobs()
 
       for (const blob of bracketBlobs) {
-        const response = await fetch(blob.url, { cache: 'no-store' })
-        if (!response.ok) continue
-        const entries = await response.json() as ChallengeEntry[]
+        const entries = await readJson<ChallengeEntry[]>(blob.pathname, [])
         const exists = entries.some((entry) => normalizePseudo(entry.pseudo ?? '') === normalizePseudo(pseudo))
         if (exists) {
           res.status(200).json({ data: { exists: true } })
@@ -586,9 +581,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const bracketBlobs = await listBracketBlobs()
       
       for (const blob of bracketBlobs) {
-        const response = await fetch(blob.url, { cache: 'no-store' })
-        if (!response.ok) continue
-        const entries = await response.json() as ChallengeEntry[]
+        const entries = await readJson<ChallengeEntry[]>(blob.pathname, [])
         const entry = entries.find((e) => e.id === entryId)
         if (entry) {
           res.status(200).json({ data: entry })
