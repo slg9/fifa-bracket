@@ -424,6 +424,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return
       }
       const emailHash = await sha256(email)
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        res.status(500).json({ error: 'Connexion indisponible: stockage Brakup non configuré.' })
+        return
+      }
+      const entries = await readJson<ChallengeEntry[]>(`challenge/${emailHash}/brackets.json`, [])
+      if (entries.length === 0) {
+        res.status(404).json({ error: 'Aucun compte Brakup trouvé avec cet email.' })
+        return
+      }
       const token = await signToken(emailHash)
       const otp = String(Math.floor(100000 + Math.random() * 900000))
       await writeJson(`challenge/login-otp/${emailHash}.json`, {
@@ -432,7 +441,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         expiresAt: Date.now() + 15 * 60 * 1000,
       })
       const sent = await sendMagicLink(email, token, otp)
-      res.status(200).json({ data: { sent, ...(!sent ? { token } : {}) } })
+      if (!sent) {
+        res.status(502).json({ error: 'Email de connexion impossible à envoyer pour le moment.' })
+        return
+      }
+      res.status(200).json({ data: { sent: true } })
       return
     }
 
