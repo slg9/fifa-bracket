@@ -40,6 +40,7 @@ export interface BrakupHubProps {
   todayMatches?: ChallengeMenuMatch[]
   officialResults?: Record<string, string>
   officialScores?: Record<string, OfficialScore>
+  officialFinishedMatchIds?: string[]
   topScorers?: Array<{ name: string; teamCode: string; goals: number }>
   locale?: Locale
 }
@@ -88,6 +89,12 @@ function readSeenOutcomeKeys() {
 
 function outcomeStorageKey(matchId: string, winnerId: string | undefined, score?: OfficialScore) {
   return `${matchId}:${winnerId ?? 'unknown'}:${score ? `${score.home}-${score.away}` : 'score'}`
+}
+
+type OutcomeNotice = {
+  key: string
+  match: KnockoutMatch
+  progress: ReturnType<typeof evaluateMatchProgress>
 }
 
 function buildProgressBreakdown(
@@ -182,6 +189,7 @@ export function BrakupHub({
   todayMatches = [],
   officialResults = {},
   officialScores = {},
+  officialFinishedMatchIds = [],
   topScorers = [],
   locale = 'fr',
 }: BrakupHubProps) {
@@ -235,12 +243,11 @@ export function BrakupHub({
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
   const [outcomeShareStatus, setOutcomeShareStatus] = useState<'idle' | 'working' | 'ready' | 'done' | 'error'>('idle')
   const [outcomeShareFile, setOutcomeShareFile] = useState<File | null>(null)
+  const [outcomeSharePreviewUrl, setOutcomeSharePreviewUrl] = useState<string | null>(null)
+  const [outcomeSharePreviewOpen, setOutcomeSharePreviewOpen] = useState(false)
   const [isOutcomeCapturingShare, setIsOutcomeCapturingShare] = useState(false)
-  const [outcomeNotice, setOutcomeNotice] = useState<{
-    key: string
-    match: KnockoutMatch
-    progress: ReturnType<typeof evaluateMatchProgress>
-  } | null>(null)
+  const [outcomeNoticeKey, setOutcomeNoticeKey] = useState<string | null>(null)
+  const [seenOutcomeVersion, setSeenOutcomeVersion] = useState(0)
 
   // Initialiser email/pseudo depuis URL si mode OTP
   useEffect(() => {
@@ -258,9 +265,6 @@ export function BrakupHub({
   const challengePreload = useChallengePreload()
   const audioMuted = useGameMuted()
   const audioVolume = useGameAudioVolume()
-  const hubAudioSrc = outcomeNotice?.progress.correct ? '/audio/cup-victory-parade.mp3' : view !== 'battle' ? '/audio/kickoff-carnival.mp3' : null
-  // Lobby music: kickoff when on challenge/brackets/board. Null during battle (BattleEngine takes over).
-  useGameAudio(hubAudioSrc)
 
   const baseMatches = useMemo(() => buildKnockoutBracket(standings, groupMatches), [standings, groupMatches])
   const matches = useMemo(() => resolveMatches(baseMatches, picks), [baseMatches, picks])
@@ -270,20 +274,41 @@ export function BrakupHub({
     () => ({ ...storedRealScores, ...officialScores }),
     [officialScores, storedRealScores],
   )
+  const officialFinishedSet = useMemo(() => new Set(officialFinishedMatchIds), [officialFinishedMatchIds])
   const realResults = useMemo(() => {
     const derivedFromScores = matches.reduce<Record<string, string>>((results, match) => {
       const score = officialScoreMap[match.id]
+      const canDeriveFromScore = officialFinishedSet.has(match.id) || Boolean(storedRealResults[match.id])
+      if (!canDeriveFromScore) return results
       if (!score || score.home === score.away || match.home.kind !== 'team' || match.away.kind !== 'team') return results
       results[match.id] = score.home > score.away ? match.home.teamId : match.away.teamId
       return results
     }, {})
     return { ...storedRealResults, ...officialResults, ...derivedFromScores }
-  }, [matches, officialResults, officialScoreMap, storedRealResults])
+  }, [matches, officialFinishedSet, officialResults, officialScoreMap, storedRealResults])
   const teamsByFifaCode = useMemo(() => new Map([...teamsById.values()].map((team) => [team.fifaCode, team])), [teamsById])
   const realScorers = useMemo<RealScorer[]>(() => topScorers.flatMap((scorer) => {
     const team = teamsByFifaCode.get(scorer.teamCode)
     return team ? [{ name: scorer.name, teamId: team.id, teamCode: scorer.teamCode, goals: scorer.goals }] : []
   }), [teamsByFifaCode, topScorers])
+  const pendingOutcomeNotices = useMemo<OutcomeNotice[]>(() => {
+    const seen = new Set(readSeenOutcomeKeys())
+    return matches
+      .map((match) => {
+        const progress = evaluateMatchProgress(match, picks, battleScores, realResults, officialScoreMap, scorers, realScorers)
+        const key = outcomeStorageKey(match.id, progress.realWinnerTeamId, progress.realScore)
+        return { key, match, progress }
+      })
+      .filter((item) => {
+        const hasFinalOfficialResult = officialFinishedSet.has(item.match.id) || Boolean(storedRealResults[item.match.id])
+        return hasFinalOfficialResult && item.progress.played && !seen.has(item.key)
+      })
+  }, [battleScores, matches, officialFinishedSet, officialScoreMap, picks, realResults, realScorers, scorers, seenOutcomeVersion, storedRealResults])
+  const outcomeNotice = pendingOutcomeNotices.find((item) => item.key === outcomeNoticeKey) ?? pendingOutcomeNotices[0] ?? null
+  const outcomeNoticeIndex = outcomeNotice ? pendingOutcomeNotices.findIndex((item) => item.key === outcomeNotice.key) : -1
+  const hubAudioSrc = outcomeNotice?.progress.correct ? '/audio/cup-victory-parade.mp3' : view !== 'battle' ? '/audio/kickoff-carnival.mp3' : null
+  // Lobby music: kickoff when on challenge/brackets/board. Null during battle (BattleEngine takes over).
+  useGameAudio(hubAudioSrc)
   const progressStats = useMemo(
     () => summarizeProgress(matches, picks, battleScores, realResults, officialScoreMap, battleBonuses, scorers, realScorers),
     [battleBonuses, battleScores, matches, officialScoreMap, picks, realResults, realScorers, scorers],
@@ -635,7 +660,7 @@ export function BrakupHub({
     setActiveBracketId(null)
     setViewedBracketEntry(null)
     setAutosavedAt(null)
-    setOutcomeNotice(null)
+    setOutcomeNoticeKey(null)
     setOutcomeShareStatus('idle')
     setIsOutcomeCapturingShare(false)
     setShowEmailEntry(false)
@@ -735,28 +760,32 @@ export function BrakupHub({
   const simulatedMatch = simulatedMatchId ? matches.find((match) => match.id === simulatedMatchId) : null
 
   useEffect(() => {
-    if (!challengePreload.ready || showSplash || outcomeNotice) return
-    const seen = new Set(readSeenOutcomeKeys())
-    const next = matches
-      .map((match) => {
-        const progress = evaluateMatchProgress(match, picks, battleScores, realResults, officialScoreMap, scorers, realScorers)
-        const key = outcomeStorageKey(match.id, progress.realWinnerTeamId, progress.realScore)
-        return { key, match, progress }
-      })
-      .find((item) => item.progress.played && !seen.has(item.key))
-    if (next) setOutcomeNotice(next)
-  }, [battleScores, challengePreload.ready, matches, officialScoreMap, outcomeNotice, picks, realResults, realScorers, scorers, showSplash])
+    if (!challengePreload.ready || showSplash) return
+    if (!outcomeNoticeKey || !pendingOutcomeNotices.some((item) => item.key === outcomeNoticeKey)) {
+      setOutcomeNoticeKey(pendingOutcomeNotices[0]?.key ?? null)
+    }
+  }, [challengePreload.ready, outcomeNoticeKey, pendingOutcomeNotices, showSplash])
 
   const closeOutcomeNotice = () => {
     if (outcomeNotice) {
       const seen = new Set(readSeenOutcomeKeys())
       seen.add(outcomeNotice.key)
       localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify([...seen]))
+      setSeenOutcomeVersion((version) => version + 1)
     }
-    setOutcomeNotice(null)
+    setOutcomeNoticeKey(null)
     setOutcomeShareStatus('idle')
     setOutcomeShareFile(null)
+    if (outcomeSharePreviewUrl) URL.revokeObjectURL(outcomeSharePreviewUrl)
+    setOutcomeSharePreviewUrl(null)
+    setOutcomeSharePreviewOpen(false)
     setIsOutcomeCapturingShare(false)
+  }
+
+  const showOutcomeAt = (index: number) => {
+    const next = pendingOutcomeNotices[index]
+    if (!next) return
+    setOutcomeNoticeKey(next.key)
   }
 
   const buildChallengeShareUrl = () => `${window.location.origin}${localizedRootPath(locale)}?challenge`
@@ -789,6 +818,7 @@ export function BrakupHub({
           url: buildChallengeShareUrl(),
           backgroundColor: '#050b16',
         })
+        setOutcomeSharePreviewOpen(false)
         setOutcomeShareStatus('done')
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -807,6 +837,12 @@ export function BrakupHub({
       const blob = await renderResultShareCanvas({
         backgroundSrc: '/brakup-share-bg-brakup.png',
         logoSrc: '/brakup-logo.png',
+        matchup: {
+          homeFlag: outcomeHomeTeam?.flagEmoji,
+          awayFlag: outcomeAwayTeam?.flagEmoji,
+          homeLabel: outcomeHomeLabel,
+          awayLabel: outcomeAwayLabel,
+        },
         boomLabel: outcomeBoomLabel,
         headline: outcomeHeadline,
         subline: `${outcomeNotice.match.label} - reel ${formatScore(outcomeNotice.progress.realScore)} - ton pari ${formatScore(outcomeNotice.progress.playedScore)}`,
@@ -815,6 +851,9 @@ export function BrakupHub({
         rows: outcomeShareRows,
         cta: 'Tente ta chance avec ton prono.',
       })
+      if (outcomeSharePreviewUrl) URL.revokeObjectURL(outcomeSharePreviewUrl)
+      setOutcomeSharePreviewUrl(URL.createObjectURL(blob))
+      setOutcomeSharePreviewOpen(true)
       setOutcomeShareFile(blobToShareFile(blob, `brakup-${safeFilePart(outcomeNotice.match.id)}-${outcomeNotice.progress.correct ? 'win' : 'result'}.png`))
       setOutcomeShareStatus('ready')
     } catch (error) {
@@ -840,6 +879,10 @@ export function BrakupHub({
   const outcomeBoomLabel = outcomeNotice?.progress.correct ? 'PRONO OK' : outcomeIsPartial ? 'BONUS OK' : 'PRONO RATE'
   const outcomeHeadline = outcomeNotice?.progress.correct ? 'Points gagnes' : outcomeIsPartial ? 'Bonus gagne' : 'Rien gagne'
   const outcomeMatchLabel = outcomeNotice?.match.label ?? 'Match Brakup'
+  const outcomeHomeTeam = outcomeNotice?.match.home.kind === 'team' ? teamsById.get(outcomeNotice.match.home.teamId) : undefined
+  const outcomeAwayTeam = outcomeNotice?.match.away.kind === 'team' ? teamsById.get(outcomeNotice.match.away.teamId) : undefined
+  const outcomeHomeLabel = teamLabel(outcomeHomeTeam, outcomeNotice?.match.home.kind === 'team' ? outcomeNotice.match.home.teamId : 'Home')
+  const outcomeAwayLabel = teamLabel(outcomeAwayTeam, outcomeNotice?.match.away.kind === 'team' ? outcomeNotice.match.away.teamId : 'Away')
   const outcomeRealWinnerLabel = outcomeNotice?.progress.realWinnerTeamId
     ? teamLabel(teamsById.get(outcomeNotice.progress.realWinnerTeamId), outcomeNotice.progress.realWinnerTeamId)
     : 'vainqueur reel inconnu'
@@ -863,8 +906,15 @@ export function BrakupHub({
   useEffect(() => {
     setOutcomeShareStatus('idle')
     setOutcomeShareFile(null)
+    if (outcomeSharePreviewUrl) URL.revokeObjectURL(outcomeSharePreviewUrl)
+    setOutcomeSharePreviewUrl(null)
+    setOutcomeSharePreviewOpen(false)
     setIsOutcomeCapturingShare(false)
   }, [outcomeNotice?.key])
+
+  useEffect(() => () => {
+    if (outcomeSharePreviewUrl) URL.revokeObjectURL(outcomeSharePreviewUrl)
+  }, [outcomeSharePreviewUrl])
 
   const handleProfileUpdate = async ({ email, pseudo }: { email: string; pseudo: string }) => {
     if (!accessToken) {
@@ -1069,6 +1119,11 @@ export function BrakupHub({
       {outcomeNotice ? (
         <div className={`brakup-outcome${outcomeNotice.progress.correct ? ' is-correct' : outcomeIsPartial ? ' is-partial' : ' is-wrong'}${isOutcomeCapturingShare ? ' is-share-capturing' : ''}`} role="dialog" aria-modal="true">
           <div className="brakup-outcome__panel">
+            <div className="brakup-outcome__matchup" aria-label={`${outcomeHomeLabel} contre ${outcomeAwayLabel}`}>
+              <span>{outcomeHomeTeam?.flagEmoji ?? outcomeHomeLabel.slice(0, 3).toUpperCase()}</span>
+              <b>VS</b>
+              <span>{outcomeAwayTeam?.flagEmoji ?? outcomeAwayLabel.slice(0, 3).toUpperCase()}</span>
+            </div>
             <div className="brakup-outcome__blast" aria-hidden="true">
               <i />
               {Array.from({ length: 14 }, (_, index) => <span key={index} style={{ ['--ray-rot' as string]: `${index * (360 / 14)}deg` }} />)}
@@ -1090,14 +1145,40 @@ export function BrakupHub({
             <div className="brakup-outcome__share-copy">
               {isOutcomeCapturingShare ? 'Tente ta chance avec ton prono.' : 'Envoie ton prono et invite tes potes a tenter le leur.'}
             </div>
-            <button type="button" className="brakup-share-button" onClick={() => { sfx.click(); void handleOutcomeShare() }} disabled={outcomeShareStatus === 'working'}>
-              {outcomeShareStatus === 'working' ? 'Preparation...' : outcomeShareStatus === 'ready' ? 'Ouvrir le partage' : "Partager l'image"}
+            <button type="button" className="brakup-share-button" onClick={() => { sfx.click(); outcomeSharePreviewUrl ? setOutcomeSharePreviewOpen(true) : void handleOutcomeShare() }} disabled={outcomeShareStatus === 'working'}>
+              {outcomeShareStatus === 'working' ? 'Preparation...' : outcomeShareStatus === 'ready' ? 'Voir le visuel' : "Partager l'image"}
             </button>
-            {outcomeShareStatus === 'ready' ? <small className="brakup-share-feedback">Image prete. Appuie encore pour partager.</small> : null}
+            {outcomeShareStatus === 'ready' ? <small className="brakup-share-feedback">Image prete. Ouvre le visuel pour partager.</small> : null}
             {outcomeShareStatus === 'done' ? <small className="brakup-share-feedback">Partage lance.</small> : null}
             {outcomeShareStatus === 'error' ? <small className="brakup-share-feedback is-error">Partage indisponible. Retente.</small> : null}
+            {pendingOutcomeNotices.length > 1 ? (
+              <div className="brakup-outcome__slider" aria-label="Resultats non vus">
+                <button type="button" onClick={() => { sfx.tab(); showOutcomeAt((outcomeNoticeIndex - 1 + pendingOutcomeNotices.length) % pendingOutcomeNotices.length) }}>‹</button>
+                <span>{outcomeNoticeIndex + 1} / {pendingOutcomeNotices.length}</span>
+                <button type="button" onClick={() => { sfx.tab(); showOutcomeAt((outcomeNoticeIndex + 1) % pendingOutcomeNotices.length) }}>›</button>
+              </div>
+            ) : null}
             <button type="button" className="brakup-button" onClick={() => { sfx.click(); closeOutcomeNotice() }}>Continuer</button>
           </div>
+          {(outcomeShareStatus === 'working' || (outcomeSharePreviewUrl && outcomeSharePreviewOpen)) ? (
+            <div className="brakup-share-preview" role="dialog" aria-modal="true">
+              <div className="brakup-share-preview__panel">
+                <div className="brakup-share-preview__frame">
+                  {outcomeSharePreviewUrl ? (
+                    <img src={outcomeSharePreviewUrl} alt="Apercu du partage Brakup" />
+                  ) : (
+                    <span>Construction du visuel...</span>
+                  )}
+                </div>
+                <div className="brakup-share-preview__actions">
+                  <button type="button" className="brakup-share-preview__ghost" onClick={() => { sfx.click(); setOutcomeSharePreviewOpen(false) }}>Retour</button>
+                  <button type="button" className="brakup-share-preview__primary" onClick={() => { sfx.click(); void handleOutcomeShare() }} disabled={!outcomeShareFile || outcomeShareStatus === 'working'}>
+                    {outcomeShareStatus === 'working' ? 'Preparation...' : 'Partager'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
       {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={pendingEmail || savedProfile.email} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => { setShowEmailEntry(false); setLoginToken(null); setPendingEmail(null); }} /> : null}

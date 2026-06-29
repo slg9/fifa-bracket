@@ -1703,7 +1703,11 @@ function App() {
     }
     return scores
   }, {})
+  const challengeOfficialFinishedMatchIds = knockoutDayMatches
+    .filter((match) => inferStatus(match) === 'finished')
+    .map((match) => match.id)
   const challengeOfficialResults = knockoutDayMatches.reduce<Record<string, string>>((results, match) => {
+    if (inferStatus(match) !== 'finished') return results
     if (match.homeTeamId.startsWith('placeholder:') || match.awayTeamId.startsWith('placeholder:')) return results
     const live = liveMatchesById.get(match.id)
     const winnerFromFifa = live?.winnerTeamCode ? teamsByFifaCode.get(live.winnerTeamCode)?.id : null
@@ -1865,6 +1869,7 @@ function App() {
         todayMatches={challengeTodayMatches}
         officialResults={challengeOfficialResults}
         officialScores={challengeOfficialScores}
+        officialFinishedMatchIds={challengeOfficialFinishedMatchIds}
         topScorers={liveSource.topScorers ?? []}
         locale={locale}
       />

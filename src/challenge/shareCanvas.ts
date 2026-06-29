@@ -6,6 +6,12 @@ type ShareCanvasRow = {
 export type ResultShareCanvasInput = {
   backgroundSrc: string
   logoSrc?: string
+  matchup?: {
+    homeFlag?: string
+    awayFlag?: string
+    homeLabel: string
+    awayLabel: string
+  }
   boomLabel: string
   headline: string
   subline: string
@@ -72,6 +78,31 @@ export async function renderResultShareCanvas(input: ResultShareCanvasInput): Pr
     const logoW = 500
     const logoH = logo.height * (logoW / logo.width)
     ctx.drawImage(logo, (width - logoW) / 2, 40, logoW, logoH)
+  }
+
+  if (input.matchup) {
+    const boxW = 330
+    const boxH = 98
+    const boxX = width - boxW - 42
+    const boxY = 54
+    roundRect(ctx, boxX, boxY, boxW, boxH, 24)
+    ctx.fillStyle = 'rgba(5, 12, 26, .74)'
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,.18)'
+    ctx.lineWidth = 2
+    ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#ffffff'
+    ctx.font = "900 32px 'Barlow Condensed', Arial, sans-serif"
+    ctx.fillText(input.matchup.homeFlag || input.matchup.homeLabel.slice(0, 3).toUpperCase(), boxX + 74, boxY + 48)
+    ctx.fillStyle = 'rgba(255,255,255,.72)'
+    ctx.font = "900 24px 'Barlow Condensed', Arial, sans-serif"
+    ctx.fillText('VS', boxX + boxW / 2, boxY + 48)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = "900 32px 'Barlow Condensed', Arial, sans-serif"
+    ctx.fillText(input.matchup.awayFlag || input.matchup.awayLabel.slice(0, 3).toUpperCase(), boxX + boxW - 74, boxY + 48)
   }
 
   ctx.textAlign = 'center'

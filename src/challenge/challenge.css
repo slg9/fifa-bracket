@@ -2661,6 +2661,36 @@
   opacity: .9;
 }
 
+.brakup-outcome__matchup {
+  position: absolute;
+  top: 18px;
+  right: 14px;
+  z-index: 3;
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 5px 9px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 999px;
+  background: rgba(5, 12, 26, .7);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .24);
+  backdrop-filter: blur(8px);
+}
+
+.brakup-outcome__matchup span {
+  min-width: 26px;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.brakup-outcome__matchup b {
+  color: rgba(255, 255, 255, .72);
+  font: 900 10px 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: .12em;
+}
+
 .brakup-outcome__blast i {
   position: absolute;
   inset: 38px;
@@ -2799,6 +2829,32 @@
   letter-spacing: .08em;
   text-transform: uppercase;
   animation: outcomePop .5s .64s both;
+}
+
+.brakup-outcome__slider {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  align-items: center;
+  gap: 8px;
+  margin-top: -2px;
+}
+
+.brakup-outcome__slider button {
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .09);
+  color: #fff;
+  font: 900 25px/1 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  cursor: pointer;
+}
+
+.brakup-outcome__slider span {
+  color: rgba(238, 245, 255, .8);
+  font: 900 12px 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: .16em;
+  text-transform: uppercase;
 }
 
 .brakup-share-button {
@@ -3095,4 +3151,84 @@
 .brakup-shell--map-only .game-menu-button {
   top: calc((100dvh - min(100dvh, calc(100vw * 16 / 9))) / 2 + max(14px, env(safe-area-inset-top)));
   right: calc((100vw - min(100vw, calc(100dvh * 9 / 16))) / 2 + max(14px, env(safe-area-inset-right)));
+}
+
+.brakup-share-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, .86);
+  backdrop-filter: blur(10px);
+}
+
+.brakup-share-preview__panel {
+  width: min(100%, 430px);
+  max-height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.brakup-share-preview__frame {
+  width: min(100%, calc((100dvh - 98px) * 9 / 16));
+  max-width: 430px;
+  aspect-ratio: 9 / 16;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 18px;
+  background: #050b16;
+  box-shadow: 0 22px 80px rgba(0, 0, 0, .55);
+}
+
+.brakup-share-preview__frame img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.brakup-share-preview__frame span {
+  color: rgba(255, 255, 255, .86);
+  font: 900 13px 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.brakup-share-preview__actions {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+  gap: 10px;
+}
+
+.brakup-share-preview__actions button {
+  min-height: 52px;
+  border-radius: 14px;
+  font: 900 13px 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.brakup-share-preview__ghost {
+  border: 1px solid rgba(255, 255, 255, .24);
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+}
+
+.brakup-share-preview__primary {
+  border: 0;
+  background: linear-gradient(135deg, #2bff9a, #ffb800);
+  color: #06101d;
+  box-shadow: 0 12px 36px rgba(43, 255, 154, .2);
+}
+
+.brakup-share-preview__primary:disabled {
+  opacity: .62;
+  cursor: wait;
 }
