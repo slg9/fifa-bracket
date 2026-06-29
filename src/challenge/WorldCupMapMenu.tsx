@@ -150,6 +150,17 @@ function teamFlagEmoji(team?: Team) {
   return team?.flagEmoji || '🌍'
 }
 
+function teamFlagImageUrl(team?: Team) {
+  if (!team?.iso2 || team.iso2.includes('-')) return null
+  return `https://flagcdn.com/w80/${team.iso2}.png`
+}
+
+function TeamFlag({ team, className }: { team?: Team; className?: string }) {
+  const src = teamFlagImageUrl(team)
+  if (src) return <img src={src} alt={team?.name ?? ''} className={className} crossOrigin="anonymous" />
+  return <span className={className}>{teamFlagEmoji(team)}</span>
+}
+
 function scoreForNode(node: DisplayNode, score?: BattleScore): DisplayScore | null {
   return scoreForPick(node.match, node.pickedTeamId, score)
 }
@@ -294,6 +305,7 @@ function MatchNode({
   const isCompleted = node.status === 'completed'
   const isClosed = node.status === 'closed'
   const isLive = node.status === 'live'
+  const isAvailable = node.status === 'available'
   const displayScore = scoreForNode(node, score)
   const officialScore = node.progress.realScore
   const panelScore = isClosed && officialScore ? officialScore : displayScore
@@ -364,18 +376,18 @@ function MatchNode({
               const isWinner = isClosed ? node.realWinnerTeamId === team.id : node.pickedTeamId === team.id
               return (
                 <span key={team.id} className={`wcmap__result-flag wcmap__result-flag--${isWinner ? 'winner' : 'loser'}`}>
-                  <span>{teamFlagEmoji(team)}</span>
+                  <TeamFlag team={team} />
                 </span>
               )
             })}
           </span>
         ) : null}
 
-        {isLive && node.homeTeam && node.awayTeam ? (
-          <span className="wcmap__live-matchup" aria-hidden="true">
-            <span>{teamFlagEmoji(node.homeTeam)}</span>
+        {(isLive || isAvailable) && node.homeTeam && node.awayTeam ? (
+          <span className={`wcmap__live-matchup${isAvailable ? ' is-available' : ''}`} aria-hidden="true">
+            <TeamFlag team={node.homeTeam} />
             <strong>VS</strong>
-            <span>{teamFlagEmoji(node.awayTeam)}</span>
+            <TeamFlag team={node.awayTeam} />
           </span>
         ) : null}
       </div>
@@ -392,7 +404,7 @@ function MatchNode({
         <span className="wcmap__outcome-badge is-pending" title="Score officiel en attente">?</span>
       ) : null}
       {node.progress.exact ? <span className="wcmap__exact-badge" title="Score exact">◎</span> : null}
-      {realWinnerTeam ? <span className="wcmap__official-winner" title={`Vrai vainqueur: ${realWinnerTeam.name}`}>{teamFlagEmoji(realWinnerTeam)}</span> : null}
+      {realWinnerTeam ? <span className="wcmap__official-winner" title={`Vrai vainqueur: ${realWinnerTeam.name}`}><TeamFlag team={realWinnerTeam} /></span> : null}
       {isLive && <span className="wcmap__live-dot" />}
     </button>
   )

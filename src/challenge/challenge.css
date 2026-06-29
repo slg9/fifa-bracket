@@ -2002,12 +2002,31 @@
   letter-spacing: 0.08em;
 }
 
-.wcmap__field-node.is-live .wcmap__field-panel .wcmap__flags-vs {
+.wcmap__field-node.is-live .wcmap__field-panel .wcmap__flags-vs,
+.wcmap__field-node.is-available .wcmap__field-panel .wcmap__flags-vs {
   display: none;
 }
 
-.wcmap__field-node.is-live .wcmap__field-panel {
+.wcmap__field-node.is-live .wcmap__field-panel,
+.wcmap__field-node.is-available .wcmap__field-panel {
   min-width: 54px;
+}
+
+.wcmap__live-matchup.is-available {
+  border-color: rgba(78, 255, 164, 0.55);
+  box-shadow: 0 0 14px rgba(78, 255, 164, 0.2), 0 6px 14px rgba(0, 0, 0, 0.32);
+}
+
+.wcmap__live-matchup.is-available strong {
+  color: #4effa4;
+}
+
+.wcmap__official-winner img {
+  display: block;
+  width: 22px;
+  height: 15px;
+  border-radius: 3px;
+  object-fit: cover;
 }
 
 /* Final stadium badge positioning: VS and result flags are centered in the pitch. */
