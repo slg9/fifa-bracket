@@ -995,8 +995,8 @@ export function BrakupHub({
               {Array.from({ length: 14 }, (_, index) => <span key={index} style={{ ['--ray-rot' as string]: `${index * (360 / 14)}deg` }} />)}
             </div>
             <img className="brakup-outcome__logo" src="/brakup-logo.png" alt="Brakup" />
-            <div className="brakup-outcome__boom">{outcomeNotice.progress.correct ? 'BOOOOOM' : 'REMATCH'}</div>
-            <h2>{outcomeNotice.progress.correct ? 'Prono reussi' : 'Dommage'}</h2>
+            <div className="brakup-outcome__boom">{outcomeNotice.progress.correct ? 'PRONO OK' : 'PRONO RATE'}</div>
+            <h2>{outcomeNotice.progress.correct ? 'Points gagnes' : 'Rien gagne'}</h2>
             <p>{outcomeNotice.match.label} · reel {formatScore(outcomeNotice.progress.realScore)} · toi {formatScore(outcomeNotice.progress.playedScore)}</p>
             <div className="brakup-outcome__points">
               <strong>+{outcomeBreakdownTotal}</strong>
@@ -1018,15 +1018,16 @@ export function BrakupHub({
             <SharePreviewOverlay
               card={{
                 variant: outcomeNotice.progress.correct ? 'win' : 'loss',
-                kicker: outcomeNotice.progress.correct ? 'Bien joue' : 'Dommage',
-                headline: outcomeNotice.progress.correct ? 'Prono reussi' : 'Prono rate',
-                boomLabel: outcomeNotice.progress.correct ? 'BOOOOOM' : 'REMATCH',
-                scoreLabel: outcomeBreakdownTotal > 0 ? `+${outcomeBreakdownTotal} PTS` : '0 PT',
+                theme: 'prono',
+                kicker: outcomeNotice.progress.correct ? 'Prono valide' : 'Prono manque',
+                headline: outcomeNotice.progress.correct ? 'Points gagnes' : 'Rien gagne',
+                boomLabel: outcomeNotice.progress.correct ? 'PRONO OK' : 'PRONO RATE',
+                scoreLabel: outcomeBreakdownTotal > 0 ? `+${outcomeBreakdownTotal} PTS GAGNES` : '0 PT GAGNE',
                 matchLabel: outcomeNotice.match.label,
                 detailLabel: `Reel ${formatScore(outcomeNotice.progress.realScore)} · Ton jeu ${formatScore(outcomeNotice.progress.playedScore)}`,
-                pointsLabel: outcomeExactLabel ?? outcomeScorerLabel ?? (outcomeNotice.progress.correct ? 'Vainqueur trouve' : 'Retente le prochain'),
-                exactLabel: outcomeNotice.progress.exact ? 'Master score' : undefined,
-                scorerLabel: outcomeScorerNames.length ? `Buteur: ${outcomeScorerNames.join(', ')}` : undefined,
+                pointsLabel: outcomeNotice.progress.correct ? 'Vainqueur trouve' : 'Vainqueur non trouve',
+                exactLabel: outcomeNotice.progress.exact ? `Score exact +${outcomeNotice.progress.exactPoints}` : 'Score exact non trouve',
+                scorerLabel: outcomeScorerNames.length ? `Buteur: ${outcomeScorerNames.join(', ')}` : 'Aucun buteur trouve',
               }}
               fileName={`brakup-${safeFilePart(outcomeNotice.match.id)}-${outcomeNotice.progress.correct ? 'win' : 'loss'}.png`}
               title="Brakup Challenge"

@@ -3024,6 +3024,10 @@
   object-fit: cover;
   z-index: 0;
 }
+.brakup-share-card.is-prono .brakup-share-card__bg {
+  transform: scale(1.12);
+  object-position: center center;
+}
 .brakup-share-card__logo {
   position: absolute;
   top: 24px;
@@ -3040,6 +3044,11 @@
   inset: 0;
   background: radial-gradient(circle at 50% 55%, rgba(43,255,154,0) 0 25%, rgba(5,7,31,.5) 75%);
   pointer-events: none;
+}
+.brakup-share-card.is-prono::after {
+  background:
+    radial-gradient(circle at 50% 58%, rgba(43,255,154,.12) 0 18%, rgba(5,7,31,.28) 58%, rgba(5,7,31,.68) 100%),
+    linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.35));
 }
 
 .brakup-share-card__brand,
@@ -3074,6 +3083,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.brakup-share-card.is-prono .brakup-share-card__kicker {
+  color: #2bff9a;
+  text-shadow: 0 0 18px rgba(43,255,154,.62);
+}
 
 .brakup-share-card__headline {
   margin-top: min(2vh, 12px);
@@ -3084,6 +3097,10 @@
   text-shadow: 0 8px 28px rgba(0,0,0,.28);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.brakup-share-card.is-prono .brakup-share-card__headline {
+  color: #dfffee;
+  text-shadow: 0 0 22px rgba(43,255,154,.58), 0 8px 28px rgba(0,0,0,.36);
 }
 
 .brakup-share-card__boom {
@@ -3097,6 +3114,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.brakup-share-card.is-prono .brakup-share-card__boom {
+  color: #2bff9a;
+  text-shadow: 0 0 7px #2bff9a, 0 0 30px rgba(43,255,154,.82), 4px 4px 0 rgba(10,92,56,.62);
+}
 
 .brakup-share-card__score {
   margin-top: min(2vh, 14px);
@@ -3108,9 +3129,16 @@
   text-align: center;
   text-shadow: 0 8px 26px rgba(0,0,0,.28);
 }
+.brakup-share-card.is-prono .brakup-share-card__score {
+  color: #2bff9a;
+  text-shadow: 0 0 7px #2bff9a, 0 0 30px rgba(43,255,154,.72), 0 8px 28px rgba(0,0,0,.38);
+}
 
 .brakup-share-card.is-loss .brakup-share-card__score {
   color: #ffffff;
+}
+.brakup-share-card.is-prono.is-loss .brakup-share-card__score {
+  color: #dfffee;
 }
 
 .brakup-share-card__ticket {

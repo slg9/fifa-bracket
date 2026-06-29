@@ -14,6 +14,7 @@ export type ShareCardProps = {
   awayFlag?: string
   exactLabel?: string
   scorerLabel?: string
+  theme?: 'brakup' | 'prono'
 }
 
 export function ShareCard({
@@ -30,10 +31,13 @@ export function ShareCard({
   awayFlag,
   exactLabel,
   scorerLabel,
+  theme = 'brakup',
 }: ShareCardProps) {
+  const backgroundSrc = theme === 'prono' ? '/brakup-share-bg.png' : '/brakup-share-bg-brakup.png'
+
   return (
-    <div ref={captureRef} className={`brakup-share-card is-${variant}`}>
-      <img className="brakup-share-card__bg" src="/brakup-share-bg-brakup.png" alt="" aria-hidden="true" />
+    <div ref={captureRef} className={`brakup-share-card is-${variant} is-${theme}`}>
+      <img className="brakup-share-card__bg" src={backgroundSrc} alt="" aria-hidden="true" />
       <img className="brakup-share-card__logo" src="/brakup-logo.png" alt="Brakup" />
       <div className="brakup-share-card__brand">BRAKUP</div>
       <div className="brakup-share-card__kicker">{kicker}</div>
