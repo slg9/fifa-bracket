@@ -17,6 +17,7 @@ type TokenPayload = { emailHash: string; exp: number }
 
 const encoder = new TextEncoder()
 const DEV_SECRET = 'brakup-local-development-secret-32'
+const PUBLIC_SITE_URL = (process.env.PUBLIC_SITE_URL ?? 'https://brakup.app').replace(/\/$/, '')
 
 function base64Url(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('base64url')
@@ -123,7 +124,7 @@ async function sendMagicLink(email: string, token: string): Promise<boolean> {
     console.warn('[brakup] RESEND_API_KEY absent, lien magique non envoyé.')
     return false
   }
-  const origin = process.env.PUBLIC_SITE_URL ?? 'http://localhost:5173'
+  const origin = PUBLIC_SITE_URL
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -134,7 +135,7 @@ async function sendMagicLink(email: string, token: string): Promise<boolean> {
       from: process.env.BRAKUP_FROM_EMAIL ?? 'brakup@ton-domaine.com',
       to: email,
       subject: 'Ton lien Brakup 🏆',
-      html: `<p>Ton accès Brakup est prêt.</p><p><a href="${origin}/?challenge&token=${encodeURIComponent(token)}">Accéder à mes brackets</a></p>`,
+      html: `<p>Ton accès Brakup est prêt.</p><p>Your Brakup access is ready.</p><p><a href="${origin}/?challenge&token=${encodeURIComponent(token)}">Accéder à mes brackets / Open my brackets</a></p>`,
     }),
   })
   return response.ok
@@ -156,7 +157,7 @@ async function sendOTPEmail(email: string, pseudo: string, otp: string, origin: 
       from: process.env.BRAKUP_FROM_EMAIL ?? 'brakup@ton-domaine.com',
       to: email,
       subject: `Ton code OTP Brakup pour ${pseudo}`,
-      html: `<p>Ton code de connexion Brakup est : <strong style="font-size: 24px; letter-spacing: 4px;">${otp}</strong></p><p>Ce code expire dans 15 minutes.</p><p>Rends-toi sur <a href="${otpUrl}">Brakup</a> et entre ce code pour te connecter.</p>`,
+      html: `<p>Ton code de connexion Brakup est : <strong style="font-size: 24px; letter-spacing: 4px;">${otp}</strong></p><p>Your Brakup login code is: <strong style="font-size: 24px; letter-spacing: 4px;">${otp}</strong></p><p>Ce code expire dans 15 minutes. This code expires in 15 minutes.</p><p>Rends-toi sur <a href="${otpUrl}">Brakup</a> et entre ce code pour te connecter.</p>`,
     }),
   })
   return response.ok
@@ -347,7 +348,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const otpData = { email, pseudo, otp, expiresAt: Date.now() + 15 * 60 * 1000 }
       await writeJson(otpPathname, otpData)
       
-      const origin = process.env.PUBLIC_SITE_URL ?? 'http://localhost:5173'
+      const origin = PUBLIC_SITE_URL
       const sent = await sendOTPEmail(email, pseudo, otp, origin)
       
       if (sent) {

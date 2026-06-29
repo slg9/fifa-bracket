@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { setGameMuted, useGameAudio, useGameMuted } from '../lib/useGameAudio'
 import { getBrackets, submitBracket, verifyOTP } from '../lib/challengeData'
+import { alternateLanguageHref, localizedRootPath, type Locale } from '../lib/i18n'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
 import type { BattleResult, BattleScorer, ChallengeBreakdown, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
 import BattleEngine from '../components/battle/BattleEngine'
@@ -38,6 +39,7 @@ export interface BrakupHubProps {
   officialResults?: Record<string, string>
   officialScores?: Record<string, OfficialScore>
   topScorers?: Array<{ name: string; teamCode: string; goals: number }>
+  locale?: Locale
 }
 
 type HubView = 'challenge' | 'battle' | 'brackets' | 'board' | 'viewBracket'
@@ -178,6 +180,7 @@ export function BrakupHub({
   officialResults = {},
   officialScores = {},
   topScorers = [],
+  locale = 'fr',
 }: BrakupHubProps) {
   const [view, setView] = useState<HubView>(readInitialView)
   const [showSplash, setShowSplash] = useState(true)
@@ -330,7 +333,7 @@ export function BrakupHub({
     if (next === 'brackets') nextParams.set('brackets', '')
     if (next === 'board') nextParams.set('board', '')
     if (next === 'battle' && matchId) nextParams.set('match', matchId)
-    window.history.pushState({}, '', `?${nextParams.toString().replace(/=$/, '')}`)
+    window.history.pushState({}, '', `${localizedRootPath(locale)}?${nextParams.toString().replace(/=$/, '')}`)
     setShowGameMenu(false)
     setView(next)
     setActiveMatchId(matchId ?? null)
@@ -602,6 +605,7 @@ export function BrakupHub({
         <nav>
           <button type="button" className={view === 'challenge' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('challenge') }}>Challenge</button>
           <button type="button" className={view === 'board' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
+          <a className="brakup-lang-switch" href={alternateLanguageHref(locale)} hrefLang={locale === 'en' ? 'fr' : 'en'}>{locale === 'en' ? 'FR' : 'EN'}</a>
         </nav>
       </header>
       {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} showControls={showBattleControls} syncStatusLabel={hasSyncedProfile ? `Deja synchronise : ${savedProfile.pseudo || 'profil'} sera sauvegarde automatiquement.` : 'Synchro proposee apres ce match pour publier ton score.'} /> : null}

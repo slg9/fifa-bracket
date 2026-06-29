@@ -5,6 +5,7 @@ import BootLoaderMark from './components/BootLoaderMark'
 import BrakupHub from './challenge/BrakupHub'
 import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
 import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
+import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
 import {
   buildGroupOrderOverrides,
@@ -1185,7 +1186,7 @@ function BracketBoard({
                             {match.id === 'M103' ? (
                               <div className="finale__challenge-mark">
                                 <img src="/brakup-challenge-logo.png" alt="Brakup Challenge" className="finale__challenge-logo" />
-                                <a href="?challenge" className="finale__challenge-play">JOUER</a>
+                                <a href={localizedChallengeHref(getCurrentLocale())} className="finale__challenge-play">JOUER</a>
                               </div>
                             ) : null}
                             <MatchCard
@@ -1339,6 +1340,7 @@ function FormDots({ form, align = 'left' }: { form: string; align?: 'left' | 'ri
 }
 
 function App() {
+  const locale = useAppI18n()
   const [seed, setSeed] = useState<TournamentSeed | null>(null)
   const [liveSource, setLiveSource] = useState<LiveState>({
     syncedAt: null,
@@ -1864,6 +1866,7 @@ function App() {
         officialResults={challengeOfficialResults}
         officialScores={challengeOfficialScores}
         topScorers={liveSource.topScorers ?? []}
+        locale={locale}
       />
     )
   }
@@ -1898,13 +1901,21 @@ function App() {
               <TeamFocusMenu teams={bracketHeaderTeams} focusId={focusId} onFocusChange={setFocusId} className="bracket-team-menu--topbar" />
 
               <a
-                href="?challenge"
+                href={localizedChallengeHref(locale)}
                 className="chip-btn chip-btn--sm chip-btn--challenge topbar__challenge-link"
                 title="Brakup Challenge"
                 aria-label="Ouvrir Brakup Challenge"
               >
                 <img src="/brakup-challenge-logo.png" alt="" className="chip-btn__challenge-logo" />
                 <span>Challenge</span>
+              </a>
+              <a
+                href={alternateLanguageHref(locale)}
+                className="chip-btn chip-btn--sm"
+                hrefLang={locale === 'en' ? 'fr' : 'en'}
+                aria-label={locale === 'en' ? 'Version française' : 'English version'}
+              >
+                {locale === 'en' ? 'FR' : 'EN'}
               </a>
 
               <div className="bracket-actions-wrap--topbar">

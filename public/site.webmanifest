@@ -1,8 +1,10 @@
 {
   "name": "Brakup — World Cup 2026 Challenge",
   "short_name": "Brakup",
-  "description": "Crée ton bracket, joue les matchs en mini-jeu et grimpe dans le classement. LE challenge de la Coupe du Monde 2026 !",
+  "description": "Crée ton bracket Coupe du Monde 2026, joue les matchs en mini-jeu arcade et grimpe dans le classement Brakup.",
+  "id": "https://brakup.app/?challenge",
   "start_url": "/?challenge",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#070b14",
   "theme_color": "#070b14",

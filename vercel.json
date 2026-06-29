@@ -1,7 +1,12 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "env": {
+    "PUBLIC_SITE_URL": "https://brakup.app"
+  },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" }
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/en", "destination": "/" },
+    { "source": "/en/(.*)", "destination": "/" }
   ]
 }
