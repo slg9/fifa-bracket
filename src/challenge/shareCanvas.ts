@@ -51,6 +51,175 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, 
   return size
 }
 
+function gfMultiply(a: number, b: number) {
+  let result = 0
+  for (let i = 0; i < 8; i += 1) {
+    if ((b & 1) !== 0) result ^= a
+    const carry = (a & 0x80) !== 0
+    a = (a << 1) & 0xff
+    if (carry) a ^= 0x1d
+    b >>= 1
+  }
+  return result
+}
+
+function gfPow(value: number, power: number) {
+  let result = 1
+  for (let i = 0; i < power; i += 1) result = gfMultiply(result, value)
+  return result
+}
+
+function reedSolomonRemainder(data: number[], degree: number) {
+  let generator = [1]
+  for (let i = 0; i < degree; i += 1) {
+    const next = new Array(generator.length + 1).fill(0)
+    generator.forEach((coefficient, index) => {
+      next[index] ^= gfMultiply(coefficient, gfPow(2, i))
+      next[index + 1] ^= coefficient
+    })
+    generator = next
+  }
+
+  const result = new Array(degree).fill(0)
+  data.forEach((byte) => {
+    const factor = byte ^ result.shift()
+    result.push(0)
+    generator.slice(1).forEach((coefficient, index) => {
+      result[index] ^= gfMultiply(coefficient, factor)
+    })
+  })
+  return result
+}
+
+function appendBits(bits: number[], value: number, length: number) {
+  for (let i = length - 1; i >= 0; i -= 1) bits.push((value >>> i) & 1)
+}
+
+function buildQrCodeModules(text: string) {
+  const size = 25
+  const dataCodewords = 34
+  const errorCodewords = 10
+  const modules: Array<Array<number | null>> = Array.from({ length: size }, () => Array(size).fill(null))
+  const reserved = Array.from({ length: size }, () => Array(size).fill(false))
+
+  const setModule = (x: number, y: number, value: number, reserve = true) => {
+    if (x < 0 || y < 0 || x >= size || y >= size) return
+    modules[y][x] = value
+    if (reserve) reserved[y][x] = true
+  }
+
+  const drawFinder = (x: number, y: number) => {
+    for (let dy = -1; dy <= 7; dy += 1) {
+      for (let dx = -1; dx <= 7; dx += 1) {
+        const xx = x + dx
+        const yy = y + dy
+        const inFinder = dx >= 0 && dx <= 6 && dy >= 0 && dy <= 6
+        const dark = inFinder && (dx === 0 || dx === 6 || dy === 0 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4))
+        setModule(xx, yy, dark ? 1 : 0)
+      }
+    }
+  }
+
+  drawFinder(0, 0)
+  drawFinder(size - 7, 0)
+  drawFinder(0, size - 7)
+
+  for (let i = 8; i < size - 8; i += 1) {
+    setModule(i, 6, i % 2 === 0 ? 1 : 0)
+    setModule(6, i, i % 2 === 0 ? 1 : 0)
+  }
+
+  const drawAlignment = (cx: number, cy: number) => {
+    for (let dy = -2; dy <= 2; dy += 1) {
+      for (let dx = -2; dx <= 2; dx += 1) {
+        const distance = Math.max(Math.abs(dx), Math.abs(dy))
+        setModule(cx + dx, cy + dy, distance === 2 || distance === 0 ? 1 : 0)
+      }
+    }
+  }
+  drawAlignment(18, 18)
+
+  setModule(8, size - 8, 1)
+  for (let i = 0; i < 9; i += 1) {
+    if (i !== 6) {
+      reserved[8][i] = true
+      reserved[i][8] = true
+    }
+  }
+  for (let i = 0; i < 8; i += 1) {
+    reserved[8][size - 1 - i] = true
+    reserved[size - 1 - i][8] = true
+  }
+
+  const bytes = [...new TextEncoder().encode(text)]
+  const bits: number[] = []
+  appendBits(bits, 0b0100, 4)
+  appendBits(bits, bytes.length, 8)
+  bytes.forEach((byte) => appendBits(bits, byte, 8))
+  appendBits(bits, 0, Math.min(4, dataCodewords * 8 - bits.length))
+  while (bits.length % 8 !== 0) bits.push(0)
+  const data: number[] = []
+  for (let i = 0; i < bits.length; i += 8) {
+    data.push(bits.slice(i, i + 8).reduce((value, bit) => (value << 1) | bit, 0))
+  }
+  for (let pad = 0xec; data.length < dataCodewords; pad = pad === 0xec ? 0x11 : 0xec) data.push(pad)
+  const codewordBits = [...data, ...reedSolomonRemainder(data, errorCodewords)].flatMap((byte) => {
+    const next: number[] = []
+    appendBits(next, byte, 8)
+    return next
+  })
+
+  let bitIndex = 0
+  let upward = true
+  for (let right = size - 1; right >= 1; right -= 2) {
+    if (right === 6) right -= 1
+    for (let vert = 0; vert < size; vert += 1) {
+      const y = upward ? size - 1 - vert : vert
+      for (let col = 0; col < 2; col += 1) {
+        const x = right - col
+        if (reserved[y][x]) continue
+        const bit = codewordBits[bitIndex] ?? 0
+        bitIndex += 1
+        const masked = bit ^ (((x + y) % 2 === 0) ? 1 : 0)
+        setModule(x, y, masked, false)
+      }
+    }
+    upward = !upward
+  }
+
+  const format = 0b111011111000100
+  const formatBit = (index: number) => (format >>> index) & 1
+  for (let i = 0; i <= 5; i += 1) setModule(8, i, formatBit(i))
+  setModule(8, 7, formatBit(6))
+  setModule(8, 8, formatBit(7))
+  setModule(7, 8, formatBit(8))
+  for (let i = 9; i < 15; i += 1) setModule(14 - i, 8, formatBit(i))
+  for (let i = 0; i < 8; i += 1) setModule(size - 1 - i, 8, formatBit(i))
+  for (let i = 8; i < 15; i += 1) setModule(8, size - 15 + i, formatBit(i))
+
+  return modules.map((row) => row.map((value) => value === 1))
+}
+
+function drawQrCode(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number) {
+  const modules = buildQrCodeModules(text)
+  const count = modules.length
+  const quiet = 4
+  const cell = size / (count + quiet * 2)
+  ctx.save()
+  ctx.shadowBlur = 0
+  ctx.fillStyle = '#ffffff'
+  roundRect(ctx, x, y, size, size, 18)
+  ctx.fill()
+  ctx.fillStyle = '#050b16'
+  modules.forEach((row, rowIndex) => {
+    row.forEach((dark, columnIndex) => {
+      if (!dark) return
+      ctx.fillRect(x + (columnIndex + quiet) * cell, y + (rowIndex + quiet) * cell, Math.ceil(cell), Math.ceil(cell))
+    })
+  })
+  ctx.restore()
+}
+
 export async function renderResultShareCanvas(input: ResultShareCanvasInput): Promise<Blob> {
   const width = 1080
   const height = 1920
@@ -169,11 +338,22 @@ export async function renderResultShareCanvas(input: ResultShareCanvasInput): Pr
     ctx.fillText('Aucun bonus trouve', width / 2, panelY + panelH / 2)
   }
 
-  ctx.fillStyle = '#ffffff'
+  const qrSize = 132
+  const qrX = (width - qrSize) / 2
+  const qrY = height - 248
+  drawQrCode(ctx, 'https://brakup.app?challenge', qrX, qrY, qrSize)
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = 'rgba(255,255,255,.86)'
   ctx.shadowColor = 'rgba(0,0,0,.5)'
+  ctx.shadowBlur = 12
+  ctx.font = "900 23px 'Barlow Condensed', Arial, sans-serif"
+  ctx.fillText('brakup.app', width / 2, qrY + qrSize + 32)
+
+  ctx.fillStyle = '#ffffff'
   ctx.shadowBlur = 16
-  fitText(ctx, input.cta, 850, 38, 25, (size) => `900 ${size}px 'Barlow Condensed', Arial, sans-serif`)
-  ctx.fillText(input.cta, width / 2, height - 105)
+  fitText(ctx, input.cta, 850, 32, 22, (size) => `900 ${size}px 'Barlow Condensed', Arial, sans-serif`)
+  ctx.fillText(input.cta, width / 2, height - 54)
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Impossible de generer l'image.")), 'image/png', 0.94)
