@@ -18,6 +18,7 @@ type TokenPayload = { emailHash: string; exp: number }
 const encoder = new TextEncoder()
 const DEV_SECRET = 'brakup-local-development-secret-32'
 const PUBLIC_SITE_URL = (process.env.PUBLIC_SITE_URL ?? 'https://brakup.app').replace(/\/$/, '')
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? process.env.BRAKUP_FROM_EMAIL ?? 'Brakup <no-reply@brakup.app>'
 
 function base64Url(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('base64url')
@@ -190,7 +191,7 @@ async function sendMagicLink(email: string, token: string): Promise<boolean> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: process.env.BRAKUP_FROM_EMAIL ?? 'brakup@ton-domaine.com',
+      from: RESEND_FROM_EMAIL,
       to: email,
       subject: 'Ton lien Brakup 🏆',
       html: `<p>Ton accès Brakup est prêt.</p><p>Your Brakup access is ready.</p><p><a href="${origin}/?challenge&token=${encodeURIComponent(token)}">Accéder à mes brackets / Open my brackets</a></p>`,
@@ -212,7 +213,7 @@ async function sendOTPEmail(email: string, pseudo: string, otp: string, origin: 
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: process.env.BRAKUP_FROM_EMAIL ?? 'brakup@ton-domaine.com',
+      from: RESEND_FROM_EMAIL,
       to: email,
       subject: `Ton code OTP Brakup pour ${pseudo}`,
       html: `<p>Ton code de connexion Brakup est : <strong style="font-size: 24px; letter-spacing: 4px;">${otp}</strong></p><p>Your Brakup login code is: <strong style="font-size: 24px; letter-spacing: 4px;">${otp}</strong></p><p>Ce code expire dans 15 minutes. This code expires in 15 minutes.</p><p>Rends-toi sur <a href="${otpUrl}">Brakup</a> et entre ce code pour te connecter.</p>`,
