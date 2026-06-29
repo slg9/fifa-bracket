@@ -42,10 +42,11 @@ export function scoreForPick(match: KnockoutMatch, pickedTeamId?: string, score?
   const homeTeamId = entrantTeamId(match, 'home')
   const awayTeamId = entrantTeamId(match, 'away')
   if (!score || !pickedTeamId || !homeTeamId || !awayTeamId) return null
+  const normalizedScore = score.p < score.o ? { p: score.o, o: score.p } : score
   const pickedHome = pickedTeamId === homeTeamId
   return pickedHome
-    ? { home: score.p, away: score.o }
-    : { home: score.o, away: score.p }
+    ? { home: normalizedScore.p, away: normalizedScore.o }
+    : { home: normalizedScore.o, away: normalizedScore.p }
 }
 
 export function formatScore(score?: DisplayScore | OfficialScore | null) {

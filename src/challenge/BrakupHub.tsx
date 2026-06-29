@@ -345,16 +345,17 @@ export function BrakupHub({
     if (!scoreData) return null
     
     const pickedTeamId = picks[matchId]
+    const normalizedScore = scoreData.p < scoreData.o ? { p: scoreData.o, o: scoreData.p } : scoreData
     const playerTeamId = pickedTeamId === match.away.teamId ? match.away.teamId : match.home.teamId
     const opponentTeamId = playerTeamId === match.home.teamId ? match.away.teamId : match.home.teamId
-    const playerWon = scoreData.p > scoreData.o
+    const playerWon = normalizedScore.p >= normalizedScore.o
     const winnerId = playerWon ? playerTeamId : opponentTeamId
     
     return {
-      homeScore: scoreData.p,
-      awayScore: scoreData.o,
+      homeScore: normalizedScore.p,
+      awayScore: normalizedScore.o,
       winnerId,
-      playerScore: scoreData.p,
+      playerScore: normalizedScore.p,
       rounds: [], // Pas de rounds detailles pour un match deja joue
       scorers: scorers[matchId] ?? [],
       penalties: undefined,
@@ -550,7 +551,12 @@ export function BrakupHub({
   const handleBattleComplete = (result: BattleResult) => {
     const mid = activeMatchId ?? ''
     const nextPicks = mid ? { ...picks, [mid]: result.winnerId } : picks
-    const nextBattleScores = mid ? { ...battleScores, [mid]: { p: result.playerScore, o: result.awayScore } } : battleScores
+    const playerTeamId = activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team'
+      ? activeSide === 'away' ? activeMatch.away.teamId : activeMatch.home.teamId
+      : result.winnerId
+    const winnerScore = result.winnerId === playerTeamId ? result.homeScore : result.awayScore
+    const loserScore = result.winnerId === playerTeamId ? result.awayScore : result.homeScore
+    const nextBattleScores = mid ? { ...battleScores, [mid]: { p: winnerScore, o: loserScore } } : battleScores
     const nextScorers = mid ? { ...scorers, [mid]: result.scorers ?? [] } : scorers
     const nextBattleBonuses = Math.min(40, battleBonuses + Math.max(1, Math.round(result.playerScore / 20)))
     const nextProgressStats = summarizeProgress(matches, nextPicks, nextBattleScores, realResults, officialScoreMap, nextBattleBonuses, nextScorers, realScorers)
