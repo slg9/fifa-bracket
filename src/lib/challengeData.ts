@@ -165,13 +165,13 @@ export function resendMagicLink(email: string): Promise<{ sent: boolean; token?:
   return request('resend', { email })
 }
 
-export async function verifyLoginOTP(email: string, otp: string): Promise<string> {
+export async function verifyLoginOTP(email: string, otp: string, pseudo?: string): Promise<{ token: string; needsProfile: boolean; email: string }> {
   try {
-    const result = await request<{ token: string }>('verifyLoginOTP', { email, otp })
-    return result.token
+    const result = await request<{ token: string; needsProfile: boolean; email: string }>('verifyLoginOTP', { email, otp, pseudo })
+    return result
   } catch (error) {
     if (!import.meta.env.DEV) throw error
-    return LOCAL_TOKEN
+    return { token: LOCAL_TOKEN, needsProfile: false, email }
   }
 }
 

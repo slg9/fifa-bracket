@@ -52,6 +52,7 @@ const AUTOSAVE_STORAGE_KEY = 'brakup:autosave-at'
 const OFFICIAL_RESULTS_STORAGE_KEY = 'brakup:official-results'
 const OFFICIAL_SCORES_STORAGE_KEY = 'brakup:official-scores'
 const SEEN_OUTCOMES_STORAGE_KEY = 'brakup:seen-outcomes'
+const HAD_ACCOUNT_KEY = 'brakup:hadAccount'
 const SCORERS_STORAGE_KEY = 'brakup:scorers'
 
 function readSavedProfile(): SavedProfile {
@@ -206,6 +207,7 @@ export function BrakupHub({
   const [activeSide, setActiveSide] = useState<'home' | 'away'>('home')
   const [battleBonuses, setBattleBonuses] = useState(0)
   const [savedProfile, setSavedProfile] = useState<SavedProfile>(readSavedProfile)
+  const [hadAccount, setHadAccount] = useState(() => localStorage.getItem(HAD_ACCOUNT_KEY) === 'true')
   const [autosavedAt, setAutosavedAt] = useState<string | null>(() => localStorage.getItem(AUTOSAVE_STORAGE_KEY))
   const [brackets, setBrackets] = useState<ChallengeEntry[]>([])
   const [activeBracketId, setActiveBracketId] = useState<string | null>(null)
@@ -215,6 +217,7 @@ export function BrakupHub({
   const [showOTPEntry, setShowOTPEntry] = useState(false)
   const [pendingEmail, setPendingEmail] = useState<string | null>(null)
   const [pendingPseudo, setPendingPseudo] = useState<string | null>(null)
+  const [loginToken, setLoginToken] = useState<string | null>(null)
   const [otpError, setOtpError] = useState<string | null>(null)
   const [otpBusy, setOtpBusy] = useState(false)
   const [showGameMenu, setShowGameMenu] = useState(false)
@@ -547,6 +550,25 @@ export function BrakupHub({
 
   const save = async ({ email, pseudo, bracketName, submitted }: { email: string; pseudo: string; bracketName: string; submitted: boolean }) => {
     setSaving(true); setSaveError(null)
+    
+    // Si on vient du flow OTP (loginToken existe), juste mettre a jour le pseudo
+    if (loginToken) {
+      try {
+        const result = await updateProfile(loginToken, { email, pseudo })
+        await loadAccountFromToken(result.token, email)
+        setLoginToken(null)
+        setPendingEmail(null)
+        setShowEmailEntry(false)
+        rememberProfile({ email, pseudo, bracketName })
+      } catch (caught) {
+        setSaveError(caught instanceof Error ? caught.message : 'Mise a jour impossible.')
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
+    
+    // Flow normal : sauvegarder le bracket
     rememberProfile({ email, pseudo, bracketName })
     try {
       await syncBracketSnapshot({
@@ -566,6 +588,11 @@ export function BrakupHub({
   }
 
   const handleLogout = () => {
+    // Marquer que l'utilisateur avait un compte pour afficher "Se reconnecter"
+    if (accessToken || savedProfile.email) {
+      localStorage.setItem(HAD_ACCOUNT_KEY, 'true')
+      setHadAccount(true)
+    }
     localStorage.removeItem('brakup:token')
     localStorage.removeItem(PROFILE_STORAGE_KEY)
     setAccessToken(null)
@@ -625,8 +652,21 @@ export function BrakupHub({
     setLoginBusy(true)
     setLoginError(null)
     try {
-      const token = await verifyLoginOTP(loginEmail, otp)
-      await loadAccountFromToken(token, loginEmail)
+      const result = await verifyLoginOTP(loginEmail, otp)
+      
+      if (result.needsProfile) {
+        // Nouveau compte, il faut demander un pseudo
+        setLoginSent(false)
+        setLoginToken(result.token)
+        setPendingEmail(result.email)
+        setShowLoginEntry(false)
+        // Ouvrir EmailEntry pour demander le pseudo
+        setShowEmailEntry(true)
+        return
+      }
+      
+      await loadAccountFromToken(result.token, result.email)
+      setLoginToken(null)
       setShowLoginEntry(false)
       setLoginSent(false)
     } catch (caught) {
@@ -803,6 +843,10 @@ export function BrakupHub({
                   <button type="button" onClick={handleLogout}>
                     Se déconnecter
                   </button>
+                ) : hadAccount ? (
+                  <button type="button" onClick={() => { setLoginError(null); setLoginSent(false); setShowLoginEntry(true); setShowGameMenu(false) }}>
+                    Se reconnecter
+                  </button>
                 ) : (
                   <button type="button" onClick={() => { setLoginError(null); setLoginSent(false); setShowLoginEntry(true); setShowGameMenu(false) }}>
                     Créer mon compte
@@ -963,7 +1007,7 @@ export function BrakupHub({
           </div>
         </div>
       ) : null}
-      {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={savedProfile.email} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => setShowEmailEntry(false)} /> : null}
+      {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={pendingEmail || savedProfile.email} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => { setShowEmailEntry(false); setLoginToken(null); setPendingEmail(null); }} /> : null}
       {showLoginEntry ? <LoginEntry initialEmail={savedProfile.email} busy={loginBusy} error={loginError} sent={loginSent} onSubmit={handleLogin} onVerify={handleLoginOTP} onCancel={() => setShowLoginEntry(false)} /> : null}
       {showOTPEntry && pendingEmail && pendingPseudo ? <OTPEntry email={pendingEmail} pseudo={pendingPseudo} busy={otpBusy} error={otpError} onSubmit={handleOTPSubmit} onCancel={() => { setShowOTPEntry(false); setPendingEmail(null); setPendingPseudo(null); setShowEmailEntry(true) }} /> : null}
       {showProfileSettings ? <ProfileSettings initialEmail={savedProfile.email} initialPseudo={savedProfile.pseudo} busy={profileBusy} error={profileError} status={profileStatus} onSubmit={handleProfileUpdate} onClose={() => setShowProfileSettings(false)} /> : null}

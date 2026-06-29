@@ -430,10 +430,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return
       }
       const entries = await readJson<ChallengeEntry[]>(`challenge/${emailHash}/brackets.json`, [])
-      if (entries.length === 0) {
-        res.status(404).json({ error: 'Aucun compte Brakup trouvé avec cet email.' })
-        return
-      }
+      
+      // Generer OTP et envoyer email dans tous les cas
+      // La creation de compte se fera dans verifyLoginOTP si necessaire
       const token = await signToken(emailHash)
       const otp = String(Math.floor(100000 + Math.random() * 900000))
       await writeJson(`challenge/login-otp/${emailHash}.json`, {
@@ -453,6 +452,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     if (action === 'verifyLoginOTP') {
       const email = String(body.email ?? '')
       const otp = String(body.otp ?? '')
+      const pseudo = String(body.pseudo ?? '')
       if (!email.includes('@') || !otp || otp.length !== 6) {
         res.status(400).json({ error: 'Email et code OTP (6 chiffres) requis.' })
         return
@@ -469,7 +469,42 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return
       }
       await writeJson(otpPathname, {})
-      res.status(200).json({ data: { token: await signToken(emailHash) } })
+      
+      // Verifier si le compte existe
+      const entries = await readJson<ChallengeEntry[]>(`challenge/${emailHash}/brackets.json`, [])
+      let needsProfile = false
+      
+      // Si aucun compte n'existe, en créer un
+      if (entries.length === 0) {
+        const newPseudo = pseudo.trim() || email.split('@')[0].slice(0, 20).replace(/[^a-zA-Z0-9_]/g, '_') || 'Joueur'
+        const newEntry: ChallengeEntry = {
+          id: crypto.randomUUID(),
+          emailHash,
+          pseudo: newPseudo,
+          bracketName: 'Mon bracket',
+          picks: {},
+          battleScores: {},
+          scorers: {},
+          score: 0,
+          rank: null,
+          submittedAt: null,
+          breakdown: {},
+          battleBonuses: 0,
+          createdAt: new Date().toISOString(),
+        }
+        await writeJson(`challenge/${emailHash}/brackets.json`, [newEntry])
+        await rebuildLeaderboardFromStoredScores()
+        needsProfile = !pseudo.trim() // Si pseudo n'a pas ete fourni, il faut le demander
+      }
+      
+      const token = await signToken(emailHash)
+      res.status(200).json({ 
+        data: { 
+          token,
+          needsProfile,
+          email
+        } 
+      })
       return
     }
 
