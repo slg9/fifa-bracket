@@ -311,6 +311,35 @@ export function BrakupHub({
     }
   }, [activeBracketId, battleBonuses, battleScores, brackets, picks, progressBreakdown, progressStats.points, savedProfile, scorers])
 
+  // Reconstruire un BattleResult pour un match deja joue
+  function makeExistingBattleResult(match: KnockoutMatch, battleScores: Record<string, { p: number; o: number }>, scorers: Record<string, BattleScorer[]>): import('../types').BattleResult | null {
+    if (match.home.kind !== 'team' || match.away.kind !== 'team') return null
+    const matchId = match.id
+    const scoreData = battleScores[matchId]
+    if (!scoreData) return null
+    
+    const homeTeamId = match.home.teamId
+    const awayTeamId = match.away.teamId
+    const homeScore = scoreData.p
+    const awayScore = scoreData.o
+    const playerWon = homeScore > awayScore
+    const winnerId = playerWon ? homeTeamId : awayTeamId
+    
+    return {
+      homeScore,
+      awayScore,
+      winnerId,
+      playerScore: homeScore + awayScore,
+      rounds: [], // Pas de rounds detailles pour un match deja joue
+      scorers: scorers[matchId] ?? [],
+      penalties: undefined,
+      simulated: true,
+      commentary: playerWon 
+        ? `Victoire contre ${teamsById.get(awayTeamId)?.name || awayTeamId} !`
+        : `Defaite contre ${teamsById.get(homeTeamId)?.name || homeTeamId}.`,
+    }
+  }
+
   const rememberProfile = useCallback((values: { email: string; pseudo: string; bracketName: string }) => {
     const next = { ...values, savedAt: new Date().toISOString() }
     localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(next))
@@ -396,10 +425,15 @@ export function BrakupHub({
 
   const handlePick = (matchId: string, teamId: string) => setPicks((current) => ({ ...current, [matchId]: teamId }))
   const handlePlay = (matchId: string, teamId?: string) => {
-    // Verrouiller si le match a deja un resultat officiel
+    // Verrouiller si le match a deja un resultat officiel ET qu'on n'a pas deja joue la battle
     if (realResults[matchId] || officialResults[matchId]) {
-      sfx.error()
-      return
+      // Vérifier si on a deja un resultat de battle pour ce match
+      const hasBattleResult = battleScores[matchId] !== undefined
+      if (!hasBattleResult) {
+        sfx.error()
+        return
+      }
+      // Si on a deja joue, autoriser pour permettre le partage
     }
     if (teamId) {
       const m = matches.find((mx) => mx.id === matchId)
@@ -818,7 +852,18 @@ export function BrakupHub({
           <a className="brakup-lang-switch" href={alternateLanguageHref(locale)} hrefLang={locale === 'en' ? 'fr' : 'en'}>{locale === 'en' ? 'FR' : 'EN'}</a>
         </nav>
       </header>
-      {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} showControls={showBattleControls} syncStatusLabel={hasSyncedProfile ? `Deja synchronise : ${savedProfile.pseudo || 'profil'} sera sauvegarde automatiquement.` : 'Synchro proposee apres ce match pour publier ton score.'} /> : null}
+      {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? (
+        <BattleEngine 
+          match={activeMatch} 
+          teamsById={teamsById} 
+          onComplete={handleBattleComplete} 
+          playerSide={activeSide} 
+          onQuit={() => navigate('challenge')} 
+          showControls={showBattleControls}
+          syncStatusLabel={hasSyncedProfile ? `Deja synchronise : ${savedProfile.pseudo || 'profil'} sera sauvegarde automatiquement.` : 'Synchro proposee apres ce match pour publier ton score.'}
+          existingResult={activeMatch ? makeExistingBattleResult(activeMatch, battleScores, scorers) : null}
+        />
+      ) : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
         <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} scorers={scorers} realScorers={realScorers} realResults={realResults} officialScores={officialScoreMap} autosavedAt={autosavedAt} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); openBracketOverlay() }} />

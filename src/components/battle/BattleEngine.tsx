@@ -31,6 +31,7 @@ type BattleEngineProps = {
   playerSide?: 'home' | 'away'
   showControls?: boolean
   syncStatusLabel?: string
+  existingResult?: BattleResult | null
 }
 
 type RetrySnapshot = {
@@ -193,7 +194,7 @@ function BattleFlag({ team, emoji }: { team?: Team; emoji: string }) {
   return <span>{emoji}</span>
 }
 
-export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false, syncStatusLabel }: BattleEngineProps) {
+export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false, syncStatusLabel, existingResult }: BattleEngineProps) {
   const rawHomeId = entrantId(match, 'home')
   const rawAwayId = entrantId(match, 'away')
   const homeTeamId = playerSide === 'away' ? rawAwayId : rawHomeId
@@ -207,7 +208,12 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const skipIntro = playerSide != null
   const skipScreens = false
 
-  const [state, setState] = useState<BattleMatchState>(() => makeInitialState(homeTeamId, awayTeamId, match.stage, skipIntro))
+  // Si un resultat existant est fourni, commencer directement en phase match_result
+  const [state, setState] = useState<BattleMatchState>(() => 
+    existingResult 
+      ? { ...makeInitialState(homeTeamId, awayTeamId, match.stage, skipIntro), phase: 'match_result' }
+      : makeInitialState(homeTeamId, awayTeamId, match.stage, skipIntro)
+  )
   const [history, setHistory] = useState<BattleResult['rounds']>([])
   const [roundOutcome, setRoundOutcome] = useState<RoundOutcome>('miss')
   const [nextAction, setNextAction] = useState<NextAction | null>(null)

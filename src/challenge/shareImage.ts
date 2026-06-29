@@ -43,49 +43,46 @@ async function resolveImagesAsDataUrls(element: HTMLElement): Promise<() => void
 }
 
 export async function shareElementImage(element: HTMLElement, options: ShareImageOptions) {
-  const restoreImages = await resolveImagesAsDataUrls(element)
+  // Creer un clone de l'element pour eviter les problemes de CSS herite
+  const clone = element.cloneNode(true) as HTMLElement
   
-  // Sauvegarder les styles originaux pour restauration
-  const originalVisibility = element.style.visibility
-  const originalTransform = element.style.transform
-  const originalPosition = element.style.position
-  const originalZIndex = element.style.zIndex
-  const originalLeft = element.style.left
-  const originalTop = element.style.top
-  const originalOpacity = element.style.opacity
-  const originalDisplay = element.style.display
+  // Resoudre les images dans le clone
+  const restoreImages = await resolveImagesAsDataUrls(clone)
   
-  // Rendre l'element visible et positionne pour la capture
-  element.style.visibility = 'visible'
-  element.style.transform = 'none'
-  element.style.position = 'fixed'
-  element.style.zIndex = '999999'
-  element.style.left = '0'
-  element.style.top = '0'
-  element.style.opacity = '1'
-  element.style.display = 'block'
+  // Configurer le clone pour la capture
+  clone.style.visibility = 'visible'
+  clone.style.transform = 'none'
+  clone.style.position = 'fixed'
+  clone.style.zIndex = '999999'
+  clone.style.left = '0'
+  clone.style.top = '0'
+  clone.style.opacity = '1'
+  clone.style.display = 'block'
+  clone.style.pointerEvents = 'none'
   
-  // Forcer le navigateur a appliquer les styles avant capture
+  // S'assurer que le clone a une taille
+  if (!clone.style.width) clone.style.width = `${element.offsetWidth || 720}px`
+  if (!clone.style.height) clone.style.height = `${element.offsetHeight || 1280}px`
+  
+  // Ajouter au body temporairement
+  document.body.appendChild(clone)
+  
+  // Forcer le reflow et attendre que les images soient pretes
+  clone.getBoundingClientRect()
   await new Promise(resolve => requestAnimationFrame(resolve))
+  await new Promise(resolve => setTimeout(resolve, 100))
   
   let blob: Blob | null = null
   try {
-    blob = await toBlob(element, {
+    blob = await toBlob(clone, {
       cacheBust: false,
       pixelRatio: Math.min(3, Math.max(2, window.devicePixelRatio || 1)),
       backgroundColor: options.backgroundColor ?? '#050b16',
     })
   } finally {
     restoreImages()
-    // Restaurer les styles originaux
-    element.style.visibility = originalVisibility
-    element.style.transform = originalTransform
-    element.style.position = originalPosition
-    element.style.zIndex = originalZIndex
-    element.style.left = originalLeft
-    element.style.top = originalTop
-    element.style.opacity = originalOpacity
-    element.style.display = originalDisplay
+    // Retirer le clone du DOM
+    document.body.removeChild(clone)
   }
 
   if (!blob) {
