@@ -85,6 +85,16 @@ export async function getLeaderboard(): Promise<ChallengeEntry[]> {
   }
 }
 
+export async function getBracketById(entryId: string): Promise<ChallengeEntry | null> {
+  try {
+    return await request<ChallengeEntry>('getById', { entryId })
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    const allEntries = localEntries()
+    return allEntries.find((entry) => entry.id === entryId) ?? null
+  }
+}
+
 export function resendMagicLink(email: string): Promise<{ sent: boolean; token?: string }> {
   return request('resend', { email })
 }

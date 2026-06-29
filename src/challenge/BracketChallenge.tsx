@@ -17,6 +17,8 @@ export interface BracketChallengeProps {
   realResults?: Record<string, string>
   scores?: Record<string, BattleScore>
   officialScores?: Record<string, OfficialScore>
+  readOnly?: boolean
+  ownerPseudo?: string
 }
 
 const ROUND_ORDER = ['Round of 32', 'Round of 16', 'Quarter-final', 'Semi-final', 'Finale']
@@ -65,7 +67,7 @@ function getRelativeRect(el: HTMLElement, container: HTMLElement) {
   return { top, left, width: el.offsetWidth, height: el.offsetHeight }
 }
 
-export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, brackets = [], activeBracketId = null, onSelectBracket = () => undefined, realResults = {}, scores = {}, officialScores = {} }: BracketChallengeProps) {
+export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, brackets = [], activeBracketId = null, onSelectBracket = () => undefined, realResults = {}, scores = {}, officialScores = {}, readOnly = false, ownerPseudo }: BracketChallengeProps) {
   const bracketRef = useRef<HTMLElement>(null)
   const [paths, setPaths] = useState<PathInfo[]>([])
 
@@ -133,8 +135,12 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
     <div className="brakup-bracket-layout">
       <div className="brakup-bracket-wrapper">
         <div className="brakup-bracket-header">
-          <div style={{ font: '900 22px Barlow Condensed, Arial Narrow, sans-serif', letterSpacing: '.04em', textTransform: 'uppercase' }}>Bracket — Coupe du Monde 2026</div>
-          <div style={{ font: '500 13px Barlow, sans-serif', color: 'rgba(255,255,255,.45)', marginBottom: 18 }}>R32 → Finale · glisse horizontalement sur mobile pour voir tout le tableau</div>
+          <div style={{ font: '900 22px Barlow Condensed, Arial Narrow, sans-serif', letterSpacing: '.04em', textTransform: 'uppercase' }}>
+            {ownerPseudo ? `Bracket de ${ownerPseudo}` : 'Bracket — Coupe du Monde 2026'}
+          </div>
+          <div style={{ font: '500 13px Barlow, sans-serif', color: 'rgba(255,255,255,.45)', marginBottom: 18 }}>
+            {ownerPseudo ? `Mode lecture seule` : 'R32 → Finale · glisse horizontalement sur mobile pour voir tout le tableau'}
+          </div>
         </div>
         <section className="brakup-bracket" aria-label="Bracket challenge" ref={bracketRef}>
           <svg
@@ -173,14 +179,14 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   const isLoser = isPicked && picks[match.id] !== team.id
                   const isRealWinnerVisible = isPicked && realWinnerId === team.id
                   return <div key={side}
-                    className={`${isWinner ? 'is-picked' : isLoser ? 'is-lost' : ''}${isRealWinnerVisible ? ' is-real-winner' : ''}`}
-                    onClick={() => { if (!isLoser) { sfx.pick(); onPick(match.id, team.id) } }}
-                    role="button" tabIndex={0}
-                    title={`Choisir ${team.shortName}`}>
+                    className={`${isWinner ? 'is-picked' : isLoser ? 'is-lost' : ''}${isRealWinnerVisible ? ' is-real-winner' : ''}${readOnly ? ' is-readonly' : ''}`}
+                    onClick={readOnly ? undefined : () => { if (!isLoser) { sfx.pick(); onPick(match.id, team.id) } }}
+                    role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}
+                    title={readOnly ? undefined : `Choisir ${team.shortName}`}>
                     <span>{team.flagEmoji}</span>
                     <strong>{team.shortName}</strong>
                     {isRealWinnerVisible ? <small className="bkm-official">OFF</small> : null}
-                    {isReady && <button type="button" className="bkm-play" title="Jouer ce match"
+                    {isReady && !readOnly && <button type="button" className="bkm-play" title="Jouer ce match"
                       onClick={(e) => { e.stopPropagation(); sfx.battle(); onPlay(match.id, team.id) }}>⚔</button>}
                   </div>
                 })}
@@ -198,7 +204,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
           </div>)}
         </section>
       </div>
-      <ScorePanel brackets={brackets} activeBracketId={activeBracketId} onSelect={onSelectBracket} realResults={realResults} />
+      {!readOnly && <ScorePanel brackets={brackets} activeBracketId={activeBracketId} onSelect={onSelectBracket} realResults={realResults} />}
     </div>
   )
 }

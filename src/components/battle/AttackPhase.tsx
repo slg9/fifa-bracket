@@ -162,13 +162,32 @@ function playerLastName(value: string) {
 
 function buildShooterOptions(players: string[], teamId: string): BattleScorer[] {
   const uniquePlayers = Array.from(new Set(players.map((name) => name.trim()).filter(Boolean)))
+  // Si on a des joueurs, les utiliser. Sinon, utiliser un joueur generique.
   const source = uniquePlayers.length ? uniquePlayers : [`Buteur ${teamId.toUpperCase()}`]
-  return source.map((name, index) => ({
+  
+  // Toujours retourner au moins 11 options (pour couvrir une equipe complete)
+  // En complementant avec des numeros si necessaire
+  const options: BattleScorer[] = source.map((name, index) => ({
     name,
     teamId,
     number: KNOWN_PLAYER_NUMBERS[normalizePlayerName(name)] ?? FALLBACK_ATTACKER_NUMBERS[index % FALLBACK_ATTACKER_NUMBERS.length],
     controlled: true,
   }))
+  
+  // Si on a moins de 11 joueurs, ajouter des joueurs generiques avec des numeros
+  const TARGET_COUNT = 11
+  while (options.length < TARGET_COUNT) {
+    const nextNumber = FALLBACK_ATTACKER_NUMBERS[options.length % FALLBACK_ATTACKER_NUMBERS.length]
+    const nextIndex = options.length + 1
+    options.push({
+      name: `Joueur ${nextIndex}`,
+      teamId,
+      number: nextNumber,
+      controlled: true,
+    })
+  }
+  
+  return options
 }
 
 function pickGateCenter(rng: () => number, previous: number[], difficulty: BattleDifficulty) {

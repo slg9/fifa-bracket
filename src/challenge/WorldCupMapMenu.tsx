@@ -20,7 +20,7 @@ export interface WorldCupMapMenuProps {
   autosavedAt?: string | null
 }
 
-type NodeStatus = 'locked' | 'available' | 'completed' | 'live'
+type NodeStatus = 'locked' | 'available' | 'completed' | 'live' | 'closed'
 
 type DisplayNode = {
   id: string
@@ -118,6 +118,8 @@ function getRoundShort(match: KnockoutMatch) {
 
 function getStatusHint(status: NodeStatus) {
   switch (status) {
+    case 'closed':
+      return 'Match deja joue. Impossible de rejouer.'
     case 'completed':
       return 'Choix enregistre. Touche une equipe pour rejouer avec ce camp.'
     case 'live':
@@ -199,13 +201,16 @@ function buildDisplayNodes(
     const progress = evaluateMatchProgress(match, picks, scores, realResults, officialScores, scorers, realScorers)
     const isNextPlayable = match.id === firstPlayable
     const isUnlockedByDate = homeTeam && awayTeam && isMatchDayOrPast(match)
-    const status: NodeStatus = pickedTeamId
-      ? 'completed'
-      : homeTeam && awayTeam && isNextPlayable
-        ? 'live'
-        : homeTeam && awayTeam && isUnlockedByDate
-          ? 'available'
-          : 'locked'
+    const hasOfficialResult = realWinnerTeamId || officialResults[match.id]
+    const status: NodeStatus = hasOfficialResult
+      ? 'closed'
+      : pickedTeamId
+        ? 'completed'
+        : homeTeam && awayTeam && isNextPlayable
+          ? 'live'
+          : homeTeam && awayTeam && isUnlockedByDate
+            ? 'available'
+            : 'locked'
 
     return {
       id: match.id,
@@ -744,6 +749,11 @@ export function WorldCupMapMenu({
       setNotice('Match verrouillé. Termine le match qui clignote pour débloquer la suite.')
       return
     }
+    if (node.status === 'closed') {
+      setNotice('Match déjà joué. Impossible de rejouer.')
+      sfx.error()
+      return
+    }
     sfx.tab()
     setSelectingId(node.id)
     setSelectedMatchId(node.id)
@@ -753,6 +763,11 @@ export function WorldCupMapMenu({
 
   const handlePickTeam = (teamId: string) => {
     if (!selectedNode) return
+    if (selectedNode.status === 'closed') {
+      setNotice('Match déjà joué. Impossible de rejouer.')
+      sfx.error()
+      return
+    }
     if (!selectedNode.homeTeam || !selectedNode.awayTeam) {
       setNotice('Ce match n est pas encore disponible.')
       return

@@ -210,6 +210,33 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return
     }
 
+    if (action === 'getById') {
+      const entryId = String(body.entryId ?? '')
+      if (!entryId) {
+        res.status(400).json({ error: 'ID du bracket requis.' })
+        return
+      }
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        res.status(500).json({ error: 'Service Brakup indisponible.' })
+        return
+      }
+      const result = await list({ prefix: 'challenge/', limit: 1000, token: process.env.BLOB_READ_WRITE_TOKEN })
+      const bracketBlobs = result.blobs.filter((blob) => blob.pathname.endsWith('/brackets.json'))
+      
+      for (const blob of bracketBlobs) {
+        const response = await fetch(blob.url, { cache: 'no-store' })
+        if (!response.ok) continue
+        const entries = await response.json() as ChallengeEntry[]
+        const entry = entries.find((e) => e.id === entryId)
+        if (entry) {
+          res.status(200).json({ data: entry })
+          return
+        }
+      }
+      res.status(404).json({ error: 'Bracket non trouvé.' })
+      return
+    }
+
     if (action === 'score') {
       const secret = String(body.secret ?? '')
       if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {

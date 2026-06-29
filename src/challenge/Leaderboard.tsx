@@ -8,6 +8,7 @@ export interface LeaderboardProps {
   currentEntry?: ChallengeEntry | null
   currentStats?: ProgressSummary
   onBackToGame?: () => void
+  onViewBracket?: (entry: ChallengeEntry) => void
 }
 
 const AVATAR_GRADIENTS = [
@@ -28,7 +29,7 @@ function breakdownStats(entry: ChallengeEntry): Pick<ProgressSummary, 'correct' 
   }), { correct: 0, exact: 0, scorers: 0 })
 }
 
-export function Leaderboard({ entries, currentEntry = null, currentStats, onBackToGame }: LeaderboardProps) {
+export function Leaderboard({ entries, currentEntry = null, currentStats, onBackToGame, onViewBracket }: LeaderboardProps) {
   const [board, setBoard] = useState<ChallengeEntry[]>(entries ?? [])
   const [loading, setLoading] = useState(!entries)
   const [error, setError] = useState<string | null>(null)
@@ -250,6 +251,20 @@ export function Leaderboard({ entries, currentEntry = null, currentStats, onBack
           box-shadow: 0 12px 30px rgba(0,0,0,.35);
           backdrop-filter: blur(10px);
         }
+        .lb-row__view {
+          flex-shrink: 0;
+          padding: 6px 10px;
+          border: 1px solid rgba(43,255,154,.38);
+          border-radius: 8px;
+          background: rgba(43,255,154,.12);
+          color: #2bff9a;
+          font: 900 12px 'Barlow Condensed','Arial Narrow',sans-serif;
+          cursor: pointer;
+          transition: background-color .2s ease;
+        }
+        .lb-row__view:hover {
+          background: rgba(43,255,154,.2);
+        }
       `}</style>
       {onBackToGame ? <button type="button" className="lb-back-game" onClick={onBackToGame}>Retour jeu</button> : null}
       <div className="brakup-page__heading">
@@ -318,6 +333,11 @@ export function Leaderboard({ entries, currentEntry = null, currentStats, onBack
                       </div>
                     </div>
                     <span className="lb-row__score">{score}</span>
+                    {onViewBracket && !isCurrent && (
+                      <button type="button" className="lb-row__view" onClick={() => onViewBracket(entry)} title="Voir le bracket">
+                        👁️
+                      </button>
+                    )}
                   </div>
                 )
               })}

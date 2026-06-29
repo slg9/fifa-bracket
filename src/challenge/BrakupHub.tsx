@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { setGameMuted, useGameAudio, useGameMuted } from '../lib/useGameAudio'
-import { getBrackets, submitBracket } from '../lib/challengeData'
+import { getBrackets, getBracketById, submitBracket } from '../lib/challengeData'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
 import type { BattleResult, BattleScorer, ChallengeBreakdown, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
 import BattleEngine from '../components/battle/BattleEngine'
@@ -39,7 +39,7 @@ export interface BrakupHubProps {
   topScorers?: Array<{ name: string; teamCode: string; goals: number }>
 }
 
-type HubView = 'challenge' | 'battle' | 'brackets' | 'board'
+type HubView = 'challenge' | 'battle' | 'brackets' | 'board' | 'viewBracket'
 type SavedProfile = { email: string; pseudo: string; bracketName: string; savedAt?: string }
 
 const PROFILE_STORAGE_KEY = 'brakup:profile'
@@ -202,6 +202,7 @@ export function BrakupHub({
   const [autosavedAt, setAutosavedAt] = useState<string | null>(() => localStorage.getItem(AUTOSAVE_STORAGE_KEY))
   const [brackets, setBrackets] = useState<ChallengeEntry[]>([])
   const [activeBracketId, setActiveBracketId] = useState<string | null>(null)
+  const [viewedBracketEntry, setViewedBracketEntry] = useState<ChallengeEntry | null>(null)
   const [showEmailEntry, setShowEmailEntry] = useState(false)
   const [showGameMenu, setShowGameMenu] = useState(false)
   const [showBattleControls, setShowBattleControls] = useState(false)
@@ -315,8 +316,23 @@ export function BrakupHub({
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const viewBracket = async (entry: ChallengeEntry) => {
+    setViewedBracketEntry(entry)
+    setView('viewBracket')
+  }
+
+  const closeViewBracket = () => {
+    setViewedBracketEntry(null)
+    setView('board')
+  }
+
   const handlePick = (matchId: string, teamId: string) => setPicks((current) => ({ ...current, [matchId]: teamId }))
   const handlePlay = (matchId: string, teamId?: string) => {
+    // Verrouiller si le match a deja un resultat officiel
+    if (realResults[matchId] || officialResults[matchId]) {
+      sfx.error()
+      return
+    }
     if (teamId) {
       const m = matches.find((mx) => mx.id === matchId)
       const side: 'home' | 'away' = m?.home.kind === 'team' && m.home.teamId === teamId ? 'home' : 'away'
@@ -618,7 +634,27 @@ export function BrakupHub({
         </div>
       ) : null}
       {view === 'brackets' ? <div className="brakup-phone-shell"><MyBrackets brackets={brackets} loading={loadingBrackets} onOpen={openBracket} onCreate={() => { setPicks({}); setActiveBracketId(null); navigate('challenge') }} /></div> : null}
-      {view === 'board' ? <div className="brakup-phone-shell"><Leaderboard currentEntry={currentLeaderboardEntry} currentStats={progressStats} onBackToGame={() => { sfx.tab(); navigate('challenge') }} /></div> : null}
+      {view === 'board' ? <div className="brakup-phone-shell"><Leaderboard currentEntry={currentLeaderboardEntry} currentStats={progressStats} onBackToGame={() => { sfx.tab(); navigate('challenge') }} onViewBracket={viewBracket} /></div> : null}
+      {view === 'viewBracket' && viewedBracketEntry ? (
+        <div className="brakup-bracket-overlay">
+          <div className="brakup-bracket-overlay__bar">
+            <span>Bracket de {viewedBracketEntry.pseudo}</span>
+            <button type="button" className="brakup-bracket-overlay__close" onClick={() => { sfx.click(); closeViewBracket() }}>✕ Fermer</button>
+          </div>
+          <div className="brakup-bracket-overlay__body">
+            <BracketChallenge
+              matches={matches}
+              teamsById={teamsById}
+              picks={viewedBracketEntry.picks ?? {}}
+              onPick={() => {}}
+              onPlay={() => {}}
+              readOnly={true}
+              ownerPseudo={viewedBracketEntry.pseudo}
+              realResults={realResults}
+            />
+          </div>
+        </div>
+      ) : null}
       {outcomeNotice ? (
         <div className={`brakup-outcome${outcomeNotice.progress.correct ? ' is-correct' : ' is-wrong'}`} role="dialog" aria-modal="true">
           <div className="brakup-outcome__panel">
