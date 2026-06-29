@@ -261,6 +261,11 @@
   letter-spacing: .14em;
   text-shadow: 0 0 42px rgba(43,255,154,.9), 0 0 18px rgba(43,255,154,.55);
 }
+.battle-match-result.is-share-capturing .battle-share,
+.battle-match-result.is-share-capturing .battle-continue,
+.battle-match-result.is-share-capturing .battle-match-result__share-copy {
+  display: none;
+}
 /* Persistent score pill — centered at top */
 .battle-score-strip {
   position: absolute;
