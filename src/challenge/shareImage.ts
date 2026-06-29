@@ -17,12 +17,43 @@ function downloadBlob(blob: Blob, fileName: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
+async function resolveImagesAsDataUrls(element: HTMLElement): Promise<() => void> {
+  const imgs = Array.from(element.querySelectorAll('img')) as HTMLImageElement[]
+  const originals = new Map<HTMLImageElement, string>()
+  await Promise.all(imgs.map(async (img) => {
+    const src = img.getAttribute('src')
+    if (!src || src.startsWith('data:')) return
+    try {
+      const res = await fetch(src, { cache: 'force-cache' })
+      const blob = await res.blob()
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+      originals.set(img, src)
+      img.src = dataUrl
+    } catch {
+      // ignore – keep original src
+    }
+  }))
+  // Return a cleanup function to restore originals
+  return () => { originals.forEach((src, img) => { img.src = src }) }
+}
+
 export async function shareElementImage(element: HTMLElement, options: ShareImageOptions) {
-  const blob = await toBlob(element, {
-    cacheBust: true,
-    pixelRatio: Math.min(3, Math.max(2, window.devicePixelRatio || 1)),
-    backgroundColor: options.backgroundColor ?? '#050b16',
-  })
+  const restoreImages = await resolveImagesAsDataUrls(element)
+  let blob: Blob | null = null
+  try {
+    blob = await toBlob(element, {
+      cacheBust: false,
+      pixelRatio: Math.min(3, Math.max(2, window.devicePixelRatio || 1)),
+      backgroundColor: options.backgroundColor ?? '#050b16',
+    })
+  } finally {
+    restoreImages()
+  }
 
   if (!blob) {
     throw new Error("Impossible de generer l'image.")
@@ -34,7 +65,7 @@ export async function shareElementImage(element: HTMLElement, options: ShareImag
   if (canShareFile) {
     await navigator.share({
       title: options.title,
-      text: options.url ? `${options.text}\n${options.url}` : options.text,
+      text: options.text,
       ...(options.url ? { url: options.url } : {}),
       files: [file],
     })

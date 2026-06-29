@@ -398,7 +398,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const board = await rebuildLeaderboardFromStoredScores()
       const rankedEntry = board.find((item) => item.id === entry.id) ?? entry
       const token = await signToken(emailHash)
-      await sendMagicLink(input.email, token)
+      // Only send the magic link on first account creation, not on every subsequent save
+      if (!current) {
+        await sendMagicLink(input.email, token)
+      }
       res.status(200).json({ data: { entry: rankedEntry, token } })
       return
     }

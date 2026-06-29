@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 export interface EmailEntryProps {
   initialEmail?: string
   initialPseudo?: string
-  initialBracketName?: string
   busy?: boolean
   error?: string | null
   onSubmit: (values: { email: string; pseudo: string; bracketName: string; submitted: boolean }) => void
@@ -11,27 +10,25 @@ export interface EmailEntryProps {
   onCancel?: () => void
 }
 
-export function EmailEntry({ initialEmail = '', initialPseudo = '', initialBracketName = 'Mon bracket', busy = false, error, onSubmit, onDraftChange, onCancel }: EmailEntryProps) {
+export function EmailEntry({ initialEmail = '', initialPseudo = '', busy = false, error, onSubmit, onDraftChange, onCancel }: EmailEntryProps) {
   const [email, setEmail] = useState(initialEmail)
   const [pseudo, setPseudo] = useState(initialPseudo)
-  const [bracketName, setBracketName] = useState(initialBracketName)
 
   useEffect(() => {
-    onDraftChange?.({ email, pseudo, bracketName })
-  }, [bracketName, email, onDraftChange, pseudo])
+    onDraftChange?.({ email, pseudo, bracketName: pseudo || 'Mon bracket' })
+  }, [email, onDraftChange, pseudo])
 
   return (
     <div className="brakup-dialog" role="dialog" aria-modal="true" aria-labelledby="brakup-email-title">
       <button type="button" className="brakup-dialog__scrim" onClick={onCancel} aria-label="Fermer" />
-      <form className="brakup-email" onSubmit={(event) => { event.preventDefault(); onSubmit({ email, pseudo, bracketName, submitted: true }) }}>
+      <form className="brakup-email" onSubmit={(event) => { event.preventDefault(); onSubmit({ email, pseudo, bracketName: pseudo || 'Mon bracket', submitted: true }) }}>
         <span className="brakup-eyebrow">Sauvegarde sécurisée</span>
-        <h2 id="brakup-email-title">Garde ton bracket</h2>
+        <h2 id="brakup-email-title">Crée ton compte</h2>
         <p>Un lien valable 30 jours permet de retrouver tes pronostics sans mot de passe.</p>
         <label>Email<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="toi@exemple.com" /></label>
         <label>Pseudo<input required maxLength={40} value={pseudo} onChange={(event) => setPseudo(event.target.value)} placeholder="Le sélectionneur" /></label>
-        <label>Nom du bracket<input required maxLength={60} value={bracketName} onChange={(event) => setBracketName(event.target.value)} /></label>
         {error && <p className="brakup-form-error">{error}</p>}
-        <div className="brakup-email__actions"><button type="button" className="brakup-button brakup-button--ghost" onClick={onCancel}>Annuler</button><button type="submit" className="brakup-button" disabled={busy}>{busy ? 'Sauvegarde…' : 'Valider mes choix'}</button></div>
+        <div className="brakup-email__actions"><button type="button" className="brakup-button brakup-button--ghost" onClick={onCancel}>Annuler</button><button type="submit" className="brakup-button" disabled={busy}>{busy ? 'Sauvegarde…' : 'Créer mon compte'}</button></div>
       </form>
     </div>
   )

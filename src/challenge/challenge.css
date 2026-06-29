@@ -2827,12 +2827,14 @@
 
 .brakup-share-capture {
   position: fixed;
-  left: -10000px;
+  left: 0;
   top: 0;
   width: 720px;
   height: 1280px;
   overflow: hidden;
   pointer-events: none;
+  visibility: hidden;
+  transform: translateX(-10000px);
 }
 
 .brakup-share-card {

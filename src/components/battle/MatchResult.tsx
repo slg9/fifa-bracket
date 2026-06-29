@@ -79,7 +79,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
         {syncStatusLabel ? <div className="battle-match-result__sync">{syncStatusLabel}</div> : null}
         <p className="battle-match-result__share-copy">Invite tes potes a tenter leur prono sur Brakup.</p>
         <button type="button" className="battle-share" onClick={() => void handleShare()} disabled={shareStatus === 'working'}>
-          {shareStatus === 'working' ? "Generation de l'image..." : "Partager l'image"}
+          {shareStatus === 'working' ? "Generation en cours..." : "Partager"}
         </button>
         {shareStatus === 'done' ? <small className="battle-share__feedback">Image prete a partager.</small> : null}
         {shareStatus === 'error' ? <small className="battle-share__feedback is-error">Partage indisponible pour le moment.</small> : null}

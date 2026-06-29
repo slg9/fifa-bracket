@@ -565,6 +565,16 @@ export function BrakupHub({
     } catch (caught) { setSaveError(caught instanceof Error ? caught.message : 'Sauvegarde impossible.') } finally { setSaving(false) }
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('brakup:token')
+    localStorage.removeItem(PROFILE_STORAGE_KEY)
+    setAccessToken(null)
+    setSavedProfile({ email: '', pseudo: '', bracketName: 'Mon bracket' })
+    setBrackets([])
+    setActiveBracketId(null)
+    setShowGameMenu(false)
+  }
+
   const handleLogin = async (email: string) => {
     setLoginBusy(true)
     setLoginError(null)
@@ -789,9 +799,15 @@ export function BrakupHub({
             <div className="game-menu-modal__profile">
               <div className="game-menu-modal__profile-main">
                 <strong>{menuPseudo}</strong>
-                <button type="button" onClick={() => { setLoginError(null); setLoginSent(false); setShowLoginEntry(true); setShowGameMenu(false) }}>
-                  {hasSyncedProfile ? 'Reconnecter' : 'Se connecter'}
-                </button>
+                {hasSyncedProfile ? (
+                  <button type="button" onClick={handleLogout}>
+                    Se déconnecter
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => { setLoginError(null); setLoginSent(false); setShowLoginEntry(true); setShowGameMenu(false) }}>
+                    Créer mon compte
+                  </button>
+                )}
               </div>
               <small>{savedProfile.email || 'Profil local sur cet appareil'}</small>
             </div>
@@ -947,7 +963,7 @@ export function BrakupHub({
           </div>
         </div>
       ) : null}
-      {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={savedProfile.email} initialBracketName={brackets.find((entry) => entry.id === activeBracketId)?.bracketName ?? savedProfile.bracketName} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => setShowEmailEntry(false)} /> : null}
+      {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={savedProfile.email} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => setShowEmailEntry(false)} /> : null}
       {showLoginEntry ? <LoginEntry initialEmail={savedProfile.email} busy={loginBusy} error={loginError} sent={loginSent} onSubmit={handleLogin} onVerify={handleLoginOTP} onCancel={() => setShowLoginEntry(false)} /> : null}
       {showOTPEntry && pendingEmail && pendingPseudo ? <OTPEntry email={pendingEmail} pseudo={pendingPseudo} busy={otpBusy} error={otpError} onSubmit={handleOTPSubmit} onCancel={() => { setShowOTPEntry(false); setPendingEmail(null); setPendingPseudo(null); setShowEmailEntry(true) }} /> : null}
       {showProfileSettings ? <ProfileSettings initialEmail={savedProfile.email} initialPseudo={savedProfile.pseudo} busy={profileBusy} error={profileError} status={profileStatus} onSubmit={handleProfileUpdate} onClose={() => setShowProfileSettings(false)} /> : null}

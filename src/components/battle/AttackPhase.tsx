@@ -461,7 +461,8 @@ export function AttackPhase({
   const opponentJerseyColor = opponentKit?.primary ?? '#FF4455'
   const opponentAccentColor = opponentKit?.secondary ?? '#7dd3fc'
 
-  const shooterOptions = useMemo(() => buildShooterOptions(homeTeamPlayers, homeTeamId), [homeTeamId, homeTeamPlayers])
+  const forwardPlayers = useMemo(() => homeTeamPlayers.length > 6 ? homeTeamPlayers.slice(homeTeamPlayers.length - 6) : homeTeamPlayers, [homeTeamPlayers])
+  const shooterOptions = useMemo(() => buildShooterOptions(forwardPlayers, homeTeamId), [homeTeamId, forwardPlayers])
   const [shooterIndex, setShooterIndex] = useState(0)
   const selectedShooterIndex = shooterIndex % shooterOptions.length
   const selectedShooter = shooterOptions[selectedShooterIndex] ?? shooterOptions[0]

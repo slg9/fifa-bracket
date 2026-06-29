@@ -173,6 +173,26 @@ function SuddenDeathShootout({ history, currentIndex, currentRound, phase, sudde
   )
 }
 
+function teamFlagImgUrl(iso2?: string) {
+  if (!iso2 || iso2.includes('-')) return null
+  return `https://flagcdn.com/w40/${iso2.toLowerCase()}.png`
+}
+
+function BattleFlag({ team, emoji }: { team?: Team; emoji: string }) {
+  const src = teamFlagImgUrl(team?.iso2)
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={team?.name ?? ''}
+        crossOrigin="anonymous"
+        style={{ width: 22, height: 15, objectFit: 'cover', borderRadius: 2, display: 'block' }}
+      />
+    )
+  }
+  return <span>{emoji}</span>
+}
+
 export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false, syncStatusLabel }: BattleEngineProps) {
   const rawHomeId = entrantId(match, 'home')
   const rawAwayId = entrantId(match, 'away')
@@ -491,11 +511,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
       {state.phase !== 'intro' && state.phase !== 'match_result' ? (
         <>
         <div className="battle-score-strip battle-score-pill" aria-label="Score">
-          <span className="battle-score-strip__flag">{homeFlag || homeTeam?.shortName?.slice(0, 2).toUpperCase() || homeTeamId.slice(0, 2).toUpperCase()}</span>
+          <span className="battle-score-strip__flag"><BattleFlag team={homeTeam} emoji={homeFlag || homeTeam?.shortName?.slice(0, 2).toUpperCase() || homeTeamId.slice(0, 2).toUpperCase()} /></span>
           <strong>{state.playerScore}</strong>
           <em>-</em>
           <strong>{state.opponentScore}</strong>
-          <span className="battle-score-strip__flag">{awayFlag || awayTeam?.shortName?.slice(0, 2).toUpperCase() || awayTeamId.slice(0, 2).toUpperCase()}</span>
+          <span className="battle-score-strip__flag"><BattleFlag team={awayTeam} emoji={awayFlag || awayTeam?.shortName?.slice(0, 2).toUpperCase() || awayTeamId.slice(0, 2).toUpperCase()} /></span>
         </div>
         {suddenDeath ? <SuddenDeathShootout history={history} currentIndex={state.roundIndex} currentRound={currentRound} phase={state.phase} suddenDeathStartIndex={state.suddenDeathStartIndex} /> : <BattleProgressRail rounds={state.rounds} currentIndex={state.roundIndex} phase={state.phase} suddenDeathStartIndex={state.suddenDeathStartIndex} />}
         </>
@@ -506,12 +526,22 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         <div className="battle-intro__meta">{match.stage} - {match.label} - {match.dateLabel}</div>
         <div className="battle-intro__matchup">
           <div className="battle-intro__team">
-            <div className="battle-intro__badge is-home">{homeFlag ? <span style={{ fontSize: 36 }}>{homeFlag}</span> : (homeTeam?.shortName?.toUpperCase() ?? rawHomeId.slice(0, 3).toUpperCase())}</div>
+            <div className="battle-intro__badge is-home">
+              {teamFlagImgUrl(homeTeam?.iso2)
+                ? <img src={teamFlagImgUrl(homeTeam?.iso2)!} alt={homeTeam?.name ?? ''} crossOrigin="anonymous" style={{ width: 50, height: 34, objectFit: 'cover', borderRadius: 4 }} />
+                : homeFlag ? <span style={{ fontSize: 36 }}>{homeFlag}</span>
+                : (homeTeam?.shortName?.toUpperCase() ?? rawHomeId.slice(0, 3).toUpperCase())}
+            </div>
             <strong>{homeTeam?.shortName?.toUpperCase() ?? rawHomeId.toUpperCase()}</strong>
           </div>
           <div className="battle-intro__vs">VS</div>
           <div className="battle-intro__team is-away">
-            <div className="battle-intro__badge">{awayFlag ? <span style={{ fontSize: 36 }}>{awayFlag}</span> : (awayTeam?.shortName?.toUpperCase() ?? rawAwayId.slice(0, 3).toUpperCase())}</div>
+            <div className="battle-intro__badge">
+              {teamFlagImgUrl(awayTeam?.iso2)
+                ? <img src={teamFlagImgUrl(awayTeam?.iso2)!} alt={awayTeam?.name ?? ''} crossOrigin="anonymous" style={{ width: 50, height: 34, objectFit: 'cover', borderRadius: 4 }} />
+                : awayFlag ? <span style={{ fontSize: 36 }}>{awayFlag}</span>
+                : (awayTeam?.shortName?.toUpperCase() ?? rawAwayId.slice(0, 3).toUpperCase())}
+            </div>
             <strong>{awayTeam?.shortName?.toUpperCase() ?? rawAwayId.toUpperCase()}</strong>
           </div>
         </div>
