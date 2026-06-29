@@ -1,5 +1,12 @@
 import type { ChallengeEntry } from '../types'
 
+async function sha256(message: string): Promise<string> {
+  const msgBuffer = new TextEncoder().encode(message)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
 type ChallengeResponse<T> = { data: T; token?: string }
 
 async function request<T>(action: string, body: Record<string, unknown> = {}, token?: string): Promise<T> {
@@ -92,6 +99,65 @@ export async function getBracketById(entryId: string): Promise<ChallengeEntry | 
     if (!import.meta.env.DEV) throw error
     const allEntries = localEntries()
     return allEntries.find((entry) => entry.id === entryId) ?? null
+  }
+}
+
+export async function checkPseudo(pseudo: string): Promise<boolean> {
+  try {
+    const result = await request<{ exists: boolean }>('checkPseudo', { pseudo })
+    return result.exists
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    const allEntries = localEntries()
+    return allEntries.some((entry) => entry.pseudo?.toLowerCase() === pseudo.toLowerCase())
+  }
+}
+
+export async function checkEmailOrPseudo(email: string, pseudo: string): Promise<{ exists: boolean; message: string }> {
+  try {
+    const result = await request<{ exists: boolean; emailExists: boolean; pseudoExists: boolean }>('checkCredentials', { email, pseudo })
+    if (result.pseudoExists) {
+      return { exists: true, message: `Un joueur existe déjà avec le pseudo "${pseudo}".` }
+    }
+    if (result.emailExists) {
+      return { exists: true, message: `Un joueur existe déjà avec l'email "${email}".` }
+    }
+    return { exists: false, message: '' }
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    const allEntries = localEntries()
+    const pseudoExists = allEntries.some((entry) => entry.pseudo?.toLowerCase() === pseudo.toLowerCase())
+    const emailHash = await sha256(email)
+    const emailExists = allEntries.some((entry) => entry.emailHash === emailHash)
+    if (pseudoExists) {
+      return { exists: true, message: `Un joueur existe déjà avec le pseudo "${pseudo}".` }
+    }
+    if (emailExists) {
+      return { exists: true, message: `Un joueur existe déjà avec l'email "${email}".` }
+    }
+    return { exists: false, message: '' }
+  }
+}
+
+export async function requestOTP(email: string, pseudo: string): Promise<boolean> {
+  try {
+    const result = await request<{ sent: boolean }>('requestOTP', { email, pseudo })
+    return result.sent
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    console.warn('OTP request failed in dev mode:', error)
+    return true // In dev mode, pretend it was sent
+  }
+}
+
+export async function verifyOTP(email: string, pseudo: string, otp: string): Promise<string> {
+  try {
+    const result = await request<{ token: string }>('verifyOTP', { email, pseudo, otp })
+    return result.token
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    // In dev mode, return a local token
+    return LOCAL_TOKEN
   }
 }
 

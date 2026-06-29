@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { setGameMuted, useGameAudio, useGameMuted } from '../lib/useGameAudio'
-import { getBrackets, getBracketById, submitBracket } from '../lib/challengeData'
+import { getBrackets, submitBracket, verifyOTP } from '../lib/challengeData'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
 import type { BattleResult, BattleScorer, ChallengeBreakdown, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
 import BattleEngine from '../components/battle/BattleEngine'
@@ -11,6 +11,7 @@ import ChallengeLoading from './ChallengeLoading'
 import WorldCupMapMenu from './WorldCupMapMenu'
 import useChallengePreload from './useChallengePreload'
 import EmailEntry from './EmailEntry'
+import OTPEntry from './OTPEntry'
 import Leaderboard from './Leaderboard'
 import MyBrackets from './MyBrackets'
 import ShareCard from './ShareCard'
@@ -185,6 +186,7 @@ export function BrakupHub({
   const [simulatedMatchId, setSimulatedMatchId] = useState<string | null>(null)
   const [mapResetKey, setMapResetKey] = useState(0)
   const [accessToken] = useState<string | null>(() => new URLSearchParams(window.location.search).get('token') ?? localStorage.getItem('brakup:token'))
+  const [otpMode] = useState(() => new URLSearchParams(window.location.search).has('otp'))
   const [picks, setPicks] = useState<Record<string, string>>(() => {
     try { return JSON.parse(localStorage.getItem('brakup:draft') ?? '{}') as Record<string, string> } catch { return {} }
   })
@@ -204,6 +206,11 @@ export function BrakupHub({
   const [activeBracketId, setActiveBracketId] = useState<string | null>(null)
   const [viewedBracketEntry, setViewedBracketEntry] = useState<ChallengeEntry | null>(null)
   const [showEmailEntry, setShowEmailEntry] = useState(false)
+  const [showOTPEntry, setShowOTPEntry] = useState(false)
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null)
+  const [pendingPseudo, setPendingPseudo] = useState<string | null>(null)
+  const [otpError, setOtpError] = useState<string | null>(null)
+  const [otpBusy, setOtpBusy] = useState(false)
   const [showGameMenu, setShowGameMenu] = useState(false)
   const [showBattleControls, setShowBattleControls] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -216,6 +223,20 @@ export function BrakupHub({
     match: KnockoutMatch
     progress: ReturnType<typeof evaluateMatchProgress>
   } | null>(null)
+
+  // Initialiser email/pseudo depuis URL si mode OTP
+  useEffect(() => {
+    if (otpMode) {
+      const params = new URLSearchParams(window.location.search)
+      const email = params.get('email')
+      const pseudo = params.get('pseudo')
+      if (email && pseudo) {
+        setPendingEmail(email)
+        setPendingPseudo(pseudo)
+        setShowOTPEntry(true)
+      }
+    }
+  }, [otpMode])
   const challengePreload = useChallengePreload()
   const audioMuted = useGameMuted()
   const hubAudioSrc = outcomeNotice?.progress.correct ? '/audio/cup-victory-parade.mp3' : view !== 'battle' ? '/audio/kickoff-carnival.mp3' : null
@@ -342,6 +363,37 @@ export function BrakupHub({
   }
   const handleSimulate = (matchId: string) => {
     setSimulatedMatchId(matchId)
+  }
+
+
+  const handleOTPSubmit = async (otp: string) => {
+    if (!pendingEmail || !pendingPseudo) return
+    
+    setOtpBusy(true)
+    setOtpError(null)
+    try {
+      const token = await verifyOTP(pendingEmail, pendingPseudo, otp)
+      // Stocker le token
+      localStorage.setItem('brakup:token', token)
+      // Charger les brackets
+      const entries = await getBrackets(token)
+      setBrackets(entries)
+      if (entries[0]) {
+        setActiveBracketId(entries[0].id)
+        setPicks(entries[0].picks ?? {})
+      }
+      // Sauvegarder le profil
+      rememberProfile({ email: pendingEmail, pseudo: pendingPseudo, bracketName: pendingPseudo })
+      setPendingEmail(null)
+      setPendingPseudo(null)
+      setShowOTPEntry(false)
+      setShowSplash(false)
+      setShowEmailEntry(false)
+    } catch (error) {
+      setOtpError(error instanceof Error ? error.message : 'Code OTP invalide ou expiré.')
+    } finally {
+      setOtpBusy(false)
+    }
   }
 
   const syncBracketSnapshot = useCallback(async ({
@@ -514,7 +566,6 @@ export function BrakupHub({
         fileName: `brakup-${safeFilePart(outcomeNotice.match.id)}-${outcomeNotice.progress.correct ? 'win' : 'loss'}.png`,
         title: 'Brakup Challenge',
         text: 'Partage ca avec tes potes et challenge-les sur Brakup.',
-        backgroundColor: '#050b16',
       })
       setShareStatus(status === 'shared' ? 'done' : 'done')
     } catch (error) {
@@ -638,19 +689,22 @@ export function BrakupHub({
       {view === 'viewBracket' && viewedBracketEntry ? (
         <div className="brakup-bracket-overlay">
           <div className="brakup-bracket-overlay__bar">
-            <span>Bracket de {viewedBracketEntry.pseudo}</span>
+            <span>Carte de {viewedBracketEntry.pseudo}</span>
             <button type="button" className="brakup-bracket-overlay__close" onClick={() => { sfx.click(); closeViewBracket() }}>✕ Fermer</button>
           </div>
           <div className="brakup-bracket-overlay__body">
-            <BracketChallenge
+            <WorldCupMapMenu
               matches={matches}
               teamsById={teamsById}
               picks={viewedBracketEntry.picks ?? {}}
-              onPick={() => {}}
-              onPlay={() => {}}
-              readOnly={true}
-              ownerPseudo={viewedBracketEntry.pseudo}
+              scores={viewedBracketEntry.battleScores}
+              scorers={viewedBracketEntry.scorers}
+              realScorers={realScorers}
               realResults={realResults}
+              officialScores={officialScoreMap}
+              onPick={() => { sfx.error() }}  // Bloquer les selections
+              onPlay={() => { sfx.error() }}  // Bloquer le jeu
+              autosavedAt={null}
             />
           </div>
         </div>
@@ -702,6 +756,7 @@ export function BrakupHub({
         </div>
       ) : null}
       {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={savedProfile.email} initialBracketName={brackets.find((entry) => entry.id === activeBracketId)?.bracketName ?? savedProfile.bracketName} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => setShowEmailEntry(false)} /> : null}
+      {showOTPEntry && pendingEmail && pendingPseudo ? <OTPEntry email={pendingEmail} pseudo={pendingPseudo} busy={otpBusy} error={otpError} onSubmit={handleOTPSubmit} onCancel={() => { setShowOTPEntry(false); setPendingEmail(null); setPendingPseudo(null); setShowEmailEntry(true) }} /> : null}
       <footer className="brakup-footer"><span>BRAKUP 2026</span><small>Données tournoi : {seed.meta.name} · {liveSource?.syncedAt ? `sync ${new Date(liveSource.syncedAt).toLocaleString('fr-FR')}` : 'projection locale'}</small></footer>
     </div>
   )

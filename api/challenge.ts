@@ -109,6 +109,28 @@ async function sendMagicLink(email: string, token: string): Promise<boolean> {
   return response.ok
 }
 
+async function sendOTPEmail(email: string, pseudo: string, otp: string, origin: string): Promise<boolean> {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[brakup] RESEND_API_KEY absent, email OTP non envoyé.')
+    return false
+  }
+  const otpUrl = `${origin}/?challenge&otp=1&pseudo=${encodeURIComponent(pseudo)}&email=${encodeURIComponent(email)}`
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: process.env.BRAKUP_FROM_EMAIL ?? 'brakup@ton-domaine.com',
+      to: email,
+      subject: `Ton code OTP Brakup pour ${pseudo}`,
+      html: `<p>Ton code de connexion Brakup est : <strong style="font-size: 24px; letter-spacing: 4px;">${otp}</strong></p><p>Ce code expire dans 15 minutes.</p><p>Rends-toi sur <a href="${otpUrl}">Brakup</a> et entre ce code pour te connecter.</p>`,
+    }),
+  })
+  return response.ok
+}
+
 function bearerToken(req: ApiRequest): string | null {
   const header = req.headers.authorization
   const value = Array.isArray(header) ? header[0] : header
@@ -207,6 +229,128 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const token = await signToken(await sha256(email))
       const sent = await sendMagicLink(email, token)
       res.status(200).json({ data: { sent, ...(!sent ? { token } : {}) } })
+      return
+    }
+
+    if (action === 'checkPseudo') {
+      const pseudo = String(body.pseudo ?? '')
+      if (!pseudo.trim()) {
+        res.status(400).json({ error: 'Pseudo requis.' })
+        return
+      }
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        res.status(500).json({ error: 'Service Brakup indisponible.' })
+        return
+      }
+      const result = await list({ prefix: 'challenge/', limit: 1000, token: process.env.BLOB_READ_WRITE_TOKEN })
+      const bracketBlobs = result.blobs.filter((blob) => blob.pathname.endsWith('/brackets.json'))
+      
+      for (const blob of bracketBlobs) {
+        const response = await fetch(blob.url, { cache: 'no-store' })
+        if (!response.ok) continue
+        const entries = await response.json() as ChallengeEntry[]
+        const exists = entries.some((entry) => entry.pseudo?.toLowerCase() === pseudo.trim().toLowerCase())
+        if (exists) {
+          res.status(200).json({ data: { exists: true } })
+          return
+        }
+      }
+      res.status(200).json({ data: { exists: false } })
+      return
+    }
+
+    if (action === 'checkCredentials') {
+      const email = String(body.email ?? '')
+      const pseudo = String(body.pseudo ?? '')
+      if (!email.includes('@') || !pseudo.trim()) {
+        res.status(400).json({ error: 'Email et pseudo requis.' })
+        return
+      }
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        res.status(500).json({ error: 'Service Brakup indisponible.' })
+        return
+      }
+      const emailHash = await sha256(email)
+      const result = await list({ prefix: 'challenge/', limit: 1000, token: process.env.BLOB_READ_WRITE_TOKEN })
+      const bracketBlobs = result.blobs.filter((blob) => blob.pathname.endsWith('/brackets.json'))
+      
+      let pseudoExists = false
+      let emailExists = false
+      
+      for (const blob of bracketBlobs) {
+        const response = await fetch(blob.url, { cache: 'no-store' })
+        if (!response.ok) continue
+        const entries = await response.json() as ChallengeEntry[]
+        
+        if (!pseudoExists) {
+          pseudoExists = entries.some((entry) => entry.pseudo?.toLowerCase() === pseudo.trim().toLowerCase())
+        }
+        if (!emailExists) {
+          emailExists = entries.some((entry) => entry.emailHash === emailHash)
+        }
+        
+        if (pseudoExists && emailExists) break
+      }
+      
+      res.status(200).json({ data: { exists: pseudoExists || emailExists, pseudoExists, emailExists } })
+      return
+    }
+
+    if (action === 'requestOTP') {
+      const email = String(body.email ?? '')
+      const pseudo = String(body.pseudo ?? '')
+      if (!email.includes('@') || !pseudo.trim()) {
+        res.status(400).json({ error: 'Email et pseudo requis.' })
+        return
+      }
+      if (!process.env.BLOB_READ_WRITE_TOKEN || !process.env.RESEND_API_KEY) {
+        res.status(500).json({ error: 'Service Brakup indisponible.' })
+        return
+      }
+      
+      const emailHash = await sha256(email)
+      const otp = String(Math.floor(100000 + Math.random() * 900000))
+      const otpPathname = `challenge/otp/${emailHash}.json`
+      const otpData = { email, pseudo, otp, expiresAt: Date.now() + 15 * 60 * 1000 }
+      await writeJson(otpPathname, otpData)
+      
+      const origin = process.env.PUBLIC_SITE_URL ?? 'http://localhost:5173'
+      const sent = await sendOTPEmail(email, pseudo, otp, origin)
+      
+      if (sent) {
+        res.status(200).json({ data: { sent: true } })
+      } else {
+        res.status(500).json({ error: 'Echec de l\'envoi de l\'email OTP.' })
+      }
+      return
+    }
+
+    if (action === 'verifyOTP') {
+      const email = String(body.email ?? '')
+      const pseudo = String(body.pseudo ?? '')
+      const otp = String(body.otp ?? '')
+      if (!email.includes('@') || !pseudo.trim() || !otp || otp.length !== 6) {
+        res.status(400).json({ error: 'Email, pseudo et code OTP (6 chiffres) requis.' })
+        return
+      }
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        res.status(500).json({ error: 'Service Brakup indisponible.' })
+        return
+      }
+      
+      const emailHash = await sha256(email)
+      const otpPathname = `challenge/otp/${emailHash}.json`
+      const otpData = await readJson<{ email: string; pseudo: string; otp: string; expiresAt: number }>(otpPathname, null)
+      
+      if (!otpData || otpData.otp !== otp || otpData.expiresAt < Date.now()) {
+        res.status(401).json({ error: 'Code OTP invalide ou expiré.' })
+        return
+      }
+      
+      const token = await signToken(emailHash)
+      await writeJson(otpPathname, {}) // Invalider le code OTP
+      
+      res.status(200).json({ data: { token } })
       return
     }
 

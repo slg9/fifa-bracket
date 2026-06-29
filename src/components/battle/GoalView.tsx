@@ -21,9 +21,6 @@ type GoalViewProps = {
   keeperY?: number
   goalkeeperColor?: string
   goalkeeperSecondaryColor?: string
-  shooterColor?: string
-  shooterSecondaryColor?: string
-  shooterShortsColor?: string
   target?: GoalTarget | null
   ballFlight?: BallFlight | null
   interactive?: boolean
@@ -31,7 +28,6 @@ type GoalViewProps = {
   controllableKeeper?: boolean
   compact?: boolean
   showAimGuide?: boolean
-  isKicking?: boolean
   targetActive?: boolean
   onTarget?: (target: GoalTarget) => void
   onPreviewTarget?: (target: GoalTarget | null) => void
@@ -190,9 +186,6 @@ export function GoalView({
   keeperY: keeperYProp = 70,
   goalkeeperColor = '#2f7de1',
   goalkeeperSecondaryColor = '#7dd3fc',
-  shooterColor = '#2bff9a',
-  shooterSecondaryColor = '#0b1422',
-  shooterShortsColor = '#101a2c',
   target,
   ballFlight,
   interactive = false,
@@ -200,7 +193,6 @@ export function GoalView({
   controllableKeeper = false,
   compact = false,
   showAimGuide = false,
-  isKicking = false,
   targetActive = true,
   onTarget,
   onPreviewTarget,
@@ -277,8 +269,6 @@ export function GoalView({
   const originYFrac = compact ? 0.86 : 0.95
   const shot = useMemo(() => (activeTarget ? buildShotCurve(width, height, activeTarget, originYFrac, compact, ballFlight?.state === 'miss') : null), [activeTarget, ballFlight?.state, compact, height, originYFrac, width])
   const ballPoint = shot ? cubicBezierPoint(shot.origin, shot.cp1, shot.cp2, shot.targetPoint, flightProgress) : null
-  const shotOriginX = width / 2
-  const shotOriginY = height * originYFrac
   const saveAngle = targetPoint.x >= keeperSvgX ? 42 : -42
   const saving = ballFlight?.state === 'saved'
   const keeperZoneWidth = clamp(width * (compact ? 0.145 : 0.20), 42, 82)
@@ -716,50 +706,8 @@ export function GoalView({
         {shot && showAimGuide && !ballFlight ? (
           <>
             <path className="goal-stage__curve" d={shot.path} />
-            {compact ? (() => {
-              const cx = shotOriginX
-              const cy = shotOriginY
-              // Scale so the character is ~22% of view height (seen from behind)
-              const sc = height * 0.22 / 148
-              return (
-                <g transform={`translate(${cx - 64 * sc}, ${cy - 148 * sc}) scale(${sc})`}>
-                  <g className={`goal-stage__player${isKicking ? ' is-kicking' : ''}`}>
-                  {/* Shadow */}
-                  <ellipse cx="64" cy="148" rx="38" ry="7" fill="rgba(0,0,0,.35)" />
-                  {/* Left leg straight */}
-                  <rect x="50" y="102" width="10" height="28" rx="5" fill="#f3c9a0"/>
-                  {/* Right leg  raised / kicking forward */}
-                  <rect x="66" y="94" width="10" height="28" rx="5" fill="#f3c9a0" transform="rotate(22 71 108)"/>
-                  {/* Boots */}
-                  <ellipse cx="55" cy="130" rx="12" ry="7" fill="#0b1422"/>
-                  <ellipse cx="79" cy="122" rx="12" ry="7" fill="#0b1422" transform="rotate(22 79 122)"/>
-                  {/* Shorts */}
-                  <rect x="46" y="90" width="36" height="18" rx="5" fill={shooterShortsColor}/>
-                  {/* Jersey  from behind with number */}
-                  <path d="M40 62 q24 -10 48 0 l-3 32 q-21 6 -42 0 z" fill={shooterColor}/>
-                  <path d="M54 56 v36 M74 56 v36" stroke={shooterSecondaryColor} strokeWidth="3" opacity=".35"/>
-                  <text x="64" y="86" fontFamily="Barlow Condensed" fontWeight="900" fontSize="20" fill={shooterSecondaryColor} textAnchor="middle">9</text>
-                  {/* Left arm (balance, slightly out) */}
-                  <rect x="29" y="66" width="10" height="24" rx="5" fill={shooterColor}/>
-                  {/* Right arm (raised forward with kick momentum) */}
-                  <rect x="89" y="58" width="10" height="24" rx="5" fill={shooterColor} transform="rotate(-28 94 70)"/>
-                  <circle cx="34" cy="92" r="5" fill="#f3c9a0"/>
-                  <circle cx="99" cy="82" r="5" fill="#f3c9a0"/>
-                  {/* Head  back of head, hair visible from behind */}
-                  <circle cx="64" cy="36" r="28" fill="#f3c9a0"/>
-                  {/* Hair from behind (covers top & sides) */}
-                  <path d="M36 28 q28 -30 56 0 q-10 -26 -28 -28 q-18 2 -28 28z" fill="#3a2a1c"/>
-                  <path d="M36 28 q0 10 -2 20" stroke="#3a2a1c" strokeWidth="5" strokeLinecap="round" fill="none"/>
-                  <path d="M92 28 q0 10 2 20" stroke="#3a2a1c" strokeWidth="5" strokeLinecap="round" fill="none"/>
-                  </g>
-                </g>
-              )
-            })() : (
-              <>
-                <circle className="goal-stage__ball-shadow" cx={shot.origin.x} cy={shot.origin.y + 6} r="12" opacity=".22" />
-                <circle className="goal-stage__ball" cx={shot.origin.x} cy={shot.origin.y} r="12" />
-              </>
-            )}
+            <circle className="goal-stage__ball-shadow" cx={shot.origin.x} cy={shot.origin.y + 6} r="12" opacity=".22" />
+            <circle className="goal-stage__ball" cx={shot.origin.x} cy={shot.origin.y} r="12" />
           </>
         ) : null}
 

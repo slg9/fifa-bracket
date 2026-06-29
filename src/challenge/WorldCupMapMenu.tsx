@@ -201,7 +201,7 @@ function buildDisplayNodes(
     const progress = evaluateMatchProgress(match, picks, scores, realResults, officialScores, scorers, realScorers)
     const isNextPlayable = match.id === firstPlayable
     const isUnlockedByDate = homeTeam && awayTeam && isMatchDayOrPast(match)
-    const hasOfficialResult = realWinnerTeamId || officialResults[match.id]
+    const hasOfficialResult = realWinnerTeamId
     const status: NodeStatus = hasOfficialResult
       ? 'closed'
       : pickedTeamId

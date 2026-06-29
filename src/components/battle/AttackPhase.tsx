@@ -568,7 +568,6 @@ export function AttackPhase({
   const shotFiredRef = useRef(false)
   const shotGameRef  = useRef<HTMLDivElement>(null)
   const isAimingRef = useRef(false)
-  const [isKicking, setIsKicking] = useState(false)
 
   // Keeper (oscillates in shot phase)
   const [keeperX, setKeeperX] = useState(50)
@@ -941,8 +940,6 @@ export function AttackPhase({
         shotFiredRef.current = true
         const FLIGHT_MS = 700
         const KICK_DELAY_MS = 120
-        setIsKicking(true)
-        window.setTimeout(() => setIsKicking(false), 240)
         window.setTimeout(() => {
           setBallFlight({ id: Date.now(), target: { x: 118, y: -18, clientX: 0, clientY: 0 }, state: 'miss', duration: FLIGHT_MS })
           window.setTimeout(() => setResultLabel('RATE !'), FLIGHT_MS)
@@ -1013,7 +1010,6 @@ export function AttackPhase({
 
     shotFiredRef.current = true
     setShotJoystick(null)
-    setIsKicking(true)
     playGameSound('/audio/ball-kick.mp3', { volume: 0.9 })
 
     const cursor = gaugeCursorRef.current
@@ -1038,8 +1034,6 @@ export function AttackPhase({
     const missTarget: GoalTarget = targetInsideFrame
       ? { x: cursor < greenL ? -18 : 118, y: -18, clientX: 0, clientY: 0 }
       : aimTarget
-
-    window.setTimeout(() => setIsKicking(false), 240)
 
     window.setTimeout(() => {
       if (!inGreen || !targetInsideFrame) {
@@ -1145,7 +1139,6 @@ export function AttackPhase({
     setShotAimWarning(false)
     shotFiredRef.current = false
     isAimingRef.current = false
-    setIsKicking(false)
     setBallFlight(null)
     setResultLabel(null)
     const maxLeft = 1 - getEffectiveGaugeGreenPx() / GAUGE_TRACK_PX
@@ -1976,10 +1969,6 @@ export function AttackPhase({
             interactive={false}
             goalkeeperColor={opponentJerseyColor}
             goalkeeperSecondaryColor={opponentAccentColor}
-            shooterColor={playerJerseyColor}
-            shooterSecondaryColor={playerAccentColor}
-            shooterShortsColor={playerShortsColor}
-            isKicking={isKicking}
             targetActive={hasAimedTarget}
           />
           {!shooterSelectionDone && !ballFlight && !resultLabel ? (

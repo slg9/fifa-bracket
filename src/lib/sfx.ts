@@ -57,7 +57,33 @@ function noise(
   src.start(t)
 }
 
-export const sfx = {
+export interface SFX {
+  click(): void
+  countdownTick(): void
+  countdownGo(): void
+  defenseShot(): void
+  bomb(): void
+  kamikaze(): void
+  nav(): void
+  swipe(): void
+  pick(): void
+  bracket(): void
+  save(): void
+  battle(): void
+  start(): void
+  tab(): void
+  goal(): void
+  concede(): void
+  whistle(): void
+  tackle(): void
+  lightning(): void
+  jump(): void
+  gatePass(): void
+  slice(): void
+  error(): void
+}
+
+export const sfx: SFX = {
   /** General button tap */
   click() {
     tone(760, 0.075, { type: 'square', gain: 0.24, freqEnd: 330 })
@@ -210,4 +236,10 @@ export const sfx = {
     noise(0.12, { filterFreq: 3600, filterFreqEnd: 900, gain: 0.18 })
     tone(980, 0.08, { type: 'triangle', gain: 0.12, freqEnd: 520 })
   },
+
+  /** Error / invalid action */
+  error() {
+    tone(200, 0.12, { type: 'sawtooth', gain: 0.18, freqEnd: 80 })
+    tone(100, 0.1, { type: 'square', gain: 0.14, delay: 0.05, freqEnd: 50 })
+  }
 }
