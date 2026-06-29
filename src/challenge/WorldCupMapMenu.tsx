@@ -63,11 +63,11 @@ const ROUTE_X = [
 ]
 
 const MATCH_SEQUENCE = [
-  'M73', 'M74', 'M75', 'M76',
-  'M77', 'M78', 'M79', 'M80',
-  'M81', 'M82', 'M83', 'M84',
-  'M85', 'M86', 'M87', 'M88',
-  'M89', 'M90', 'M91', 'M92',
+  'M73', 'M76', 'M74', 'M75',
+  'M78', 'M77', 'M79', 'M80',
+  'M82', 'M81', 'M84', 'M83',
+  'M85', 'M88', 'M86', 'M87',
+  'M90', 'M89', 'M91', 'M92',
   'M93', 'M94', 'M95', 'M96',
   'M97', 'M98', 'M99', 'M100',
   'M101', 'M102', 'M103', 'M104',
@@ -192,10 +192,14 @@ function buildDisplayNodes(
     awayTeam: entrantTeam(match, 'away', teamsById),
     pickedTeamId: picks[match.id],
   }))
+  const byId = new Map(resolved.map((entry) => [entry.match.id, entry]))
+  const orderedResolved = MATCH_SEQUENCE
+    .map((id) => byId.get(id))
+    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
 
-  const firstPlayable = resolved.find((entry) => !entry.pickedTeamId && entry.homeTeam && entry.awayTeam)?.match.id
+  const firstPlayable = orderedResolved.find((entry) => !entry.pickedTeamId && entry.homeTeam && entry.awayTeam)?.match.id
 
-  return resolved.map(({ match, homeTeam, awayTeam, pickedTeamId }) => {
+  return orderedResolved.map(({ match, homeTeam, awayTeam, pickedTeamId }) => {
     const pos = NODE_POS[match.id]
     const realWinnerTeamId = realResults[match.id]
     const progress = evaluateMatchProgress(match, picks, scores, realResults, officialScores, scorers, realScorers)
@@ -289,12 +293,15 @@ function MatchNode({
 }) {
   const isLocked = node.status === 'locked'
   const isCompleted = node.status === 'completed'
+  const isClosed = node.status === 'closed'
   const isLive = node.status === 'live'
   const displayScore = scoreForNode(node, score)
-  const realWinnerTeam = node.pickedTeamId && node.realWinnerTeamId
+  const officialScore = node.progress.realScore
+  const panelScore = isClosed && officialScore ? officialScore : displayScore
+  const realWinnerTeam = node.realWinnerTeamId
     ? node.realWinnerTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
     : undefined
-  const resultTeams = isCompleted && node.homeTeam && node.awayTeam && node.pickedTeamId
+  const resultTeams = node.homeTeam && node.awayTeam && ((isCompleted && node.pickedTeamId) || (isClosed && node.realWinnerTeamId))
     ? [node.homeTeam, node.awayTeam] as const
     : null
   const officialPending = isCompleted && Boolean(node.pickedTeamId) && !node.progress.played
@@ -317,11 +324,11 @@ function MatchNode({
         <span className="wcmap__match-number">M{node.matchNumber}</span>
 
         {!isLocked ? (
-          displayScore ? (
-            <span className="wcmap__score-badge" aria-label={`Score ${displayScore.home} a ${displayScore.away}`}>
-              <strong>{displayScore.home}</strong>
+          panelScore ? (
+            <span className={`wcmap__score-badge${isClosed ? ' is-official' : ''}`} aria-label={`Score ${panelScore.home} a ${panelScore.away}`}>
+              <strong>{panelScore.home}</strong>
               <em>-</em>
-              <strong>{displayScore.away}</strong>
+              <strong>{panelScore.away}</strong>
             </span>
           ) : (
             <span className="wcmap__flags-vs">
@@ -353,9 +360,9 @@ function MatchNode({
         {resultTeams ? (
           <span className="wcmap__result-matchup" aria-label={`${resultTeams[0].name} a gauche, ${resultTeams[1].name} a droite`}>
             {resultTeams.map((team) => {
-              const isPickedWinner = node.pickedTeamId === team.id
+              const isWinner = isClosed ? node.realWinnerTeamId === team.id : node.pickedTeamId === team.id
               return (
-                <span key={team.id} className={`wcmap__result-flag wcmap__result-flag--${isPickedWinner ? 'winner' : 'loser'}`}>
+                <span key={team.id} className={`wcmap__result-flag wcmap__result-flag--${isWinner ? 'winner' : 'loser'}`}>
                   {teamFlagImageUrl(team) ? (
                     <img src={teamFlagImageUrl(team) ?? undefined} alt="" />
                   ) : (
@@ -378,7 +385,7 @@ function MatchNode({
 
       <span className="wcmap__round-chip">{node.roundShort}</span>
 
-      {isLocked && <span className="wcmap__status-badge wcmap__status-badge--lock">{'\uD83D\uDD12'}</span>}
+      {(isLocked || isClosed) && <span className="wcmap__status-badge wcmap__status-badge--lock">{'\uD83D\uDD12'}</span>}
       {isCompleted && <span className="wcmap__status-badge">{'\u2713'}</span>}
       {node.progress.played ? (
         <span className={`wcmap__outcome-badge${node.progress.correct ? ' is-correct' : ' is-wrong'}`} title={node.progress.correct ? `Prono reussi +${node.progress.points}` : 'Prono rate'}>
@@ -425,6 +432,13 @@ function LevelEntryScreen({
 
   const canSimulate = Boolean(node.homeTeam && node.awayTeam && onSimulate)
   const displayScore = scoreForNode(node, score)
+  const isClosed = node.status === 'closed'
+  const resultScore = isClosed ? node.progress.realScore : displayScore
+  const officialWinnerTeam = node.realWinnerTeamId
+    ? node.realWinnerTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
+    : undefined
+  const predictedWinnerTeam = node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
+  const resultWinnerTeam = isClosed ? officialWinnerTeam : predictedWinnerTeam
   const officialPending = node.status === 'completed' && Boolean(node.pickedTeamId) && !node.progress.played
 
   return (
@@ -441,23 +455,23 @@ function LevelEntryScreen({
 
         <p className="wcmap-entry__hint">{getStatusHint(node.status)}</p>
 
-        {node.status === 'completed' && node.pickedTeamId ? (
+        {((node.status === 'completed' && node.pickedTeamId) || (isClosed && resultWinnerTeam)) ? (
           <div className="wcmap-entry__result">
             <div className="wcmap-entry__result-winner">
               <span className="wcmap-entry__result-flag">
-                {(node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam)?.flagEmoji ?? '🌍'}
+                {resultWinnerTeam?.flagEmoji ?? '🌍'}
               </span>
               <div>
-                <small className="wcmap-entry__result-label">VAINQUEUR</small>
+                <small className="wcmap-entry__result-label">{isClosed ? 'VAINQUEUR OFFICIEL' : 'VAINQUEUR'}</small>
                 <strong className="wcmap-entry__result-name">
-                  {(node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam)?.name ?? node.pickedTeamId}
+                  {resultWinnerTeam?.name ?? node.pickedTeamId}
                 </strong>
               </div>
             </div>
-            {displayScore ? (
+            {resultScore ? (
               <div className="wcmap-entry__result-score">
                 <span>{node.homeTeam?.flagEmoji ?? '??'}</span>
-                <strong>{displayScore.home} - {displayScore.away}</strong>
+                <strong>{resultScore.home} - {resultScore.away}</strong>
                 <span>{node.awayTeam?.flagEmoji ?? '??'}</span>
               </div>
             ) : (
@@ -479,6 +493,11 @@ function LevelEntryScreen({
                 <strong>Score officiel en attente</strong>
                 <span>Ton jeu {formatScore(displayScore)} est sauvegarde. Des que FIFA synchronise ce match, la map affichera reussi ou rate.</span>
               </div>
+            ) : isClosed ? (
+              <div className="wcmap-entry__verdict is-pending">
+                <strong>Match verrouille</strong>
+                <span>Resultat officiel enregistre. Ce match ne peut plus etre joue.</span>
+              </div>
             ) : null}
             {scorers.length ? (
               <div className="wcmap-entry__scorers">
@@ -489,7 +508,7 @@ function LevelEntryScreen({
           </div>
         ) : null}
 
-        {node.status !== 'completed' ? (
+        {node.status !== 'completed' && !isClosed ? (
           <div className="wcmap-entry__choose">
             <span>Choisis une equipe</span>
             <small>Le match demarre avec l'equipe que tu touches.</small>
@@ -499,9 +518,9 @@ function LevelEntryScreen({
         <div className="wcmap-entry__teams">
           <button
             type="button"
-            className={`wcmap-entry__team${selectedTeamId === node.homeTeam?.id ? ' is-selected' : ''}`}
+            className={`wcmap-entry__team${selectedTeamId === node.homeTeam?.id ? ' is-selected' : ''}${isClosed && node.realWinnerTeamId === node.homeTeam?.id ? ' is-official-winner' : ''}${isClosed && node.realWinnerTeamId && node.realWinnerTeamId !== node.homeTeam?.id ? ' is-official-loser' : ''}`}
             onClick={() => node.homeTeam && onPickTeam(node.homeTeam.id)}
-            disabled={!node.homeTeam || !node.awayTeam}
+            disabled={isClosed || !node.homeTeam || !node.awayTeam}
           >
             <span className="wcmap-entry__team-flag">
               {teamFlagImageUrl(node.homeTeam) ? <img src={teamFlagImageUrl(node.homeTeam) ?? undefined} alt="" /> : <span>{node.homeTeam?.flagEmoji ?? '🌍'}</span>}
@@ -512,9 +531,9 @@ function LevelEntryScreen({
           <div className="wcmap-entry__vs">VS</div>
           <button
             type="button"
-            className={`wcmap-entry__team${selectedTeamId === node.awayTeam?.id ? ' is-selected' : ''}`}
+            className={`wcmap-entry__team${selectedTeamId === node.awayTeam?.id ? ' is-selected' : ''}${isClosed && node.realWinnerTeamId === node.awayTeam?.id ? ' is-official-winner' : ''}${isClosed && node.realWinnerTeamId && node.realWinnerTeamId !== node.awayTeam?.id ? ' is-official-loser' : ''}`}
             onClick={() => node.awayTeam && onPickTeam(node.awayTeam.id)}
-            disabled={!node.homeTeam || !node.awayTeam}
+            disabled={isClosed || !node.homeTeam || !node.awayTeam}
           >
             <span className="wcmap-entry__team-flag">
               {teamFlagImageUrl(node.awayTeam) ? <img src={teamFlagImageUrl(node.awayTeam) ?? undefined} alt="" /> : <span>{node.awayTeam?.flagEmoji ?? '🌍'}</span>}
@@ -523,7 +542,7 @@ function LevelEntryScreen({
             <small>{node.awayTeam?.name ?? 'En attente'}</small>
           </button>
         </div>
-        {canSimulate ? (
+        {canSimulate && !isClosed ? (
           <button
             type="button"
             className="wcmap-entry__simulate"
@@ -749,15 +768,10 @@ export function WorldCupMapMenu({
       setNotice('Match verrouillé. Termine le match qui clignote pour débloquer la suite.')
       return
     }
-    if (node.status === 'closed') {
-      setNotice('Match déjà joué. Impossible de rejouer.')
-      sfx.error()
-      return
-    }
     sfx.tab()
     setSelectingId(node.id)
     setSelectedMatchId(node.id)
-    setSelectedTeamId(node.status === 'completed' ? null : node.pickedTeamId ?? null)
+    setSelectedTeamId(node.status === 'completed' || node.status === 'closed' ? null : node.pickedTeamId ?? null)
     window.setTimeout(() => setSelectingId(null), 220)
   }
 

@@ -90,6 +90,18 @@ export function Leaderboard({ entries, currentEntry = null, currentStats, onBack
           gap: 5px;
           flex-wrap: wrap;
         }
+        .lb-podium__view {
+          min-height: 30px;
+          padding: 0 10px;
+          border: 1px solid rgba(43,255,154,.38);
+          border-radius: 999px;
+          background: rgba(43,255,154,.12);
+          color: #2bff9a;
+          font: 900 11px 'Barlow Condensed','Arial Narrow',sans-serif;
+          letter-spacing: .09em;
+          text-transform: uppercase;
+          cursor: pointer;
+        }
         .lb-badge {
           display: inline-flex;
           align-items: center;
@@ -289,7 +301,8 @@ export function Leaderboard({ entries, currentEntry = null, currentStats, onBack
                 const entry = podium[idx]
                 if (!entry) return null
                 const rank = idx + 1
-                const stats = currentEntry && entry.id === currentEntry.id && currentStats ? currentStats : breakdownStats(entry)
+                const isCurrent = Boolean(currentEntry && entry.id === currentEntry.id)
+                const stats = isCurrent && currentStats ? currentStats : breakdownStats(entry)
                 return (
                   <div key={entry.id} className="lb-podium__slot">
                     <div className={`lb-avatar lb-avatar--${rank}`}>{initials(entry.pseudo)}</div>
@@ -300,6 +313,11 @@ export function Leaderboard({ entries, currentEntry = null, currentStats, onBack
                       <span className="lb-badge lb-badge--exact">◎ {stats.exact}</span>
                       <span className="lb-badge lb-badge--exact">⚽ {stats.scorers}</span>
                     </div>
+                    {onViewBracket && !isCurrent ? (
+                      <button type="button" className="lb-podium__view" onClick={() => onViewBracket(entry)}>
+                        Voir carte
+                      </button>
+                    ) : null}
                     <div className={`lb-podium__bar lb-podium__bar--${rank}`}>
                       <span className="lb-podium__rank">#{rank}</span>
                     </div>

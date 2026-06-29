@@ -162,32 +162,14 @@ function playerLastName(value: string) {
 
 function buildShooterOptions(players: string[], teamId: string): BattleScorer[] {
   const uniquePlayers = Array.from(new Set(players.map((name) => name.trim()).filter(Boolean)))
-  // Si on a des joueurs, les utiliser. Sinon, utiliser un joueur generique.
   const source = uniquePlayers.length ? uniquePlayers : [`Buteur ${teamId.toUpperCase()}`]
-  
-  // Toujours retourner au moins 11 options (pour couvrir une equipe complete)
-  // En complementant avec des numeros si necessaire
-  const options: BattleScorer[] = source.map((name, index) => ({
+
+  return source.map((name, index) => ({
     name,
     teamId,
     number: KNOWN_PLAYER_NUMBERS[normalizePlayerName(name)] ?? FALLBACK_ATTACKER_NUMBERS[index % FALLBACK_ATTACKER_NUMBERS.length],
     controlled: true,
   }))
-  
-  // Si on a moins de 11 joueurs, ajouter des joueurs generiques avec des numeros
-  const TARGET_COUNT = 11
-  while (options.length < TARGET_COUNT) {
-    const nextNumber = FALLBACK_ATTACKER_NUMBERS[options.length % FALLBACK_ATTACKER_NUMBERS.length]
-    const nextIndex = options.length + 1
-    options.push({
-      name: `Joueur ${nextIndex}`,
-      teamId,
-      number: nextNumber,
-      controlled: true,
-    })
-  }
-  
-  return options
 }
 
 function pickGateCenter(rng: () => number, previous: number[], difficulty: BattleDifficulty) {
@@ -1455,6 +1437,54 @@ export function AttackPhase({
           backdrop-filter: blur(8px);
         }
 
+        .atk-shot-shooter {
+          position: absolute;
+          left: clamp(66px, 22%, 118px);
+          bottom: max(84px, calc(env(safe-area-inset-bottom) + 72px));
+          z-index: 24;
+          display: grid;
+          justify-items: center;
+          gap: 2px;
+          width: 92px;
+          pointer-events: none;
+          filter: drop-shadow(0 12px 20px rgba(0,0,0,.46));
+          animation: atkShotShooterIn .24s ease-out both;
+        }
+        .atk-shot-shooter .atk-kawaii {
+          width: 72px;
+          height: auto;
+          filter: drop-shadow(0 0 16px rgba(43,255,154,.42));
+        }
+        .atk-shot-shooter__name {
+          max-width: 110px;
+          padding: 3px 7px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,.18);
+          background: rgba(3,10,18,.7);
+          color: #fff;
+          font: 900 9px 'Barlow Condensed',sans-serif;
+          letter-spacing: .08em;
+          line-height: 1;
+          text-align: center;
+          text-transform: uppercase;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          backdrop-filter: blur(6px);
+        }
+        .atk-shot-shooter.is-kicking .atk-kawaii {
+          animation: atkShotKick .42s cubic-bezier(.2,1.1,.3,1) both;
+        }
+        @keyframes atkShotShooterIn {
+          from { transform: translate(-10px, 18px) scale(.86); opacity: 0; }
+          to { transform: translate(0, 0) scale(1); opacity: 1; }
+        }
+        @keyframes atkShotKick {
+          0% { transform: translateY(0) rotate(0deg) scale(1); }
+          44% { transform: translate(10px, -7px) rotate(-7deg) scale(1.08); }
+          100% { transform: translate(18px, 3px) rotate(4deg) scale(.98); }
+        }
+
         /*  Gauge above the goal in shot scene  */
         .atk-gauge-bottom {
           position: absolute; top: max(58px, calc(env(safe-area-inset-top) + 50px)); left: 0; right: 0; z-index: 20;
@@ -1971,6 +2001,20 @@ export function AttackPhase({
             goalkeeperSecondaryColor={opponentAccentColor}
             targetActive={hasAimedTarget}
           />
+          {shooterSelectionDone && shotTutorialDone && !resultLabel ? (
+            <div className={`atk-shot-shooter${ballFlight ? ' is-kicking' : ''}`} aria-hidden="true">
+              <KawaiiFootballer
+                label={String(selectedShooter.number ?? 9)}
+                jerseyColor={playerJerseyColor}
+                accentColor={playerAccentColor}
+                shortsColor={playerShortsColor}
+                textColor={playerTextColor}
+                withBall={!ballFlight}
+                isPlayer
+              />
+              <span className="atk-shot-shooter__name">{playerLastName(selectedShooter.name)}</span>
+            </div>
+          ) : null}
           {!shooterSelectionDone && !ballFlight && !resultLabel ? (
             <div
               className="atk-shooter-select"

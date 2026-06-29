@@ -87,6 +87,37 @@ async function writeJson(pathname: string, value: unknown): Promise<void> {
   })
 }
 
+async function readAllBracketEntries(): Promise<ChallengeEntry[]> {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return []
+  const result = await list({ prefix: 'challenge/', limit: 1000, token: process.env.BLOB_READ_WRITE_TOKEN })
+  const bracketBlobs = result.blobs.filter((blob) => blob.pathname.endsWith('/brackets.json'))
+  const allEntries: ChallengeEntry[] = []
+
+  for (const blob of bracketBlobs) {
+    const response = await fetch(blob.url, { cache: 'no-store' })
+    if (!response.ok) continue
+    const entries = await response.json() as ChallengeEntry[]
+    allEntries.push(...entries)
+  }
+
+  return allEntries
+}
+
+function rankSubmittedEntries(entries: ChallengeEntry[]): ChallengeEntry[] {
+  const ranked = entries
+    .filter((entry) => entry.submittedAt)
+    .sort((a, b) => b.score - a.score || a.createdAt.localeCompare(b.createdAt))
+    .map((entry, index) => ({ ...entry, rank: index + 1 }))
+
+  return ranked.slice(0, 50)
+}
+
+async function rebuildLeaderboardFromStoredScores(): Promise<ChallengeEntry[]> {
+  const ranked = rankSubmittedEntries(await readAllBracketEntries())
+  await writeJson('challenge/leaderboard.json', ranked)
+  return ranked
+}
+
 async function sendMagicLink(email: string, token: string): Promise<boolean> {
   if (!process.env.RESEND_API_KEY) {
     console.warn('[brakup] RESEND_API_KEY absent, lien magique non envoyé.')
@@ -153,9 +184,7 @@ export async function recalculateLeaderboard(realResults: Record<string, string>
     allEntries.push(...scored.filter((entry) => entry.submittedAt))
   }
 
-  allEntries.sort((a, b) => b.score - a.score || a.createdAt.localeCompare(b.createdAt))
-  const ranked = allEntries.map((entry, index) => ({ ...entry, rank: index + 1 }))
-  await writeJson('challenge/leaderboard.json', ranked.slice(0, 50))
+  await writeJson('challenge/leaderboard.json', rankSubmittedEntries(allEntries))
 }
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
@@ -170,7 +199,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const action = String(body.action ?? '')
 
     if (action === 'board') {
-      const board = await readJson<ChallengeEntry[]>('challenge/leaderboard.json', [])
+      const board = process.env.BLOB_READ_WRITE_TOKEN
+        ? await rebuildLeaderboardFromStoredScores()
+        : await readJson<ChallengeEntry[]>('challenge/leaderboard.json', [])
       res.status(200).json({ data: board.slice(0, 50) })
       return
     }
@@ -202,9 +233,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }
       const updated = current ? entries.map((item) => item.id === entry.id ? entry : item) : [...entries, entry]
       await writeJson(pathname, updated)
+      const board = await rebuildLeaderboardFromStoredScores()
+      const rankedEntry = board.find((item) => item.id === entry.id) ?? entry
       const token = await signToken(emailHash)
       await sendMagicLink(input.email, token)
-      res.status(200).json({ data: { entry, token } })
+      res.status(200).json({ data: { entry: rankedEntry, token } })
       return
     }
 

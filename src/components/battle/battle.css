@@ -264,16 +264,15 @@
 /* Persistent score pill, same compact format as pre-battle */
 .battle-score-strip {
   position: absolute;
-  top: max(9px, env(safe-area-inset-top));
-  left: 50%;
-  z-index: 200;
-  transform: translateX(-50%);
+  top: max(7px, env(safe-area-inset-top));
+  left: max(10px, calc(env(safe-area-inset-left) + 10px));
+  z-index: 160;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-width: 142px;
-  padding: 7px 14px;
+  gap: 7px;
+  min-width: 0;
+  padding: 5px 9px;
   border-radius: 999px;
   background: rgba(255,255,255,.05);
   border: 1px solid rgba(255,184,0,.5);
@@ -283,23 +282,23 @@
   pointer-events: none;
 }
 .battle-score-strip strong {
-  min-width: 18px;
+  min-width: 15px;
   color: #FFB800;
-  font: 800 17px 'JetBrains Mono', monospace;
+  font: 800 15px 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;
   text-align: center;
   text-shadow: 0 0 14px rgba(255,184,0,.28);
 }
 .battle-score-strip em {
   color: rgba(255,255,255,.35);
-  font: 700 15px 'JetBrains Mono', monospace;
+  font: 700 13px 'JetBrains Mono', monospace;
   font-style: normal;
 }
 .battle-score-strip__flag {
   display: grid;
   place-items: center;
-  min-width: 22px;
-  font-size: 18px;
+  min-width: 18px;
+  font-size: 15px;
   line-height: 1;
   filter: drop-shadow(0 0 8px rgba(255,255,255,.22));
 }
@@ -307,16 +306,15 @@
 /* Match progress: horizontal rail under the score */
 .battle-progress-rail {
   position: absolute;
-  left: 50%;
-  top: max(46px, calc(env(safe-area-inset-top) + 38px));
+  right: max(10px, calc(env(safe-area-inset-right) + 10px));
+  top: max(7px, env(safe-area-inset-top));
   z-index: 155;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: min(342px, calc(100% - 52px));
-  min-height: 27px;
-  padding: 4px 7px;
+  gap: 4px;
+  width: min(246px, calc(100% - 136px));
+  min-height: 24px;
+  padding: 3px 6px;
   border: 1px solid rgba(255,255,255,.1);
   border-radius: 999px;
   background: rgba(3,10,18,.58);
@@ -326,7 +324,7 @@
   font-family: var(--battle-font-condensed);
 }
 .battle-progress-rail__title {
-  min-width: 32px;
+  min-width: 26px;
   color: rgba(255,255,255,.55);
   font: 900 8px var(--battle-font-condensed);
   letter-spacing: .1em;
@@ -336,7 +334,7 @@
 .battle-progress-rail__steps {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   justify-content: center;
   min-width: 0;
   flex: 1;
@@ -344,7 +342,7 @@
 .battle-progress-step {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
   flex: 1;
 }
@@ -352,20 +350,20 @@
   display: grid;
   place-items: center;
   width: 100%;
-  min-width: 20px;
-  height: 18px;
+  min-width: 17px;
+  height: 16px;
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 7px;
   background: rgba(255,255,255,.06);
   color: rgba(255,255,255,.58);
-  font: 900 10px var(--battle-font-condensed);
+  font: 900 9px var(--battle-font-condensed);
   line-height: 1;
 }
 .battle-progress-step i {
   display: block;
-  width: 5px;
+  width: 4px;
   height: 3px;
-  flex: 0 0 5px;
+  flex: 0 0 4px;
   border-radius: 99px;
   background: rgba(255,255,255,.12);
 }
@@ -389,8 +387,8 @@
   animation: progressStepPulse 1s ease-in-out infinite;
 }
 .battle-progress-rail__meta {
-  min-width: 25px;
-  max-width: 30px;
+  min-width: 20px;
+  max-width: 24px;
   color: rgba(255,255,255,.48);
   font: 900 8px var(--battle-font-condensed);
   line-height: 1.05;
@@ -411,22 +409,25 @@
 }
 @media (max-width:370px) {
   .battle-progress-rail {
-    width: min(304px, calc(100% - 38px));
-    gap: 3px;
+    width: min(218px, calc(100% - 124px));
+    gap: 2px;
     padding-inline: 5px;
   }
+  .battle-progress-rail__title,
+  .battle-progress-rail__meta {
+    display: none;
+  }
   .battle-progress-step span {
-    min-width: 18px;
+    min-width: 16px;
     font-size: 9px;
   }
 }
 
 .battle-sd-shootout {
   position: absolute;
-  left: 50%;
-  top: max(46px, calc(env(safe-area-inset-top) + 38px));
+  right: max(10px, calc(env(safe-area-inset-right) + 10px));
+  top: max(7px, env(safe-area-inset-top));
   z-index: 156;
-  transform: translateX(-50%);
   display: grid;
   grid-template-columns: auto auto auto;
   align-items: center;

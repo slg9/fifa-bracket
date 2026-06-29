@@ -20,7 +20,7 @@ export async function shareElementImage(element: HTMLElement, options: ShareImag
   const blob = await toBlob(element, {
     cacheBust: true,
     pixelRatio: Math.min(3, Math.max(2, window.devicePixelRatio || 1)),
-    backgroundColor: options.backgroundColor ?? '#d40012',
+    backgroundColor: options.backgroundColor ?? '#050b16',
   })
 
   if (!blob) {
