@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { setGameAudioVolume, setGameMuted, useGameAudio, useGameAudioVolume, useGameMuted } from '../lib/useGameAudio'
 import { getBrackets, getProfileStatus, resendMagicLink, submitBracket, updateProfile, verifyLoginOTP, verifyOTP } from '../lib/challengeData'
 import { alternateLanguageHref, localizedRootPath, type Locale } from '../lib/i18n'
@@ -17,7 +17,8 @@ import LoginEntry from './LoginEntry'
 import Leaderboard from './Leaderboard'
 import MyBrackets from './MyBrackets'
 import ProfileSettings from './ProfileSettings'
-import { safeFilePart, shareVisibleElementImage } from './shareImage'
+import { blobToShareFile, safeFilePart, shareFile } from './shareImage'
+import { renderResultShareCanvas } from './shareCanvas'
 import { sfx } from '../lib/sfx'
 import { evaluateMatchProgress, formatScore, summarizeProgress, type OfficialScore, type RealScorer } from './progress'
 import './challenge.css'
@@ -232,8 +233,8 @@ export function BrakupHub({
   const [loginSent, setLoginSent] = useState(false)
   const [loginEmail, setLoginEmail] = useState<string | null>(null)
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
-  const outcomeRef = useRef<HTMLDivElement>(null)
-  const [outcomeShareStatus, setOutcomeShareStatus] = useState<'idle' | 'working' | 'done' | 'error'>('idle')
+  const [outcomeShareStatus, setOutcomeShareStatus] = useState<'idle' | 'working' | 'ready' | 'done' | 'error'>('idle')
+  const [outcomeShareFile, setOutcomeShareFile] = useState<File | null>(null)
   const [isOutcomeCapturingShare, setIsOutcomeCapturingShare] = useState(false)
   const [outcomeNotice, setOutcomeNotice] = useState<{
     key: string
@@ -754,6 +755,7 @@ export function BrakupHub({
     }
     setOutcomeNotice(null)
     setOutcomeShareStatus('idle')
+    setOutcomeShareFile(null)
     setIsOutcomeCapturingShare(false)
   }
 
@@ -777,19 +779,43 @@ export function BrakupHub({
   }
 
   const handleOutcomeShare = async () => {
-    if (!outcomeNotice || !outcomeRef.current) return
+    if (!outcomeNotice) return
+    if (outcomeShareFile) {
+      setOutcomeShareStatus('working')
+      try {
+        await shareFile(outcomeShareFile, {
+          title: 'Brakup Challenge',
+          text: buildOutcomeShareText(),
+          url: buildChallengeShareUrl(),
+          backgroundColor: '#050b16',
+        })
+        setOutcomeShareStatus('done')
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          setOutcomeShareStatus('ready')
+          return
+        }
+        console.error('Outcome native share failed:', error)
+        setOutcomeShareStatus('error')
+      }
+      return
+    }
     setOutcomeShareStatus('working')
     setIsOutcomeCapturingShare(true)
     try {
       await new Promise(resolve => requestAnimationFrame(resolve))
-      await shareVisibleElementImage(outcomeRef.current, {
-        fileName: `brakup-${safeFilePart(outcomeNotice.match.id)}-${outcomeNotice.progress.correct ? 'win' : 'result'}.png`,
-        title: 'Brakup Challenge',
-        text: buildOutcomeShareText(),
-        url: buildChallengeShareUrl(),
-        backgroundColor: '#050b16',
+      const blob = await renderResultShareCanvas({
+        backgroundSrc: '/brakup-share-bg-brakup.png',
+        logoSrc: '/brakup-logo.png',
+        boomLabel: outcomeBoomLabel,
+        headline: outcomeHeadline,
+        subline: `${outcomeNotice.match.label} - reel ${formatScore(outcomeNotice.progress.realScore)} - ton pari ${formatScore(outcomeNotice.progress.playedScore)}`,
+        pointsLabel: `+${outcomeBreakdownTotal} points gagnes`,
+        rows: outcomeShareRows,
+        cta: 'Tente ta chance avec ton prono.',
       })
-      setOutcomeShareStatus('done')
+      setOutcomeShareFile(blobToShareFile(blob, `brakup-${safeFilePart(outcomeNotice.match.id)}-${outcomeNotice.progress.correct ? 'win' : 'result'}.png`))
+      setOutcomeShareStatus('ready')
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         setOutcomeShareStatus('idle')
@@ -812,8 +838,19 @@ export function BrakupHub({
   const outcomeIsPartial = Boolean(outcomeNotice && !outcomeNotice.progress.correct && outcomeHasPoints)
   const outcomeBoomLabel = outcomeNotice?.progress.correct ? 'PRONO OK' : outcomeIsPartial ? 'BONUS OK' : 'PRONO RATE'
   const outcomeHeadline = outcomeNotice?.progress.correct ? 'Points gagnes' : outcomeIsPartial ? 'Bonus gagne' : 'Rien gagne'
+  const outcomeShareRows = [
+    ...(outcomeNotice?.progress.correct ? [{ label: `Vainqueur +${outcomeNotice.progress.stagePoints}`, tone: 'win' as const }] : []),
+    ...(outcomeNotice?.progress.exact ? [{ label: `Score exact +${outcomeNotice.progress.exactPoints}`, tone: 'win' as const }] : []),
+    ...(outcomeNotice && outcomeScorerNames.length ? [{ label: `Buteur +${outcomeNotice.progress.scorerPoints}: ${outcomeScorerNames.join(', ')}`, tone: 'win' as const }] : []),
+  ]
   const menuPseudo = savedProfile.pseudo || brackets.find((entry) => entry.id === activeBracketId)?.pseudo || 'Invite'
   const singleBracketEntry = currentLeaderboardEntry ?? brackets[0] ?? null
+
+  useEffect(() => {
+    setOutcomeShareStatus('idle')
+    setOutcomeShareFile(null)
+    setIsOutcomeCapturingShare(false)
+  }, [outcomeNotice?.key])
 
   const handleProfileUpdate = async ({ email, pseudo }: { email: string; pseudo: string }) => {
     if (!accessToken) {
@@ -1016,7 +1053,7 @@ export function BrakupHub({
         </div>
       ) : null}
       {outcomeNotice ? (
-        <div ref={outcomeRef} className={`brakup-outcome${outcomeNotice.progress.correct ? ' is-correct' : outcomeIsPartial ? ' is-partial' : ' is-wrong'}${isOutcomeCapturingShare ? ' is-share-capturing' : ''}`} role="dialog" aria-modal="true">
+        <div className={`brakup-outcome${outcomeNotice.progress.correct ? ' is-correct' : outcomeIsPartial ? ' is-partial' : ' is-wrong'}${isOutcomeCapturingShare ? ' is-share-capturing' : ''}`} role="dialog" aria-modal="true">
           <div className="brakup-outcome__panel">
             <div className="brakup-outcome__blast" aria-hidden="true">
               <i />
@@ -1040,9 +1077,10 @@ export function BrakupHub({
               {isOutcomeCapturingShare ? 'Tente ta chance avec ton prono.' : 'Envoie ton prono et invite tes potes a tenter le leur.'}
             </div>
             <button type="button" className="brakup-share-button" onClick={() => { sfx.click(); void handleOutcomeShare() }} disabled={outcomeShareStatus === 'working'}>
-              {outcomeShareStatus === 'working' ? 'Partage...' : "Partager l'image"}
+              {outcomeShareStatus === 'working' ? 'Preparation...' : outcomeShareStatus === 'ready' ? 'Ouvrir le partage' : "Partager l'image"}
             </button>
-            {outcomeShareStatus === 'done' ? <small className="brakup-share-feedback">Image prete.</small> : null}
+            {outcomeShareStatus === 'ready' ? <small className="brakup-share-feedback">Image prete. Appuie encore pour partager.</small> : null}
+            {outcomeShareStatus === 'done' ? <small className="brakup-share-feedback">Partage lance.</small> : null}
             {outcomeShareStatus === 'error' ? <small className="brakup-share-feedback is-error">Partage indisponible. Retente.</small> : null}
             <button type="button" className="brakup-button" onClick={() => { sfx.click(); closeOutcomeNotice() }}>Continuer</button>
           </div>

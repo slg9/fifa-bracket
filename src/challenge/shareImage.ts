@@ -70,8 +70,11 @@ async function resolveImagesAsDataUrls(element: HTMLElement): Promise<() => void
   return () => { originals.forEach((src, img) => { img.src = src }) }
 }
 
-async function shareBlob(blob: Blob, options: ShareImageOptions) {
-  const file = new File([blob], options.fileName, { type: 'image/png' })
+export function blobToShareFile(blob: Blob, fileName: string) {
+  return new File([blob], fileName, { type: 'image/png' })
+}
+
+export async function shareFile(file: File, options: Omit<ShareImageOptions, 'fileName'>) {
   const canShareFile = typeof navigator.share === 'function' && Boolean(navigator.canShare?.({ files: [file] }))
 
   if (canShareFile) {
@@ -97,13 +100,30 @@ async function shareBlob(blob: Blob, options: ShareImageOptions) {
         // If the browser lost user activation while generating the image,
         // still leave the user with the generated result instead of an error.
       }
-      downloadBlob(blob, options.fileName)
+      downloadBlob(file, file.name)
       return 'downloaded' as const
     }
   }
 
-  downloadBlob(blob, options.fileName)
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({
+        title: options.title,
+        text: options.text,
+        ...(options.url ? { url: options.url } : {}),
+      })
+      return 'shared' as const
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error
+    }
+  }
+
+  downloadBlob(file, file.name)
   return 'downloaded' as const
+}
+
+async function shareBlob(blob: Blob, options: ShareImageOptions) {
+  return shareFile(blobToShareFile(blob, options.fileName), options)
 }
 
 async function elementToShareBlob(element: HTMLElement, options: ShareImageOptions) {
