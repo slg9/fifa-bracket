@@ -33,6 +33,8 @@ export function ShareCard({
 }: ShareCardProps) {
   return (
     <div ref={captureRef} className={`brakup-share-card is-${variant}`}>
+      <img className="brakup-share-card__bg" src="/brakup-share-bg-brakup.png" alt="" aria-hidden="true" />
+      <img className="brakup-share-card__logo" src="/brakup-logo.png" alt="Brakup" />
       <div className="brakup-share-card__brand">BRAKUP</div>
       <div className="brakup-share-card__kicker">{kicker}</div>
       <div className="brakup-share-card__headline">{headline}</div>

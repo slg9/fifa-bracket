@@ -2687,11 +2687,25 @@
   padding: 54px 44px 46px;
   overflow: hidden;
   color: #fff;
-  background:
-    linear-gradient(180deg, rgba(7,10,28,.05), rgba(7,10,28,.42)),
-    url('/brakup-share-bg-brakup.png') center / cover no-repeat,
-    #050b16;
+  background: #050b16;
   font-family: Barlow, system-ui, sans-serif;
+}
+.brakup-share-card__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+.brakup-share-card__logo {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(80vw, 420px);
+  height: auto;
+  z-index: 2;
 }
 
 .brakup-share-card::after {
@@ -2719,42 +2733,49 @@
   border: 2px solid rgba(255,255,255,.36);
   border-radius: 999px;
   background: rgba(7,10,36,.58);
-  font: 900 28px/1 'Barlow Condensed','Arial Narrow',sans-serif;
+  font: 900 min(8vw, 28px)/1 'Barlow Condensed','Arial Narrow',sans-serif;
   letter-spacing: .18em;
+  white-space: nowrap;
 }
 
 .brakup-share-card__kicker {
-  margin-top: 44px;
+  margin-top: min(6vh, 44px);
   color: #FFB800;
-  font: 900 38px/1 'Barlow Condensed','Arial Narrow',sans-serif;
+  font: 900 min(10vw, 38px)/1 'Barlow Condensed','Arial Narrow',sans-serif;
   letter-spacing: .04em;
   text-align: center;
   text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .brakup-share-card__headline {
-  margin-top: 12px;
-  font: 900 58px/.9 'Barlow Condensed','Arial Narrow',sans-serif;
+  margin-top: min(2vh, 12px);
+  font: 900 min(15vw, 58px)/.9 'Barlow Condensed','Arial Narrow',sans-serif;
   letter-spacing: .03em;
   text-align: center;
   text-transform: uppercase;
   text-shadow: 0 8px 28px rgba(0,0,0,.28);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .brakup-share-card__boom {
-  margin-top: 190px;
+  margin-top: min(24vh, 190px);
   transform: rotate(-5deg);
-  font: 900 86px/.82 'Barlow Condensed','Arial Narrow',sans-serif;
+  font: 900 min(22vw, 86px)/.82 'Barlow Condensed','Arial Narrow',sans-serif;
   letter-spacing: .02em;
   text-transform: uppercase;
   text-shadow: 0 10px 30px rgba(0,0,0,.34);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .brakup-share-card__score {
-  margin-top: 14px;
+  margin-top: min(2vh, 14px);
   transform: rotate(-5deg);
   color: #FFB800;
-  font: 900 104px/.86 'Barlow Condensed','Arial Narrow',sans-serif;
+  font: 900 min(26vw, 104px)/.86 'Barlow Condensed','Arial Narrow',sans-serif;
   letter-spacing: .02em;
   text-transform: uppercase;
   text-shadow: 0 8px 26px rgba(0,0,0,.28);
@@ -2775,49 +2796,53 @@
 
 .brakup-share-card__ticket > div:first-child {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0,1fr) auto;
   align-items: center;
-  gap: 14px;
-  font-size: 36px;
+  gap: min(4vw, 14px);
+  font-size: min(10vw, 36px);
 }
 
 .brakup-share-card__ticket strong {
   min-width: 0;
   color: #111827;
-  font: 900 30px/1 'Barlow Condensed','Arial Narrow',sans-serif;
+  font: 900 min(8vw, 30px)/1 'Barlow Condensed','Arial Narrow',sans-serif;
   letter-spacing: .04em;
   text-transform: uppercase;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .brakup-share-card__ticket p {
-  margin: 16px 0;
+  margin: min(4vh, 16px) 0;
   color: #4b5563;
-  font: 800 22px/1.15 Barlow, sans-serif;
+  font: 800 min(6vw, 22px)/1.15 Barlow, sans-serif;
   text-align: center;
 }
 
 .brakup-share-card__badges {
   display: flex;
-  gap: 10px;
+  gap: min(3vw, 10px);
   justify-content: center;
   flex-wrap: wrap;
 }
 
 .brakup-share-card__badges b {
-  padding: 10px 14px;
+  padding: min(3vw, 10px) min(4vw, 14px);
   border-radius: 999px;
   background: #49c915;
   color: #ffffff;
-  font: 900 20px/1 'Barlow Condensed','Arial Narrow',sans-serif;
+  font: 900 min(5vw, 20px)/1 'Barlow Condensed','Arial Narrow',sans-serif;
   letter-spacing: .06em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .brakup-share-card__cta {
-  margin-top: 24px;
+  margin-top: min(4vh, 24px);
   color: #ffffff;
-  font: 900 26px/1.1 'Barlow Condensed','Arial Narrow',sans-serif;
+  font: 900 min(7vw, 26px)/1.1 'Barlow Condensed','Arial Narrow',sans-serif;
   letter-spacing: .08em;
   text-align: center;
   text-transform: uppercase;

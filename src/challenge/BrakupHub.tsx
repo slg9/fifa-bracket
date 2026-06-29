@@ -560,8 +560,16 @@ export function BrakupHub({
     if (!outcomeNotice || !outcomeShareRef.current) return
     setShareStatus('working')
     try {
-      // Attendre que les images de fond soient chargees
-      await new Promise(resolve => setTimeout(resolve, 150))
+      // Pre-charger les images pour s'assurer qu'elles sont disponibles
+      const bgImg = new Image()
+      const logoImg = new Image()
+      bgImg.src = '/brakup-share-bg-brakup.png'
+      logoImg.src = '/brakup-logo.png'
+      await Promise.all([
+        new Promise((resolve) => { bgImg.onload = resolve; bgImg.onerror = resolve }),
+        new Promise((resolve) => { logoImg.onload = resolve; logoImg.onerror = resolve }),
+        new Promise(resolve => setTimeout(resolve, 200))
+      ])
       const status = await shareElementImage(outcomeShareRef.current, {
         fileName: `brakup-${safeFilePart(outcomeNotice.match.id)}-${outcomeNotice.progress.correct ? 'win' : 'loss'}.png`,
         title: 'Brakup Challenge',
