@@ -178,12 +178,90 @@ async function rebuildLeaderboardFromStoredScores(): Promise<ChallengeEntry[]> {
   return ranked
 }
 
-async function sendMagicLink(email: string, token: string): Promise<boolean> {
+function emailAssetUrl(pathname: string) {
+  return `${PUBLIC_SITE_URL}${pathname}`
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+function brakupEmailTemplate(params: {
+  eyebrow: string
+  title: string
+  intro: string
+  body: string
+  ctaLabel: string
+  ctaUrl: string
+  footerNote: string
+  code?: string
+}) {
+  const headerUrl = emailAssetUrl('/brakup-email-header.png')
+  const eyebrow = escapeHtml(params.eyebrow)
+  const title = escapeHtml(params.title)
+  const intro = escapeHtml(params.intro)
+  const body = escapeHtml(params.body)
+  const ctaLabel = escapeHtml(params.ctaLabel)
+  const footerNote = escapeHtml(params.footerNote)
+  const code = params.code ? escapeHtml(params.code) : null
+
+  return `<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>${title}</title>
+  </head>
+  <body style="margin:0;background:#050712;color:#eef3ff;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#050712;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#0a1224;border:1px solid rgba(255,255,255,.12);border-radius:24px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.45);">
+            <tr>
+              <td style="background:#090b1f;">
+                <img src="${headerUrl}" width="640" alt="" style="display:block;width:100%;height:auto;border:0;">
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 32px 34px;">
+                <div style="color:#2bff9a;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;margin-bottom:10px;">${eyebrow}</div>
+                <h1 style="margin:0 0 14px;color:#ffffff;font-size:34px;line-height:1.05;font-weight:900;">${title}</h1>
+                <p style="margin:0 0 16px;color:#c9d3e6;font-size:17px;line-height:1.55;">${intro}</p>
+                <p style="margin:0 0 22px;color:#9aa8c0;font-size:15px;line-height:1.65;">${body}</p>
+                ${code ? `<div style="margin:22px 0;padding:18px 20px;border:1px solid rgba(43,255,154,.35);border-radius:16px;background:#07192b;text-align:center;"><div style="color:#8795aa;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;">Code de connexion</div><div style="color:#ffffff;font-family:'Courier New',monospace;font-size:34px;font-weight:900;letter-spacing:.22em;">${code}</div></div>` : ''}
+                <table role="presentation" cellspacing="0" cellpadding="0" style="margin:26px 0 22px;">
+                  <tr>
+                    <td style="border-radius:999px;background:#2bff9a;">
+                      <a href="${params.ctaUrl}" style="display:inline-block;padding:15px 24px;color:#04110c;text-decoration:none;font-size:14px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">${ctaLabel}</a>
+                    </td>
+                  </tr>
+                </table>
+                <div style="padding:16px;border:1px solid rgba(255,184,0,.28);border-radius:16px;background:rgba(255,184,0,.08);color:#ffd978;font-size:14px;line-height:1.55;">
+                  Fais ton prono en jouant le match a notre maniere : choisis ton equipe, vise le bon score, trouve les buteurs et vois si ton instinct merite le haut du classement.
+                </div>
+                <p style="margin:22px 0 0;color:#66748a;font-size:12px;line-height:1.5;">${footerNote}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`
+}
+
+async function sendMagicLink(email: string, token: string, otp?: string): Promise<boolean> {
   if (!process.env.RESEND_API_KEY) {
     console.warn('[brakup] RESEND_API_KEY absent, lien magique non envoyé.')
     return false
   }
   const origin = PUBLIC_SITE_URL
+  const linkUrl = `${origin}/?challenge&token=${encodeURIComponent(token)}`
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -193,8 +271,19 @@ async function sendMagicLink(email: string, token: string): Promise<boolean> {
     body: JSON.stringify({
       from: RESEND_FROM_EMAIL,
       to: email,
-      subject: 'Ton lien Brakup 🏆',
-      html: `<p>Ton accès Brakup est prêt.</p><p>Your Brakup access is ready.</p><p><a href="${origin}/?challenge&token=${encodeURIComponent(token)}">Accéder à mes brackets / Open my brackets</a></p>`,
+      subject: 'Ton acces Brakup est pret',
+      html: brakupEmailTemplate({
+        eyebrow: 'Lien magique',
+        title: 'Ton bracket t attend',
+        intro: 'Ton acces Brakup est pret. Ouvre ce lien sur ton appareil pour retrouver ton bracket, ton score et ta progression.',
+        body: 'Chaque choix compte: vainqueur, score exact, buteurs et bonus de match. Reviens sur la carte, joue tes affiches et grimpe au classement.',
+        ctaLabel: 'Ouvrir Brakup',
+        ctaUrl: linkUrl,
+        code: otp,
+        footerNote: otp
+          ? 'Le lien reste valable 30 jours. Le code expire dans 15 minutes. Si tu n as pas demande cet email, tu peux simplement l ignorer.'
+          : 'Ce lien reste valable 30 jours. Si tu n as pas demande cet email, tu peux simplement l ignorer.',
+      }),
     }),
   })
   return response.ok
@@ -216,7 +305,16 @@ async function sendOTPEmail(email: string, pseudo: string, otp: string, origin: 
       from: RESEND_FROM_EMAIL,
       to: email,
       subject: `Ton code OTP Brakup pour ${pseudo}`,
-      html: `<p>Ton code de connexion Brakup est : <strong style="font-size: 24px; letter-spacing: 4px;">${otp}</strong></p><p>Your Brakup login code is: <strong style="font-size: 24px; letter-spacing: 4px;">${otp}</strong></p><p>Ce code expire dans 15 minutes. This code expires in 15 minutes.</p><p>Rends-toi sur <a href="${otpUrl}">Brakup</a> et entre ce code pour te connecter.</p>`,
+      html: brakupEmailTemplate({
+        eyebrow: 'Code de connexion',
+        title: `Retour sur la pelouse, ${pseudo}`,
+        intro: 'Utilise ce code pour reconnecter ton compte Brakup et recuperer ton bracket sur cet appareil.',
+        body: 'Ton parcours reprend ou tu l avais laisse: pronostics, scores, buteurs et leaderboard. A toi de jouer juste.',
+        ctaLabel: 'Entrer mon code',
+        ctaUrl: otpUrl,
+        code: otp,
+        footerNote: 'Ce code expire dans 15 minutes. Si tu n as pas demande cet email, tu peux simplement l ignorer.',
+      }),
     }),
   })
   return response.ok
@@ -325,9 +423,39 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         res.status(400).json({ error: 'Email invalide.' })
         return
       }
-      const token = await signToken(await sha256(email))
-      const sent = await sendMagicLink(email, token)
+      const emailHash = await sha256(email)
+      const token = await signToken(emailHash)
+      const otp = String(Math.floor(100000 + Math.random() * 900000))
+      await writeJson(`challenge/login-otp/${emailHash}.json`, {
+        email,
+        otp,
+        expiresAt: Date.now() + 15 * 60 * 1000,
+      })
+      const sent = await sendMagicLink(email, token, otp)
       res.status(200).json({ data: { sent, ...(!sent ? { token } : {}) } })
+      return
+    }
+
+    if (action === 'verifyLoginOTP') {
+      const email = String(body.email ?? '')
+      const otp = String(body.otp ?? '')
+      if (!email.includes('@') || !otp || otp.length !== 6) {
+        res.status(400).json({ error: 'Email et code OTP (6 chiffres) requis.' })
+        return
+      }
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        res.status(500).json({ error: 'Service Brakup indisponible.' })
+        return
+      }
+      const emailHash = await sha256(email)
+      const otpPathname = `challenge/login-otp/${emailHash}.json`
+      const otpData = await readJson<{ email: string; otp: string; expiresAt: number } | null>(otpPathname, null)
+      if (!otpData || otpData.otp !== otp || otpData.expiresAt < Date.now()) {
+        res.status(401).json({ error: 'Code OTP invalide ou expiré.' })
+        return
+      }
+      await writeJson(otpPathname, {})
+      res.status(200).json({ data: { token: await signToken(emailHash) } })
       return
     }
 

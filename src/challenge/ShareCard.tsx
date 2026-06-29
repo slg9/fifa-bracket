@@ -53,7 +53,7 @@ export function ShareCard({
           {scorerLabel ? <b>{scorerLabel}</b> : null}
         </div>
       </div>
-      <div className="brakup-share-card__cta">Partage avec tes potes · challenge-les sur Brakup</div>
+      <div className="brakup-share-card__cta">A toi de tenter ton prono sur Brakup</div>
     </div>
   )
 }

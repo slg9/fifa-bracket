@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { setGameAudioVolume, setGameMuted, useGameAudio, useGameAudioVolume, useGameMuted } from '../lib/useGameAudio'
-import { getBrackets, getProfileStatus, resendMagicLink, submitBracket, updateProfile, verifyOTP } from '../lib/challengeData'
+import { getBrackets, getProfileStatus, resendMagicLink, submitBracket, updateProfile, verifyLoginOTP, verifyOTP } from '../lib/challengeData'
 import { alternateLanguageHref, localizedRootPath, type Locale } from '../lib/i18n'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
 import type { BattleResult, BattleScorer, ChallengeBreakdown, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
@@ -228,6 +228,7 @@ export function BrakupHub({
   const [loginBusy, setLoginBusy] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
   const [loginSent, setLoginSent] = useState(false)
+  const [loginEmail, setLoginEmail] = useState<string | null>(null)
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
   const [shareStatus, setShareStatus] = useState<'idle' | 'working' | 'done' | 'error'>('idle')
   const outcomeShareRef = useRef<HTMLDivElement>(null)
@@ -568,6 +569,7 @@ export function BrakupHub({
     setLoginBusy(true)
     setLoginError(null)
     setLoginSent(false)
+    setLoginEmail(email)
     try {
       const result = await resendMagicLink(email)
       setLoginSent(true)
@@ -588,6 +590,37 @@ export function BrakupHub({
       }
     } catch (caught) {
       setLoginError(caught instanceof Error ? caught.message : 'Connexion impossible.')
+    } finally {
+      setLoginBusy(false)
+    }
+  }
+
+  const loadAccountFromToken = async (token: string, email: string) => {
+    localStorage.setItem('brakup:token', token)
+    setAccessToken(token)
+    const entries = await getBrackets(token)
+    setBrackets(entries)
+    if (entries[0]) {
+      setActiveBracketId(entries[0].id)
+      setPicks(entries[0].picks ?? {})
+      setBattleScores(entries[0].battleScores ?? {})
+      setScorers(entries[0].scorers ?? {})
+      setBattleBonuses(entries[0].battleBonuses ?? 0)
+      rememberProfile({ email, pseudo: entries[0].pseudo, bracketName: entries[0].bracketName })
+    }
+  }
+
+  const handleLoginOTP = async (otp: string) => {
+    if (!loginEmail) return
+    setLoginBusy(true)
+    setLoginError(null)
+    try {
+      const token = await verifyLoginOTP(loginEmail, otp)
+      await loadAccountFromToken(token, loginEmail)
+      setShowLoginEntry(false)
+      setLoginSent(false)
+    } catch (caught) {
+      setLoginError(caught instanceof Error ? caught.message : 'Code invalide.')
     } finally {
       setLoginBusy(false)
     }
@@ -630,6 +663,25 @@ export function BrakupHub({
     setShareStatus('idle')
   }
 
+  const buildChallengeShareUrl = () => `${window.location.origin}${localizedRootPath(locale)}?challenge`
+
+  const buildOutcomeShareText = () => {
+    if (!outcomeNotice) return `Viens tenter ton bracket Brakup.`
+    const parts: string[] = []
+    if (outcomeNotice.progress.correct) parts.push("J'ai reussi le bon prono")
+    if (outcomeNotice.progress.exact) parts.push("j'ai trouve le score exact")
+    if (outcomeNotice.progress.scorerHits.length > 0) {
+      const scorerLabel = outcomeNotice.progress.scorerHits.length === 1
+        ? `j'ai aussi trouve un buteur: ${outcomeNotice.progress.scorerHits[0].name}`
+        : `j'ai aussi trouve ${outcomeNotice.progress.scorerHits.length} buteurs`
+      parts.push(scorerLabel)
+    }
+    if (!parts.length) {
+      parts.push("J'ai tente mon prono sur Brakup")
+    }
+    return `${parts.join(', ')}. Et toi, tu veux essayer ?`
+  }
+
   const handleOutcomeShare = async () => {
     if (!outcomeNotice || !outcomeShareRef.current) return
     setShareStatus('working')
@@ -647,7 +699,8 @@ export function BrakupHub({
       const status = await shareElementImage(outcomeShareRef.current, {
         fileName: `brakup-${safeFilePart(outcomeNotice.match.id)}-${outcomeNotice.progress.correct ? 'win' : 'loss'}.png`,
         title: 'Brakup Challenge',
-        text: 'Partage ca avec tes potes et challenge-les sur Brakup.',
+        text: buildOutcomeShareText(),
+        url: buildChallengeShareUrl(),
       })
       setShareStatus(status === 'shared' ? 'done' : 'done')
     } catch (error) {
@@ -867,7 +920,7 @@ export function BrakupHub({
               {outcomeScorerLabel ? <span>Buteur trouve <strong>{outcomeScorerLabel}</strong></span> : null}
               {outcomeScorerNames.length ? <span>Scoreurs Brakup <strong>{outcomeScorerNames.join(', ')}</strong></span> : null}
             </div>
-            <div className="brakup-outcome__share-copy">Partage-la avec tes potes et challenge-les sur Brakup.</div>
+            <div className="brakup-outcome__share-copy">Envoie ton prono et invite tes potes a tenter le leur.</div>
             <button type="button" className="brakup-share-button" onClick={() => { sfx.click(); void handleOutcomeShare() }} disabled={shareStatus === 'working'}>
               {shareStatus === 'working' ? "Generation de l'image..." : "Partager l'image"}
             </button>
@@ -893,7 +946,7 @@ export function BrakupHub({
         </div>
       ) : null}
       {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={savedProfile.email} initialBracketName={brackets.find((entry) => entry.id === activeBracketId)?.bracketName ?? savedProfile.bracketName} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => setShowEmailEntry(false)} /> : null}
-      {showLoginEntry ? <LoginEntry initialEmail={savedProfile.email} busy={loginBusy} error={loginError} sent={loginSent} onSubmit={handleLogin} onCancel={() => setShowLoginEntry(false)} /> : null}
+      {showLoginEntry ? <LoginEntry initialEmail={savedProfile.email} busy={loginBusy} error={loginError} sent={loginSent} onSubmit={handleLogin} onVerify={handleLoginOTP} onCancel={() => setShowLoginEntry(false)} /> : null}
       {showOTPEntry && pendingEmail && pendingPseudo ? <OTPEntry email={pendingEmail} pseudo={pendingPseudo} busy={otpBusy} error={otpError} onSubmit={handleOTPSubmit} onCancel={() => { setShowOTPEntry(false); setPendingEmail(null); setPendingPseudo(null); setShowEmailEntry(true) }} /> : null}
       {showProfileSettings ? <ProfileSettings initialEmail={savedProfile.email} initialPseudo={savedProfile.pseudo} busy={profileBusy} error={profileError} status={profileStatus} onSubmit={handleProfileUpdate} onClose={() => setShowProfileSettings(false)} /> : null}
       <footer className="brakup-footer"><span>BRAKUP 2026</span><small>Données tournoi : {seed.meta.name} · {liveSource?.syncedAt ? `sync ${new Date(liveSource.syncedAt).toLocaleString('fr-FR')}` : 'projection locale'}</small></footer>

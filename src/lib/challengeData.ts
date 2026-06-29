@@ -165,6 +165,16 @@ export function resendMagicLink(email: string): Promise<{ sent: boolean; token?:
   return request('resend', { email })
 }
 
+export async function verifyLoginOTP(email: string, otp: string): Promise<string> {
+  try {
+    const result = await request<{ token: string }>('verifyLoginOTP', { email, otp })
+    return result.token
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    return LOCAL_TOKEN
+  }
+}
+
 export function getProfileStatus(token: string): Promise<{
   blobConfigured: boolean
   bracketCount: number

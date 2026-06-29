@@ -4,6 +4,7 @@ type ShareImageOptions = {
   fileName: string
   title: string
   text: string
+  url?: string
   backgroundColor?: string
 }
 
@@ -33,7 +34,8 @@ export async function shareElementImage(element: HTMLElement, options: ShareImag
   if (canShareFile) {
     await navigator.share({
       title: options.title,
-      text: options.text,
+      text: options.url ? `${options.text}\n${options.url}` : options.text,
+      ...(options.url ? { url: options.url } : {}),
       files: [file],
     })
     return 'shared' as const

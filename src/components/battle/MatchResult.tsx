@@ -35,7 +35,10 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
       await shareElementImage(shareRef.current, {
         fileName: `brakup-match-${safeFilePart(homeName)}-${safeFilePart(awayName)}.png`,
         title: 'Brakup Challenge',
-        text: 'Partage ca avec tes potes et challenge-les sur Brakup.',
+        text: playerWon
+          ? "J'ai gagne mon duel Brakup. Et toi, tu veux tenter ton prono ?"
+          : "J'ai tente mon duel Brakup. A toi de faire mieux ?",
+        url: `${window.location.origin}/?challenge`,
         backgroundColor: '#050b16',
       })
       setShareStatus('done')
@@ -74,7 +77,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
           </div>
         ) : null}
         {syncStatusLabel ? <div className="battle-match-result__sync">{syncStatusLabel}</div> : null}
-        <p className="battle-match-result__share-copy">Partage l'image avec tes potes et challenge-les sur Brakup.</p>
+        <p className="battle-match-result__share-copy">Invite tes potes a tenter leur prono sur Brakup.</p>
         <button type="button" className="battle-share" onClick={() => void handleShare()} disabled={shareStatus === 'working'}>
           {shareStatus === 'working' ? "Generation de l'image..." : "Partager l'image"}
         </button>
