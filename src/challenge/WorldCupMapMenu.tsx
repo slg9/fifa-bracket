@@ -447,6 +447,7 @@ function LevelEntryScreen({
   const displayScore = scoreForNode(node, score)
   const isClosed = node.status === 'closed'
   const resultScore = isClosed ? node.progress.realScore : displayScore
+  const playedScoreSummary = isClosed && displayScore ? displayScore : null
   const officialWinnerTeam = node.realWinnerTeamId
     ? node.realWinnerTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
     : undefined
@@ -495,6 +496,12 @@ function LevelEntryScreen({
                 <span>{teamFlagEmoji(node.awayTeam)} {displayTeamName(node.awayTeam)}</span>
               </div>
             )}
+            {playedScoreSummary ? (
+              <div className="wcmap-entry__played-score">
+                <span>Ton jeu</span>
+                <strong>{playedScoreSummary.home} - {playedScoreSummary.away}</strong>
+              </div>
+            ) : null}
             {node.progress.played ? (
               <div className={`wcmap-entry__verdict${node.progress.correct ? ' is-correct' : ' is-wrong'}`}>
                 <strong>{node.progress.correct ? `★ Prono reussi +${node.progress.points}` : '! Prono rate'}</strong>
