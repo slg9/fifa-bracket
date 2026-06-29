@@ -24,12 +24,15 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
   const [preparedShareFile, setPreparedShareFile] = useState<File | null>(null)
   const homeName = homeTeamName ?? homeTeamId
   const awayName = awayTeamName ?? awayTeamId
+  const matchLabel = `${homeName} - ${awayName}`
+  const scoreLabel = `${result.homeScore}-${result.awayScore}`
+  const scorerNames = result.scorers?.map((scorer) => scorer.name) ?? []
   const shareText = playerWon
-    ? "J'ai gagne mon duel Brakup. Et toi, tu veux tenter ton prono ?"
-    : "J'ai tente mon duel Brakup. A toi de faire mieux ?"
+    ? `Brakup ${matchLabel}: j'ai gagne mon duel ${scoreLabel}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. Et toi, tu veux tenter ton prono ?`
+    : `Brakup ${matchLabel}: j'ai tente mon duel ${scoreLabel}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. A toi de faire mieux ?`
 
   const shareRows = result.scorers?.length
-    ? result.scorers.slice(0, 4).map((scorer) => ({ label: `Buteur: ${scorer.name}`, tone: 'win' as const }))
+    ? result.scorers.slice(0, 4).map((scorer) => ({ label: `Buteur ${matchLabel}: ${scorer.name}`, tone: 'win' as const }))
     : [{ label: playerWon ? 'Duel gagne' : 'Duel joue', tone: playerWon ? 'win' as const : 'neutral' as const }]
 
   useEffect(() => {
@@ -66,7 +69,12 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
         logoSrc: '/brakup-logo.png',
         boomLabel: playerWon ? 'VICTOIRE' : 'MATCH JOUE',
         headline: playerWon ? 'Victoire Brakup' : 'Bien essaye',
-        subline: `${homeName} ${result.homeScore}-${result.awayScore} ${awayName}`,
+        subline: `${homeName} ${scoreLabel} ${awayName}`,
+        messageLines: [
+          `Match ${matchLabel}`,
+          `Score Brakup: ${homeName} ${scoreLabel} ${awayName}`,
+          scorerNames.length ? `Buteur: ${scorerNames.slice(0, 3).join(', ')}` : '',
+        ],
         pointsLabel: playerWon ? 'Duel gagne' : 'Resultat partage',
         rows: shareRows,
         cta: 'Tente ta chance avec ton prono.',
