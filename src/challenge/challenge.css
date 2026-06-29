@@ -2830,8 +2830,7 @@
 }
 
 .brakup-outcome.is-share-capturing .brakup-share-button,
-.brakup-outcome.is-share-capturing .brakup-button,
-.brakup-outcome.is-share-capturing .brakup-outcome__share-copy {
+.brakup-outcome.is-share-capturing .brakup-button {
   display: none;
 }
 

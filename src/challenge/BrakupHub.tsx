@@ -1036,7 +1036,9 @@ export function BrakupHub({
               {outcomeScorerLabel ? <span>Buteur trouve <strong>{outcomeScorerLabel}</strong></span> : null}
               {outcomeScorerNames.length ? <span>Scoreurs Brakup <strong>{outcomeScorerNames.join(', ')}</strong></span> : null}
             </div>
-            <div className="brakup-outcome__share-copy">Tente ta chance avec ton prono.</div>
+            <div className="brakup-outcome__share-copy">
+              {isOutcomeCapturingShare ? 'Tente ta chance avec ton prono.' : 'Envoie ton prono et invite tes potes a tenter le leur.'}
+            </div>
             <button type="button" className="brakup-share-button" onClick={() => { sfx.click(); void handleOutcomeShare() }} disabled={outcomeShareStatus === 'working'}>
               {outcomeShareStatus === 'working' ? 'Partage...' : "Partager l'image"}
             </button>
