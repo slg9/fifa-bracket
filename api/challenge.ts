@@ -169,6 +169,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         pseudo: input.pseudo.trim().slice(0, 40),
         bracketName: input.bracketName.trim().slice(0, 60),
         picks: input.picks ?? current?.picks ?? {},
+        battleScores: input.battleScores ?? current?.battleScores ?? {},
         score: current?.score ?? 0,
         rank: current?.rank ?? null,
         submittedAt: input.submittedAt ?? current?.submittedAt ?? null,

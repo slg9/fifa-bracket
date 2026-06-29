@@ -3,6 +3,7 @@ import type { ChallengeEntry, KnockoutMatch, Team } from '../types'
 import ScorePanel from './ScorePanel'
 import { sfx } from '../lib/sfx'
 import { formatKnockoutDateTime } from '../lib/knockoutSchedule'
+import { evaluateMatchProgress, formatScore, type BattleScore, type OfficialScore } from './progress'
 
 export interface BracketChallengeProps {
   matches: KnockoutMatch[]
@@ -14,6 +15,8 @@ export interface BracketChallengeProps {
   activeBracketId?: string | null
   onSelectBracket?: (id: string) => void
   realResults?: Record<string, string>
+  scores?: Record<string, BattleScore>
+  officialScores?: Record<string, OfficialScore>
 }
 
 const ROUND_ORDER = ['Round of 32', 'Round of 16', 'Quarter-final', 'Semi-final', 'Finale']
@@ -62,7 +65,7 @@ function getRelativeRect(el: HTMLElement, container: HTMLElement) {
   return { top, left, width: el.offsetWidth, height: el.offsetHeight }
 }
 
-export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, brackets = [], activeBracketId = null, onSelectBracket = () => undefined, realResults = {} }: BracketChallengeProps) {
+export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, brackets = [], activeBracketId = null, onSelectBracket = () => undefined, realResults = {}, scores = {}, officialScores = {} }: BracketChallengeProps) {
   const bracketRef = useRef<HTMLElement>(null)
   const [paths, setPaths] = useState<PathInfo[]>([])
 
@@ -131,7 +134,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
       <div className="brakup-bracket-wrapper">
         <div className="brakup-bracket-header">
           <div style={{ font: '900 22px Barlow Condensed, Arial Narrow, sans-serif', letterSpacing: '.04em', textTransform: 'uppercase' }}>Bracket — Coupe du Monde 2026</div>
-          <div style={{ font: '500 13px Barlow, sans-serif', color: 'rgba(255,255,255,.45)', marginBottom: 18 }}>R32 → Finale · ton chemin en vert</div>
+          <div style={{ font: '500 13px Barlow, sans-serif', color: 'rgba(255,255,255,.45)', marginBottom: 18 }}>R32 → Finale · glisse horizontalement sur mobile pour voir tout le tableau</div>
         </div>
         <section className="brakup-bracket" aria-label="Bracket challenge" ref={bracketRef}>
           <svg
@@ -156,16 +159,12 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
               const isPicked = picks[match.id] != null
               const isReady = match.home.kind === 'team' && match.away.kind === 'team' && !isPicked
               const realWinnerId = realResults[match.id]
-              return <article className={`brakup-bracket__match${isPicked ? ' is-done' : isReady ? ' is-ready' : ''}`} key={match.id} data-match-id={match.id}>
+              const progress = evaluateMatchProgress(match, picks, scores, realResults, officialScores)
+              return <article className={`brakup-bracket__match${isPicked ? ' is-done' : isReady ? ' is-ready' : ''}${progress.correct ? ' is-prono-correct' : progress.wrong ? ' is-prono-wrong' : ''}`} key={match.id} data-match-id={match.id}>
                 <header className="bkm-meta">
                   <span>{match.label}</span>
                   <time>{formatKnockoutDateTime(match.id, match.dateLabel)}</time>
                 </header>
-                {match.qualificationStatus ? (
-                  <span className={`bkm-qbadge is-${match.qualificationStatus}`}>
-                    {match.qualificationStatus === 'confirmed' ? 'CONFIRME' : 'PROJETE'}
-                  </span>
-                ) : null}
                 {(['home', 'away'] as const).map((side) => {
                   const entrant = match[side]
                   const team = entrant.kind === 'team' ? teamsById.get(entrant.teamId) : undefined
@@ -173,7 +172,6 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   const isWinner = isPicked && picks[match.id] === team.id
                   const isLoser = isPicked && picks[match.id] !== team.id
                   const isRealWinnerVisible = isPicked && realWinnerId === team.id
-                  const predictionState = isPicked && realWinnerId && picks[match.id] === team.id ? picks[match.id] === realWinnerId ? 'correct' : 'wrong' : null
                   return <div key={side}
                     className={`${isWinner ? 'is-picked' : isLoser ? 'is-lost' : ''}${isRealWinnerVisible ? ' is-real-winner' : ''}`}
                     onClick={() => { if (!isLoser) { sfx.pick(); onPick(match.id, team.id) } }}
@@ -182,11 +180,19 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                     <span>{team.flagEmoji}</span>
                     <strong>{team.shortName}</strong>
                     {isRealWinnerVisible ? <small className="bkm-official">OFF</small> : null}
-                    {predictionState ? <small className={`bkm-prono is-${predictionState}`} /> : null}
                     {isReady && <button type="button" className="bkm-play" title="Jouer ce match"
                       onClick={(e) => { e.stopPropagation(); sfx.battle(); onPlay(match.id, team.id) }}>⚔</button>}
                   </div>
                 })}
+                {progress.played ? (
+                  <footer className="bkm-progress">
+                    <span className={`bkm-progress__badge${progress.correct ? ' is-correct' : ' is-wrong'}`}>
+                      {progress.correct ? `★ +${progress.points}` : '! rate'}
+                    </span>
+                    {progress.exact ? <span className="bkm-progress__exact">◎ exact +{progress.exactPoints}</span> : null}
+                    <span>R {formatScore(progress.realScore)} · J {formatScore(progress.playedScore)}</span>
+                  </footer>
+                ) : null}
               </article>
             })}
           </div>)}

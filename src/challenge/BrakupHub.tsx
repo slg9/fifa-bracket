@@ -14,7 +14,16 @@ import EmailEntry from './EmailEntry'
 import Leaderboard from './Leaderboard'
 import MyBrackets from './MyBrackets'
 import { sfx } from '../lib/sfx'
+import { evaluateMatchProgress, formatScore, summarizeProgress, type OfficialScore } from './progress'
 import './challenge.css'
+
+export type ChallengeMenuMatch = GroupMatch & {
+  dayStageLabel?: string
+  dayMatchLabel?: string
+  homeLabel?: string
+  awayLabel?: string
+  isKnockout?: boolean
+}
 
 export interface BrakupHubProps {
   seed: TournamentSeed
@@ -22,6 +31,10 @@ export interface BrakupHubProps {
   standings: Record<string, RankedStandingRow[]>
   groupMatches?: GroupMatch[]
   teamsById: Map<string, Team>
+  todayMatches?: ChallengeMenuMatch[]
+  officialResults?: Record<string, string>
+  officialScores?: Record<string, OfficialScore>
+  topScorers?: Array<{ name: string; teamCode: string; goals: number }>
 }
 
 type HubView = 'challenge' | 'battle' | 'brackets' | 'board'
@@ -29,6 +42,9 @@ type SavedProfile = { email: string; pseudo: string; bracketName: string; savedA
 
 const PROFILE_STORAGE_KEY = 'brakup:profile'
 const AUTOSAVE_STORAGE_KEY = 'brakup:autosave-at'
+const OFFICIAL_RESULTS_STORAGE_KEY = 'brakup:official-results'
+const OFFICIAL_SCORES_STORAGE_KEY = 'brakup:official-scores'
+const SEEN_OUTCOMES_STORAGE_KEY = 'brakup:seen-outcomes'
 
 function readSavedProfile(): SavedProfile {
   try {
@@ -42,6 +58,45 @@ function readSavedProfile(): SavedProfile {
   } catch {
     return { email: '', pseudo: '', bracketName: 'Mon bracket' }
   }
+}
+
+function readStorageMap<T extends object>(key: string, fallback: T): T {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? JSON.stringify(fallback)) as T
+  } catch {
+    return fallback
+  }
+}
+
+function readSeenOutcomeKeys() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SEEN_OUTCOMES_STORAGE_KEY) ?? '[]') as unknown
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function outcomeStorageKey(matchId: string, winnerId: string | undefined, score?: OfficialScore) {
+  return `${matchId}:${winnerId ?? 'unknown'}:${score ? `${score.home}-${score.away}` : 'score'}`
+}
+
+function formatMenuKickoff(match: ChallengeMenuMatch) {
+  if (match.kickoffIso) {
+    return new Intl.DateTimeFormat('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date(match.kickoffIso))
+  }
+  return match.kickoffTime ?? 'Horaire a confirmer'
+}
+
+function menuTeamName(match: ChallengeMenuMatch, side: 'home' | 'away', teamsById: Map<string, Team>) {
+  const teamId = side === 'home' ? match.homeTeamId : match.awayTeamId
+  const team = teamsById.get(teamId)
+  if (team) return team.shortName || team.name
+  return side === 'home' ? match.homeLabel ?? 'A determiner' : match.awayLabel ?? 'A determiner'
 }
 
 function resolveMatches(baseMatches: KnockoutMatch[], picks: Record<string, string>): KnockoutMatch[] {
@@ -85,7 +140,17 @@ function readInitialView(): HubView {
   return 'challenge'
 }
 
-export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById }: BrakupHubProps) {
+export function BrakupHub({
+  seed,
+  liveSource,
+  standings,
+  groupMatches,
+  teamsById,
+  todayMatches = [],
+  officialResults = {},
+  officialScores = {},
+  topScorers = [],
+}: BrakupHubProps) {
   const [view, setView] = useState<HubView>(readInitialView)
   const [showSplash, setShowSplash] = useState(true)
   const [showBracket, setShowBracket] = useState(false)
@@ -99,9 +164,8 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
   const [battleScores, setBattleScores] = useState<Record<string, { p: number; o: number }>>(() => {
     try { return JSON.parse(localStorage.getItem('brakup:scores') ?? '{}') } catch { return {} }
   })
-  const [realResults] = useState<Record<string, string>>(() => {
-    try { return JSON.parse(localStorage.getItem('brakup:official-results') ?? '{}') } catch { return {} }
-  })
+  const [storedRealResults] = useState<Record<string, string>>(() => readStorageMap<Record<string, string>>(OFFICIAL_RESULTS_STORAGE_KEY, {}))
+  const [storedRealScores] = useState<Record<string, OfficialScore>>(() => readStorageMap<Record<string, OfficialScore>>(OFFICIAL_SCORES_STORAGE_KEY, {}))
   const [activeSide, setActiveSide] = useState<'home' | 'away'>('home')
   const [battleBonuses, setBattleBonuses] = useState(0)
   const [savedProfile, setSavedProfile] = useState<SavedProfile>(readSavedProfile)
@@ -111,10 +175,14 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
   const [showEmailEntry, setShowEmailEntry] = useState(false)
   const [showGameMenu, setShowGameMenu] = useState(false)
   const [showBattleControls, setShowBattleControls] = useState(false)
-  const [bracketLandscapeMode, setBracketLandscapeMode] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
+  const [outcomeNotice, setOutcomeNotice] = useState<{
+    key: string
+    match: KnockoutMatch
+    progress: ReturnType<typeof evaluateMatchProgress>
+  } | null>(null)
   const challengePreload = useChallengePreload()
   const audioMuted = useGameMuted()
   // Lobby music: kickoff when on challenge/brackets/board. Null during battle (BattleEngine takes over).
@@ -124,6 +192,42 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
   const matches = useMemo(() => resolveMatches(baseMatches, picks), [baseMatches, picks])
   const activeMatch = matches.find((match) => match.id === activeMatchId)
   const hasSyncedProfile = Boolean(savedProfile.email && savedProfile.pseudo)
+  const officialScoreMap = useMemo(
+    () => ({ ...storedRealScores, ...officialScores }),
+    [officialScores, storedRealScores],
+  )
+  const realResults = useMemo(() => {
+    const derivedFromScores = matches.reduce<Record<string, string>>((results, match) => {
+      const score = officialScoreMap[match.id]
+      if (!score || score.home === score.away || match.home.kind !== 'team' || match.away.kind !== 'team') return results
+      results[match.id] = score.home > score.away ? match.home.teamId : match.away.teamId
+      return results
+    }, {})
+    return { ...storedRealResults, ...officialResults, ...derivedFromScores }
+  }, [matches, officialResults, officialScoreMap, storedRealResults])
+  const progressStats = useMemo(
+    () => summarizeProgress(matches, picks, battleScores, realResults, officialScoreMap, battleBonuses),
+    [battleBonuses, battleScores, matches, officialScoreMap, picks, realResults],
+  )
+  const teamsByFifaCode = useMemo(() => new Map([...teamsById.values()].map((team) => [team.fifaCode, team])), [teamsById])
+  const currentLeaderboardEntry = useMemo<ChallengeEntry | null>(() => {
+    const current = brackets.find((entry) => entry.id === activeBracketId)
+    if (!current && !savedProfile.pseudo && Object.keys(picks).length === 0) return null
+    return {
+      id: current?.id ?? 'local-current-player',
+      emailHash: current?.emailHash ?? 'local',
+      pseudo: current?.pseudo ?? (savedProfile.pseudo || 'Moi'),
+      bracketName: current?.bracketName ?? (savedProfile.bracketName || 'Mon bracket'),
+      picks,
+      battleScores,
+      score: progressStats.points,
+      rank: current?.rank ?? null,
+      submittedAt: current?.submittedAt ?? null,
+      breakdown: current?.breakdown ?? {},
+      battleBonuses,
+      createdAt: current?.createdAt ?? savedProfile.savedAt ?? new Date().toISOString(),
+    }
+  }, [activeBracketId, battleBonuses, battleScores, brackets, picks, progressStats.points, savedProfile])
 
   const rememberProfile = useCallback((values: { email: string; pseudo: string; bracketName: string }) => {
     const next = { ...values, savedAt: new Date().toISOString() }
@@ -181,6 +285,7 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
     pseudo,
     bracketName,
     picksSnapshot,
+    battleScoresSnapshot,
     battleBonusesSnapshot,
     submitted,
   }: {
@@ -188,6 +293,7 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
     pseudo: string
     bracketName: string
     picksSnapshot: Record<string, string>
+    battleScoresSnapshot: Record<string, { p: number; o: number }>
     battleBonusesSnapshot: number
     submitted: boolean
   }) => {
@@ -198,6 +304,7 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
       pseudo,
       bracketName,
       picks: picksSnapshot,
+      battleScores: battleScoresSnapshot,
       battleBonuses: battleBonusesSnapshot,
       submittedAt: submitted ? new Date().toISOString() : null,
     })
@@ -210,9 +317,10 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
   const handleBattleComplete = (result: BattleResult) => {
     const mid = activeMatchId ?? ''
     const nextPicks = mid ? { ...picks, [mid]: result.winnerId } : picks
+    const nextBattleScores = mid ? { ...battleScores, [mid]: { p: result.playerScore, o: result.awayScore } } : battleScores
     const nextBattleBonuses = Math.min(40, battleBonuses + Math.max(1, Math.round(result.playerScore / 20)))
     setPicks(nextPicks)
-    if (mid) setBattleScores((s) => ({ ...s, [mid]: { p: result.playerScore, o: result.awayScore } }))
+    if (mid) setBattleScores(nextBattleScores)
     setBattleBonuses(nextBattleBonuses)
     if (hasSyncedProfile) {
       setSaving(true)
@@ -222,6 +330,7 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
         pseudo: savedProfile.pseudo,
         bracketName: savedProfile.bracketName || 'Mon bracket',
         picksSnapshot: nextPicks,
+        battleScoresSnapshot: nextBattleScores,
         battleBonusesSnapshot: nextBattleBonuses,
         submitted: true,
       }).catch((caught) => {
@@ -261,26 +370,17 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
     setSaving(true); setSaveError(null)
     rememberProfile({ email, pseudo, bracketName })
     try {
-      await syncBracketSnapshot({ email, pseudo, bracketName, picksSnapshot: picks, battleBonusesSnapshot: battleBonuses, submitted })
+      await syncBracketSnapshot({ email, pseudo, bracketName, picksSnapshot: picks, battleScoresSnapshot: battleScores, battleBonusesSnapshot: battleBonuses, submitted })
       setShowEmailEntry(false)
     } catch (caught) { setSaveError(caught instanceof Error ? caught.message : 'Sauvegarde impossible.') } finally { setSaving(false) }
   }
 
-  const openBracket = (entry: ChallengeEntry) => { setPicks(entry.picks); setBattleBonuses(entry.battleBonuses); setActiveBracketId(entry.id); navigate('challenge') }
-  const openBracketOverlay = (landscape = false) => {
-    setBracketLandscapeMode(landscape)
+  const openBracket = (entry: ChallengeEntry) => { setPicks(entry.picks); setBattleScores(entry.battleScores ?? {}); setBattleBonuses(entry.battleBonuses); setActiveBracketId(entry.id); navigate('challenge') }
+  const openBracketOverlay = () => {
     setShowBracket(true)
-    if (!landscape) return
-    const root = document.documentElement
-    const fullscreenRequest = root.requestFullscreen?.()
-    fullscreenRequest?.catch(() => undefined)
-    const orientation = screen.orientation as ScreenOrientation & { lock?: (orientation: OrientationLockType) => Promise<void> }
-    const orientationRequest = orientation.lock?.('landscape')
-    orientationRequest?.catch(() => undefined)
   }
   const closeBracketOverlay = () => {
     setShowBracket(false)
-    setBracketLandscapeMode(false)
     if (document.fullscreenElement) {
       const fullscreenExit = document.exitFullscreen?.()
       fullscreenExit?.catch(() => undefined)
@@ -288,6 +388,28 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
   }
   const introActive = view === 'challenge' && (!challengePreload.ready || showSplash)
   const simulatedMatch = simulatedMatchId ? matches.find((match) => match.id === simulatedMatchId) : null
+
+  useEffect(() => {
+    if (!challengePreload.ready || showSplash || outcomeNotice) return
+    const seen = new Set(readSeenOutcomeKeys())
+    const next = matches
+      .map((match) => {
+        const progress = evaluateMatchProgress(match, picks, battleScores, realResults, officialScoreMap)
+        const key = outcomeStorageKey(match.id, progress.realWinnerTeamId, progress.realScore)
+        return { key, match, progress }
+      })
+      .find((item) => item.progress.played && !seen.has(item.key))
+    if (next) setOutcomeNotice(next)
+  }, [battleScores, challengePreload.ready, matches, officialScoreMap, outcomeNotice, picks, realResults, showSplash])
+
+  const closeOutcomeNotice = () => {
+    if (outcomeNotice) {
+      const seen = new Set(readSeenOutcomeKeys())
+      seen.add(outcomeNotice.key)
+      localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify([...seen]))
+    }
+    setOutcomeNotice(null)
+  }
 
   return (
     <div className={`brakup-shell${view === 'challenge' ? ' brakup-shell--map-only' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
@@ -300,12 +422,11 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
           <button type="button" className={view === 'brackets' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('brackets') }}>Mes brackets</button>
           <button type="button" className={view === 'board' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
         </nav>
-        <a href="/" className="brakup-exit">Simulateur ↗</a>
       </header>
       {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? <BattleEngine match={activeMatch} teamsById={teamsById} onComplete={handleBattleComplete} playerSide={activeSide} onQuit={() => navigate('challenge')} showControls={showBattleControls} syncStatusLabel={hasSyncedProfile ? `Deja synchronise : ${savedProfile.pseudo || 'profil'} sera sauvegarde automatiquement.` : 'Synchro proposee apres ce match pour publier ton score.'} /> : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
-        <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} realResults={realResults} autosavedAt={autosavedAt} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); openBracketOverlay(false) }} onSave={() => setShowEmailEntry(true)} />
+        <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} realResults={realResults} officialScores={officialScoreMap} autosavedAt={autosavedAt} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); openBracketOverlay() }} />
         <button type="button" className="game-menu-button" onClick={() => { sfx.click(); setShowGameMenu(true) }} aria-label="Ouvrir le menu jeu">
           <span />
           <span />
@@ -321,18 +442,45 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
               <span>Menu jeu</span>
               <button type="button" className="game-menu-modal__close" onClick={() => { sfx.click(); setShowGameMenu(false) }} aria-label="Fermer">X</button>
             </div>
-            <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay(false) }}>Tableau</button>
-            <button type="button" className="game-menu-modal__item game-menu-modal__item--landscape" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay(true) }}>Tableau plein ecran paysage</button>
+            <div className="game-menu-modal__score">
+              <strong>{progressStats.points}</strong>
+              <span>pts</span>
+              <small>{progressStats.correct} pronos OK · {progressStats.exact} scores exacts</small>
+            </div>
+            <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay() }}>Tableau</button>
+            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); navigate('challenge') }}>Carte des matchs</button>
+            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
+            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('brackets') }}>Mes brackets</button>
+            <div className="game-menu-modal__section">
+              <h3>Matchs du jour</h3>
+              {todayMatches.length > 0 ? todayMatches.map((match) => (
+                <div className="game-menu-modal__match" key={match.id}>
+                  <time>{formatMenuKickoff(match)}</time>
+                  <span>{menuTeamName(match, 'home', teamsById)}</span>
+                  <b>{match.homeScore !== null && match.awayScore !== null ? `${match.homeScore}-${match.awayScore}` : 'vs'}</b>
+                  <span>{menuTeamName(match, 'away', teamsById)}</span>
+                </div>
+              )) : <p>Aucun match aujourd'hui.</p>}
+            </div>
+            <div className="game-menu-modal__section">
+              <h3>Stats</h3>
+              {topScorers.length > 0 ? topScorers.slice(0, 6).map((scorer, index) => {
+                const team = teamsByFifaCode.get(scorer.teamCode)
+                return (
+                  <div className="game-menu-modal__stat" key={`${scorer.name}-${scorer.teamCode}`}>
+                    <span>#{index + 1}</span>
+                    <strong>{scorer.name}</strong>
+                    <em>{team?.flagEmoji ?? scorer.teamCode} {scorer.goals}</em>
+                  </div>
+                )
+              }) : <p>Top buteurs indisponible.</p>}
+            </div>
             <button type="button" className={`game-menu-modal__item game-menu-modal__item--sound${audioMuted ? ' is-muted' : ''}`} onClick={() => setGameMuted(!audioMuted)}>
               {audioMuted ? 'Activer le son' : 'Mute le jeu'}
             </button>
             <button type="button" className="game-menu-modal__item" onClick={() => setShowBattleControls((value) => !value)}>
               Commandes bas : {showBattleControls ? 'oui' : 'non'}
             </button>
-            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.click(); setShowGameMenu(false); setShowEmailEntry(true) }}>Sauvegarder</button>
-            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('brackets') }}>Mes brackets</button>
-            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
-            <a className="game-menu-modal__item game-menu-modal__item--link" href="/">Simulateur</a>
           </div>
         </div>
       ) : null}
@@ -354,20 +502,35 @@ export function BrakupHub({ seed, liveSource, standings, groupMatches, teamsById
 
       {/* Bracket overlay — fullscreen, opens from the ⊞ button */}
       {view === 'challenge' && showBracket ? (
-        <div className={`brakup-bracket-overlay${bracketLandscapeMode ? ' is-landscape-mode' : ''}`}>
+        <div className="brakup-bracket-overlay">
           <div className="brakup-bracket-overlay__bar">
             <span>Bracket — Coupe du Monde 2026</span>
-            <button type="button" className="brakup-bracket-overlay__rotate" onClick={() => { sfx.bracket(); openBracketOverlay(true) }}>Paysage</button>
             <button type="button" className="brakup-bracket-overlay__close" onClick={() => { sfx.click(); closeBracketOverlay() }}>✕ Fermer</button>
           </div>
-          {bracketLandscapeMode ? <div className="brakup-bracket-overlay__rotate-hint">Tourne le telephone pour voir le vrai tableau en plein ecran</div> : null}
           <div className="brakup-bracket-overlay__body">
-            <BracketChallenge matches={matches} teamsById={teamsById} picks={picks} onPick={handlePick} onPlay={(matchId) => { closeBracketOverlay(); handlePlay(matchId) }} brackets={brackets} activeBracketId={activeBracketId} onSelectBracket={(id) => { const entry = brackets.find((item) => item.id === id); if (entry) openBracket(entry) }} realResults={realResults} />
+            <BracketChallenge matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} officialScores={officialScoreMap} onPick={handlePick} onPlay={(matchId, teamId) => { closeBracketOverlay(); handlePlay(matchId, teamId) }} brackets={brackets} activeBracketId={activeBracketId} onSelectBracket={(id) => { const entry = brackets.find((item) => item.id === id); if (entry) openBracket(entry) }} realResults={realResults} />
           </div>
         </div>
       ) : null}
       {view === 'brackets' ? <div className="brakup-phone-shell"><MyBrackets brackets={brackets} loading={loadingBrackets} onOpen={openBracket} onCreate={() => { setPicks({}); setActiveBracketId(null); navigate('challenge') }} /></div> : null}
-      {view === 'board' ? <div className="brakup-phone-shell"><Leaderboard /></div> : null}
+      {view === 'board' ? <div className="brakup-phone-shell"><Leaderboard currentEntry={currentLeaderboardEntry} currentStats={progressStats} /></div> : null}
+      {outcomeNotice ? (
+        <div className={`brakup-outcome${outcomeNotice.progress.correct ? ' is-correct' : ' is-wrong'}`} role="dialog" aria-modal="true">
+          <div className="brakup-outcome__panel">
+            <span className="brakup-outcome__icon">{outcomeNotice.progress.correct ? '★' : '!'}</span>
+            <h2>{outcomeNotice.progress.correct ? 'Prono reussi' : 'Dommage'}</h2>
+            <p>
+              {outcomeNotice.match.label} · score reel {formatScore(outcomeNotice.progress.realScore)}
+            </p>
+            <div className="brakup-outcome__scores">
+              <span>Ton jeu <strong>{formatScore(outcomeNotice.progress.playedScore)}</strong></span>
+              <span>Points <strong>{outcomeNotice.progress.correct ? `+${outcomeNotice.progress.points}` : '0'}</strong></span>
+              {outcomeNotice.progress.exact ? <span>Score exact <strong>+{outcomeNotice.progress.exactPoints}</strong></span> : null}
+            </div>
+            <button type="button" className="brakup-button" onClick={() => { sfx.click(); closeOutcomeNotice() }}>Continuer</button>
+          </div>
+        </div>
+      ) : null}
       {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={savedProfile.email} initialBracketName={brackets.find((entry) => entry.id === activeBracketId)?.bracketName ?? savedProfile.bracketName} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => setShowEmailEntry(false)} /> : null}
       <footer className="brakup-footer"><span>BRAKUP 2026</span><small>Données tournoi : {seed.meta.name} · {liveSource?.syncedAt ? `sync ${new Date(liveSource.syncedAt).toLocaleString('fr-FR')}` : 'projection locale'}</small></footer>
     </div>

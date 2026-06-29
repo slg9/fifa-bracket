@@ -134,6 +134,7 @@ export type ChallengeBreakdown = Record<string, {
   correct: boolean
   played: boolean
   stage: string
+  exact?: boolean
 }>
 
 export interface ChallengeEntry {
@@ -142,6 +143,7 @@ export interface ChallengeEntry {
   pseudo: string
   bracketName: string
   picks: Record<string, string>
+  battleScores?: Record<string, { p: number; o: number }>
   score: number
   rank: number | null
   submittedAt: string | null

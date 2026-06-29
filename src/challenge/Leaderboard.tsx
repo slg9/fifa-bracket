@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
 import { getLeaderboard } from '../lib/challengeData'
 import type { ChallengeEntry } from '../types'
+import type { ProgressSummary } from './progress'
 
-export interface LeaderboardProps { entries?: ChallengeEntry[] }
+export interface LeaderboardProps {
+  entries?: ChallengeEntry[]
+  currentEntry?: ChallengeEntry | null
+  currentStats?: ProgressSummary
+}
 
 const AVATAR_GRADIENTS = [
   'linear-gradient(135deg,#3B82F6,#2bff9a)',
@@ -14,7 +19,14 @@ function initials(name: string) {
   return name.slice(0, 2).toUpperCase()
 }
 
-export function Leaderboard({ entries }: LeaderboardProps) {
+function breakdownStats(entry: ChallengeEntry): Pick<ProgressSummary, 'correct' | 'exact'> {
+  return Object.values(entry.breakdown ?? {}).reduce((stats, item) => ({
+    correct: stats.correct + (item.correct ? 1 : 0),
+    exact: stats.exact + (item.exact ? 1 : 0),
+  }), { correct: 0, exact: 0 })
+}
+
+export function Leaderboard({ entries, currentEntry = null, currentStats }: LeaderboardProps) {
   const [board, setBoard] = useState<ChallengeEntry[]>(entries ?? [])
   const [loading, setLoading] = useState(!entries)
   const [error, setError] = useState<string | null>(null)
@@ -24,8 +36,15 @@ export function Leaderboard({ entries }: LeaderboardProps) {
     getLeaderboard().then(setBoard).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : 'Classement indisponible.')).finally(() => setLoading(false))
   }, [entries])
 
-  const displayedBoard = entries ?? board
-  const top50 = displayedBoard.slice(0, 50)
+  const sourceBoard = entries ?? board
+  const displayedBoard = currentEntry && !sourceBoard.some((entry) => entry.id === currentEntry.id)
+    ? [...sourceBoard, currentEntry].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    : sourceBoard.map((entry) => currentEntry && entry.id === currentEntry.id ? { ...entry, score: Math.max(entry.score ?? 0, currentEntry.score ?? 0) } : entry)
+  const rankedBoard = [...displayedBoard].sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || a.createdAt.localeCompare(b.createdAt))
+  const currentInTop = currentEntry ? rankedBoard.slice(0, 50).some((entry) => entry.id === currentEntry.id) : true
+  const top50 = currentEntry && !currentInTop
+    ? [...rankedBoard.slice(0, 49), currentEntry]
+    : rankedBoard.slice(0, 50)
   const podium = top50.slice(0, 3)
   const rest = top50.slice(3)
   const maxScore = top50.length > 0 ? Math.max(...top50.map(e => e.score ?? 0)) : 1
@@ -60,6 +79,34 @@ export function Leaderboard({ entries }: LeaderboardProps) {
         .lb-podium__score {
           font: 800 15px 'JetBrains Mono',monospace;
           color: #FFB800;
+        }
+        .lb-podium__badges, .lb-row__badges {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          flex-wrap: wrap;
+        }
+        .lb-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          padding: 3px 6px;
+          border-radius: 999px;
+          font: 900 10px 'Barlow Condensed','Arial Narrow',sans-serif;
+          letter-spacing: .06em;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+        .lb-badge--correct {
+          color: #2bff9a;
+          background: rgba(43,255,154,.12);
+          border: 1px solid rgba(43,255,154,.38);
+        }
+        .lb-badge--exact {
+          color: #FFB800;
+          background: rgba(255,184,0,.12);
+          border: 1px solid rgba(255,184,0,.4);
         }
         .lb-podium__bar {
           display: flex;
@@ -179,6 +226,10 @@ export function Leaderboard({ entries }: LeaderboardProps) {
           color: #FFB800;
           flex-shrink: 0;
         }
+        .lb-row.is-current {
+          border-color: rgba(255,184,0,.45);
+          background: rgba(255,184,0,.08);
+        }
       `}</style>
       <div className="brakup-page__heading">
         <div>
@@ -202,11 +253,16 @@ export function Leaderboard({ entries }: LeaderboardProps) {
                 const entry = podium[idx]
                 if (!entry) return null
                 const rank = idx + 1
+                const stats = currentEntry && entry.id === currentEntry.id && currentStats ? currentStats : breakdownStats(entry)
                 return (
                   <div key={entry.id} className="lb-podium__slot">
                     <div className={`lb-avatar lb-avatar--${rank}`}>{initials(entry.pseudo)}</div>
                     <div className="lb-podium__name">{entry.pseudo}</div>
                     <div className="lb-podium__score">{entry.score ?? 0}</div>
+                    <div className="lb-podium__badges">
+                      <span className="lb-badge lb-badge--correct">★ {stats.correct}</span>
+                      <span className="lb-badge lb-badge--exact">◎ {stats.exact}</span>
+                    </div>
                     <div className={`lb-podium__bar lb-podium__bar--${rank}`}>
                       <span className="lb-podium__rank">#{rank}</span>
                     </div>
@@ -222,12 +278,18 @@ export function Leaderboard({ entries }: LeaderboardProps) {
                 const score = entry.score ?? 0
                 const pct = maxScore > 0 ? (score / maxScore) * 100 : 0
                 const grad = AVATAR_GRADIENTS[i % AVATAR_GRADIENTS.length]
+                const isCurrent = Boolean(currentEntry && entry.id === currentEntry.id)
+                const stats = isCurrent && currentStats ? currentStats : breakdownStats(entry)
                 return (
-                  <div key={entry.id} className="lb-row">
+                  <div key={entry.id} className={`lb-row${isCurrent ? ' is-current' : ''}`}>
                     <span className="lb-row__rank">#{rank}</span>
                     <div className="lb-avatar lb-row__avatar" style={{ background: grad }}>{initials(entry.pseudo)}</div>
                     <div className="lb-row__info">
                       <div className="lb-row__name">{entry.pseudo}</div>
+                      <div className="lb-row__badges">
+                        <span className="lb-badge lb-badge--correct">★ {stats.correct} pronos</span>
+                        <span className="lb-badge lb-badge--exact">◎ {stats.exact} exacts</span>
+                      </div>
                       <div className="lb-row__bar-track">
                         <div className="lb-row__bar-fill" style={{ width: `${pct}%` }} />
                       </div>

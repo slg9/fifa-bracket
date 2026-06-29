@@ -1686,6 +1686,26 @@ function App() {
       return aTime.localeCompare(bTime)
     })
     .slice(0, 10)
+  const challengeTodayMatches = dayScheduleMatches
+    .filter(isMatchToday)
+    .sort((a, b) => {
+      const aTime = a.kickoffIso ?? `${a.kickoffDate}T${a.kickoffTime ?? '99:99'}`
+      const bTime = b.kickoffIso ?? `${b.kickoffDate}T${b.kickoffTime ?? '99:99'}`
+      return aTime.localeCompare(bTime)
+    })
+    .slice(0, 10)
+  const challengeOfficialScores = knockoutDayMatches.reduce<Record<string, { home: number; away: number }>>((scores, match) => {
+    if (match.homeScore !== null && match.awayScore !== null) {
+      scores[match.id] = { home: match.homeScore, away: match.awayScore }
+    }
+    return scores
+  }, {})
+  const challengeOfficialResults = knockoutDayMatches.reduce<Record<string, string>>((results, match) => {
+    if (match.homeScore === null || match.awayScore === null || match.homeScore === match.awayScore) return results
+    if (match.homeTeamId.startsWith('placeholder:') || match.awayTeamId.startsWith('placeholder:')) return results
+    results[match.id] = match.homeScore > match.awayScore ? match.homeTeamId : match.awayTeamId
+    return results
+  }, {})
   const liveNowMatches = dayMatches.filter((match) => inferStatus(match) === 'live')
   const previousDayKey = activeDayIndex > 0 ? matchDayKeys[activeDayIndex - 1] : null
   const nextDayKey = activeDayIndex < matchDayKeys.length - 1 ? matchDayKeys[activeDayIndex + 1] : null
@@ -1826,7 +1846,19 @@ function App() {
   }
 
   if (challengeMode) {
-    return <BrakupHub seed={seed} liveSource={liveSource} standings={standings} groupMatches={mergedMatches} teamsById={teamsById} />
+    return (
+      <BrakupHub
+        seed={seed}
+        liveSource={liveSource}
+        standings={standings}
+        groupMatches={mergedMatches}
+        teamsById={teamsById}
+        todayMatches={challengeTodayMatches}
+        officialResults={challengeOfficialResults}
+        officialScores={challengeOfficialScores}
+        topScorers={liveSource.topScorers ?? []}
+      />
+    )
   }
 
   const isHomeBracketFocus = view === 'bracket' && mode === 'simulation'

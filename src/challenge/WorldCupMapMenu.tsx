@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { sfx } from '../lib/sfx'
 import type { KnockoutMatch, Team } from '../types'
+import { evaluateMatchProgress, formatScore, scoreForPick, type BattleScore, type DisplayScore, type MatchProgress, type OfficialScore } from './progress'
 
 export interface WorldCupMapMenuProps {
   matches: KnockoutMatch[]
@@ -8,6 +9,7 @@ export interface WorldCupMapMenuProps {
   picks: Record<string, string>
   scores?: Record<string, { p: number; o: number }>
   realResults?: Record<string, string>
+  officialScores?: Record<string, OfficialScore>
   onPick: (matchId: string, teamId: string) => void
   onPlay: (matchId: string, teamId: string) => void
   onSimulate?: (matchId: string) => void
@@ -34,11 +36,9 @@ type DisplayNode = {
   pickedTeamId?: string
   realWinnerTeamId?: string
   predictionState?: 'correct' | 'wrong'
+  progress: MatchProgress
   isNextPlayable: boolean
 }
-
-type BattleScore = { p: number; o: number }
-type DisplayScore = { home: number; away: number }
 
 const MAP_HEIGHT = 2600
 const ROUTE_Y_START = 2450
@@ -148,11 +148,7 @@ function teamFlagImageUrl(team?: Team) {
 }
 
 function scoreForNode(node: DisplayNode, score?: BattleScore): DisplayScore | null {
-  if (!score || !node.pickedTeamId || !node.homeTeam || !node.awayTeam) return null
-  const pickedHome = node.pickedTeamId === node.homeTeam.id
-  return pickedHome
-    ? { home: score.p, away: score.o }
-    : { home: score.o, away: score.p }
+  return scoreForPick(node.match, node.pickedTeamId, score)
 }
 
 function matchDateFromLabel(dateLabel: string) {
@@ -180,7 +176,9 @@ function buildDisplayNodes(
   matches: KnockoutMatch[],
   teamsById: Map<string, Team>,
   picks: Record<string, string>,
+  scores: Record<string, BattleScore>,
   realResults: Record<string, string>,
+  officialScores: Record<string, OfficialScore>,
 ): DisplayNode[] {
   const resolved = matches.map((match) => ({
     match,
@@ -194,6 +192,7 @@ function buildDisplayNodes(
   return resolved.map(({ match, homeTeam, awayTeam, pickedTeamId }) => {
     const pos = NODE_POS[match.id]
     const realWinnerTeamId = realResults[match.id]
+    const progress = evaluateMatchProgress(match, picks, scores, realResults, officialScores)
     const isNextPlayable = match.id === firstPlayable
     const isUnlockedByDate = homeTeam && awayTeam && isMatchDayOrPast(match)
     const status: NodeStatus = pickedTeamId
@@ -220,6 +219,7 @@ function buildDisplayNodes(
       pickedTeamId,
       realWinnerTeamId,
       predictionState: pickedTeamId && realWinnerTeamId ? pickedTeamId === realWinnerTeamId ? 'correct' : 'wrong' : undefined,
+      progress,
       isNextPlayable,
     }
   })
@@ -327,6 +327,11 @@ function MatchNode({
           <span className="wcmap__locked-label">VERROUILLE</span>
         )}
       </div>
+      {node.progress.played && node.progress.realScore ? (
+        <span className="wcmap__score-compare">
+          R {formatScore(node.progress.realScore)} · J {formatScore(node.progress.playedScore)}
+        </span>
+      ) : null}
 
       <div className="wcmap__mini-field">
         <div className="wcmap__pitch-line wcmap__pitch-line--mid" />
@@ -366,12 +371,12 @@ function MatchNode({
 
       {isLocked && <span className="wcmap__status-badge wcmap__status-badge--lock">{'\uD83D\uDD12'}</span>}
       {isCompleted && <span className="wcmap__status-badge">{'\u2713'}</span>}
-      {node.match.qualificationStatus ? (
-        <span className={`wcmap__qualification-badge is-${node.match.qualificationStatus}`}>
-          {node.match.qualificationStatus === 'confirmed' ? 'SUR' : 'CALC'}
+      {node.progress.played ? (
+        <span className={`wcmap__outcome-badge${node.progress.correct ? ' is-correct' : ' is-wrong'}`} title={node.progress.correct ? `Prono reussi +${node.progress.points}` : 'Prono rate'}>
+          {node.progress.correct ? `★ +${node.progress.points}` : '!'}
         </span>
       ) : null}
-      {node.predictionState ? <span className={`wcmap__prediction-dot is-${node.predictionState}`} title={node.predictionState === 'correct' ? 'Prono réussi' : 'Prono raté'} /> : null}
+      {node.progress.exact ? <span className="wcmap__exact-badge" title="Score exact">◎</span> : null}
       {realWinnerTeam ? <span className="wcmap__official-winner" title={`Vrai vainqueur: ${realWinnerTeam.name}`}>{realWinnerTeam.flagEmoji}</span> : null}
       {isLive && <span className="wcmap__live-dot" />}
     </button>
@@ -416,11 +421,6 @@ function LevelEntryScreen({
 
         <div className="wcmap-entry__header">
           <div className="wcmap-entry__badge">{node.roundLabel.toUpperCase()}</div>
-          {node.match.qualificationStatus ? (
-            <div className={`wcmap-entry__qbadge is-${node.match.qualificationStatus}`}>
-              {node.match.qualificationStatus === 'confirmed' ? '16e confirme' : '16e projete'}
-            </div>
-          ) : null}
           <div className="wcmap-entry__match-num">Match {node.matchNumber}</div>
           <button type="button" className="wcmap-entry__close" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
@@ -453,6 +453,13 @@ function LevelEntryScreen({
                 <span>{displayTeamName(node.awayTeam)} {node.awayTeam?.flagEmoji ?? '🌍'}</span>
               </div>
             )}
+            {node.progress.played ? (
+              <div className={`wcmap-entry__verdict${node.progress.correct ? ' is-correct' : ' is-wrong'}`}>
+                <strong>{node.progress.correct ? `★ Prono reussi +${node.progress.points}` : '! Prono rate'}</strong>
+                <span>Reel {formatScore(node.progress.realScore)} · Ton jeu {formatScore(node.progress.playedScore)}</span>
+                {node.progress.exact ? <em>Score exact +{node.progress.exactPoints}</em> : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -510,6 +517,7 @@ export function WorldCupMapMenu({
   picks,
   scores = {},
   realResults = {},
+  officialScores = {},
   onPick: _onPick,
   onPlay,
   onSimulate,
@@ -530,7 +538,7 @@ export function WorldCupMapMenu({
   const [selectingId, setSelectingId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks, realResults), [matches, teamsById, picks, realResults])
+  const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks, scores, realResults, officialScores), [matches, teamsById, picks, scores, realResults, officialScores])
   const focusNode = nodes.find((node) => node.isNextPlayable) ?? nodes.find((node) => node.status === 'live') ?? nodes.find((node) => node.status === 'available') ?? null
   const selectedNode = nodes.find((node) => node.id === selectedMatchId) ?? null
 
@@ -742,7 +750,7 @@ export function WorldCupMapMenu({
     <section className="wcmap">
       <div className="wcmap__autosave" aria-live="polite">
         <span>{formatAutosaveTime(autosavedAt)}</span>
-        {onSave ? <button type="button" onClick={onSave}>Synchro email</button> : null}
+        {onShowBracket ? <button type="button" onClick={onShowBracket}>Tableau</button> : null}
       </div>
       <div
         className="wcmap__viewport"

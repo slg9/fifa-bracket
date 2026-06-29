@@ -52,6 +52,7 @@ export async function submitBracket(entry: Partial<ChallengeEntry> & { email: st
       pseudo: entry.pseudo ?? current?.pseudo ?? 'Joueur',
       bracketName: entry.bracketName ?? current?.bracketName ?? 'Mon bracket',
       picks: entry.picks ?? current?.picks ?? {},
+      battleScores: entry.battleScores ?? current?.battleScores ?? {},
       score: current?.score ?? 0,
       rank: null,
       submittedAt: entry.submittedAt ?? null,
