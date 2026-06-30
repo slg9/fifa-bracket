@@ -770,7 +770,7 @@ const MatchCard = memo(function MatchCard({
       {simulationEnabled && match.pickedWinnerId ? (
         <div className="bm__actions match-card-actions">
           <button type="button" className="bm__clear" onClick={(event) => { event.stopPropagation(); onClear(match.id) }} aria-label={`Effacer ${match.label}`}>
-            ?
+            x
           </button>
         </div>
       ) : null}
@@ -1723,6 +1723,7 @@ function App() {
   const [challengeLoginEmail, setChallengeLoginEmail] = useState<string | null>(null)
   const [challengeMenuOpen, setChallengeMenuOpen] = useState(false)
   const [simulatorOutcomeKey, setSimulatorOutcomeKey] = useState<string | null>(null)
+  const [completeBonusNoticeOpen, setCompleteBonusNoticeOpen] = useState(false)
   const [publicBrackets, setPublicBrackets] = useState<SimulatorBracketEntry[]>([])
   const [publicBracketsLoading, setPublicBracketsLoading] = useState(false)
   const [publicBracketsError, setPublicBracketsError] = useState<string | null>(null)
@@ -2370,10 +2371,16 @@ function App() {
 
   function handlePickWinner(matchId: string, teamId: string) {
     if (lockedMatchIds.has(matchId)) return
-    setKnockoutPicks((current) => ({
-      ...current,
-      [matchId]: teamId,
-    }))
+    setKnockoutPicks((current) => {
+      const wasComplete = knockoutTemplates.every((template) => Boolean(current[template.id]))
+      const next = {
+        ...current,
+        [matchId]: teamId,
+      }
+      const isComplete = knockoutTemplates.every((template) => Boolean(next[template.id]))
+      if (!wasComplete && isComplete) setCompleteBonusNoticeOpen(true)
+      return next
+    })
 
     if (!challengeToken && !showChallengeLoginEntry) {
       setChallengeLoginError(null)
@@ -2385,8 +2392,10 @@ function App() {
   function handleClearWinner(matchId: string) {
     if (lockedMatchIds.has(matchId)) return
     setKnockoutPicks((current) => {
+      const wasComplete = knockoutTemplates.every((template) => Boolean(current[template.id]))
       const next = { ...current }
       delete next[matchId]
+      if (wasComplete) setCompleteBonusNoticeOpen(false)
       return next
     })
   }
@@ -2587,6 +2596,25 @@ function App() {
                       type="button"
                       className="topmenu__item"
                       onClick={() => {
+                        setShowDayModal(true)
+                        setHeaderBracketMenuOpen(false)
+                      }}
+                    >
+                      Matchs du jour
+                    </button>
+                    <a
+                      href={localizedChallengeHref(locale)}
+                      className="topmenu__item topmenu__item--challenge"
+                      onClick={() => setHeaderBracketMenuOpen(false)}
+                    >
+                      <img src="/brakup-challenge-logo.png" alt="" className="topmenu__challenge-logo" />
+                      Brakup Challenge
+                    </a>
+                    <div className="topmenu__sep" />
+                    <button
+                      type="button"
+                      className="topmenu__item"
+                      onClick={() => {
                         dispatchBracketAction('bracket:share')
                         setHeaderBracketMenuOpen(false)
                       }}
@@ -2603,6 +2631,18 @@ function App() {
                     >
                       Telecharger
                     </button>
+                    {isChallengeConnected ? (
+                      <button
+                        type="button"
+                        className="topmenu__item topmenu__item--danger"
+                        onClick={() => {
+                          handleChallengeLogout()
+                          setHeaderBracketMenuOpen(false)
+                        }}
+                      >
+                        Deconnexion
+                      </button>
+                    ) : null}
                     {focusId ? (
                       <button
                         type="button"
@@ -3270,6 +3310,25 @@ function App() {
           </>
         ) : null}
       </div>
+      {completeBonusNoticeOpen ? (
+        <div className="simulator-outcome is-correct" role="dialog" aria-modal="true">
+          <div className="simulator-outcome__panel">
+            <div className="simulator-outcome__icon" aria-hidden="true">*</div>
+            <h2>BOOOM !</h2>
+            <div className="simulator-outcome__points">+20 bracket complet</div>
+            <p>Tu as rempli tout ton bracket. Bonus complet ajoute au score.</p>
+            <div className="simulator-outcome__actions">
+              <button type="button" className="chip-btn chip-btn--sm" onClick={() => dispatchBracketAction('bracket:share')}>
+                Partager image
+              </button>
+              <button type="button" className="chip-btn chip-btn--sm" onClick={() => setCompleteBonusNoticeOpen(false)}>
+                Continuer
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {simulatorOutcomeNotice ? (() => {
         const pickedTeam = simulatorOutcomeNotice.match.pickedWinnerId ? teamsById.get(simulatorOutcomeNotice.match.pickedWinnerId) ?? null : null
         const realTeam = simulatorOutcomeNotice.match.realWinnerId ? teamsById.get(simulatorOutcomeNotice.match.realWinnerId) ?? null : null
