@@ -6,7 +6,7 @@
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/share/bracket/(.*)", "destination": "/api/bracket-share?id=$1" },
+    { "source": "/share/bracket/:id", "destination": "/api/bracket-share?id=:id" },
     { "source": "/en", "destination": "/" },
     { "source": "/en/(.*)", "destination": "/" }
   ]

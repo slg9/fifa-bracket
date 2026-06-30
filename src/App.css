@@ -3769,6 +3769,52 @@
   display: none !important;
 }
 
+
+.bracket-owner-badge {
+  position: absolute;
+  z-index: 4;
+  top: 2px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(560px, 42vw);
+  padding: 8px 18px 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.48);
+  border-radius: 999px;
+  background: linear-gradient(100deg, rgba(43, 255, 154, 0.95), rgba(255, 184, 0, 0.95) 55%, rgba(255, 68, 85, 0.9));
+  color: #06111f;
+  box-shadow: 0 0 28px rgba(43, 255, 154, 0.28), 0 16px 38px rgba(0, 0, 0, 0.35);
+  transform: translate(-50%, -58%);
+  pointer-events: none;
+}
+
+.bracket-owner-badge span {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(5, 11, 22, 0.86);
+  color: #f5fff9;
+  font: 900 9px 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: 0.18em;
+}
+
+.bracket-owner-badge strong {
+  min-width: 0;
+  overflow: hidden;
+  font: 900 20px 'JetBrains Mono', 'Barlow Condensed', Arial, sans-serif;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.bracket-export-wrapper.is-exporting .bracket-owner-badge,
+.app-shell.is-shared-bracket .bracket-owner-badge {
+  top: 8px;
+  transform: translate(-50%, -46%);
+}
+
 .bracket-board {
   position: relative;
   display: grid;

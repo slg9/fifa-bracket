@@ -136,6 +136,7 @@ async function elementToShareBlob(element: HTMLElement, options: ShareImageOptio
   try {
     const blob = await toBlob(element, {
       cacheBust: false,
+      skipFonts: true,
       pixelRatio: Math.min(3, Math.max(2, window.devicePixelRatio || 1)),
       backgroundColor: options.backgroundColor ?? '#050b16',
     })

@@ -305,6 +305,14 @@ function clearStoredSimulation() {
   window.localStorage.removeItem(simulationStorageKey)
 }
 
+function readShareIdFromLocation(): string | null {
+  const params = new URLSearchParams(window.location.search)
+  const queryId = params.get('share')
+  if (queryId) return queryId
+
+  const pathMatch = window.location.pathname.match(/\/share\/bracket\/([^/?#]+)/)
+  return pathMatch ? decodeURIComponent(pathMatch[1]) : null
+}
 function readStoredChallengeProfile(): ChallengeProfile {
   if (typeof window === 'undefined') {
     return { email: '', pseudo: '', bracketName: 'Mon bracket' }
@@ -877,6 +885,8 @@ function BracketBoard({
     return highlighted
   }, [activeMatchIds, focusTeamId, parentLookup])
   const finalMatch = matchMap.get('M104') ?? null
+  const ownerName = shareOwnerName.trim()
+  const ownerHandle = ownerName ? (ownerName.startsWith('@') ? ownerName : '@' + ownerName) : null
   const championTeam = finalMatch?.winnerId ? teamsById.get(finalMatch.winnerId) ?? null : null
   const mobileRoundMatches = useMemo(() => {
     const grouped = new Map<string, DisplayMatch[]>()
@@ -1061,6 +1071,7 @@ function BracketBoard({
     try {
       const blob = await toBlob(exportRef.current, {
         cacheBust: true,
+        skipFonts: true,
         pixelRatio: Math.min(3, Math.max(2, window.devicePixelRatio || 1)),
         backgroundColor: '#050b16',
       })
@@ -1343,6 +1354,12 @@ function BracketBoard({
           >
             <div className={`bracket-export-wrapper${isExporting ? ' is-exporting' : ''}`} ref={exportRef}>
               <div className="bracket-board" ref={boardRef}>
+                {ownerHandle ? (
+                  <div className="bracket-owner-badge" aria-label={`Bracket de ${shareOwnerName}`}>
+                    <span>BRACKET DE</span>
+                    <strong>{ownerHandle}</strong>
+                  </div>
+                ) : null}
             <svg className="bracket__links" width={box.width} height={box.height} aria-hidden="true">
               {lines.map((line) => (
                 <path key={line.id} d={line.d} className={['link', line.active ? 'link--lit' : '', line.tone === 'correct' ? 'link--gold' : ''].filter(Boolean).join(' ')} />
@@ -1533,7 +1550,7 @@ function App() {
   const [mode, setMode] = useState<Mode>('simulation')
   const simulatorMode = useMemo(() => new URLSearchParams(window.location.search).has('simulator'), [])
   const challengeMode = useMemo(() => new URLSearchParams(window.location.search).has('challenge'), [])
-  const sharedBracketId = useMemo(() => new URLSearchParams(window.location.search).get('share'), [])
+  const sharedBracketId = useMemo(() => readShareIdFromLocation(), [])
   const cloneShareId = useMemo(() => new URLSearchParams(window.location.search).get('cloneShare'), [])
   const sharedBracketLoadId = sharedBracketId ?? cloneShareId
   const view = 'bracket' as View

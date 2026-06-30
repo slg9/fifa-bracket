@@ -31,6 +31,7 @@ type BattleEngineProps = {
   playerSide?: 'home' | 'away'
   showControls?: boolean
   syncStatusLabel?: string
+  ownerPseudo?: string
   existingResult?: BattleResult | null
 }
 
@@ -196,7 +197,7 @@ function BattleFlag({ team, emoji }: { team?: Team; emoji: string }) {
   return <span>{emoji}</span>
 }
 
-export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false, syncStatusLabel, existingResult }: BattleEngineProps) {
+export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false, syncStatusLabel, ownerPseudo, existingResult }: BattleEngineProps) {
   const rawHomeId = entrantId(match, 'home')
   const rawAwayId = entrantId(match, 'away')
   const homeTeamId = playerSide === 'away' ? rawAwayId : rawHomeId
@@ -697,7 +698,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           onComplete={(winnerId, score, commentary) => { sfx.click(); handleCoinFlipEnd(winnerId, score, commentary) }}
         />
       ) : null}
-      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} syncStatusLabel={syncStatusLabel} onContinue={() => { sfx.click(); existingResult ? onQuit?.() : onComplete(displayedResult) }} /> : null}
+      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} syncStatusLabel={syncStatusLabel} ownerPseudo={ownerPseudo} onContinue={() => { sfx.click(); existingResult ? onQuit?.() : onComplete(displayedResult) }} /> : null}
 
       {/* Countdown overlay */}
       {state.phase === 'countdown' && countdownNum !== null ? (

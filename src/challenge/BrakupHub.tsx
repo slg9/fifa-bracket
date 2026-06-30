@@ -843,6 +843,7 @@ export function BrakupHub({
       const blob = await renderResultShareCanvas({
         backgroundSrc: '/brakup-share-bg-brakup.png',
         logoSrc: '/brakup-logo.png',
+        ownerPseudo: savedProfile.pseudo || undefined,
         matchup: {
           homeFlag: outcomeHomeTeam?.flagEmoji,
           awayFlag: outcomeAwayTeam?.flagEmoji,
@@ -976,6 +977,7 @@ export function BrakupHub({
           playerSide={activeSide} 
           onQuit={() => navigate('challenge')} 
           showControls={showBattleControls}
+          ownerPseudo={savedProfile.pseudo || undefined}
           syncStatusLabel={hasSyncedProfile ? `Deja synchronise : ${savedProfile.pseudo || 'profil'} sera sauvegarde automatiquement.` : 'Synchro proposee apres ce match pour publier ton score.'}
           existingResult={activeMatch ? makeExistingBattleResult(activeMatch, battleScores, scorers) : null}
         />

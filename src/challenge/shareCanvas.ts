@@ -6,6 +6,7 @@ type ShareCanvasRow = {
 export type ResultShareCanvasInput = {
   backgroundSrc: string
   logoSrc?: string
+  ownerPseudo?: string
   matchup?: {
     homeFlag?: string
     awayFlag?: string
@@ -247,6 +248,34 @@ export async function renderResultShareCanvas(input: ResultShareCanvasInput): Pr
     const logoW = 500
     const logoH = logo.height * (logoW / logo.width)
     ctx.drawImage(logo, (width - logoW) / 2, 40, logoW, logoH)
+  }
+
+  const ownerPseudo = input.ownerPseudo?.trim()
+  if (ownerPseudo) {
+    const handle = ownerPseudo.startsWith('@') ? ownerPseudo : `@${ownerPseudo}`
+    const badgeY = logo ? 178 : 54
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    const handleSize = fitText(ctx, handle, 430, 42, 26, (size) => `900 ${size}px 'JetBrains Mono', 'Barlow Condensed', Arial, sans-serif`)
+    const handleWidth = ctx.measureText(handle).width
+    const badgeW = Math.min(540, Math.max(300, handleWidth + 116))
+    const badgeX = (width - badgeW) / 2
+    roundRect(ctx, badgeX, badgeY, badgeW, 76, 999)
+    const badgeGradient = ctx.createLinearGradient(badgeX, badgeY, badgeX + badgeW, badgeY + 76)
+    badgeGradient.addColorStop(0, 'rgba(43,255,154,.92)')
+    badgeGradient.addColorStop(0.52, 'rgba(255,184,0,.92)')
+    badgeGradient.addColorStop(1, 'rgba(255,68,85,.88)')
+    ctx.fillStyle = badgeGradient
+    ctx.shadowColor = 'rgba(43,255,154,.45)'
+    ctx.shadowBlur = 28
+    ctx.fill()
+    ctx.shadowBlur = 0
+    ctx.strokeStyle = 'rgba(255,255,255,.58)'
+    ctx.lineWidth = 3
+    ctx.stroke()
+    ctx.fillStyle = '#07111f'
+    ctx.font = `900 ${handleSize}px 'JetBrains Mono', 'Barlow Condensed', Arial, sans-serif`
+    ctx.fillText(handle.toUpperCase(), width / 2, badgeY + 40)
   }
 
   if (input.matchup) {

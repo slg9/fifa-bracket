@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { BattleResult } from '../../types'
 import { blobToShareFile, safeFilePart, shareFile } from '../../challenge/shareImage'
 import { renderResultShareCanvas } from '../../challenge/shareCanvas'
@@ -14,12 +14,13 @@ type MatchResultProps = {
   homeFlag?: string
   awayFlag?: string
   syncStatusLabel?: string
+  ownerPseudo?: string
   onContinue: () => void
 }
 
 const CONFETTI_COLORS = ['#ffb800', '#2bff9a', '#ff4455', '#a855f7', '#3b82f6', '#ff6b35']
 
-export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTeamName, awayTeamName, homeFlag, awayFlag, syncStatusLabel, onContinue }: MatchResultProps) {
+export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTeamName, awayTeamName, homeFlag, awayFlag, syncStatusLabel, ownerPseudo, onContinue }: MatchResultProps) {
   const [shareStatus, setShareStatus] = useState<'idle' | 'working' | 'ready' | 'done' | 'error'>('idle')
   const [preparedShareFile, setPreparedShareFile] = useState<File | null>(null)
   const [sharePreviewUrl, setSharePreviewUrl] = useState<string | null>(null)
@@ -77,6 +78,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
       const blob = await renderResultShareCanvas({
         backgroundSrc: '/brakup-share-bg-brakup.png',
         logoSrc: '/brakup-logo.png',
+        ownerPseudo,
         matchup: {
           homeFlag,
           awayFlag,
