@@ -170,6 +170,14 @@ function isBracketComplete(picks: Record<string, string>): boolean {
   return knockoutTemplates.every((template) => Boolean(picks[template.id]))
 }
 
+function isScoringBracketComplete(matches: DisplayMatch[]): boolean {
+  const byId = new Map(matches.map((match) => [match.id, match]))
+  return knockoutTemplates.every((template) => {
+    const match = byId.get(template.id)
+    return Boolean(match?.pickedWinnerId || match?.hasOfficialResult)
+  })
+}
+
 function calculateBracketRewards(matches: DisplayMatch[]): BracketRewardSummary {
   const byId = new Map(matches.map((match) => [match.id, match]))
   const rewardsByMatch = new Map<string, BracketReward>()
@@ -217,8 +225,7 @@ function calculateBracketRewards(matches: DisplayMatch[]): BracketRewardSummary 
     }
   }
 
-  const pickedCount = matches.filter((match) => match.pickedWinnerId).length
-  const completeBonus = pickedCount >= knockoutTemplates.length ? 20 : 0
+  const completeBonus = isScoringBracketComplete(matches) ? 20 : 0
   total += completeBonus
 
   return { total, completeBonus, rewardsByMatch, comboLinkIds }
@@ -1994,17 +2001,28 @@ function App() {
     }
 
     let cancelled = false
+    let settled = false
+    const timeoutId = window.setTimeout(() => {
+      if (cancelled || settled) return
+      settled = true
+      setPublicBracketsError('Chargement trop long. Reouvre le panneau pour reessayer.')
+      setPublicBracketsLoaded(true)
+      setPublicBracketsLoading(false)
+    }, 12000)
+
     setPublicBracketsLoading(true)
     setPublicBracketsError(null)
     getSimulatorLeaderboard()
       .then((entries) => {
-        if (!cancelled) setPublicBrackets(entries)
+        if (!cancelled && !settled) setPublicBrackets(entries)
       })
       .catch((caught) => {
-        if (!cancelled) setPublicBracketsError(caught instanceof Error ? caught.message : 'Brackets indisponibles.')
+        if (!cancelled && !settled) setPublicBracketsError(caught instanceof Error ? caught.message : 'Brackets communaute indisponibles.')
       })
       .finally(() => {
-        if (!cancelled) {
+        window.clearTimeout(timeoutId)
+        if (!cancelled && !settled) {
+          settled = true
           setPublicBracketsLoaded(true)
           setPublicBracketsLoading(false)
         }
@@ -2012,8 +2030,10 @@ function App() {
 
     return () => {
       cancelled = true
+      window.clearTimeout(timeoutId)
     }
   }, [publicBracketsLoaded, publicBracketsLoading, sidePanel])
+
   useEffect(() => {
     if (!initialDayModalLoading) {
       return
@@ -3188,9 +3208,12 @@ function App() {
                 <button
                   type="button"
                   className={`float-tab${sidePanel === 'brackets' ? ' is-active' : ''}`}
-                  onClick={() => setSidePanel((current) => current === 'brackets' ? null : 'brackets')}
+                  onClick={() => {
+                    if (sidePanel !== 'brackets' && publicBracketsError) setPublicBracketsLoaded(false)
+                    setSidePanel((current) => current === 'brackets' ? null : 'brackets')
+                  }}
                 >
-                  Mes brackets
+                  Brackets communaute
                 </button>
                 {liveSource.topScorers && liveSource.topScorers.length > 0 ? (
                   <button
@@ -3222,7 +3245,7 @@ function App() {
                   <div className="float-panel__head">
                     <div className="float-panel__title">
                       {sidePanel === 'brackets'
-                        ? 'Mes brackets'
+                        ? 'Brackets communaute'
                         : sidePanel === 'scorers'
                           ? 'Top buteurs'
                           : sidePanel === 'groups'
@@ -3240,11 +3263,11 @@ function App() {
                         {publicBracketsLoading ? (
                           <div className="float-panel__state float-panel__state--loading">
                             <span className="float-panel__spinner" aria-hidden="true" />
-                            <span>Chargement des brackets...</span>
+                            <span>Chargement des brackets communaute...</span>
                           </div>
                         ) : null}
                         {publicBracketsError ? <div className="float-panel__state">{publicBracketsError}</div> : null}
-                        {!publicBracketsLoading && !publicBracketsError && publicBrackets.length === 0 ? <div className="float-panel__state">Aucun bracket public pour le moment.</div> : null}
+                        {!publicBracketsLoading && !publicBracketsError && publicBrackets.length === 0 ? <div className="float-panel__state">Aucun bracket communaute pour le moment.</div> : null}
                         {publicBrackets.map((entry, index) => (
                           <button key={entry.emailHash || entry.pseudo} type="button" className="community-bracket" onClick={() => { setViewedPublicBracket(entry); setSidePanel(null); setFocusId(null) }}>
                             <span className="community-bracket__rank">#{index + 1}</span>
