@@ -709,8 +709,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         </div>
       ) : null}
 
-      {/* Pause button (visible during playing) */}
-      {state.phase === 'playing' && !isPaused ? (
+      {/* Pause button */}
+      {state.phase !== 'match_result' && !isPaused ? (
         <button
           type="button"
           className="battle-pause-btn"

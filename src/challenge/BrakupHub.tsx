@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { setGameAudioVolume, setGameMuted, useGameAudio, useGameAudioVolume, useGameMuted } from '../lib/useGameAudio'
-import { getBrackets, getProfileStatus, resendMagicLink, submitBracket, updateProfile, verifyLoginOTP, verifyOTP } from '../lib/challengeData'
+import { getBrackets, getProfileStatus, publishResultShare, resendMagicLink, submitBracket, updateProfile, verifyLoginOTP, verifyOTP } from '../lib/challengeData'
 import { alternateLanguageHref, localizedRootPath, type Locale } from '../lib/i18n'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
 import type { BattleResult, BattleScorer, ChallengeBreakdown, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
@@ -17,7 +17,7 @@ import LoginEntry from './LoginEntry'
 import Leaderboard from './Leaderboard'
 import MyBrackets from './MyBrackets'
 import ProfileSettings from './ProfileSettings'
-import { blobToShareFile, safeFilePart, shareFile } from './shareImage'
+import { blobToDataUrl, shareLink } from './shareImage'
 import { renderResultShareCanvas } from './shareCanvas'
 import { sfx } from '../lib/sfx'
 import { evaluateMatchProgress, formatScore, summarizeProgress, teamLabel, type OfficialScore, type RealScorer } from './progress'
@@ -243,7 +243,7 @@ export function BrakupHub({
   const [loginEmail, setLoginEmail] = useState<string | null>(null)
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
   const [outcomeShareStatus, setOutcomeShareStatus] = useState<'idle' | 'working' | 'ready' | 'done' | 'error'>('idle')
-  const [outcomeShareFile, setOutcomeShareFile] = useState<File | null>(null)
+  const [outcomeShareUrl, setOutcomeShareUrl] = useState<string | null>(null)
   const [outcomeSharePreviewUrl, setOutcomeSharePreviewUrl] = useState<string | null>(null)
   const [outcomeSharePreviewOpen, setOutcomeSharePreviewOpen] = useState(false)
   const [isOutcomeCapturingShare, setIsOutcomeCapturingShare] = useState(false)
@@ -784,7 +784,7 @@ export function BrakupHub({
     }
     setOutcomeNoticeKey(null)
     setOutcomeShareStatus('idle')
-    setOutcomeShareFile(null)
+    setOutcomeShareUrl(null)
     if (outcomeSharePreviewUrl) URL.revokeObjectURL(outcomeSharePreviewUrl)
     setOutcomeSharePreviewUrl(null)
     setOutcomeSharePreviewOpen(false)
@@ -818,14 +818,13 @@ export function BrakupHub({
 
   const handleOutcomeShare = async () => {
     if (!outcomeNotice) return
-    if (outcomeShareFile) {
+    if (outcomeShareUrl) {
       setOutcomeShareStatus('working')
       try {
-        await shareFile(outcomeShareFile, {
+        await shareLink({
           title: 'Brakup Challenge',
           text: buildOutcomeShareText(),
-          url: buildChallengeShareUrl(),
-          backgroundColor: '#050b16',
+          url: outcomeShareUrl,
         })
         setOutcomeSharePreviewOpen(false)
         setOutcomeShareStatus('done')
@@ -861,10 +860,19 @@ export function BrakupHub({
         rows: outcomeShareRows,
         cta: 'Tente ta chance avec ton prono.',
       })
+      const shareTitle = `${outcomeHeadline} - ${outcomeMatchLabel}`
+      const shareDescription = buildOutcomeShareText()
+      const published = await publishResultShare({
+        title: shareTitle,
+        description: shareDescription,
+        redirectUrl: buildChallengeShareUrl(),
+        imageDataUrl: await blobToDataUrl(blob),
+        pseudo: savedProfile.pseudo || 'Brakup',
+      })
       if (outcomeSharePreviewUrl) URL.revokeObjectURL(outcomeSharePreviewUrl)
       setOutcomeSharePreviewUrl(URL.createObjectURL(blob))
       setOutcomeSharePreviewOpen(true)
-      setOutcomeShareFile(blobToShareFile(blob, `brakup-${safeFilePart(outcomeNotice.match.id)}-${outcomeNotice.progress.correct ? 'win' : 'result'}.png`))
+      setOutcomeShareUrl(published.shareUrl)
       setOutcomeShareStatus('ready')
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
@@ -915,7 +923,7 @@ export function BrakupHub({
 
   useEffect(() => {
     setOutcomeShareStatus('idle')
-    setOutcomeShareFile(null)
+    setOutcomeShareUrl(null)
     if (outcomeSharePreviewUrl) URL.revokeObjectURL(outcomeSharePreviewUrl)
     setOutcomeSharePreviewUrl(null)
     setOutcomeSharePreviewOpen(false)
@@ -1183,7 +1191,7 @@ export function BrakupHub({
                 </div>
                 <div className="brakup-share-preview__actions">
                   <button type="button" className="brakup-share-preview__ghost" onClick={() => { sfx.click(); setOutcomeSharePreviewOpen(false) }}>Retour</button>
-                  <button type="button" className="brakup-share-preview__primary" onClick={() => { sfx.click(); void handleOutcomeShare() }} disabled={!outcomeShareFile || outcomeShareStatus === 'working'}>
+                  <button type="button" className="brakup-share-preview__primary" onClick={() => { sfx.click(); void handleOutcomeShare() }} disabled={!outcomeShareUrl || outcomeShareStatus === 'working'}>
                     {outcomeShareStatus === 'working' ? 'Preparation...' : 'Partager'}
                   </button>
                 </div>

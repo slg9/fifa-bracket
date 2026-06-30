@@ -96,9 +96,9 @@ function requestOrigin(req: ApiRequest) {
 }
 
 function sendHtml(res: ApiResponse, share: PublicBracketShare, shareUrl: string, imageUrl: string, appOrigin: string) {
-  const title = `${share.bracketName || 'Bracket FIFA'} - ${share.pseudo || 'Brakup'}`
-  const description = `Le bracket Coupe du Monde 2026 de ${share.pseudo || 'Brakup'}. Cree le tien et compare ton parcours.`
-  const appUrl = `${appOrigin}/?share=${encodeURIComponent(share.id)}`
+  const title = share.title || `${share.bracketName || 'Bracket FIFA'} - ${share.pseudo || 'Brakup'}`
+  const description = share.description || `Le bracket Coupe du Monde 2026 de ${share.pseudo || 'Brakup'}. Cree le tien et compare ton parcours.`
+  const appUrl = share.redirectUrl || `${appOrigin}/?share=${encodeURIComponent(share.id)}`
   const html = `<!doctype html>
 <html lang="fr">
 <head>
@@ -145,6 +145,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         bracketName: sanitizeText(body.bracketName, 'Mon bracket', 60),
         overrides: body.overrides && typeof body.overrides === 'object' ? body.overrides as PublicBracketShare['overrides'] : {},
         knockoutPicks: body.knockoutPicks && typeof body.knockoutPicks === 'object' ? body.knockoutPicks as PublicBracketShare['knockoutPicks'] : {},
+        kind: body.kind === 'result' ? 'result' : 'bracket',
+        title: sanitizeText(body.title, '', 120) || undefined,
+        description: sanitizeText(body.description, '', 180) || undefined,
+        redirectUrl: sanitizeText(body.redirectUrl, '', 240) || undefined,
         imagePath: imagePath(id),
         createdAt: now.toISOString(),
         expiresAt: new Date(now.getTime() + expiresInDays * 24 * 60 * 60 * 1000).toISOString(),
@@ -171,7 +175,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }
 
       const origin = requestOrigin(req)
-      res.status(200).json({ data: { share, shareUrl: `${origin}/share/bracket/${id}` } })
+      res.status(200).json({ data: { share, shareUrl: `${origin}/share/${share.kind === 'result' ? 'result' : 'bracket'}/${id}` } })
       return
     }
 
@@ -212,7 +216,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     }
 
     const origin = requestOrigin(req)
-    const shareUrl = `${origin}/share/bracket/${share.id}`
+    const shareUrl = `${origin}/share/${share.kind === 'result' ? 'result' : 'bracket'}/${share.id}`
     const imageUrl = `${origin}/api/bracket-share?id=${encodeURIComponent(share.id)}&image=1`
     sendHtml(res, share, shareUrl, imageUrl, origin)
   } catch (error) {

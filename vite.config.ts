@@ -299,10 +299,12 @@ function bracketShareApi() {
     configureServer(server: { middlewares: { use: (path: string, callback: (req: Parameters<typeof handler>[0], res: ApiResponse) => void) => void } }) {
       server.middlewares.use('/api/bracket-share', handler)
       server.middlewares.use('/share/bracket', handler)
+      server.middlewares.use('/share/result', handler)
     },
     configurePreviewServer(server: { middlewares: { use: (path: string, callback: (req: Parameters<typeof handler>[0], res: ApiResponse) => void) => void } }) {
       server.middlewares.use('/api/bracket-share', handler)
       server.middlewares.use('/share/bracket', handler)
+      server.middlewares.use('/share/result', handler)
     },
   }
 }

@@ -285,6 +285,35 @@ export async function publishPublicBracketShare(payload: {
   return body.data
 }
 
+export async function publishResultShare(payload: {
+  title: string
+  description: string
+  redirectUrl: string
+  imageDataUrl: string
+  pseudo?: string
+  expiresInDays?: number
+}): Promise<{ share: PublicBracketShare; shareUrl: string }> {
+  const response = await fetch('/api/bracket-share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      kind: 'result',
+      pseudo: payload.pseudo ?? 'Brakup',
+      bracketName: 'Resultat Brakup',
+      title: payload.title,
+      description: payload.description,
+      redirectUrl: payload.redirectUrl,
+      imageDataUrl: payload.imageDataUrl,
+      overrides: {},
+      knockoutPicks: {},
+      expiresInDays: payload.expiresInDays,
+    }),
+  })
+  const body = await response.json() as { data?: { share: PublicBracketShare; shareUrl: string }; error?: string }
+  if (!response.ok || !body.data) throw new Error(body.error ?? 'Partage indisponible.')
+  return body.data
+}
+
 export async function getPublicBracketShare(id: string): Promise<PublicBracketShare> {
   const response = await fetch(`/api/bracket-share?id=${encodeURIComponent(id)}`, {
     headers: { Accept: 'application/json' },

@@ -74,6 +74,24 @@ export function blobToShareFile(blob: Blob, fileName: string) {
   return new File([blob], fileName, { type: 'image/png' })
 }
 
+export function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
+export async function shareLink(options: { title: string; text: string; url: string }) {
+  if (typeof navigator.share === 'function') {
+    await navigator.share(options)
+    return 'shared' as const
+  }
+  await navigator.clipboard?.writeText(options.url)
+  return 'copied' as const
+}
+
 export async function shareFile(file: File, options: Omit<ShareImageOptions, 'fileName'>) {
   const canShareFile = typeof navigator.share === 'function' && Boolean(navigator.canShare?.({ files: [file] }))
 

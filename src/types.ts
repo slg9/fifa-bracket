@@ -186,6 +186,10 @@ export interface PublicBracketShare {
   bracketName: string
   overrides: Record<string, MatchOverride>
   knockoutPicks: Record<string, string>
+  kind?: 'bracket' | 'result'
+  title?: string
+  description?: string
+  redirectUrl?: string
   imagePath: string
   createdAt: string
   expiresAt: string | null
