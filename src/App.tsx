@@ -1111,7 +1111,8 @@ function BracketBoard({
     link.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 0)
   }
-
+
+
 function getShareText(url: string) {
     return `${shareOwnerName || 'Brakup'} partage son bracket Coupe du Monde 2026: ${url}`
   }
@@ -1328,10 +1329,9 @@ function getShareText(url: string) {
             }}
           >
             <div className={`bracket-export-wrapper${isExporting ? ' is-exporting' : ''}`} ref={exportRef}>
-              <div className="bracket-board" ref={boardRef}>
-                {ownerHandle ? (
+              <div className={`bracket-board${readOnlyShare ? ' is-readonly-share' : ''}`} ref={boardRef}>
+                {readOnlyShare && ownerHandle ? (
                   <div className="bracket-owner-badge" aria-label={`Bracket de ${shareOwnerName}`}>
-                    <span>BRACKET DE</span>
                     <strong>{ownerHandle}</strong>
                   </div>
                 ) : null}
@@ -2019,8 +2019,8 @@ function App() {
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const shouldDockBracketHeader = view === 'bracket' && !isBracketFullscreen
   const isSharedBracketView = Boolean((sharedBracketId && sharedBracket) || (publicPseudo && publicSimulatorBracket))
-  const createFromShareHref = sharedBracket ? `/?simulator&cloneShare=${encodeURIComponent(sharedBracket.id)}` : '/?simulator'
-  const currentShareUrl = isSharedBracketView && sharedBracket ? `${window.location.origin}/share/bracket/${sharedBracket.id}` : null
+  const createFromShareHref = '/?simulator&new=1'
+  const currentShareUrl = publicPseudo && publicSimulatorBracket ? ${window.location.origin}/@ : isSharedBracketView && sharedBracket ? ${window.location.origin}/share/bracket/ : challengeProfile.pseudo ? ${window.location.origin}/@ : null
   const isChallengeConnected = Boolean(challengeToken && challengeProfile.pseudo)
   const seenSimulatorOutcomeKeys = new Set(readSeenSimulatorOutcomeKeys())
   const simulatorOutcomeNotices: SimulatorOutcomeNotice[] = displayBracket
