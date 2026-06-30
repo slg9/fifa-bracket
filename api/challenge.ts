@@ -430,6 +430,36 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return
     }
 
+
+    if (action === 'getSimulatorBracketByPseudo') {
+      const pseudo = sanitizePseudo(String(body.pseudo ?? ''))
+      if (!pseudo) {
+        res.status(400).json({ error: 'Pseudo requis.' })
+        return
+      }
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        res.status(500).json({ error: 'Service Brakup indisponible.' })
+        return
+      }
+
+      const bracketBlobs = await listBracketBlobs()
+      for (const blob of bracketBlobs) {
+        const entries = await readJson<ChallengeEntry[]>(blob.pathname, [])
+        if (!entries.some((entry) => normalizePseudo(entry.pseudo ?? '') === normalizePseudo(pseudo))) {
+          continue
+        }
+
+        const emailHash = blob.pathname.split('/')[1]
+        const simulator = await readJson<SimulatorBracketEntry | null>(`challenge/${emailHash}/simulator.json`, null)
+        if (simulator) {
+          res.status(200).json({ data: simulator })
+          return
+        }
+      }
+
+      res.status(404).json({ error: 'Bracket introuvable.' })
+      return
+    }
     if (action === 'saveSimulatorBracket') {
       const token = bearerToken(req) ?? String(body.token ?? '')
       const payload = token ? await verifyToken(token) : null

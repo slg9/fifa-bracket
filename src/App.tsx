@@ -9,7 +9,7 @@ import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import { formatScore } from './challenge/progress'
 import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
-import { getProfileStatus, getPublicBracketShare, getSimulatorBracket, publishPublicBracketShare, resendMagicLink, saveSimulatorBracket, verifyLoginOTP } from './lib/challengeData'
+import { getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, publishPublicBracketShare, resendMagicLink, saveSimulatorBracket, verifyLoginOTP } from './lib/challengeData'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -26,6 +26,7 @@ import type {
   MatchPrediction,
   Mode,
   PublicBracketShare,
+  SimulatorBracketEntry,
   RankedStandingRow,
   Team,
   TournamentSeed,
@@ -312,6 +313,11 @@ function readShareIdFromLocation(): string | null {
 
   const pathMatch = window.location.pathname.match(/\/share\/bracket\/([^/?#]+)/)
   return pathMatch ? decodeURIComponent(pathMatch[1]) : null
+}
+
+function readPublicPseudoFromLocation(): string | null {
+  const match = window.location.pathname.match(/^\/@([^/?#]+)/)
+  return match ? decodeURIComponent(match[1]) : null
 }
 function readStoredChallengeProfile(): ChallengeProfile {
   if (typeof window === 'undefined') {
@@ -825,7 +831,7 @@ function BracketBoard({
   const [activeMobileRound, setActiveMobileRound] = useState<(typeof mobileRoundTabs)[number]['key']>('R32')
   const [isExporting, setIsExporting] = useState(false)
   const [exportFeedback, setExportFeedback] = useState<string | null>(null)
-  const [shareSheet, setShareSheet] = useState<{ url: string; blob: Blob } | null>(null)
+  const [shareSheet, setShareSheet] = useState<{ url: string; blob?: Blob } | null>(null)
   const [standingsPopup, setStandingsPopup] = useState<{ teamId: string; x: number; y: number } | null>(null)
   const isFullscreenRef = useRef(false)
 
@@ -1125,12 +1131,12 @@ function BracketBoard({
 
   async function handleNativePreparedShare() {
     if (!shareSheet) return
-    const file = new File([shareSheet.blob], getBracketFileName(), { type: 'image/png' })
+    const file = shareSheet.blob ? new File([shareSheet.blob], getBracketFileName(), { type: 'image/png' }) : null
     const payload = {
       title: 'FIFA Bracket',
       text: getShareText(shareSheet.url),
       url: shareSheet.url,
-      ...(navigator.canShare?.({ files: [file] }) ? { files: [file] } : {}),
+      ...(file && navigator.canShare?.({ files: [file] }) ? { files: [file] } : {}),
     }
 
     if (!navigator.share) {
@@ -1174,35 +1180,17 @@ function BracketBoard({
   }
 
   async function handleShare() {
-    let blob: Blob | null = null
-
     try {
-      setExportFeedback(existingShareUrl ? "Preparation du partage..." : "Generation du lien de partage...")
-      blob = await generateBracketBlob()
-      const shareUrl = existingShareUrl ?? (await publishPublicBracketShare({
-        pseudo: shareOwnerName || 'Brakup',
-        bracketName: shareBracketName || 'Mon bracket',
-        overrides,
-        knockoutPicks: picks,
-        imageDataUrl: await blobToDataUrl(blob),
-      })).shareUrl
+      const publicUrl = existingShareUrl ?? (shareOwnerName.trim() ? `${window.location.origin}/@${encodeURIComponent(shareOwnerName.trim())}` : null)
+      if (!publicUrl) {
+        setExportFeedback('Connecte-toi pour obtenir un lien de partage.')
+        return
+      }
 
-      setShareSheet({ url: shareUrl, blob })
+      setShareSheet({ url: publicUrl })
       setExportFeedback('Lien de partage pret.')
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        setExportFeedback(null)
-        return
-      }
-
       console.error('Bracket link share failed:', error)
-
-      if (blob) {
-        downloadGeneratedBlob(blob)
-        setExportFeedback('Lien indisponible, image telechargee.')
-        return
-      }
-
       setExportFeedback("Impossible de preparer le partage pour le moment.")
     }
   }
@@ -1258,7 +1246,7 @@ function BracketBoard({
               <button type="button" onClick={openWhatsAppShare}><span>WA</span> WhatsApp</button>
               <button type="button" onClick={openMailShare}><span>@</span> Email</button>
               <button type="button" onClick={() => void copyPreparedShareLink()}><span>CL</span> Copier lien</button>
-              <button type="button" onClick={() => downloadGeneratedBlob(shareSheet.blob)}><span>DL</span> PNG</button>
+              {shareSheet.blob ? <button type="button" onClick={() => downloadGeneratedBlob(shareSheet.blob!)}><span>DL</span> PNG</button> : null}
             </div>
           </div>
         </div>
@@ -1552,6 +1540,8 @@ function App() {
   const challengeMode = useMemo(() => new URLSearchParams(window.location.search).has('challenge'), [])
   const sharedBracketId = useMemo(() => readShareIdFromLocation(), [])
   const cloneShareId = useMemo(() => new URLSearchParams(window.location.search).get('cloneShare'), [])
+  const publicPseudo = useMemo(() => readPublicPseudoFromLocation(), [])
+  const forceNewSimulator = useMemo(() => new URLSearchParams(window.location.search).has('new'), [])
   const sharedBracketLoadId = sharedBracketId ?? cloneShareId
   const view = 'bracket' as View
   const [overrides, setOverrides] = useState<Record<string, MatchOverride>>({})
@@ -1575,6 +1565,7 @@ function App() {
   const [matchStatsLoading, setMatchStatsLoading] = useState(false)
   const [oddsData, setOddsData] = useState<OddsSnapshot | null>(null)
   const [sharedBracket, setSharedBracket] = useState<PublicBracketShare | null>(null)
+  const [publicSimulatorBracket, setPublicSimulatorBracket] = useState<SimulatorBracketEntry | null>(null)
   const [challengeToken, setChallengeToken] = useState<string | null>(() => window.localStorage.getItem(challengeTokenStorageKey))
   const [challengeProfile, setChallengeProfile] = useState<ChallengeProfile>(readStoredChallengeProfile)
   const [hasChallengeAccount, setHasChallengeAccount] = useState(() => window.localStorage.getItem(challengeHadAccountStorageKey) === 'true')
@@ -1603,13 +1594,26 @@ function App() {
         if (!active) return
 
         setSeed(seedData)
-        if (sharedBracketLoadId) {
+        if (publicPseudo) {
+          const publicEntry = await getSimulatorBracketByPseudo(publicPseudo)
+          if (!active) return
+          setPublicSimulatorBracket(publicEntry)
+          setOverrides(publicEntry?.overrides ?? {})
+          setKnockoutPicks(publicEntry?.knockoutPicks ?? {})
+          setFocusId(null)
+          setMode('simulation')
+        } else if (sharedBracketLoadId) {
           const share = await getPublicBracketShare(sharedBracketLoadId)
           if (!active) return
           setSharedBracket(share)
           setOverrides(share.overrides)
           setKnockoutPicks(share.knockoutPicks)
           setFocusId(null)
+          setMode('simulation')
+        } else if (forceNewSimulator) {
+          clearStoredSimulation()
+          setOverrides({})
+          setKnockoutPicks({})
           setMode('simulation')
         } else {
           const storedSimulation = readStoredSimulation()
@@ -1666,10 +1670,10 @@ function App() {
     return () => {
       active = false
     }
-  }, [sharedBracketLoadId])
+  }, [forceNewSimulator, publicPseudo, sharedBracketLoadId])
 
   useEffect(() => {
-    if (sharedBracketId) return
+    if (sharedBracketId || publicPseudo) return
     if (Object.keys(overrides).length === 0 && Object.keys(knockoutPicks).length === 0) {
       clearStoredSimulation()
       return
@@ -1685,7 +1689,7 @@ function App() {
     let cancelled = false
     simulatorRemoteHydratedRef.current = false
 
-    if (sharedBracketLoadId) {
+    if (forceNewSimulator || publicPseudo || sharedBracketLoadId) {
       simulatorRemoteHydratedRef.current = true
       return
     }
@@ -1731,10 +1735,14 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [challengeToken, sharedBracketLoadId])
+  }, [challengeToken, forceNewSimulator, publicPseudo, sharedBracketLoadId])
 
   useEffect(() => {
-    if (sharedBracketId || !challengeToken || !simulatorRemoteHydratedRef.current || !challengeProfile.pseudo) {
+    if (sharedBracketId || publicPseudo || !challengeToken || !simulatorRemoteHydratedRef.current || !challengeProfile.pseudo) {
+      return
+    }
+
+    if (Object.keys(overrides).length === 0 && Object.keys(knockoutPicks).length === 0) {
       return
     }
 
@@ -1752,12 +1760,16 @@ function App() {
     }, 500)
 
     return () => {
-      if (simulatorSaveTimerRef.current !== null) {
+      if (Object.keys(overrides).length === 0 && Object.keys(knockoutPicks).length === 0) {
+      return
+    }
+
+    if (simulatorSaveTimerRef.current !== null) {
         window.clearTimeout(simulatorSaveTimerRef.current)
         simulatorSaveTimerRef.current = null
       }
     }
-  }, [challengeProfile.bracketName, challengeProfile.pseudo, challengeToken, knockoutPicks, overrides, sharedBracketId])
+  }, [challengeProfile.bracketName, challengeProfile.pseudo, challengeToken, knockoutPicks, overrides, publicPseudo, sharedBracketId])
 
   useEffect(() => {
     const syncViewport = () => {
@@ -2019,7 +2031,7 @@ function App() {
     .filter((team): team is Team => Boolean(team))
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const shouldDockBracketHeader = view === 'bracket' && !isBracketFullscreen
-  const isSharedBracketView = Boolean(sharedBracketId && sharedBracket)
+  const isSharedBracketView = Boolean((sharedBracketId && sharedBracket) || (publicPseudo && publicSimulatorBracket))
   const createFromShareHref = sharedBracket ? `/?simulator&cloneShare=${encodeURIComponent(sharedBracket.id)}` : '/?simulator'
   const currentShareUrl = isSharedBracketView && sharedBracket ? `${window.location.origin}/share/bracket/${sharedBracket.id}` : null
   const isChallengeConnected = Boolean(challengeToken && challengeProfile.pseudo)
@@ -2109,6 +2121,7 @@ function App() {
   const isSelectedToday = activeDayKey === localDateStr()
 
   function updateOverride(matchId: string, side: 'homeScore' | 'awayScore', value: string) {
+    if (lockedMatchIds.has(matchId)) return
     setOverrides((current) => {
       const next = { ...current }
       const match = next[matchId] ?? { homeScore: null, awayScore: null }
@@ -2122,6 +2135,7 @@ function App() {
   }
 
   function applyGroupRankingSimulation(groupId: string, orderedTeamIds: string[]) {
+    if (mergedMatches.some((match) => match.groupId === groupId && lockedMatchIds.has(match.id))) return
     if (!seed) {
       return
     }
@@ -2150,6 +2164,7 @@ function App() {
   }
 
   function handlePickWinner(matchId: string, teamId: string) {
+    if (lockedMatchIds.has(matchId)) return
     setKnockoutPicks((current) => ({
       ...current,
       [matchId]: teamId,
@@ -2163,6 +2178,7 @@ function App() {
   }
 
   function handleClearWinner(matchId: string) {
+    if (lockedMatchIds.has(matchId)) return
     setKnockoutPicks((current) => {
       const next = { ...current }
       delete next[matchId]
@@ -2858,8 +2874,8 @@ function App() {
               overrides={overrides}
               simulationEnabled={mode === 'simulation' && !isSharedBracketView}
               standings={standings}
-              shareOwnerName={sharedBracket?.pseudo || challengeProfile.pseudo || 'Brakup'}
-              shareBracketName={sharedBracket?.bracketName || challengeProfile.bracketName || 'Mon bracket'}
+              shareOwnerName={publicSimulatorBracket?.pseudo || sharedBracket?.pseudo || challengeProfile.pseudo || 'Brakup'}
+              shareBracketName={publicSimulatorBracket?.bracketName || sharedBracket?.bracketName || challengeProfile.bracketName || 'Mon bracket'}
               existingShareUrl={currentShareUrl}
               readOnlyShare={isSharedBracketView}
               createHref={createFromShareHref}

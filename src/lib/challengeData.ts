@@ -209,6 +209,16 @@ export async function getSimulatorBracket(token: string): Promise<SimulatorBrack
   }
 }
 
+
+export async function getSimulatorBracketByPseudo(pseudo: string): Promise<SimulatorBracketEntry | null> {
+  try {
+    return await request<SimulatorBracketEntry | null>('getSimulatorBracketByPseudo', { pseudo })
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    const current = localSimulatorEntry()
+    return current && current.pseudo.toLowerCase() === pseudo.toLowerCase() ? current : null
+  }
+}
 export async function saveSimulatorBracket(
   token: string,
   entry: Pick<SimulatorBracketEntry, 'pseudo' | 'bracketName' | 'overrides' | 'knockoutPicks'>,
