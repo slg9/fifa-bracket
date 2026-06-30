@@ -1373,6 +1373,22 @@ function getShareText(url: string) {
       ) : null}
 
       <div className="bracket-mobile-shell">
+        {readOnlyShare && ownerHandle ? (
+          <div className="bracket-mobile-sharebar">
+            <div className="bracket-mobile-sharebar__identity" aria-label={`Bracket de ${shareOwnerName}`}>
+              <strong>{ownerHandle}</strong>
+              <span>{rewards.total} pts</span>
+            </div>
+            <a
+              href={createHref ?? '/?simulator'}
+              className={`bracket-mobile-sharebar__action${createLabel?.startsWith('RETOUR') ? ' is-home' : ''}`}
+              aria-label={createLabel?.startsWith('RETOUR') ? 'Retour a mon bracket' : 'Creer mon bracket'}
+            >
+              {createLabel?.startsWith('RETOUR') ? <span aria-hidden="true">?</span> : createLabel ?? 'CREER MON BRACKET'}
+            </a>
+          </div>
+        ) : null}
+
         <div className="bracket-mobile-tabs" role="tablist" aria-label="Rounds du bracket">
           {mobileRoundTabs.map((tab) => (
             <button

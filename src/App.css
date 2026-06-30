@@ -4225,6 +4225,79 @@
     gap: 10px;
   }
 
+  .bracket-mobile-sharebar {
+    position: sticky;
+    top: 0;
+    z-index: 75;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    min-height: 56px;
+    margin: 0 -10px 8px;
+    padding: max(8px, env(safe-area-inset-top)) 10px 8px;
+    background: linear-gradient(180deg, rgba(5, 11, 22, 0.98), rgba(5, 11, 22, 0.9));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(14px);
+  }
+
+  .bracket-mobile-sharebar__identity {
+    grid-column: 2;
+    display: inline-grid;
+    justify-items: center;
+    min-width: 0;
+    color: #f4fff9;
+    text-align: center;
+  }
+
+  .bracket-mobile-sharebar__identity strong {
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--neon);
+    font: 900 14px 'JetBrains Mono', 'Barlow Condensed', Arial, sans-serif;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .bracket-mobile-sharebar__identity span {
+    color: rgba(238, 245, 255, 0.74);
+    font: 900 10px var(--numbers);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .bracket-mobile-sharebar__action {
+    grid-column: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 96px;
+    min-height: 36px;
+    padding: 8px 10px;
+    border: 1.5px solid rgba(43, 255, 154, 0.78);
+    border-radius: 999px;
+    background: rgba(43, 255, 154, 0.14);
+    color: #dfffee;
+    font: 900 9px var(--display);
+    letter-spacing: 0.08em;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: 0 0 18px rgba(43, 255, 154, 0.24);
+  }
+
+  .bracket-mobile-sharebar__action.is-home {
+    min-width: 38px;
+    width: 38px;
+    padding: 0;
+    border-color: rgba(255, 184, 0, 0.72);
+    background: rgba(255, 184, 0, 0.16);
+    color: #ffcf58;
+    font-size: 20px;
+    letter-spacing: 0;
+  }
+
   .bracket-mobile-round {
     position: relative;
     display: block;
@@ -4236,7 +4309,7 @@
     justify-content: space-around;
     min-width: 0;
     min-height: calc(100dvh - 132px);
-    padding: 18px 86px 18px 0;
+    padding: 14px 86px 18px 0;
   }
 
 
