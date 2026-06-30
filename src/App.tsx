@@ -3,10 +3,13 @@ import { toBlob } from 'html-to-image'
 import './App.css'
 import BootLoaderMark from './components/BootLoaderMark'
 import BrakupHub from './challenge/BrakupHub'
+import LoginEntry from './challenge/LoginEntry'
 import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
 import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
+import { formatScore } from './challenge/progress'
 import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
+import { getProfileStatus, getSimulatorBracket, resendMagicLink, saveSimulatorBracket, verifyLoginOTP } from './lib/challengeData'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -78,7 +81,11 @@ type DisplayMatch = {
   away: KnockoutEntrant
   qualificationStatus?: 'confirmed' | 'projected'
   winnerId: string | null
+  pickedWinnerId: string | null
+  realWinnerId: string | null
   played: boolean
+  hasOfficialResult: boolean
+  predictionState?: 'correct' | 'wrong'
 }
 
 type DayMatch = GroupMatch & {
@@ -96,6 +103,10 @@ type DragState = {
 }
 
 const simulationStorageKey = 'fifabracket:simulation'
+const challengeProfileStorageKey = 'brakup:profile'
+const challengeTokenStorageKey = 'brakup:token'
+const challengeHadAccountStorageKey = 'brakup:hadAccount'
+const simulatorOutcomeSeenStorageKey = 'fifabracket:simulator-seen-outcomes'
 
 // Free-to-air broadcaster per match (France). Matches not listed = beIN Sports only.
 // Source: M6/W9 rights + beIN Sports 2026 World Cup schedule.
@@ -124,6 +135,17 @@ function BroadcasterBadge({ matchId }: { matchId: string }) {
 type StoredSimulation = {
   overrides: Record<string, MatchOverride>
   knockoutPicks: Record<string, string>
+}
+
+type ChallengeProfile = {
+  email: string
+  pseudo: string
+  bracketName: string
+}
+
+type SimulatorOutcomeNotice = {
+  key: string
+  match: DisplayMatch
 }
 
 const roundColumns: Array<{ key: string; stage: string; side: 'left' | 'center' | 'right'; ids: string[] }> = [
@@ -282,6 +304,47 @@ function clearStoredSimulation() {
   window.localStorage.removeItem(simulationStorageKey)
 }
 
+function readStoredChallengeProfile(): ChallengeProfile {
+  if (typeof window === 'undefined') {
+    return { email: '', pseudo: '', bracketName: 'Mon bracket' }
+  }
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(challengeProfileStorageKey) ?? '{}') as Partial<ChallengeProfile>
+    return {
+      email: parsed.email ?? '',
+      pseudo: parsed.pseudo ?? '',
+      bracketName: parsed.bracketName ?? 'Mon bracket',
+    }
+  } catch {
+    return { email: '', pseudo: '', bracketName: 'Mon bracket' }
+  }
+}
+
+function rememberChallengeProfile(profile: ChallengeProfile) {
+  if (typeof window === 'undefined') {
+    return
+  }
+  window.localStorage.setItem(challengeProfileStorageKey, JSON.stringify(profile))
+}
+
+function readSeenSimulatorOutcomeKeys() {
+  if (typeof window === 'undefined') {
+    return [] as string[]
+  }
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(simulatorOutcomeSeenStorageKey) ?? '[]') as unknown
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function simulatorOutcomeStorageKey(matchId: string, winnerId: string | null) {
+  return `${matchId}:${winnerId ?? 'pending'}`
+}
+
 function flagUrl(team: Team): string {
   if (team.iso2.includes('-')) {
     return ''
@@ -429,6 +492,8 @@ function KnockoutTeamBadge({
   teamsById,
   isWinner,
   isLoser,
+  isPicked,
+  pickResult,
   isFocus,
   isActivePath,
   side,
@@ -441,6 +506,8 @@ function KnockoutTeamBadge({
   teamsById: Map<string, Team>
   isWinner: boolean
   isLoser: boolean
+  isPicked: boolean
+  pickResult?: 'correct' | 'wrong'
   isFocus: boolean
   isActivePath: boolean
   side: 'left' | 'center' | 'right'
@@ -468,6 +535,7 @@ function KnockoutTeamBadge({
   }
 
   const src = flagUrl(team)
+  const outcomeIcon = pickResult === 'correct' ? '*' : pickResult === 'wrong' ? 'x' : null
 
   return (
     <button
@@ -477,6 +545,9 @@ function KnockoutTeamBadge({
         isInteractive ? 'is-interactive' : '',
         isWinner ? 'is-win' : '',
         isLoser ? 'is-lose' : '',
+        isPicked ? 'is-picked' : '',
+        pickResult === 'correct' ? 'is-prono-correct' : '',
+        pickResult === 'wrong' ? 'is-prono-wrong' : '',
         isFocus ? 'is-focus' : '',
         isActivePath ? 'is-active-path' : '',
       ].filter(Boolean).join(' ')}
@@ -490,14 +561,14 @@ function KnockoutTeamBadge({
       {side === 'right' ? (
         <>
           <span className="bm__name">{team.name}</span>
-          {isWinner ? <span className="bm__tick" aria-hidden="true">x</span> : null}
+          {outcomeIcon ? <span className={`bm__outcome bm__outcome--${pickResult}`} aria-hidden="true">{outcomeIcon}</span> : null}
           {src ? <img src={src} alt="" className="flag-image" crossOrigin="anonymous" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
         </>
       ) : (
         <>
           {src ? <img src={src} alt="" className="flag-image" crossOrigin="anonymous" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
           <span className="bm__name">{team.name}</span>
-          {isWinner ? <span className="bm__tick" aria-hidden="true">x</span> : null}
+          {outcomeIcon ? <span className={`bm__outcome bm__outcome--${pickResult}`} aria-hidden="true">{outcomeIcon}</span> : null}
         </>
       )}
     </button>
@@ -536,14 +607,18 @@ const MatchCard = memo(function MatchCard({
   const homeTeamId = getEntrantTeamId(match.home)
   const awayTeamId = getEntrantTeamId(match.away)
   const dateTimeLabel = formatKnockoutDateTime(match.id, match.dateLabel)
+  const homePickState = match.pickedWinnerId && homeTeamId === match.pickedWinnerId ? match.predictionState : undefined
+  const awayPickState = match.pickedWinnerId && awayTeamId === match.pickedWinnerId ? match.predictionState : undefined
 
   return (
     <article
       className={[
         'bm',
-        isActive ? 'is-active' : '',
+        isActive ? 'is-onpath' : '',
         isDimmed ? 'is-dimmed' : '',
         isFinalCard ? 'bm--final' : '',
+        match.predictionState === 'correct' ? 'bm--prono-correct' : '',
+        match.predictionState === 'wrong' ? 'bm--prono-wrong' : '',
       ].filter(Boolean).join(' ')}
       ref={registerRef}
       data-match-id={match.id}
@@ -551,11 +626,6 @@ const MatchCard = memo(function MatchCard({
       <div className="bm__meta">
         <span>{match.label.toUpperCase()}</span>
         <span className="bm__dateblock">
-          {match.qualificationStatus ? (
-            <span className={`bm__qbadge is-${match.qualificationStatus}`}>
-              {match.qualificationStatus === 'confirmed' ? 'CONFIRME' : 'PROJETE'}
-            </span>
-          ) : null}
           <span className="bm__datetime">{dateTimeLabel}</span>
         </span>
       </div>
@@ -564,6 +634,8 @@ const MatchCard = memo(function MatchCard({
         teamsById={teamsById}
         isWinner={match.winnerId === homeTeamId}
         isLoser={match.played && Boolean(homeTeamId) && match.winnerId !== homeTeamId}
+        isPicked={match.pickedWinnerId === homeTeamId}
+        pickResult={homePickState}
         isFocus={focusId === homeTeamId}
         isActivePath={isActive}
         side={side}
@@ -577,6 +649,8 @@ const MatchCard = memo(function MatchCard({
         teamsById={teamsById}
         isWinner={match.winnerId === awayTeamId}
         isLoser={match.played && Boolean(awayTeamId) && match.winnerId !== awayTeamId}
+        isPicked={match.pickedWinnerId === awayTeamId}
+        pickResult={awayPickState}
         isFocus={focusId === awayTeamId}
         isActivePath={isActive}
         side={side}
@@ -585,7 +659,7 @@ const MatchCard = memo(function MatchCard({
         onPreview={onPreview}
         onStandingsHover={onStandingsHover}
       />
-      {simulationEnabled && match.played ? (
+      {simulationEnabled && match.pickedWinnerId ? (
         <div className="bm__actions match-card-actions">
           <button type="button" className="bm__clear" onClick={() => onClear(match.id)} aria-label={`Effacer ${match.label}`}>
             ?
@@ -599,6 +673,8 @@ const MatchCard = memo(function MatchCard({
 function resolveDisplayBracket(
   groupBracket: ReturnType<typeof buildKnockoutBracket>,
   picks: Record<string, string>,
+  winnerTeamCodes: Map<string, string>,
+  teamsById: Map<string, Team>,
 ): DisplayMatch[] {
   const byId = new Map(groupBracket.map((match) => [match.id, match]))
   const display = new Map<string, DisplayMatch>()
@@ -664,13 +740,25 @@ function resolveDisplayBracket(
       )
         ? pickedWinnerId
         : null
+    const winnerTeamCode = winnerTeamCodes.get(source.id)
+    const realWinnerEntrant = winnerTeamCode
+      ? [resolvedHome, resolvedAway].find(
+          (entrant): entrant is { kind: 'team'; teamId: string } => entrant.kind === 'team' && teamsById.get(entrant.teamId)?.fifaCode === winnerTeamCode,
+        )
+      : undefined
+    const realWinnerId = realWinnerEntrant?.teamId ?? null
+    const displayedWinnerId = realWinnerId ?? validPick
 
     display.set(source.id, {
       ...source,
       home: resolvedHome,
       away: resolvedAway,
-      winnerId: validPick,
-      played: Boolean(validPick),
+      winnerId: displayedWinnerId,
+      pickedWinnerId: validPick,
+      realWinnerId,
+      played: Boolean(displayedWinnerId),
+      hasOfficialResult: Boolean(realWinnerId),
+      predictionState: validPick && realWinnerId ? validPick === realWinnerId ? 'correct' : 'wrong' : undefined,
     })
   }
 
@@ -709,7 +797,7 @@ function BracketBoard({
   const fullscreenRef = useRef<HTMLDivElement | null>(null)
   const [box, setBox] = useState({ width: 0, height: 0 })
   const [visualScale, setVisualScale] = useState(1)
-  const [lines, setLines] = useState<Array<{ id: string; d: string; active: boolean }>>([])
+  const [lines, setLines] = useState<Array<{ id: string; d: string; active: boolean; tone?: 'correct' }>>([])
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isLandscape, setIsLandscape] = useState(() => window.innerWidth >= window.innerHeight)
   const [previewTeamId, setPreviewTeamId] = useState<string | null>(null)
@@ -863,7 +951,7 @@ function BracketBoard({
       const nextScale = Math.min(maxScale, Math.max(0.35, Math.min(scaleByWidth, scaleByHeight)))
       const boardRect = boardRef.current.getBoundingClientRect()
       const safeScale = nextScale || 1
-      const nextLines: Array<{ id: string; d: string; active: boolean }> = []
+      const nextLines: Array<{ id: string; d: string; active: boolean; tone?: 'correct' }> = []
 
       setBox({
         width: nextWidth,
@@ -893,6 +981,7 @@ function BracketBoard({
           id: match.id,
           d: buildConnectorPath(x1, y1, x2, y2),
           active: activeLineIds.has(match.id),
+          tone: match.predictionState === 'correct' ? 'correct' : undefined,
         })
       }
 
@@ -1105,13 +1194,14 @@ function BracketBoard({
             </div>
             <div className="bracket-mobile-path__list">
               {focusedPathMatches.map((match) => (
-                <div key={match.id} className="bracket-mobile-path__item">
+                <div key={match.id} className={`bracket-mobile-path__item${match.predictionState === 'correct' ? ' is-correct' : ''}${match.predictionState === 'wrong' ? ' is-wrong' : ''}`}>
                   <span>{formatStageLabel(match.stage)} · {formatKnockoutDateTime(match.id, match.dateLabel)}</span>
                   <b>
                     {match.home.kind === 'team' ? teamsById.get(match.home.teamId)?.name : match.home.label}
                     {' vs '}
                     {match.away.kind === 'team' ? teamsById.get(match.away.teamId)?.name : match.away.label}
                   </b>
+                  {match.predictionState ? <small>{match.predictionState === 'correct' ? 'BON prono' : 'X Prono rate'}</small> : null}
                 </div>
               ))}
             </div>
@@ -1167,7 +1257,7 @@ function BracketBoard({
               <div className="bracket-board" ref={boardRef}>
             <svg className="bracket__links" width={box.width} height={box.height} aria-hidden="true">
               {lines.map((line) => (
-                <path key={line.id} d={line.d} className={line.active ? 'link link--lit' : 'link'} />
+                <path key={line.id} d={line.d} className={['link', line.active ? 'link--lit' : '', line.tone === 'correct' ? 'link--gold' : ''].filter(Boolean).join(' ')} />
               ))}
             </svg>
 
@@ -1374,6 +1464,19 @@ function App() {
   const [matchStatsData, setMatchStatsData] = useState<MatchEventsData | null>(null)
   const [matchStatsLoading, setMatchStatsLoading] = useState(false)
   const [oddsData, setOddsData] = useState<OddsSnapshot | null>(null)
+  const [challengeToken, setChallengeToken] = useState<string | null>(() => window.localStorage.getItem(challengeTokenStorageKey))
+  const [challengeProfile, setChallengeProfile] = useState<ChallengeProfile>(readStoredChallengeProfile)
+  const [hasChallengeAccount, setHasChallengeAccount] = useState(() => window.localStorage.getItem(challengeHadAccountStorageKey) === 'true')
+  const [showChallengeLoginEntry, setShowChallengeLoginEntry] = useState(false)
+  const [challengeLoginBusy, setChallengeLoginBusy] = useState(false)
+  const [challengeLoginError, setChallengeLoginError] = useState<string | null>(null)
+  const [challengeLoginSent, setChallengeLoginSent] = useState(false)
+  const [challengeLoginEmail, setChallengeLoginEmail] = useState<string | null>(null)
+  const [challengeMenuOpen, setChallengeMenuOpen] = useState(false)
+  const [simulatorOutcomeKey, setSimulatorOutcomeKey] = useState<string | null>(null)
+  const [seenSimulatorOutcomeVersion, setSeenSimulatorOutcomeVersion] = useState(0)
+  const simulatorRemoteHydratedRef = useRef(false)
+  const simulatorSaveTimerRef = useRef<number | null>(null)
   const initialSyncBaselineRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -1456,6 +1559,79 @@ function App() {
       knockoutPicks,
     })
   }, [overrides, knockoutPicks])
+
+  useEffect(() => {
+    let cancelled = false
+    simulatorRemoteHydratedRef.current = false
+
+    if (!challengeToken) {
+      simulatorRemoteHydratedRef.current = true
+      return
+    }
+
+    window.localStorage.setItem(challengeTokenStorageKey, challengeToken)
+    Promise.all([
+      getProfileStatus(challengeToken).catch(() => null),
+      getSimulatorBracket(challengeToken).catch(() => null),
+    ]).then(([status, simulatorEntry]) => {
+      if (cancelled) return
+
+      if (status?.pseudo || simulatorEntry?.pseudo || simulatorEntry?.bracketName) {
+        setChallengeProfile((current) => {
+          const next = {
+            email: current.email,
+            pseudo: simulatorEntry?.pseudo || status?.pseudo || current.pseudo,
+            bracketName: simulatorEntry?.bracketName || current.bracketName || 'Mon bracket',
+          }
+          rememberChallengeProfile(next)
+          return next
+        })
+      }
+
+      if (simulatorEntry) {
+        setOverrides(simulatorEntry.overrides ?? {})
+        setKnockoutPicks(simulatorEntry.knockoutPicks ?? {})
+        setMode('simulation')
+      }
+
+      setHasChallengeAccount(true)
+      window.localStorage.setItem(challengeHadAccountStorageKey, 'true')
+    }).catch(() => undefined).finally(() => {
+      if (!cancelled) {
+        simulatorRemoteHydratedRef.current = true
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [challengeToken])
+
+  useEffect(() => {
+    if (!challengeToken || !simulatorRemoteHydratedRef.current || !challengeProfile.pseudo) {
+      return
+    }
+
+    if (simulatorSaveTimerRef.current !== null) {
+      window.clearTimeout(simulatorSaveTimerRef.current)
+    }
+
+    simulatorSaveTimerRef.current = window.setTimeout(() => {
+      void saveSimulatorBracket(challengeToken, {
+        pseudo: challengeProfile.pseudo,
+        bracketName: challengeProfile.bracketName || 'Simulator accueil',
+        overrides,
+        knockoutPicks,
+      }).catch(() => undefined)
+    }, 500)
+
+    return () => {
+      if (simulatorSaveTimerRef.current !== null) {
+        window.clearTimeout(simulatorSaveTimerRef.current)
+        simulatorSaveTimerRef.current = null
+      }
+    }
+  }, [challengeProfile.bracketName, challengeProfile.pseudo, challengeToken, knockoutPicks, overrides])
 
   useEffect(() => {
     const syncViewport = () => {
@@ -1565,11 +1741,80 @@ function App() {
   useEffect(() => {
     if (isBracketFullscreen) {
       setHeaderBracketMenuOpen(false)
+      setChallengeMenuOpen(false)
     }
   }, [isBracketFullscreen])
 
   function dispatchBracketAction(action: 'bracket:toggle-fullscreen' | 'bracket:share' | 'bracket:download') {
     window.dispatchEvent(new Event(action))
+  }
+
+  function closeSimulatorOutcomeNotice() {
+    if (!simulatorOutcomeNotice) return
+    const seen = new Set(readSeenSimulatorOutcomeKeys())
+    seen.add(simulatorOutcomeNotice.key)
+    window.localStorage.setItem(simulatorOutcomeSeenStorageKey, JSON.stringify([...seen]))
+    setSeenSimulatorOutcomeVersion((current) => current + 1)
+    setSimulatorOutcomeKey(null)
+  }
+
+  function handleChallengeLogout() {
+    window.localStorage.removeItem(challengeTokenStorageKey)
+    window.localStorage.removeItem(challengeProfileStorageKey)
+    setChallengeToken(null)
+    setChallengeProfile({ email: '', pseudo: '', bracketName: 'Mon bracket' })
+    setChallengeMenuOpen(false)
+  }
+
+  async function handleChallengeLogin(email: string) {
+    setChallengeLoginBusy(true)
+    setChallengeLoginError(null)
+    setChallengeLoginSent(false)
+    setChallengeLoginEmail(email)
+
+    try {
+      const result = await resendMagicLink(email)
+      setChallengeLoginSent(true)
+      setHasChallengeAccount(true)
+      window.localStorage.setItem(challengeHadAccountStorageKey, 'true')
+      setChallengeProfile((current) => {
+        const next = { ...current, email }
+        rememberChallengeProfile(next)
+        return next
+      })
+      if (result.token) {
+        setChallengeToken(result.token)
+        setShowChallengeLoginEntry(false)
+      }
+    } catch (caught) {
+      setChallengeLoginError(caught instanceof Error ? caught.message : 'Connexion impossible.')
+    } finally {
+      setChallengeLoginBusy(false)
+    }
+  }
+
+  async function handleChallengeLoginOTP(otp: string) {
+    if (!challengeLoginEmail) return
+    setChallengeLoginBusy(true)
+    setChallengeLoginError(null)
+
+    try {
+      const result = await verifyLoginOTP(challengeLoginEmail, otp)
+      setChallengeProfile((current) => {
+        const next = { ...current, email: result.email }
+        rememberChallengeProfile(next)
+        return next
+      })
+      setChallengeToken(result.token)
+      setHasChallengeAccount(true)
+      window.localStorage.setItem(challengeHadAccountStorageKey, 'true')
+      setShowChallengeLoginEntry(false)
+      setChallengeLoginSent(false)
+    } catch (caught) {
+      setChallengeLoginError(caught instanceof Error ? caught.message : 'Code OTP invalide ou expire.')
+    } finally {
+      setChallengeLoginBusy(false)
+    }
   }
 
   if (loading) {
@@ -1606,8 +1851,9 @@ function App() {
   const bestThirds = getBestThirdPlacedTeams(standings)
   const groupBracket = buildKnockoutBracket(standings, mergedMatches)
   const activeKnockoutPicks = mode === 'simulation' ? knockoutPicks : {}
-  const displayBracket = resolveDisplayBracket(groupBracket, activeKnockoutPicks)
   const liveMatchesById = new Map(liveSource.matches.map((match) => [match.id, match]))
+  const liveWinnerCodesById = new Map(liveSource.matches.flatMap((match) => match.winnerTeamCode ? [[match.id, match.winnerTeamCode] as const] : []))
+  const displayBracket = resolveDisplayBracket(groupBracket, activeKnockoutPicks, liveWinnerCodesById, teamsById)
   const knockoutDayMatches: DayMatch[] = displayBracket
     .map<DayMatch | null>((match) => {
       const live = liveMatchesById.get(match.id)
@@ -1648,6 +1894,23 @@ function App() {
     .filter((team): team is Team => Boolean(team))
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const shouldDockBracketHeader = view === 'bracket' && !isBracketFullscreen
+  const isChallengeConnected = Boolean(challengeToken && challengeProfile.pseudo)
+  const simulatorOutcomeNotices = useMemo<SimulatorOutcomeNotice[]>(() => {
+    const seen = new Set(readSeenSimulatorOutcomeKeys())
+    return displayBracket
+      .filter((match) => Boolean(match.pickedWinnerId && match.realWinnerId && match.predictionState))
+      .map((match) => ({
+        key: simulatorOutcomeStorageKey(match.id, match.realWinnerId),
+        match,
+      }))
+      .filter((item) => !seen.has(item.key))
+  }, [displayBracket, seenSimulatorOutcomeVersion])
+  const simulatorOutcomeNotice = simulatorOutcomeNotices.find((item) => item.key == simulatorOutcomeKey) ?? simulatorOutcomeNotices[0] ?? null
+  useEffect(() => {
+    if (!simulatorOutcomeKey || !simulatorOutcomeNotices.some((item) => item.key === simulatorOutcomeKey)) {
+      setSimulatorOutcomeKey(simulatorOutcomeNotices[0]?.key ?? null)
+    }
+  }, [simulatorOutcomeKey, simulatorOutcomeNotices])
   const projectedQualifiedIds = new Set<string>()
   const projectedQualifiedRows: Array<{ teamId: string; groupId: string; label: string; rank: number }> = []
   Object.values(standings).forEach((rows) => {
@@ -1914,6 +2177,42 @@ function App() {
                 <img src="/brakup-challenge-logo.png" alt="" className="chip-btn__challenge-logo" />
                 <span>Challenge</span>
               </a>
+              <div className="challenge-auth-wrap">
+                <button
+                  type="button"
+                  className="chip-btn chip-btn--sm"
+                  aria-expanded={challengeMenuOpen}
+                  aria-label={challengeMenuOpen ? 'Fermer le menu de connexion' : 'Ouvrir le menu de connexion'}
+                  onClick={() => setChallengeMenuOpen((open) => !open)}
+                >
+                  {isChallengeConnected ? challengeProfile.pseudo || 'Compte' : hasChallengeAccount ? 'Reconnexion' : 'Connexion'}
+                </button>
+                {challengeMenuOpen ? (
+                  <div className="topmenu challenge-auth-drop" role="menu">
+                    {isChallengeConnected ? (
+                      <>
+                        <div className="topmenu__label">Connecte: {challengeProfile.pseudo}</div>
+                        <button type="button" className="topmenu__item" onClick={handleChallengeLogout}>
+                          Se deconnecter
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="topmenu__item"
+                        onClick={() => {
+                          setChallengeLoginError(null)
+                          setChallengeLoginSent(false)
+                          setShowChallengeLoginEntry(true)
+                          setChallengeMenuOpen(false)
+                        }}
+                      >
+                        Se reconnecter
+                      </button>
+                    )}
+                  </div>
+                ) : null}
+              </div>
               <a
                 href={alternateLanguageHref(locale)}
                 className="chip-btn chip-btn--sm"
@@ -2655,6 +2954,33 @@ function App() {
           </>
         ) : null}
       </div>
+      {simulatorOutcomeNotice ? (() => {
+        const pickedTeam = simulatorOutcomeNotice.match.pickedWinnerId ? teamsById.get(simulatorOutcomeNotice.match.pickedWinnerId) ?? null : null
+        const realTeam = simulatorOutcomeNotice.match.realWinnerId ? teamsById.get(simulatorOutcomeNotice.match.realWinnerId) ?? null : null
+        const realScore = challengeOfficialScores[simulatorOutcomeNotice.match.id]
+        return (
+          <div className={`simulator-outcome${simulatorOutcomeNotice.match.predictionState === 'correct' ? ' is-correct' : ' is-wrong'}`} role="dialog" aria-modal="true">
+            <div className="simulator-outcome__panel">
+              <div className="simulator-outcome__icon" aria-hidden="true">{simulatorOutcomeNotice.match.predictionState === 'correct' ? '*' : 'x'}</div>
+              <h2>{simulatorOutcomeNotice.match.predictionState === 'correct' ? 'Felicitations' : 'Prono rate'}</h2>
+              <p>{simulatorOutcomeNotice.match.label} - score reel {formatScore(realScore)}</p>
+              <div className="simulator-outcome__summary">
+                <span>Ton choix: <strong>{pickedTeam?.name ?? 'Aucun prono'}</strong></span>
+                <span>Vainqueur reel: <strong>{realTeam?.name ?? 'En attente'}</strong></span>
+              </div>
+              <div className="simulator-outcome__actions">
+                <button type="button" className="chip-btn chip-btn--sm" onClick={() => dispatchBracketAction('bracket:share')}>
+                  Partager mon bracket
+                </button>
+                <button type="button" className="chip-btn chip-btn--sm" onClick={closeSimulatorOutcomeNotice}>
+                  Continuer
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })() : null}
+      {showChallengeLoginEntry ? <LoginEntry initialEmail={challengeProfile.email} busy={challengeLoginBusy} error={challengeLoginError} sent={challengeLoginSent} onSubmit={handleChallengeLogin} onVerify={handleChallengeLoginOTP} onCancel={() => setShowChallengeLoginEntry(false)} /> : null}
       {matchStatsModal ? (() => {
         const { match, homeTeam, awayTeam } = matchStatsModal
         const effectiveStatus = inferStatus(match)

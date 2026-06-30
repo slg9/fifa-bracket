@@ -1,5 +1,5 @@
 import { get, list, put } from '@vercel/blob'
-import type { ChallengeEntry } from '../src/types'
+import type { ChallengeEntry, SimulatorBracketEntry } from '../src/types'
 
 type ApiRequest = {
   method?: string
@@ -418,6 +418,44 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return
     }
 
+    if (action === 'getSimulatorBracket') {
+      const token = bearerToken(req) ?? String(body.token ?? '')
+      const payload = token ? await verifyToken(token) : null
+      if (!payload) {
+        res.status(401).json({ error: 'Lien expire ou invalide.' })
+        return
+      }
+      const entry = await readJson<SimulatorBracketEntry | null>(`challenge/${payload.emailHash}/simulator.json`, null)
+      res.status(200).json({ data: entry })
+      return
+    }
+
+    if (action === 'saveSimulatorBracket') {
+      const token = bearerToken(req) ?? String(body.token ?? '')
+      const payload = token ? await verifyToken(token) : null
+      if (!payload) {
+        res.status(401).json({ error: 'Lien expire ou invalide.' })
+        return
+      }
+      const input = (body.entry ?? {}) as Partial<SimulatorBracketEntry>
+      const entries = await readJson<ChallengeEntry[]>(`challenge/${payload.emailHash}/brackets.json`, [])
+      const latestEntry = [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
+      const current = await readJson<SimulatorBracketEntry | null>(`challenge/${payload.emailHash}/simulator.json`, null)
+      const now = new Date().toISOString()
+      const next: SimulatorBracketEntry = {
+        emailHash: payload.emailHash,
+        pseudo: sanitizePseudo(String(input.pseudo ?? latestEntry?.pseudo ?? current?.pseudo ?? 'Joueur')),
+        bracketName: sanitizeBracketName(String(input.bracketName ?? current?.bracketName ?? 'Simulator')),
+        overrides: input.overrides && typeof input.overrides === 'object' ? input.overrides : current?.overrides ?? {},
+        knockoutPicks: input.knockoutPicks && typeof input.knockoutPicks === 'object' ? input.knockoutPicks : current?.knockoutPicks ?? {},
+        createdAt: current?.createdAt ?? now,
+        updatedAt: now,
+      }
+      await writeJson(`challenge/${payload.emailHash}/simulator.json`, next)
+      res.status(200).json({ data: next })
+      return
+    }
+
     if (action === 'resend') {
       const email = String(body.email ?? '')
       if (!email.includes('@')) {
@@ -671,8 +709,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         pseudo,
       }))
       await writeJson(`challenge/${nextEmailHash}/brackets.json`, updatedEntries)
+      const simulatorPath = `challenge/${payload.emailHash}/simulator.json`
+      const currentSimulator = await readJson<SimulatorBracketEntry | null>(simulatorPath, null)
+      if (currentSimulator) {
+        await writeJson(`challenge/${nextEmailHash}/simulator.json`, {
+          ...currentSimulator,
+          emailHash: nextEmailHash,
+          pseudo,
+          updatedAt: new Date().toISOString(),
+        })
+      }
       if (nextEmailHash !== payload.emailHash) {
         await writeJson(currentPath, [])
+        await writeJson(simulatorPath, null)
       }
       await rebuildLeaderboardFromStoredScores()
       const nextToken = await signToken(nextEmailHash)

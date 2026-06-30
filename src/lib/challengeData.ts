@@ -1,4 +1,4 @@
-import type { ChallengeEntry } from '../types'
+import type { ChallengeEntry, SimulatorBracketEntry } from '../types'
 
 async function sha256(message: string): Promise<string> {
   const msgBuffer = new TextEncoder().encode(message)
@@ -32,6 +32,7 @@ async function request<T>(action: string, body: Record<string, unknown> = {}, to
 }
 
 const LOCAL_STORAGE_KEY = 'brakup:localBrackets'
+const LOCAL_SIMULATOR_STORAGE_KEY = 'brakup:localSimulatorBracket'
 const LOCAL_TOKEN = 'brakup-local-development-token'
 
 function localEntries(): ChallengeEntry[] {
@@ -44,6 +45,18 @@ function localEntries(): ChallengeEntry[] {
 
 function saveLocalEntries(entries: ChallengeEntry[]) {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(entries))
+}
+
+function localSimulatorEntry(): SimulatorBracketEntry | null {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_SIMULATOR_STORAGE_KEY) ?? 'null') as SimulatorBracketEntry | null
+  } catch {
+    return null
+  }
+}
+
+function saveLocalSimulatorEntry(entry: SimulatorBracketEntry) {
+  localStorage.setItem(LOCAL_SIMULATOR_STORAGE_KEY, JSON.stringify(entry))
 }
 
 export async function submitBracket(entry: Partial<ChallengeEntry> & { email: string }): Promise<{ entry: ChallengeEntry; token: string }> {
@@ -184,6 +197,40 @@ export function getProfileStatus(token: string): Promise<{
   lastSavedAt: string | null
 }> {
   return request('profileStatus', {}, token)
+}
+
+export async function getSimulatorBracket(token: string): Promise<SimulatorBracketEntry | null> {
+  if (import.meta.env.DEV && token === LOCAL_TOKEN) return localSimulatorEntry()
+  try {
+    return await request<SimulatorBracketEntry | null>('getSimulatorBracket', {}, token)
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    return localSimulatorEntry()
+  }
+}
+
+export async function saveSimulatorBracket(
+  token: string,
+  entry: Pick<SimulatorBracketEntry, 'pseudo' | 'bracketName' | 'overrides' | 'knockoutPicks'>,
+): Promise<SimulatorBracketEntry> {
+  try {
+    return await request<SimulatorBracketEntry>('saveSimulatorBracket', { entry }, token)
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    const current = localSimulatorEntry()
+    const now = new Date().toISOString()
+    const next: SimulatorBracketEntry = {
+      emailHash: current?.emailHash ?? 'local',
+      pseudo: entry.pseudo || current?.pseudo || 'Joueur',
+      bracketName: entry.bracketName || current?.bracketName || 'Simulator',
+      overrides: entry.overrides ?? current?.overrides ?? {},
+      knockoutPicks: entry.knockoutPicks ?? current?.knockoutPicks ?? {},
+      createdAt: current?.createdAt ?? now,
+      updatedAt: now,
+    }
+    saveLocalSimulatorEntry(next)
+    return next
+  }
 }
 
 export function updateProfile(token: string, values: { email: string; pseudo: string }): Promise<{

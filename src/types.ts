@@ -166,6 +166,16 @@ export interface ChallengeEntry {
   createdAt: string
 }
 
+export interface SimulatorBracketEntry {
+  emailHash: string
+  pseudo: string
+  bracketName: string
+  overrides: Record<string, MatchOverride>
+  knockoutPicks: Record<string, string>
+  createdAt: string
+  updatedAt: string
+}
+
 export type CommentaryPhase =
   | 'pre_attack'
   | 'attack_success'
