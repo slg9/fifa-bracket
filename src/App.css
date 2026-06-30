@@ -5611,3 +5611,205 @@
   font-weight: 900;
   letter-spacing: 0.04em;
 }
+/* Community brackets panel */
+.float-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: min(calc((88px * 4) + (4px * 3)), 80vh);
+  overflow: hidden;
+}
+
+.float-panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.community-brackets {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.float-panel__state {
+  flex: 1;
+  min-height: 240px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.float-panel__spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--neon);
+  border-radius: 50%;
+  animation: panelSpin 0.75s linear infinite;
+}
+
+@keyframes panelSpin {
+  to { transform: rotate(360deg); }
+}
+
+.community-bracket {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 58px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: var(--text);
+  background: linear-gradient(135deg, rgba(43, 255, 154, 0.08), rgba(255, 184, 0, 0.045));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.community-bracket:hover {
+  border-color: rgba(43, 255, 154, 0.34);
+  background: linear-gradient(135deg, rgba(43, 255, 154, 0.13), rgba(255, 184, 0, 0.08));
+}
+
+.community-bracket__rank {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: #07120c;
+  background: var(--neon);
+  font-family: var(--numbers);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.community-bracket__main {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.community-bracket__main strong,
+.community-bracket__main small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.community-bracket__main strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.community-bracket__main small {
+  color: var(--muted-2);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.community-bracket__score {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+}
+
+.community-bracket__score b {
+  color: var(--gold);
+  font-family: var(--numbers);
+  font-size: 16px;
+}
+
+.community-bracket__score small {
+  color: var(--muted-2);
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+@media (max-width: 680px) {
+  .float-sidebar {
+    top: auto;
+    right: 0;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    z-index: 110;
+    transform: none;
+    align-items: flex-end;
+  }
+
+  .float-sidebar__scrim {
+    z-index: -1;
+    background: rgba(0, 0, 0, 0.18);
+  }
+
+  .float-tabs {
+    max-height: calc(100dvh - 140px);
+    overflow-y: auto;
+    padding-left: 4px;
+  }
+
+  .float-tab {
+    width: 34px;
+    min-height: 74px;
+    font-size: 9px;
+  }
+
+  .float-panel {
+    width: min(328px, calc(100vw - 42px));
+    height: min(calc((74px * 4) + (4px * 3)), calc(100dvh - 140px));
+    min-height: min(calc((74px * 4) + (4px * 3)), calc(100dvh - 140px));
+    max-height: min(calc((74px * 4) + (4px * 3)), calc(100dvh - 140px));
+    border-radius: 16px 0 0 16px;
+  }
+
+  .float-panel__state {
+    min-height: 0;
+  }
+}
+@media (max-width: 680px) {
+  .shared-bracket-back {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
+    right: max(10px, env(safe-area-inset-right));
+    padding: 0;
+    overflow: hidden;
+    color: transparent;
+    font-size: 0;
+  }
+
+  .shared-bracket-back::before {
+    content: "⌂";
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    color: #ffcf58;
+    font-size: 21px;
+    line-height: 1;
+  }
+
+  .bracket-mobile-sharebar__home-icon {
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+    line-height: 1;
+  }
+}

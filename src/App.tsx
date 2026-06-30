@@ -166,6 +166,10 @@ type BracketRewardSummary = {
 
 const knockoutScoringOrder = knockoutTemplates.map((template) => template.id)
 
+function isBracketComplete(picks: Record<string, string>): boolean {
+  return knockoutTemplates.every((template) => Boolean(picks[template.id]))
+}
+
 function calculateBracketRewards(matches: DisplayMatch[]): BracketRewardSummary {
   const byId = new Map(matches.map((match) => [match.id, match]))
   const rewardsByMatch = new Map<string, BracketReward>()
@@ -1384,7 +1388,7 @@ function getShareText(url: string) {
               className={`bracket-mobile-sharebar__action${createLabel?.startsWith('RETOUR') ? ' is-home' : ''}`}
               aria-label={createLabel?.startsWith('RETOUR') ? 'Retour a mon bracket' : 'Creer mon bracket'}
             >
-              {createLabel?.startsWith('RETOUR') ? <span aria-hidden="true">?</span> : createLabel ?? 'CREER MON BRACKET'}
+              {createLabel?.startsWith('RETOUR') ? <span aria-hidden="true" className="bracket-mobile-sharebar__home-icon">⌂</span> : createLabel ?? 'CREER MON BRACKET'}
             </a>
           </div>
         ) : null}
@@ -1742,6 +1746,7 @@ function App() {
   const [completeBonusNoticeOpen, setCompleteBonusNoticeOpen] = useState(false)
   const [publicBrackets, setPublicBrackets] = useState<SimulatorBracketEntry[]>([])
   const [publicBracketsLoading, setPublicBracketsLoading] = useState(false)
+  const [publicBracketsLoaded, setPublicBracketsLoaded] = useState(false)
   const [publicBracketsError, setPublicBracketsError] = useState<string | null>(null)
   const [viewedPublicBracket, setViewedPublicBracket] = useState<SimulatorBracketEntry | null>(null)
   const simulatorRemoteHydratedRef = useRef(false)
@@ -1984,7 +1989,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (sidePanel !== 'brackets' || publicBrackets.length > 0 || publicBracketsLoading) {
+    if (sidePanel !== 'brackets' || publicBracketsLoaded || publicBracketsLoading) {
       return
     }
 
@@ -1999,13 +2004,16 @@ function App() {
         if (!cancelled) setPublicBracketsError(caught instanceof Error ? caught.message : 'Brackets indisponibles.')
       })
       .finally(() => {
-        if (!cancelled) setPublicBracketsLoading(false)
+        if (!cancelled) {
+          setPublicBracketsLoaded(true)
+          setPublicBracketsLoading(false)
+        }
       })
 
     return () => {
       cancelled = true
     }
-  }, [publicBrackets.length, publicBracketsLoading, sidePanel])
+  }, [publicBracketsLoaded, publicBracketsLoading, sidePanel])
   useEffect(() => {
     if (!initialDayModalLoading) {
       return
@@ -2402,14 +2410,28 @@ function App() {
 
   function handlePickWinner(matchId: string, teamId: string) {
     if (lockedMatchIds.has(matchId)) return
-    completeBonusArmedRef.current = true
+    const completesBracketNow = !isBracketComplete(knockoutPicks) && isBracketComplete({ ...knockoutPicks, [matchId]: teamId })
 
-    setKnockoutPicks((current) => ({
-      ...current,
-      [matchId]: teamId,
-    }))
+    setKnockoutPicks((current) => {
+      const wasComplete = isBracketComplete(current)
+      const next = {
+        ...current,
+        [matchId]: teamId,
+      }
+      const isComplete = isBracketComplete(next)
 
-    if (!challengeToken && !showChallengeLoginEntry) {
+      if (!wasComplete && isComplete) {
+        previousCompleteBonusRef.current = 0
+        completeBonusArmedRef.current = false
+        setCompleteBonusNoticeOpen(true)
+      } else {
+        completeBonusArmedRef.current = !isComplete
+      }
+
+      return next
+    })
+
+    if (!completesBracketNow && !challengeToken && !showChallengeLoginEntry) {
       setChallengeLoginError(null)
       setChallengeLoginSent(false)
       setShowChallengeLoginEntry(true)
@@ -2420,10 +2442,13 @@ function App() {
     if (lockedMatchIds.has(matchId)) return
     completeBonusArmedRef.current = false
     setKnockoutPicks((current) => {
-      const wasComplete = knockoutTemplates.every((template) => Boolean(current[template.id]))
+      const wasComplete = isBracketComplete(current)
       const next = { ...current }
       delete next[matchId]
-      if (wasComplete) setCompleteBonusNoticeOpen(false)
+      if (wasComplete) {
+        previousCompleteBonusRef.current = 0
+        setCompleteBonusNoticeOpen(false)
+      }
       return next
     })
   }
@@ -3224,16 +3249,23 @@ function App() {
 
                   <div className="float-panel__body">
                     {sidePanel === 'brackets' ? (
-                      <div className="scorers">
-                        {publicBracketsLoading ? <div className="panel__sub">Chargement des brackets...</div> : null}
-                        {publicBracketsError ? <div className="panel__sub">{publicBracketsError}</div> : null}
-                        {!publicBracketsLoading && !publicBracketsError && publicBrackets.length === 0 ? <div className="panel__sub">Aucun bracket public pour le moment.</div> : null}
+                      <div className="community-brackets">
+                        {publicBracketsLoading ? (
+                          <div className="float-panel__state float-panel__state--loading">
+                            <span className="float-panel__spinner" aria-hidden="true" />
+                            <span>Chargement des brackets...</span>
+                          </div>
+                        ) : null}
+                        {publicBracketsError ? <div className="float-panel__state">{publicBracketsError}</div> : null}
+                        {!publicBracketsLoading && !publicBracketsError && publicBrackets.length === 0 ? <div className="float-panel__state">Aucun bracket public pour le moment.</div> : null}
                         {publicBrackets.map((entry, index) => (
-                          <button key={entry.emailHash || entry.pseudo} type="button" className="scorerrow" onClick={() => { setViewedPublicBracket(entry); setSidePanel(null); setFocusId(null) }}>
-                            <span className="scorerrow__rank">{index + 1}</span>
-                            <span className="scorerrow__name">{entry.pseudo}</span>
-                            <span className="scorerrow__team">{entry.bracketName}</span>
-                            <span className="scorerrow__goals"><b>{entry.score ?? 0}</b></span>
+                          <button key={entry.emailHash || entry.pseudo} type="button" className="community-bracket" onClick={() => { setViewedPublicBracket(entry); setSidePanel(null); setFocusId(null) }}>
+                            <span className="community-bracket__rank">#{index + 1}</span>
+                            <span className="community-bracket__main">
+                              <strong>{entry.pseudo}</strong>
+                              <small>{entry.bracketName || 'Bracket public'}</small>
+                            </span>
+                            <span className="community-bracket__score"><b>{entry.score ?? 0}</b><small>pts</small></span>
                           </button>
                         ))}
                       </div>
