@@ -429,8 +429,12 @@
   .brakup-bracket__round {
     scroll-snap-align: start;
     scroll-snap-stop: always;
-    padding: 10px 16px 10px;
+    padding: 10px 15vw;
     box-sizing: border-box;
+  }
+  /* Connector lines plus épais sur mobile + queues visibles aux bords */
+  .brakup-bracket-connectors path {
+    stroke-width: 3;
   }
   .brakup-bracket-header { padding: 14px 16px 0; }
   .brakup-bracket-header__hint { display: none; }

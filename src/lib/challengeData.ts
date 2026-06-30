@@ -59,9 +59,9 @@ function saveLocalSimulatorEntry(entry: SimulatorBracketEntry) {
   localStorage.setItem(LOCAL_SIMULATOR_STORAGE_KEY, JSON.stringify(entry))
 }
 
-export async function submitBracket(entry: Partial<ChallengeEntry> & { email: string }): Promise<{ entry: ChallengeEntry; token: string }> {
+export async function submitBracket(entry: Partial<ChallengeEntry> & { email: string }, token?: string): Promise<{ entry: ChallengeEntry; token: string }> {
   try {
-    return await request('submit', { entry })
+    return await request('submit', { entry }, token)
   } catch (error) {
     if (!import.meta.env.DEV) throw error
     const entries = localEntries()

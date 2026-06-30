@@ -72,6 +72,19 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [paths, setPaths] = useState<PathInfo[]>([])
   const [activeRound, setActiveRound] = useState(0)
+  const activeRoundRef = useRef(0)
+
+  const scrollParentToTop = useCallback((from: HTMLElement) => {
+    let el: HTMLElement | null = from.parentElement
+    while (el) {
+      const { overflowY, overflow } = getComputedStyle(el)
+      if (overflowY === 'auto' || overflowY === 'scroll' || overflow === 'auto' || overflow === 'scroll') {
+        if (el.scrollTop > 0) el.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+      el = el.parentElement
+    }
+  }, [])
 
   useEffect(() => {
     const wrapper = wrapperRef.current
@@ -80,31 +93,27 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
     const handleScroll = () => {
       window.clearTimeout(tid)
       tid = window.setTimeout(() => {
-        const idx = wrapper.clientWidth > 0
-          ? Math.min(Math.round(wrapper.scrollLeft / wrapper.clientWidth), ROUND_ORDER.length - 1)
-          : 0
-        setActiveRound(Math.max(0, idx))
-      }, 40)
+        if (!wrapper.clientWidth) return
+        const idx = Math.max(0, Math.min(Math.round(wrapper.scrollLeft / wrapper.clientWidth), ROUND_ORDER.length - 1))
+        if (idx !== activeRoundRef.current) {
+          activeRoundRef.current = idx
+          setActiveRound(idx)
+          scrollParentToTop(wrapper)
+        }
+      }, 80)
     }
     wrapper.addEventListener('scroll', handleScroll, { passive: true })
     return () => { wrapper.removeEventListener('scroll', handleScroll); window.clearTimeout(tid) }
-  }, [])
+  }, [scrollParentToTop])
 
   const scrollToRound = useCallback((idx: number) => {
     const wrapper = wrapperRef.current
     if (!wrapper) return
-    wrapper.scrollTo({ left: idx * wrapper.clientWidth, behavior: 'smooth' })
+    activeRoundRef.current = idx
     setActiveRound(idx)
-    let el: HTMLElement | null = wrapper.parentElement
-    while (el) {
-      const { overflowY, overflow } = getComputedStyle(el)
-      if ((overflowY === 'auto' || overflowY === 'scroll' || overflow === 'auto' || overflow === 'scroll') && el.scrollTop > 0) {
-        el.scrollTo({ top: 0, behavior: 'smooth' })
-        break
-      }
-      el = el.parentElement
-    }
-  }, [])
+    wrapper.scrollTo({ left: idx * wrapper.clientWidth, behavior: 'smooth' })
+    scrollParentToTop(wrapper)
+  }, [scrollParentToTop])
 
   const buildPaths = useCallback(() => {
     const container = bracketRef.current

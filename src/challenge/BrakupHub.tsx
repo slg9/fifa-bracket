@@ -543,13 +543,13 @@ export function BrakupHub({
       breakdown: breakdownSnapshot,
       battleBonuses: battleBonusesSnapshot,
       submittedAt: submitted ? new Date().toISOString() : null,
-    })
+    }, accessToken ?? undefined)
     localStorage.setItem('brakup:token', result.token)
     setAccessToken(result.token)
     setBrackets((entries) => entries.some((entry) => entry.id === result.entry.id) ? entries.map((entry) => entry.id === result.entry.id ? result.entry : entry) : [...entries, result.entry])
     setActiveBracketId(result.entry.id)
     return result
-  }, [activeBracketId, brackets])
+  }, [activeBracketId, brackets, accessToken])
 
   const handleBattleComplete = (result: BattleResult) => {
     const mid = activeMatchId ?? ''
