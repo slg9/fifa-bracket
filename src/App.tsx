@@ -567,8 +567,11 @@ function KnockoutTeamBadge({
         isFocus ? 'is-focus' : '',
         isActivePath ? 'is-active-path' : '',
       ].filter(Boolean).join(' ')}
-      disabled={!isInteractive}
-      onClick={() => onPick?.(team.id)}
+      aria-disabled={!isInteractive}
+      onClick={() => {
+        if (!isInteractive) return
+        onPick?.(team.id)
+      }}
       onMouseEnter={(e) => { onPreview?.(team.id); onStandingsHover?.(team.id, e) }}
       onMouseLeave={(e) => { onPreview?.(null); onStandingsHover?.(null, e) }}
       onFocus={(e) => { onPreview?.(team.id); onStandingsHover?.(team.id, e) }}
@@ -1041,6 +1044,14 @@ function BracketBoard({
   }, [activeLineIds, matches, parentLookup, picks])
 
 
+  function handleStandingsHover(teamId: string | null, event: React.MouseEvent | React.FocusEvent) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = 'clientX' in event ? event.clientX : rect.left + rect.width / 2
+    const y = 'clientY' in event ? event.clientY : rect.bottom
+    if (teamId) setStandingsPopup({ teamId, x, y })
+    else setStandingsPopup(null)
+  }
+
   function selectMobileRound(round: (typeof mobileRoundTabs)[number]['key']) {
     setActiveMobileRound(round)
     requestAnimationFrame(() => {
@@ -1311,6 +1322,7 @@ function getShareText(url: string) {
                 onPick={onPick}
                 onClear={onClear}
                 onPreview={setPreviewTeamId}
+                onStandingsHover={handleStandingsHover}
               />
             ))}
           </div>
@@ -1374,6 +1386,7 @@ function getShareText(url: string) {
                               onPick={onPick}
                               onClear={onClear}
                               onPreview={setPreviewTeamId}
+                              onStandingsHover={handleStandingsHover}
                             />
                             <div className="finale__caption">
                               {match.id === 'M103'
@@ -1426,13 +1439,7 @@ function getShareText(url: string) {
                           onPick={onPick}
                           onClear={onClear}
                           onPreview={setPreviewTeamId}
-                          onStandingsHover={(teamId, event) => {
-                            const rect = event.currentTarget.getBoundingClientRect()
-                            const x = 'clientX' in event ? event.clientX : rect.left + rect.width / 2
-                            const y = 'clientY' in event ? event.clientY : rect.bottom
-                            if (teamId) setStandingsPopup({ teamId, x, y })
-                            else setStandingsPopup(null)
-                          }}
+                          onStandingsHover={handleStandingsHover}
                         />
                       )
                     })

@@ -2356,7 +2356,8 @@
   text-align: left;
 }
 
-.bm__team:disabled {
+.bm__team:disabled,
+.bm__team[aria-disabled="true"] {
   cursor: default;
 }
 
@@ -3938,7 +3939,7 @@
   color: #ffffff;
 }
 
-.bm__team.is-interactive:hover:not(:disabled) {
+.bm__team:hover {
   background: rgba(55, 239, 189, 0.08);
 }
 
@@ -4098,8 +4099,12 @@
   }
 
   .bracket-mobile-round__list {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
     min-width: 0;
-    padding-right: 86px;
+    min-height: calc(100dvh - 132px);
+    padding: 18px 86px 18px 0;
   }
 
 
@@ -4157,10 +4162,9 @@
     right: max(8px, env(safe-area-inset-right));
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
+    justify-content: center;
     gap: 10px;
     width: 72px;
-    min-height: min(440px, calc(100dvh - 148px));
     max-height: calc(100dvh - 88px);
     padding: 18px 6px 14px;
     border: 1px solid rgba(255, 255, 255, 0.12);
