@@ -5509,6 +5509,25 @@
   color: #ff8898;
 }
 
+.simulator-outcome__result-icon {
+  flex-shrink: 0;
+  width: 16px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.simulator-outcome__result-icon.is-correct { color: #2bff9a; }
+.simulator-outcome__result-icon.is-wrong { color: #ff6878; }
+
+.simulator-outcome__result-label {
+  flex: 1;
+  text-align: left;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .simulator-outcome__actions {
   display: flex;
   justify-content: center;

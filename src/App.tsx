@@ -9,7 +9,7 @@ import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import { formatScore } from './challenge/progress'
 import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
-import { getSimulatorLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, resendMagicLink, saveSimulatorBracket, verifyLoginOTP } from './lib/challengeData'
+import { getSimulatorLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, requestOTP, resendMagicLink, saveSimulatorBracket, verifyLoginOTP, verifyOTP } from './lib/challengeData'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -1761,6 +1761,8 @@ function App() {
   const initialSyncBaselineRef = useRef<string | null>(null)
   const previousCompleteBonusRef = useRef(0)
   const completeBonusArmedRef = useRef(false)
+  const challengeLoginFlowRef = useRef<'existing' | 'new'>('existing')
+  const challengeLoginPseudoRef = useRef('')
 
   const autosaveRewards = useMemo(() => {
     if (!seed) return { total: 0, completeBonus: 0, scoreBreakdown: {} as NonNullable<SimulatorBracketEntry['scoreBreakdown']> }
@@ -2141,9 +2143,11 @@ function App() {
   }
 
   function closeSimulatorOutcomeNotice() {
-    if (!simulatorOutcomeNotice) return
+    if (simulatorOutcomeNotices.length === 0) return
     const seen = new Set(readSeenSimulatorOutcomeKeys())
-    seen.add(simulatorOutcomeNotice.key)
+    for (const item of simulatorOutcomeNotices) {
+      seen.add(item.key)
+    }
     window.localStorage.setItem(simulatorOutcomeSeenStorageKey, JSON.stringify([...seen]))
     setSimulatorOutcomeKey(null)
   }
@@ -2162,19 +2166,37 @@ function App() {
     setChallengeLoginSent(false)
     setChallengeLoginEmail(email)
 
+    const pseudo = challengeProfile.pseudo.trim()
+      || (email.split('@')[0] ?? '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20)
+      || 'Joueur'
+    challengeLoginPseudoRef.current = pseudo
+
     try {
-      const result = await resendMagicLink(email)
-      setChallengeLoginSent(true)
-      setHasChallengeAccount(true)
-      window.localStorage.setItem(challengeHadAccountStorageKey, 'true')
-      setChallengeProfile((current) => {
-        const next = { ...current, email }
-        rememberChallengeProfile(next)
-        return next
-      })
-      if (result.token) {
-        setChallengeToken(result.token)
-        setShowChallengeLoginEntry(false)
+      try {
+        // Try existing account flow first
+        const result = await resendMagicLink(email)
+        challengeLoginFlowRef.current = 'existing'
+        setChallengeLoginSent(true)
+        setChallengeProfile((current) => {
+          const next = { ...current, email }
+          rememberChallengeProfile(next)
+          return next
+        })
+        if (result.token) {
+          window.localStorage.setItem(challengeTokenStorageKey, result.token)
+          setChallengeToken(result.token)
+          setShowChallengeLoginEntry(false)
+        }
+      } catch {
+        // No existing account — send OTP to create one
+        challengeLoginFlowRef.current = 'new'
+        await requestOTP(email, pseudo)
+        setChallengeLoginSent(true)
+        setChallengeProfile((current) => {
+          const next = { ...current, email }
+          rememberChallengeProfile(next)
+          return next
+        })
       }
     } catch (caught) {
       setChallengeLoginError(caught instanceof Error ? caught.message : 'Connexion impossible.')
@@ -2188,16 +2210,26 @@ function App() {
     setChallengeLoginBusy(true)
     setChallengeLoginError(null)
 
-    const pseudo = challengeProfile.pseudo.trim()
+    const pseudo = challengeLoginPseudoRef.current || challengeProfile.pseudo.trim()
       || (challengeLoginEmail.split('@')[0] ?? '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20)
       || 'Joueur'
 
     try {
-      const result = await verifyLoginOTP(challengeLoginEmail, otp, pseudo)
-      window.localStorage.setItem(challengeTokenStorageKey, result.token)
-      setChallengeToken(result.token)
+      let token: string
+      let resolvedEmail = challengeLoginEmail
+
+      if (challengeLoginFlowRef.current === 'new') {
+        token = await verifyOTP(challengeLoginEmail, pseudo, otp)
+      } else {
+        const result = await verifyLoginOTP(challengeLoginEmail, otp, pseudo)
+        token = result.token
+        resolvedEmail = result.email
+      }
+
+      window.localStorage.setItem(challengeTokenStorageKey, token)
+      setChallengeToken(token)
       setChallengeProfile((current) => {
-        const next = { ...current, email: result.email }
+        const next = { ...current, email: resolvedEmail, pseudo: current.pseudo || pseudo }
         rememberChallengeProfile(next)
         return next
       })
@@ -2205,8 +2237,21 @@ function App() {
       window.localStorage.setItem(challengeHadAccountStorageKey, 'true')
       setShowChallengeLoginEntry(false)
       setChallengeLoginSent(false)
-    } catch (caught) {
-      setChallengeLoginError(caught instanceof Error ? caught.message : 'Code OTP invalide ou expiré.')
+    } catch (loginError) {
+      if (challengeLoginFlowRef.current === 'existing') {
+        // verifyLoginOTP failed (account not found) — switch to creation flow
+        try {
+          challengeLoginFlowRef.current = 'new'
+          await requestOTP(challengeLoginEmail, pseudo)
+          setChallengeLoginError('Pas encore de compte Brakup pour cet email. Un code de création vient d\'être envoyé.')
+          setChallengeLoginSent(false)
+          window.setTimeout(() => setChallengeLoginSent(true), 50)
+        } catch {
+          setChallengeLoginError(loginError instanceof Error ? loginError.message : 'Code invalide.')
+        }
+      } else {
+        setChallengeLoginError(loginError instanceof Error ? loginError.message : 'Code OTP invalide ou expiré.')
+      }
     } finally {
       setChallengeLoginBusy(false)
     }
@@ -2216,8 +2261,13 @@ function App() {
     if (!challengeLoginEmail) return
     setChallengeLoginBusy(true)
     setChallengeLoginError(null)
+    const pseudo = challengeLoginPseudoRef.current
     try {
-      await resendMagicLink(challengeLoginEmail)
+      if (challengeLoginFlowRef.current === 'new') {
+        await requestOTP(challengeLoginEmail, pseudo)
+      } else {
+        await resendMagicLink(challengeLoginEmail)
+      }
       setChallengeLoginSent(false)
       window.setTimeout(() => setChallengeLoginSent(true), 50)
     } catch (caught) {
@@ -3426,36 +3476,50 @@ function App() {
         </div>
       ) : null}
 
-      {simulatorOutcomeNotice ? (() => {
-        const pickedTeam = simulatorOutcomeNotice.match.pickedWinnerId ? teamsById.get(simulatorOutcomeNotice.match.pickedWinnerId) ?? null : null
-        const realTeam = simulatorOutcomeNotice.match.realWinnerId ? teamsById.get(simulatorOutcomeNotice.match.realWinnerId) ?? null : null
-        const realScore = challengeOfficialScores[simulatorOutcomeNotice.match.id]
-        const reward = bracketRewards.rewardsByMatch.get(simulatorOutcomeNotice.match.id)
-        const isCorrect = simulatorOutcomeNotice.match.predictionState === 'correct'
+      {simulatorOutcomeNotices.length > 0 ? (() => {
+        const totalPoints = simulatorOutcomeNotices.reduce((sum, item) => {
+          const r = bracketRewards.rewardsByMatch.get(item.match.id)
+          return sum + (r?.points ?? 0)
+        }, 0)
+        const anyCorrect = simulatorOutcomeNotices.some((item) => item.match.predictionState === 'correct')
+        const allWrong = simulatorOutcomeNotices.every((item) => item.match.predictionState === 'wrong')
+        const boomLabel = simulatorOutcomeNotices.length === 1
+          ? (anyCorrect ? 'PRONO OK !' : 'PRONO RATÉ')
+          : (allWrong ? 'TOUS RATÉS' : anyCorrect ? 'RÉSULTATS !' : 'RÉSULTATS')
         return (
-          <div className={`simulator-outcome${isCorrect ? ' is-correct' : ' is-wrong'}`} role="dialog" aria-modal="true">
+          <div className={`simulator-outcome${anyCorrect ? ' is-correct' : ' is-wrong'}`} role="dialog" aria-modal="true">
             <div className="simulator-outcome__blast" aria-hidden="true">
               <i />
               {Array.from({ length: 14 }, (_, i) => <span key={i} style={{ ['--ray-rot' as string]: `${i * (360 / 14)}deg` }} />)}
             </div>
             <div className="simulator-outcome__panel">
               <img className="simulator-outcome__logo" src="/brakup-challenge-logo.png" alt="Brakup Challenge" />
-              <div className="simulator-outcome__boom">{isCorrect ? 'PRONO OK !' : 'PRONO RATÉ'}</div>
+              <div className="simulator-outcome__boom">{boomLabel}</div>
               <div className="simulator-outcome__points">
-                <strong>{reward && reward.points > 0 ? `+${reward.points}` : '0'}</strong>
+                <strong>{totalPoints > 0 ? `+${totalPoints}` : '0'}</strong>
                 <span>POINTS GAGNÉS</span>
               </div>
-              <p>{simulatorOutcomeNotice.match.label} · score réel {formatScore(realScore)}</p>
               <div className="simulator-outcome__summary">
-                <span>Ton choix <strong>{pickedTeam?.name ?? 'Aucun prono'}</strong></span>
-                <span>Vainqueur réel <strong>{realTeam?.name ?? 'En attente'}</strong></span>
+                {simulatorOutcomeNotices.map((item) => {
+                  const reward = bracketRewards.rewardsByMatch.get(item.match.id)
+                  const pickedTeam = item.match.pickedWinnerId ? teamsById.get(item.match.pickedWinnerId) ?? null : null
+                  const realTeam = item.match.realWinnerId ? teamsById.get(item.match.realWinnerId) ?? null : null
+                  const correct = item.match.predictionState === 'correct'
+                  return (
+                    <span key={item.key}>
+                      <i className={`simulator-outcome__result-icon${correct ? ' is-correct' : ' is-wrong'}`}>{correct ? '✓' : '✗'}</i>
+                      <span className="simulator-outcome__result-label">{item.match.label} · {correct ? pickedTeam?.name : `${pickedTeam?.name ?? '?'} → ${realTeam?.name ?? '?'}`}</span>
+                      <strong>{reward && reward.points > 0 ? `+${reward.points}` : '0 pt'}</strong>
+                    </span>
+                  )
+                })}
               </div>
               <div className="simulator-outcome__actions">
                 <button type="button" className="chip-btn chip-btn--sm" onClick={() => dispatchBracketAction('bracket:share')}>
                   Partager image
                 </button>
                 <button type="button" className="chip-btn chip-btn--sm" onClick={closeSimulatorOutcomeNotice}>
-                  Continuer
+                  OK
                 </button>
               </div>
             </div>

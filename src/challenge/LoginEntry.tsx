@@ -38,9 +38,9 @@ export function LoginEntry({ initialEmail = '', busy = false, error, sent = fals
     <div className="brakup-dialog" role="dialog" aria-modal="true" aria-labelledby="brakup-login-title">
       <button type="button" className="brakup-dialog__scrim" onClick={onCancel} aria-label="Fermer" />
       <form className="brakup-email" onSubmit={(event) => { event.preventDefault(); sent && onVerify ? onVerify(otp) : onSubmit(email) }}>
-        <span className="brakup-eyebrow">Connexion</span>
-        <h2 id="brakup-login-title">Retrouver mon bracket</h2>
-        <p>Entre ton email pour recevoir un lien magique et un code de connexion.</p>
+        <span className="brakup-eyebrow">Brakup Challenge</span>
+        <h2 id="brakup-login-title">Crée ton bracket ou retrouve le</h2>
+        <p>Entre ton email — si tu as déjà un compte on te reconnecte, sinon on le crée automatiquement.</p>
         <label>Email<input required disabled={sent} type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="toi@exemple.com" /></label>
         {sent ? (
           <>
