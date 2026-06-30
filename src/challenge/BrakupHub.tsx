@@ -454,20 +454,22 @@ export function BrakupHub({
 
   const handlePick = (matchId: string, teamId: string) => setPicks((current) => ({ ...current, [matchId]: teamId }))
   const handlePlay = (matchId: string, teamId?: string) => {
-    // Verrouiller si le match a deja un resultat officiel ET qu'on n'a pas deja joue la battle
     if (realResults[matchId] || officialResults[matchId]) {
-      // Vérifier si on a deja un resultat de battle pour ce match
-      const hasBattleResult = battleScores[matchId] !== undefined
-      if (!hasBattleResult) {
+      if (battleScores[matchId] === undefined) {
         sfx.error()
         return
       }
-      // Si on a deja joue, autoriser pour permettre le partage
     }
     const m = matches.find((mx) => mx.id === matchId)
     const selectedTeamId = teamId ?? picks[matchId]
     if (selectedTeamId && m?.home.kind === 'team' && m.away.kind === 'team') {
       setActiveSide(m.home.teamId === selectedTeamId ? 'home' : 'away')
+    }
+    // Réinitialiser le résultat précédent pour permettre le rejeu
+    if (battleScores[matchId] !== undefined) {
+      setBattleScores((cur) => { const n = { ...cur }; delete n[matchId]; return n })
+      setScorers((cur) => { const n = { ...cur }; delete n[matchId]; return n })
+      setPicks((cur) => { const n = { ...cur }; delete n[matchId]; return n })
     }
     navigate('battle', matchId)
   }

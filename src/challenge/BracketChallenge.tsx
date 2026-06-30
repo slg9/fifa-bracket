@@ -220,10 +220,12 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
             <h2>{STAGE_SHORT[stage] ?? stage}</h2>
             {matches.filter((match) => match.stage === stage).map((match) => {
               const isPicked = picks[match.id] != null
-              const isReady = match.home.kind === 'team' && match.away.kind === 'team' && !isPicked
+              const bothTeamsKnown = match.home.kind === 'team' && match.away.kind === 'team'
+              const isReady = bothTeamsKnown && !isPicked
+              const isPlayed = isPicked && scores[match.id] !== undefined
               const realWinnerId = realResults[match.id]
               const progress = evaluateMatchProgress(match, picks, scores, realResults, officialScores)
-              return <article className={`brakup-bracket__match${isPicked ? ' is-done' : isReady ? ' is-ready' : ''}${progress.correct ? ' is-prono-correct' : progress.wrong ? ' is-prono-wrong' : ''}`} key={match.id} data-match-id={match.id}>
+              return <article className={`brakup-bracket__match${isPicked ? ' is-done' : isReady ? ' is-ready' : ''}${isPlayed ? ' is-played' : ''}${progress.correct ? ' is-prono-correct' : progress.wrong ? ' is-prono-wrong' : ''}`} key={match.id} data-match-id={match.id}>
                 <header className="bkm-meta">
                   <span>{match.label}</span>
                   <time>{formatKnockoutDateTime(match.id, match.dateLabel)}</time>
@@ -235,11 +237,15 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   const isWinner = isPicked && picks[match.id] === team.id
                   const isLoser = isPicked && picks[match.id] !== team.id
                   const isRealWinnerVisible = isPicked && realWinnerId === team.id
+                  const handleClick = readOnly ? undefined
+                    : isPlayed ? () => { sfx.battle(); onPlay(match.id, team.id) }
+                    : !isLoser ? () => { sfx.pick(); onPick(match.id, team.id) }
+                    : undefined
                   return <div key={side}
-                    className={`${isWinner ? 'is-picked' : isLoser ? 'is-lost' : ''}${isRealWinnerVisible ? ' is-real-winner' : ''}${readOnly ? ' is-readonly' : ''}`}
-                    onClick={readOnly ? undefined : () => { if (!isLoser) { sfx.pick(); onPick(match.id, team.id) } }}
+                    className={`${isWinner ? 'is-picked' : isLoser && !isPlayed ? 'is-lost' : ''}${isRealWinnerVisible ? ' is-real-winner' : ''}${readOnly ? ' is-readonly' : ''}`}
+                    onClick={handleClick}
                     role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}
-                    title={readOnly ? undefined : `Choisir ${team.shortName}`}>
+                    title={isPlayed ? `Rejouer avec ${team.shortName}` : readOnly ? undefined : `Choisir ${team.shortName}`}>
                     <span>{team.flagEmoji}</span>
                     <strong>{team.shortName}</strong>
                     {isRealWinnerVisible ? <small className="bkm-official">OFF</small> : null}
