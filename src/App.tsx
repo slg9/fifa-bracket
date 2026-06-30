@@ -1748,7 +1748,6 @@ function App() {
   const [challengeLoginSent, setChallengeLoginSent] = useState(false)
   const [challengeLoginEmail, setChallengeLoginEmail] = useState<string | null>(null)
   const [challengeMenuOpen, setChallengeMenuOpen] = useState(false)
-  const [simulatorOutcomeKey, setSimulatorOutcomeKey] = useState<string | null>(null)
   const [completeBonusNoticeOpen, setCompleteBonusNoticeOpen] = useState(false)
   const [publicBrackets, setPublicBrackets] = useState<SimulatorBracketEntry[]>([])
   const [publicBracketsLoading, setPublicBracketsLoading] = useState(false)
@@ -2148,7 +2147,6 @@ function App() {
       seen.add(item.key)
     }
     window.localStorage.setItem(simulatorOutcomeSeenStorageKey, JSON.stringify([...seen]))
-    setSimulatorOutcomeKey(null)
   }
 
   function handleChallengeLogout() {
