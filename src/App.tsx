@@ -2090,7 +2090,7 @@ function App() {
     .filter((match) => inferStatus(match) === 'finished')
     .map((match) => match.id)
   const lockedMatchIds = new Set(liveSource.matches
-    .filter((match) => inferStatus(match) === 'finished')
+    .filter((match) => match.status === 'finished')
     .map((match) => match.id))
   const challengeOfficialResults = knockoutDayMatches.reduce<Record<string, string>>((results, match) => {
     if (inferStatus(match) !== 'finished') return results
