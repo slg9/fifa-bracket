@@ -76,14 +76,14 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
 
   const scrollParentToTop = useCallback((from: HTMLElement) => {
     let el: HTMLElement | null = from.parentElement
-    while (el) {
-      const { overflowY, overflow } = getComputedStyle(el)
-      if (overflowY === 'auto' || overflowY === 'scroll' || overflow === 'auto' || overflow === 'scroll') {
-        if (el.scrollTop > 0) el.scrollTo({ top: 0, behavior: 'smooth' })
+    while (el && el !== document.documentElement) {
+      if (el.scrollTop > 0) {
+        el.scrollTo({ top: 0, behavior: 'smooth' })
         return
       }
       el = el.parentElement
     }
+    if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
   useEffect(() => {

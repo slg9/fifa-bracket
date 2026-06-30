@@ -423,13 +423,16 @@
   }
   .brakup-bracket {
     grid-template-columns: repeat(5, 100vw);
+    align-items: start;
     gap: 0;
-    padding: 0 0 32px;
+    padding: 0 0 48px;
   }
   .brakup-bracket__round {
     scroll-snap-align: start;
     scroll-snap-stop: always;
-    padding: 10px 15vw;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 10px 15vw 24px;
     box-sizing: border-box;
   }
   /* Connector lines plus épais sur mobile + queues visibles aux bords */
