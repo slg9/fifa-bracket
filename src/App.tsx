@@ -9,7 +9,7 @@ import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import { formatScore } from './challenge/progress'
 import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
-import { getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, publishPublicBracketShare, resendMagicLink, saveSimulatorBracket, verifyLoginOTP } from './lib/challengeData'
+import { getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, resendMagicLink, saveSimulatorBracket, verifyLoginOTP } from './lib/challengeData'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -787,11 +787,9 @@ function BracketBoard({
   teamsById,
   focusId,
   picks,
-  overrides,
   simulationEnabled,
   standings,
   shareOwnerName,
-  shareBracketName,
   existingShareUrl,
   readOnlyShare,
   createHref,
@@ -804,11 +802,9 @@ function BracketBoard({
   teamsById: Map<string, Team>
   focusId: string | null
   picks: Record<string, string>
-  overrides: Record<string, MatchOverride>
   simulationEnabled: boolean
   standings: Record<string, RankedStandingRow[]>
   shareOwnerName: string
-  shareBracketName: string
   existingShareUrl?: string | null
   readOnlyShare?: boolean
   createHref?: string
@@ -1115,17 +1111,8 @@ function BracketBoard({
     link.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 0)
   }
-
-  function blobToDataUrl(blob: Blob) {
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result))
-      reader.onerror = () => reject(reader.error ?? new Error('Lecture image impossible.'))
-      reader.readAsDataURL(blob)
-    })
-  }
-
-  function getShareText(url: string) {
+
+function getShareText(url: string) {
     return `${shareOwnerName || 'Brakup'} partage son bracket Coupe du Monde 2026: ${url}`
   }
 
@@ -2102,6 +2089,9 @@ function App() {
   const challengeOfficialFinishedMatchIds = knockoutDayMatches
     .filter((match) => inferStatus(match) === 'finished')
     .map((match) => match.id)
+  const lockedMatchIds = new Set(liveSource.matches
+    .filter((match) => inferStatus(match) === 'finished')
+    .map((match) => match.id))
   const challengeOfficialResults = knockoutDayMatches.reduce<Record<string, string>>((results, match) => {
     if (inferStatus(match) !== 'finished') return results
     if (match.homeTeamId.startsWith('placeholder:') || match.awayTeamId.startsWith('placeholder:')) return results
@@ -2871,11 +2861,9 @@ function App() {
               teamsById={teamsById}
               focusId={focusId}
               picks={activeKnockoutPicks}
-              overrides={overrides}
               simulationEnabled={mode === 'simulation' && !isSharedBracketView}
               standings={standings}
               shareOwnerName={publicSimulatorBracket?.pseudo || sharedBracket?.pseudo || challengeProfile.pseudo || 'Brakup'}
-              shareBracketName={publicSimulatorBracket?.bracketName || sharedBracket?.bracketName || challengeProfile.bracketName || 'Mon bracket'}
               existingShareUrl={currentShareUrl}
               readOnlyShare={isSharedBracketView}
               createHref={createFromShareHref}
