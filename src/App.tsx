@@ -6,7 +6,6 @@ import BrakupHub from './challenge/BrakupHub'
 import LoginEntry from './challenge/LoginEntry'
 import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
 import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
-import { formatScore } from './challenge/progress'
 import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
 import { getSimulatorLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, requestOTP, resendMagicLink, saveSimulatorBracket, verifyLoginOTP, verifyOTP } from './lib/challengeData'
@@ -2375,7 +2374,6 @@ function App() {
       match,
     }))
     .filter((item) => !seenSimulatorOutcomeKeys.has(item.key))
-  const simulatorOutcomeNotice = simulatorOutcomeNotices.find((item) => item.key === simulatorOutcomeKey) ?? simulatorOutcomeNotices[0] ?? null
   const projectedQualifiedIds = new Set<string>()
   const projectedQualifiedRows: Array<{ teamId: string; groupId: string; label: string; rank: number }> = []
   Object.values(standings).forEach((rows) => {
