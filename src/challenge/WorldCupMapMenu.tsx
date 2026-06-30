@@ -371,7 +371,7 @@ function MatchNode({
         <div className="wcmap__goal wcmap__goal--top" />
         <div className="wcmap__goal wcmap__goal--bottom" />
 
-        {resultTeams && !isClosed ? (
+        {resultTeams ? (
           <span className="wcmap__result-matchup" aria-label={`${resultTeams[0].name} a gauche, ${resultTeams[1].name} a droite`}>
             {resultTeams.map((team) => {
               const isWinner = isClosed ? node.realWinnerTeamId === team.id : node.pickedTeamId === team.id
@@ -450,7 +450,8 @@ function LevelEntryScreen({
   const predictedWinnerTeam = node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
   const resultWinnerTeam = isClosed ? officialWinnerTeam : predictedWinnerTeam
   const officialPending = node.status === 'completed' && Boolean(node.pickedTeamId) && !node.progress.played
-  const canSharePlayedMatch = canShare && node.status === 'completed' && Boolean(node.pickedTeamId && displayScore)
+  const canReplayPlayedMatch = node.status === 'completed' && Boolean(node.pickedTeamId)
+  const canSharePlayedMatch = canShare && canReplayPlayedMatch && Boolean(displayScore)
 
   return (
     <div className="wcmap-entry" role="dialog" aria-modal="true">
@@ -525,6 +526,11 @@ function LevelEntryScreen({
               <button type="button" className="wcmap-entry__share" onClick={onShare}>
                 <span aria-hidden="true">↗</span>
                 Partager
+              </button>
+            ) : null}
+            {canReplayPlayedMatch ? (
+              <button type="button" className="wcmap-entry__replay" onClick={() => node.pickedTeamId && onPickTeam(node.pickedTeamId)}>
+                Rejouer ce match
               </button>
             ) : null}
           </div>

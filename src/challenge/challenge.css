@@ -1114,6 +1114,24 @@
   background: rgba(36, 20, 0, .12);
   font: 900 15px/1 Barlow, sans-serif;
 }
+
+.wcmap-entry__replay {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid rgba(43, 255, 154, .32);
+  border-radius: 14px;
+  background: rgba(43, 255, 154, .08);
+  color: #c9ffe4;
+  font: 900 12px/1 'Barlow Condensed', sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.wcmap-entry__replay:hover {
+  background: rgba(43, 255, 154, .14);
+}
+
 .wcmap-entry__result-score strong {
   font: 800 22px 'JetBrains Mono',monospace; color: #FFB800; letter-spacing: .04em;
 }
