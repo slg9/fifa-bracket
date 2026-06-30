@@ -790,6 +790,7 @@ function BracketBoard({
   picks,
   simulationEnabled,
   standings,
+  groupMatches,
   shareOwnerName,
   existingShareUrl,
   readOnlyShare,
@@ -805,6 +806,7 @@ function BracketBoard({
   picks: Record<string, string>
   simulationEnabled: boolean
   standings: Record<string, RankedStandingRow[]>
+  groupMatches: GroupMatch[]
   shareOwnerName: string
   existingShareUrl?: string | null
   readOnlyShare?: boolean
@@ -1450,7 +1452,7 @@ function getShareText(url: string) {
         const groupRows = standings[popupTeam.groupId] ?? []
         const teamRow = groupRows.find((r) => r.teamId === standingsPopup.teamId)
         if (!teamRow) return null
-        const recentMatches = mergedMatches
+        const recentMatches = groupMatches
           .filter((match) => match.homeTeamId === popupTeam.id || match.awayTeamId === popupTeam.id)
           .filter((match) => match.homeScore !== null && match.awayScore !== null)
           .sort((a, b) => (b.kickoffIso ?? `${b.kickoffDate}T${b.kickoffTime ?? '99:99'}`).localeCompare(a.kickoffIso ?? `${a.kickoffDate}T${a.kickoffTime ?? '99:99'}`))
@@ -2912,6 +2914,7 @@ function App() {
               picks={displayedKnockoutPicks}
               simulationEnabled={mode === 'simulation' && !bracketReadOnly}
               standings={standings}
+              groupMatches={mergedMatches}
               shareOwnerName={viewedPublicBracket?.pseudo || publicSimulatorBracket?.pseudo || sharedBracket?.pseudo || challengeProfile.pseudo || 'Brakup'}
               existingShareUrl={currentShareUrl}
               readOnlyShare={bracketReadOnly}
@@ -3389,3 +3392,4 @@ function App() {
 }
 
 export default App
+
