@@ -2020,7 +2020,7 @@ function App() {
   const shouldDockBracketHeader = view === 'bracket' && !isBracketFullscreen
   const isSharedBracketView = Boolean((sharedBracketId && sharedBracket) || (publicPseudo && publicSimulatorBracket))
   const createFromShareHref = '/?simulator&new=1'
-  const currentShareUrl = publicPseudo && publicSimulatorBracket ? ${window.location.origin}/@ : isSharedBracketView && sharedBracket ? ${window.location.origin}/share/bracket/ : challengeProfile.pseudo ? ${window.location.origin}/@ : null
+  const currentShareUrl = publicPseudo && publicSimulatorBracket ? window.location.origin + '/@' + encodeURIComponent(publicSimulatorBracket.pseudo) : isSharedBracketView && sharedBracket ? window.location.origin + '/share/bracket/' + sharedBracket.id : challengeProfile.pseudo ? window.location.origin + '/@' + encodeURIComponent(challengeProfile.pseudo) : null
   const isChallengeConnected = Boolean(challengeToken && challengeProfile.pseudo)
   const seenSimulatorOutcomeKeys = new Set(readSeenSimulatorOutcomeKeys())
   const simulatorOutcomeNotices: SimulatorOutcomeNotice[] = displayBracket
