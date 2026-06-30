@@ -1450,8 +1450,13 @@ function getShareText(url: string) {
         const groupRows = standings[popupTeam.groupId] ?? []
         const teamRow = groupRows.find((r) => r.teamId === standingsPopup.teamId)
         if (!teamRow) return null
-        const popupX = Math.min(standingsPopup.x + 12, window.innerWidth - 220)
-        const popupY = Math.min(standingsPopup.y - 8, window.innerHeight - 220)
+        const recentMatches = mergedMatches
+          .filter((match) => match.homeTeamId === popupTeam.id || match.awayTeamId === popupTeam.id)
+          .filter((match) => match.homeScore !== null && match.awayScore !== null)
+          .sort((a, b) => (b.kickoffIso ?? `${b.kickoffDate}T${b.kickoffTime ?? '99:99'}`).localeCompare(a.kickoffIso ?? `${a.kickoffDate}T${a.kickoffTime ?? '99:99'}`))
+          .slice(0, 4)
+        const popupX = Math.min(standingsPopup.x + 12, window.innerWidth - 300)
+        const popupY = Math.min(standingsPopup.y - 8, window.innerHeight - 340)
         return (
           <div
             className="standings-popup"
@@ -1466,6 +1471,25 @@ function getShareText(url: string) {
               <span className="standings-popup__name">{popupTeam.name}</span>
               <span className="standings-popup__group">Grp {popupTeam.groupId}</span>
             </div>
+            {recentMatches.length ? (
+              <div className="standings-popup__recent" aria-label="Derniers matchs">
+                <div className="standings-popup__recent-title">Derniers matchs</div>
+                {recentMatches.map((match) => {
+                  const homeTeam = teamsById.get(match.homeTeamId)
+                  const awayTeam = teamsById.get(match.awayTeamId)
+                  if (!homeTeam || !awayTeam) return null
+                  return (
+                    <div key={match.id} className="standings-popup__match">
+                      {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="standings-popup__mini-flag" crossOrigin="anonymous" /> : <span className="standings-popup__mini-emoji">{homeTeam.flagEmoji}</span>}
+                      <span className="standings-popup__match-team">{homeTeam.shortName || homeTeam.name}</span>
+                      <strong>{match.homeScore}:{match.awayScore}</strong>
+                      <span className="standings-popup__match-team standings-popup__match-team--away">{awayTeam.shortName || awayTeam.name}</span>
+                      {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="standings-popup__mini-flag" crossOrigin="anonymous" /> : <span className="standings-popup__mini-emoji">{awayTeam.flagEmoji}</span>}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : null}
             <table className="standings-popup__table">
               <thead>
                 <tr>

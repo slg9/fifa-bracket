@@ -4509,7 +4509,7 @@
 .standings-popup {
   position: fixed;
   z-index: 9999;
-  min-width: 200px;
+  width: 288px;
   padding: 10px 12px 8px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -4557,6 +4557,65 @@
   opacity: 0.8;
 }
 
+
+.standings-popup__recent {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 9px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.standings-popup__recent-title {
+  color: var(--gold);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.standings-popup__match {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.standings-popup__mini-flag {
+  width: 18px;
+  height: 12px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.standings-popup__mini-emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.standings-popup__match-team {
+  overflow: hidden;
+  color: rgba(238, 245, 255, 0.82);
+  font-size: 10px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.standings-popup__match-team--away {
+  text-align: right;
+}
+
+.standings-popup__match strong {
+  color: var(--neon);
+  font-family: var(--numbers);
+  font-size: 11px;
+  font-weight: 900;
+}
 .standings-popup__table {
   border-collapse: collapse;
   width: 100%;
