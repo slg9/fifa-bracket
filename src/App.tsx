@@ -1731,6 +1731,8 @@ function App() {
   const simulatorRemoteHydratedRef = useRef(false)
   const simulatorSaveTimerRef = useRef<number | null>(null)
   const initialSyncBaselineRef = useRef<string | null>(null)
+  const previousCompleteBonusRef = useRef(0)
+  const completeBonusArmedRef = useRef(false)
 
   const autosaveRewards = useMemo(() => {
     if (!seed) return { total: 0, completeBonus: 0, scoreBreakdown: {} as NonNullable<SimulatorBracketEntry['scoreBreakdown']> }
@@ -1747,6 +1749,19 @@ function App() {
       scoreBreakdown: Object.fromEntries([...rewards.rewardsByMatch.entries()].map(([matchId, reward]) => [matchId, { points: reward.points, label: reward.label, correct: reward.correct, combo: reward.combo }])),
     }
   }, [knockoutPicks, liveSource.matches, mode, overrides, seed])
+
+  useEffect(() => {
+    const previous = previousCompleteBonusRef.current
+    const isReadOnlyContext = Boolean(publicPseudo || sharedBracketLoadId || viewedPublicBracket)
+    if (previous === 0 && autosaveRewards.completeBonus > 0 && completeBonusArmedRef.current && !isReadOnlyContext) {
+      setCompleteBonusNoticeOpen(true)
+      completeBonusArmedRef.current = false
+    }
+    if (previous > 0 && autosaveRewards.completeBonus === 0) {
+      setCompleteBonusNoticeOpen(false)
+    }
+    previousCompleteBonusRef.current = autosaveRewards.completeBonus
+  }, [autosaveRewards.completeBonus, publicPseudo, sharedBracketLoadId, viewedPublicBracket])
 
   useEffect(() => {
     let active = true
@@ -2371,21 +2386,14 @@ function App() {
 
   function handlePickWinner(matchId: string, teamId: string) {
     if (lockedMatchIds.has(matchId)) return
+    completeBonusArmedRef.current = true
 
-    const wasComplete = knockoutTemplates.every((template) => Boolean(knockoutPicks[template.id]))
-    const nextPicks = {
-      ...knockoutPicks,
+    setKnockoutPicks((current) => ({
+      ...current,
       [matchId]: teamId,
-    }
-    const isComplete = knockoutTemplates.every((template) => Boolean(nextPicks[template.id]))
-    const completedNow = !wasComplete && isComplete
+    }))
 
-    setKnockoutPicks(nextPicks)
-    if (completedNow) {
-      setCompleteBonusNoticeOpen(true)
-    }
-
-    if (!completedNow && !challengeToken && !showChallengeLoginEntry) {
+    if (!challengeToken && !showChallengeLoginEntry) {
       setChallengeLoginError(null)
       setChallengeLoginSent(false)
       setShowChallengeLoginEntry(true)
@@ -2394,6 +2402,7 @@ function App() {
 
   function handleClearWinner(matchId: string) {
     if (lockedMatchIds.has(matchId)) return
+    completeBonusArmedRef.current = false
     setKnockoutPicks((current) => {
       const wasComplete = knockoutTemplates.every((template) => Boolean(current[template.id]))
       const next = { ...current }
