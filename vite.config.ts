@@ -5,13 +5,14 @@ import react from '@vitejs/plugin-react'
 // Vite executes this file in Node; the runtime module is typed locally in the repo.
 // @ts-expect-error Local .mjs helper is used by the dev server and sync route.
 import { buildFifaLiveSnapshot } from './scripts/fifa-sync-core.mjs'
+import bracketShareHandler from './api/bracket-share'
 
 const seedPath = fileURLToPath(new URL('./public/data/world-cup-2026.json', import.meta.url))
 
 type ApiResponse = {
   statusCode: number
   setHeader: (name: string, value: string) => void
-  end: (body: string) => void
+  end: (body: string | Buffer) => void
 }
 
 type IncomingMessage = {
@@ -241,6 +242,71 @@ const ODDS_API_NAME_TO_FIFA: Record<string, string> = {
   Turkey: 'TUR', USA: 'USA', Uruguay: 'URU', Uzbekistan: 'UZB',
 }
 
+
+type BracketShareRequest = {
+  method?: string
+  url?: string
+  headers: Record<string, string | string[] | undefined>
+  body?: unknown
+}
+
+type BracketShareResponse = {
+  status: (code: number) => BracketShareResponse
+  json: (body: unknown) => void
+  setHeader: (name: string, value: string | number) => void
+  end: (body?: string | Buffer) => void
+}
+
+function readRequestBody(req: { on: (event: string, callback: (chunk?: Buffer) => void) => void }) {
+  return new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = []
+    req.on('data', (chunk) => {
+      if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+    })
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+    req.on('error', () => reject(new Error('Request body unavailable')))
+  })
+}
+
+function bracketShareApi() {
+  const handler = async (req: { method?: string; url?: string; headers: Record<string, string | string[] | undefined>; on: (event: string, callback: (chunk?: Buffer) => void) => void }, res: ApiResponse) => {
+    const body = req.method === 'POST' ? await readRequestBody(req) : undefined
+    let statusCode = 200
+    const apiRes: BracketShareResponse = {
+      status(code) {
+        statusCode = code
+        res.statusCode = code
+        return apiRes
+      },
+      json(payload) {
+        res.statusCode = statusCode
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        res.end(JSON.stringify(payload))
+      },
+      setHeader(name, value) {
+        res.setHeader(name, String(value))
+      },
+      end(payload) {
+        res.statusCode = statusCode
+        res.end(payload ?? '')
+      },
+    }
+    await bracketShareHandler({ method: req.method, url: req.url, headers: req.headers, body } satisfies BracketShareRequest, apiRes)
+  }
+
+  return {
+    name: 'bracket-share-api',
+    configureServer(server: { middlewares: { use: (path: string, callback: (req: Parameters<typeof handler>[0], res: ApiResponse) => void) => void } }) {
+      server.middlewares.use('/api/bracket-share', handler)
+      server.middlewares.use('/share/bracket', handler)
+    },
+    configurePreviewServer(server: { middlewares: { use: (path: string, callback: (req: Parameters<typeof handler>[0], res: ApiResponse) => void) => void } }) {
+      server.middlewares.use('/api/bracket-share', handler)
+      server.middlewares.use('/share/bracket', handler)
+    },
+  }
+}
+
 function oddsApi() {
   const handler = async (_req: unknown, res: ApiResponse) => {
     const apiKey = process.env.ODDS_API_KEY
@@ -315,5 +381,5 @@ function oddsApi() {
 }
 
 export default defineConfig({
-  plugins: [react(), fifaSyncApi(), matchStatsApi(), oddsApi()],
+  plugins: [react(), fifaSyncApi(), matchStatsApi(), oddsApi(), bracketShareApi()],
 })

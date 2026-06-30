@@ -1520,6 +1520,8 @@ function App() {
   const simulatorMode = useMemo(() => new URLSearchParams(window.location.search).has('simulator'), [])
   const challengeMode = useMemo(() => new URLSearchParams(window.location.search).has('challenge'), [])
   const sharedBracketId = useMemo(() => new URLSearchParams(window.location.search).get('share'), [])
+  const cloneShareId = useMemo(() => new URLSearchParams(window.location.search).get('cloneShare'), [])
+  const sharedBracketLoadId = sharedBracketId ?? cloneShareId
   const view = 'bracket' as View
   const [overrides, setOverrides] = useState<Record<string, MatchOverride>>({})
   const [knockoutPicks, setKnockoutPicks] = useState<Record<string, string>>({})
@@ -1552,7 +1554,6 @@ function App() {
   const [challengeLoginEmail, setChallengeLoginEmail] = useState<string | null>(null)
   const [challengeMenuOpen, setChallengeMenuOpen] = useState(false)
   const [simulatorOutcomeKey, setSimulatorOutcomeKey] = useState<string | null>(null)
-  const [seenSimulatorOutcomeVersion, setSeenSimulatorOutcomeVersion] = useState(0)
   const simulatorRemoteHydratedRef = useRef(false)
   const simulatorSaveTimerRef = useRef<number | null>(null)
   const initialSyncBaselineRef = useRef<string | null>(null)
@@ -1571,8 +1572,8 @@ function App() {
         if (!active) return
 
         setSeed(seedData)
-        if (sharedBracketId) {
-          const share = await getPublicBracketShare(sharedBracketId)
+        if (sharedBracketLoadId) {
+          const share = await getPublicBracketShare(sharedBracketLoadId)
           if (!active) return
           setSharedBracket(share)
           setOverrides(share.overrides)
@@ -1634,7 +1635,7 @@ function App() {
     return () => {
       active = false
     }
-  }, [sharedBracketId])
+  }, [sharedBracketLoadId])
 
   useEffect(() => {
     if (sharedBracketId) return
@@ -1653,7 +1654,7 @@ function App() {
     let cancelled = false
     simulatorRemoteHydratedRef.current = false
 
-    if (sharedBracketId) {
+    if (sharedBracketLoadId) {
       simulatorRemoteHydratedRef.current = true
       return
     }
@@ -1699,7 +1700,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [challengeToken, sharedBracketId])
+  }, [challengeToken, sharedBracketLoadId])
 
   useEffect(() => {
     if (sharedBracketId || !challengeToken || !simulatorRemoteHydratedRef.current || !challengeProfile.pseudo) {
@@ -1848,7 +1849,6 @@ function App() {
     const seen = new Set(readSeenSimulatorOutcomeKeys())
     seen.add(simulatorOutcomeNotice.key)
     window.localStorage.setItem(simulatorOutcomeSeenStorageKey, JSON.stringify([...seen]))
-    setSeenSimulatorOutcomeVersion((current) => current + 1)
     setSimulatorOutcomeKey(null)
   }
 
@@ -1989,24 +1989,18 @@ function App() {
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const shouldDockBracketHeader = view === 'bracket' && !isBracketFullscreen
   const isSharedBracketView = Boolean(sharedBracketId && sharedBracket)
+  const createFromShareHref = sharedBracket ? `/?simulator&cloneShare=${encodeURIComponent(sharedBracket.id)}` : '/?simulator'
   const currentShareUrl = isSharedBracketView && sharedBracket ? `${window.location.origin}/share/bracket/${sharedBracket.id}` : null
   const isChallengeConnected = Boolean(challengeToken && challengeProfile.pseudo)
-  const simulatorOutcomeNotices = useMemo<SimulatorOutcomeNotice[]>(() => {
-    const seen = new Set(readSeenSimulatorOutcomeKeys())
-    return displayBracket
-      .filter((match) => Boolean(match.pickedWinnerId && match.realWinnerId && match.predictionState))
-      .map((match) => ({
-        key: simulatorOutcomeStorageKey(match.id, match.realWinnerId),
-        match,
-      }))
-      .filter((item) => !seen.has(item.key))
-  }, [displayBracket, seenSimulatorOutcomeVersion])
-  const simulatorOutcomeNotice = simulatorOutcomeNotices.find((item) => item.key == simulatorOutcomeKey) ?? simulatorOutcomeNotices[0] ?? null
-  useEffect(() => {
-    if (!simulatorOutcomeKey || !simulatorOutcomeNotices.some((item) => item.key === simulatorOutcomeKey)) {
-      setSimulatorOutcomeKey(simulatorOutcomeNotices[0]?.key ?? null)
-    }
-  }, [simulatorOutcomeKey, simulatorOutcomeNotices])
+  const seenSimulatorOutcomeKeys = new Set(readSeenSimulatorOutcomeKeys())
+  const simulatorOutcomeNotices: SimulatorOutcomeNotice[] = displayBracket
+    .filter((match) => Boolean(match.pickedWinnerId && match.realWinnerId && match.predictionState))
+    .map((match) => ({
+      key: simulatorOutcomeStorageKey(match.id, match.realWinnerId),
+      match,
+    }))
+    .filter((item) => !seenSimulatorOutcomeKeys.has(item.key))
+  const simulatorOutcomeNotice = simulatorOutcomeNotices.find((item) => item.key === simulatorOutcomeKey) ?? simulatorOutcomeNotices[0] ?? null
   const projectedQualifiedIds = new Set<string>()
   const projectedQualifiedRows: Array<{ teamId: string; groupId: string; label: string; rank: number }> = []
   Object.values(standings).forEach((rows) => {
@@ -2837,7 +2831,7 @@ function App() {
               shareBracketName={sharedBracket?.bracketName || challengeProfile.bracketName || 'Mon bracket'}
               existingShareUrl={currentShareUrl}
               readOnlyShare={isSharedBracketView}
-              createHref="/?simulator"
+              createHref={createFromShareHref}
               onPick={handlePickWinner}
               onClear={handleClearWinner}
               onFocusChange={setFocusId}

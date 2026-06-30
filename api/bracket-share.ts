@@ -19,6 +19,8 @@ const PUBLIC_SITE_URL = (process.env.PUBLIC_SITE_URL ?? 'https://brakup.app').re
 const BLOB_ACCESS = process.env.BRAKUP_BLOB_ACCESS === 'public' ? 'public' : 'private'
 const DEFAULT_EXPIRY_DAYS = 30
 const MAX_DATA_URL_BYTES = 8 * 1024 * 1024
+const memoryShares = new Map<string, PublicBracketShare>()
+const memoryImages = new Map<string, Buffer>()
 
 function parseBody(req: ApiRequest): Record<string, unknown> {
   if (typeof req.body === 'string') return JSON.parse(req.body) as Record<string, unknown>
@@ -61,7 +63,7 @@ function dataUrlToPngBuffer(dataUrl: string) {
 }
 
 async function readShare(id: string): Promise<PublicBracketShare | null> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return null
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return memoryShares.get(id) ?? null
   const result = await get(sharePath(id), {
     access: BLOB_ACCESS,
     token: process.env.BLOB_READ_WRITE_TOKEN,
@@ -77,7 +79,7 @@ function isExpired(share: PublicBracketShare) {
 }
 
 async function readImage(id: string) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return null
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return memoryImages.get(id) ?? null
   const result = await get(imagePath(id), {
     access: BLOB_ACCESS,
     token: process.env.BLOB_READ_WRITE_TOKEN,
@@ -126,11 +128,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const url = new URL(req.url ?? '/api/bracket-share', PUBLIC_SITE_URL)
 
     if (req.method === 'POST') {
-      if (!process.env.BLOB_READ_WRITE_TOKEN) {
-        res.status(500).json({ error: 'Stockage Brakup indisponible.' })
-        return
-      }
-
       const body = parseBody(req)
       const id = cleanId(crypto.randomUUID().replaceAll('-', '').slice(0, 18))
       const now = new Date()
@@ -147,20 +144,25 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         expiresAt: new Date(now.getTime() + expiresInDays * 24 * 60 * 60 * 1000).toISOString(),
       }
 
-      await put(imagePath(id), imageBuffer, {
-        access: BLOB_ACCESS,
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        contentType: 'image/png',
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-      })
-      await put(sharePath(id), JSON.stringify(share), {
-        access: BLOB_ACCESS,
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        contentType: 'application/json',
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-      })
+      if (process.env.BLOB_READ_WRITE_TOKEN) {
+        await put(imagePath(id), imageBuffer, {
+          access: BLOB_ACCESS,
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          contentType: 'image/png',
+          token: process.env.BLOB_READ_WRITE_TOKEN,
+        })
+        await put(sharePath(id), JSON.stringify(share), {
+          access: BLOB_ACCESS,
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          contentType: 'application/json',
+          token: process.env.BLOB_READ_WRITE_TOKEN,
+        })
+      } else {
+        memoryImages.set(id, imageBuffer)
+        memoryShares.set(id, share)
+      }
 
       res.status(200).json({ data: { share, shareUrl: `${PUBLIC_SITE_URL}/share/bracket/${id}` } })
       return
