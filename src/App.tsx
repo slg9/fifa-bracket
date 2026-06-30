@@ -901,9 +901,14 @@ function BracketBoard({
     return highlighted
   }, [activeMatchIds, focusTeamId, parentLookup])
   const finalMatch = matchMap.get('M104') ?? null
+  const thirdPlaceMatch = matchMap.get('M103') ?? null
   const ownerName = shareOwnerName.trim()
   const ownerHandle = ownerName ? (ownerName.startsWith('@') ? ownerName : '@' + ownerName) : null
   const championTeam = finalMatch?.winnerId ? teamsById.get(finalMatch.winnerId) ?? null : null
+  const finalEntrantIds = finalMatch ? [getEntrantTeamId(finalMatch.home), getEntrantTeamId(finalMatch.away)].filter((teamId): teamId is string => Boolean(teamId)) : []
+  const runnerUpTeamId = finalMatch?.winnerId ? finalEntrantIds.find((teamId) => teamId !== finalMatch.winnerId) ?? null : null
+  const runnerUpTeam = runnerUpTeamId ? teamsById.get(runnerUpTeamId) ?? null : null
+  const thirdPlaceTeam = thirdPlaceMatch?.winnerId ? teamsById.get(thirdPlaceMatch.winnerId) ?? null : null
   const mobileRoundMatches = useMemo(() => {
     const grouped = new Map<string, DisplayMatch[]>()
     for (const tab of mobileRoundTabs) {
@@ -911,14 +916,6 @@ function BracketBoard({
     }
     return grouped
   }, [matches])
-  const focusedPathMatches = useMemo(() => {
-    if (!focusTeamId) return []
-    return knockoutTemplates
-      .map((template) => matchMap.get(template.id))
-      .filter((match): match is DisplayMatch => Boolean(match))
-      .filter((match) => activeMatchIds.has(match.id))
-  }, [activeMatchIds, focusTeamId, matchMap])
-
   useEffect(() => {
     if (!exportFeedback) {
       return
@@ -1276,27 +1273,15 @@ function getShareText(url: string) {
       ) : null}
 
       <div className="bracket-mobile-shell">
-        {focusTeamId ? (
-          <section className="bracket-mobile-path">
-            <div className="bracket-mobile-path__head">
-              <strong>{teamsById.get(focusTeamId)?.name}</strong>
-              <span>Parcours selectionne</span>
-            </div>
-            <div className="bracket-mobile-path__list">
-              {focusedPathMatches.map((match) => (
-                <div key={match.id} className={`bracket-mobile-path__item${match.predictionState === 'correct' ? ' is-correct' : ''}${match.predictionState === 'wrong' ? ' is-wrong' : ''}`}>
-                  <span>{formatStageLabel(match.stage)} · {formatKnockoutDateTime(match.id, match.dateLabel)}</span>
-                  <b>
-                    {match.home.kind === 'team' ? teamsById.get(match.home.teamId)?.name : match.home.label}
-                    {' vs '}
-                    {match.away.kind === 'team' ? teamsById.get(match.away.teamId)?.name : match.away.label}
-                  </b>
-                  {match.predictionState ? <small>{match.predictionState === 'correct' ? 'BON prono' : 'X Prono rate'}</small> : null}
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
+        <div className="bracket-mobile-hero">
+          <img src="/brakup-challenge-logo.png" alt="Brakup Challenge" className="bracket-mobile-hero__logo" />
+          <a
+            href={readOnlyShare ? createHref ?? '/?simulator' : localizedChallengeHref(getCurrentLocale())}
+            className="bracket-mobile-hero__cta"
+          >
+            {readOnlyShare ? 'CREER MON BRACKET' : 'JOUER'}
+          </a>
+        </div>
 
         <div className="bracket-mobile-tabs" role="tablist" aria-label="Rounds du bracket">
           {mobileRoundTabs.map((tab) => (
@@ -1418,6 +1403,32 @@ function getShareText(url: string) {
                             )}
                             <div className="champ__name">{championTeam.name}</div>
                             <div className="champ__cap">Le trophee prend forme ici</div>
+                            {runnerUpTeam || thirdPlaceTeam ? (
+                              <div className="champ__podium">
+                                {runnerUpTeam ? (
+                                  <div className="champ__podium-item champ__podium-item--silver">
+                                    <span className="champ__podium-rank">2E</span>
+                                    {flagUrl(runnerUpTeam) ? (
+                                      <img src={flagUrl(runnerUpTeam)} alt="" className="champ__podium-flag" crossOrigin="anonymous" />
+                                    ) : (
+                                      <span className="champ__podium-emoji">{runnerUpTeam.flagEmoji}</span>
+                                    )}
+                                    <span className="champ__podium-name">{runnerUpTeam.shortName || runnerUpTeam.name}</span>
+                                  </div>
+                                ) : null}
+                                {thirdPlaceTeam ? (
+                                  <div className="champ__podium-item champ__podium-item--bronze">
+                                    <span className="champ__podium-rank">3E</span>
+                                    {flagUrl(thirdPlaceTeam) ? (
+                                      <img src={flagUrl(thirdPlaceTeam)} alt="" className="champ__podium-flag" crossOrigin="anonymous" />
+                                    ) : (
+                                      <span className="champ__podium-emoji">{thirdPlaceTeam.flagEmoji}</span>
+                                    )}
+                                    <span className="champ__podium-name">{thirdPlaceTeam.shortName || thirdPlaceTeam.name}</span>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : null}
                           </>
                         ) : (
                           <>
