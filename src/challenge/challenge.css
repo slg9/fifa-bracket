@@ -1640,9 +1640,11 @@
 
 .wcmap__outcome-badge {
   position: absolute;
-  right: 2px;
+  left: 50%;
+  right: auto;
   top: auto;
-  bottom: 34px;
+  bottom: -34px;
+  transform: translateX(-50%);
   z-index: 7;
   display: inline-flex;
   align-items: center;
@@ -1674,9 +1676,11 @@
 
 .wcmap__exact-badge {
   position: absolute;
-  right: 4px;
+  left: calc(50% + 32px);
+  right: auto;
   top: auto;
-  bottom: 60px;
+  bottom: -31px;
+  transform: translateX(-50%);
   z-index: 7;
   display: grid;
   place-items: center;

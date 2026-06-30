@@ -313,9 +313,6 @@ function MatchNode({
   const displayScore = scoreForNode(node, score)
   const officialScore = node.progress.realScore
   const panelScore = isClosed && officialScore ? officialScore : displayScore
-  const realWinnerTeam = node.realWinnerTeamId
-    ? node.realWinnerTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
-    : undefined
   const resultTeams = node.homeTeam && node.awayTeam && ((isCompleted && node.pickedTeamId) || (isClosed && node.realWinnerTeamId))
     ? [node.homeTeam, node.awayTeam] as const
     : null
@@ -360,11 +357,11 @@ function MatchNode({
       </div>
       {node.progress.played && node.progress.realScore ? (
         <span className="wcmap__score-compare">
-          R {formatScore(node.progress.realScore)} · J {formatScore(node.progress.playedScore)}
+          J {formatScore(node.progress.playedScore)}
         </span>
       ) : officialPending ? (
         <span className="wcmap__score-compare is-pending">
-          Officiel en attente · J {formatScore(displayScore)}
+          J {formatScore(displayScore)}
         </span>
       ) : null}
 
@@ -374,7 +371,7 @@ function MatchNode({
         <div className="wcmap__goal wcmap__goal--top" />
         <div className="wcmap__goal wcmap__goal--bottom" />
 
-        {resultTeams ? (
+        {resultTeams && !isClosed ? (
           <span className="wcmap__result-matchup" aria-label={`${resultTeams[0].name} a gauche, ${resultTeams[1].name} a droite`}>
             {resultTeams.map((team) => {
               const isWinner = isClosed ? node.realWinnerTeamId === team.id : node.pickedTeamId === team.id
@@ -408,7 +405,6 @@ function MatchNode({
         <span className="wcmap__outcome-badge is-pending" title="Score officiel en attente">?</span>
       ) : null}
       {node.progress.exact ? <span className="wcmap__exact-badge" title="Score exact">◎</span> : null}
-      {realWinnerTeam ? <span className="wcmap__official-winner" title={`Vrai vainqueur: ${realWinnerTeam.name}`}><TeamFlag team={realWinnerTeam} /></span> : null}
       {isLive && <span className="wcmap__live-dot" />}
     </button>
   )
