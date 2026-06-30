@@ -608,6 +608,7 @@ const MatchCard = memo(function MatchCard({
   onClear,
   onPreview,
   onStandingsHover,
+  isLocked,
 }: {
   match: DisplayMatch
   teamsById: Map<string, Team>
@@ -616,6 +617,7 @@ const MatchCard = memo(function MatchCard({
   isActive: boolean
   isDimmed: boolean
   isFinalCard: boolean
+  isLocked: boolean
   focusId: string | null
   registerRef: (node: HTMLDivElement | null) => void
   onPick: (matchId: string, teamId: string) => void
@@ -638,6 +640,7 @@ const MatchCard = memo(function MatchCard({
         isFinalCard ? 'bm--final' : '',
         match.predictionState === 'correct' ? 'bm--prono-correct' : '',
         match.predictionState === 'wrong' ? 'bm--prono-wrong' : '',
+        isLocked ? 'bm--locked' : '',
       ].filter(Boolean).join(' ')}
       ref={registerRef}
       data-match-id={match.id}
@@ -645,6 +648,9 @@ const MatchCard = memo(function MatchCard({
       <div className="bm__meta">
         <span>{match.label.toUpperCase()}</span>
         <span className="bm__dateblock">
+          {isLocked ? <span className="bm__state-badge bm__state-badge--lock">LOCK</span> : null}
+          {match.pickedWinnerId ? <span className="bm__state-badge bm__state-badge--pick">MON PICK</span> : null}
+          {match.hasOfficialResult ? <span className="bm__state-badge bm__state-badge--official">OFFICIEL</span> : null}
           <span className="bm__datetime">{dateTimeLabel}</span>
         </span>
       </div>
@@ -794,6 +800,7 @@ function BracketBoard({
   simulationEnabled,
   standings,
   groupMatches,
+  lockedMatchIds,
   shareOwnerName,
   existingShareUrl,
   readOnlyShare,
@@ -810,6 +817,7 @@ function BracketBoard({
   simulationEnabled: boolean
   standings: Record<string, RankedStandingRow[]>
   groupMatches: GroupMatch[]
+  lockedMatchIds: Set<string>
   shareOwnerName: string
   existingShareUrl?: string | null
   readOnlyShare?: boolean
@@ -1317,6 +1325,7 @@ function getShareText(url: string) {
                 isActive={activeMatchIds.has(match.id)}
                 isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
                 isFinalCard={match.id === 'M104'}
+                isLocked={lockedMatchIds.has(match.id)}
                 focusId={focusId}
                 registerRef={() => undefined}
                 onPick={onPick}
@@ -1379,6 +1388,7 @@ function getShareText(url: string) {
                               isActive={activeMatchIds.has(match.id)}
                               isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
                               isFinalCard={match.id === 'M104'}
+                              isLocked={lockedMatchIds.has(match.id)}
                               focusId={focusId}
                               registerRef={(node) => {
                                 refs.current[match.id] = node
@@ -1432,6 +1442,7 @@ function getShareText(url: string) {
                           isActive={activeMatchIds.has(match.id)}
                           isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
                           isFinalCard={false}
+                          isLocked={lockedMatchIds.has(match.id)}
                           focusId={focusId}
                           registerRef={(node) => {
                             refs.current[match.id] = node
@@ -2922,6 +2933,7 @@ function App() {
               simulationEnabled={mode === 'simulation' && !bracketReadOnly}
               standings={standings}
               groupMatches={mergedMatches}
+              lockedMatchIds={lockedMatchIds}
               shareOwnerName={viewedPublicBracket?.pseudo || publicSimulatorBracket?.pseudo || sharedBracket?.pseudo || challengeProfile.pseudo || 'Brakup'}
               existingShareUrl={currentShareUrl}
               readOnlyShare={bracketReadOnly}

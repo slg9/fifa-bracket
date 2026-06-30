@@ -2427,9 +2427,10 @@
 
 .bm__dateblock {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 4px 6px;
   min-width: 0;
   margin-left: auto;
   text-align: right;
@@ -2438,6 +2439,42 @@
 .bm__datetime {
   white-space: nowrap;
   color: rgba(231, 238, 255, 0.82);
+}
+
+.bm__state-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 15px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.bm__state-badge--lock {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(231, 238, 255, 0.86);
+}
+
+.bm__state-badge--pick {
+  border: 1px solid rgba(43, 255, 154, 0.5);
+  background: rgba(43, 255, 154, 0.14);
+  color: #2bff9a;
+}
+
+.bm__state-badge--official {
+  border: 1px solid rgba(243, 201, 75, 0.55);
+  background: rgba(243, 201, 75, 0.14);
+  color: #f3c94b;
+}
+
+.bm--locked {
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .bm__qbadge {
