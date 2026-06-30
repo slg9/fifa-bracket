@@ -5813,3 +5813,8 @@
     line-height: 1;
   }
 }
+@media (max-width: 680px) {
+  .app-shell.is-shared-bracket .shared-bracket-back {
+    display: none;
+  }
+}

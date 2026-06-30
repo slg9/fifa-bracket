@@ -1774,7 +1774,7 @@ function App() {
   useEffect(() => {
     const previous = previousCompleteBonusRef.current
     const isReadOnlyContext = Boolean(publicPseudo || sharedBracketLoadId || viewedPublicBracket)
-    if (previous === 0 && autosaveRewards.completeBonus > 0 && completeBonusArmedRef.current && !isReadOnlyContext) {
+    if (autosaveRewards.completeBonus > 0 && completeBonusArmedRef.current && !isReadOnlyContext) {
       setCompleteBonusNoticeOpen(true)
       completeBonusArmedRef.current = false
     }
@@ -2411,25 +2411,12 @@ function App() {
   function handlePickWinner(matchId: string, teamId: string) {
     if (lockedMatchIds.has(matchId)) return
     const completesBracketNow = !isBracketComplete(knockoutPicks) && isBracketComplete({ ...knockoutPicks, [matchId]: teamId })
+    completeBonusArmedRef.current = true
 
-    setKnockoutPicks((current) => {
-      const wasComplete = isBracketComplete(current)
-      const next = {
-        ...current,
-        [matchId]: teamId,
-      }
-      const isComplete = isBracketComplete(next)
-
-      if (!wasComplete && isComplete) {
-        previousCompleteBonusRef.current = 0
-        completeBonusArmedRef.current = false
-        setCompleteBonusNoticeOpen(true)
-      } else {
-        completeBonusArmedRef.current = !isComplete
-      }
-
-      return next
-    })
+    setKnockoutPicks((current) => ({
+      ...current,
+      [matchId]: teamId,
+    }))
 
     if (!completesBracketNow && !challengeToken && !showChallengeLoginEntry) {
       setChallengeLoginError(null)
