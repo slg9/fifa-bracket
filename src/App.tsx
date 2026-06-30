@@ -1039,6 +1039,13 @@ function BracketBoard({
     }
   }, [activeLineIds, matches, parentLookup, picks])
 
+
+  function selectMobileRound(round: (typeof mobileRoundTabs)[number]['key']) {
+    setActiveMobileRound(round)
+    requestAnimationFrame(() => {
+      document.querySelector('.bracket-mobile-shell')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
   async function toggleFullscreen() {
     const node = fullscreenRef.current
     if (!node) {
@@ -1279,7 +1286,7 @@ function getShareText(url: string) {
               role="tab"
               aria-selected={activeMobileRound === tab.key}
               className={`bracket-mobile-tab${activeMobileRound === tab.key ? ' is-active' : ''}`}
-              onClick={() => setActiveMobileRound(tab.key)}
+              onClick={() => selectMobileRound(tab.key)}
             >
               {tab.label}
             </button>
@@ -1310,7 +1317,7 @@ function getShareText(url: string) {
             <button
               type="button"
               className="bracket-mobile-round__next"
-              onClick={() => setActiveMobileRound(nextMobileRound.key)}
+              onClick={() => selectMobileRound(nextMobileRound.key)}
               aria-label={`Afficher ${nextMobileRound.label}`}
             >
               {nextMobileRound.label}

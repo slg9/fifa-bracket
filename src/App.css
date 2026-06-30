@@ -2618,7 +2618,7 @@
   }
 
   .daymodal__heroheader p {
-    font-size: 13px;
+    font-size: 11px;
   }
 
   .daymodal__daynav {
@@ -4094,22 +4094,20 @@
 
   .bracket-mobile-round {
     position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 70%) minmax(70px, 1fr);
-    align-items: center;
-    gap: 10px;
+    display: block;
   }
 
   .bracket-mobile-round__list {
     min-width: 0;
+    padding-right: 86px;
   }
 
   .bracket-mobile-round__next {
-    position: sticky;
-    top: 48vh;
-    justify-self: end;
-    width: min(78px, 100%);
-    min-height: 92px;
+    position: fixed;
+    top: calc(50% + 154px);
+    right: max(8px, env(safe-area-inset-right));
+    width: 72px;
+    min-height: 54px;
     display: grid;
     place-items: center;
     padding: 10px 8px;
@@ -4118,9 +4116,10 @@
     color: #07120c;
     background: linear-gradient(180deg, #f6d76a, #2bff9a);
     box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32), 0 0 20px rgba(243, 201, 75, 0.22);
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 950;
     text-transform: uppercase;
+    animation: mobileRoundPulse 1.05s ease-in-out infinite;
   }
 
   .bracket-mobile-path {
@@ -4135,7 +4134,7 @@
     justify-content: space-between;
     gap: 8px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -4170,30 +4169,47 @@
   }
 
   .bracket-mobile-tabs {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 4px;
+    position: fixed;
+    z-index: 60;
+    top: 50%;
+    right: max(8px, env(safe-area-inset-right));
+    display: grid;
+    gap: 7px;
+    width: 72px;
+    padding: 8px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    background: rgba(5, 11, 22, 0.84);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.38), 0 0 24px rgba(43, 255, 154, 0.12);
+    backdrop-filter: blur(14px);
+    transform: translateY(-50%);
   }
 
   .bracket-mobile-tab {
-    flex: 0 0 auto;
-    padding: 9px 12px;
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 6px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.04);
     color: var(--muted);
     font: inherit;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
   .bracket-mobile-tab.is-active {
-    border-color: rgba(55, 239, 189, 0.28);
-    background: rgba(55, 239, 189, 0.1);
-    color: #dffef5;
+    border-color: rgba(55, 239, 189, 0.55);
+    background: linear-gradient(180deg, rgba(43, 255, 154, 0.24), rgba(255, 184, 0, 0.2));
+    color: #f4fff9;
+    animation: mobileRoundPulse 1.05s ease-in-out infinite;
+  }
+
+  @keyframes mobileRoundPulse {
+    0%, 100% { box-shadow: 0 0 0 rgba(43, 255, 154, 0); transform: scale(1); }
+    50% { box-shadow: 0 0 18px rgba(43, 255, 154, 0.5); transform: scale(1.05); }
   }
 
   .bracket-mobile-round__list .bm {
@@ -4965,7 +4981,7 @@
   .topmenu__item {
     min-height: 50px;
     padding: 13px 14px;
-    font-size: 13px;
+    font-size: 11px;
   }
 
   .bracket-actions-drop--topbar {
