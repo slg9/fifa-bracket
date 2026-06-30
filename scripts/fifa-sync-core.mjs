@@ -517,6 +517,47 @@ async function fetchFifaLiveData(fifaMatchPath) {
   }
 }
 
+
+function isTruthyShootoutFlag(value) {
+  if (value === false || value === 0 || value == null) return false
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized !== '' && normalized !== 'false' && normalized !== '0' && normalized !== 'no'
+  }
+  return true
+}
+
+function isShootoutGoal(goal) {
+  if (!goal || typeof goal !== 'object') return false
+
+  for (const [rawKey, value] of Object.entries(goal)) {
+    const key = rawKey.toLowerCase()
+    if ((key.includes('shootout') || key.includes('shoot-out') || key.includes('penaltyshoot')) && isTruthyShootoutFlag(value)) {
+      return true
+    }
+
+    if (typeof value !== 'string') continue
+    const normalized = value.trim().toLowerCase().replace(/[_-]+/g, ' ')
+    if (!normalized) continue
+
+    if (
+      normalized === 'shootout' ||
+      normalized === 'shoot out' ||
+      normalized === 'penalties' ||
+      normalized === 'penalty shootout' ||
+      normalized === 'penalty shoot out' ||
+      normalized.includes('penalty shootout') ||
+      normalized.includes('penalty shoot out') ||
+      normalized.includes('shootout') ||
+      normalized.includes('shoot out') ||
+      ((key.includes('period') || key.includes('phase') || key.includes('stage')) && normalized === 'penalties')
+    ) {
+      return true
+    }
+  }
+
+  return false
+}
 async function buildTopScorers(finishedMatches, warnings) {
   const goalTally = new Map() // key: `${name}|${teamCode}`, value: count
 
@@ -542,6 +583,7 @@ async function buildTopScorers(finishedMatches, warnings) {
     }
 
     for (const goal of data?.HomeTeam?.Goals ?? []) {
+      if (isShootoutGoal(goal)) continue
       const player = playerMap.get(goal.IdPlayer)
       if (!player) continue
       const key = `${player.name}|${player.teamCode}`
@@ -549,6 +591,7 @@ async function buildTopScorers(finishedMatches, warnings) {
     }
 
     for (const goal of data?.AwayTeam?.Goals ?? []) {
+      if (isShootoutGoal(goal)) continue
       const player = playerMap.get(goal.IdPlayer)
       if (!player) continue
       const key = `${player.name}|${player.teamCode}`
