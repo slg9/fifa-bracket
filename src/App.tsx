@@ -9,7 +9,7 @@ import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import { formatScore } from './challenge/progress'
 import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
-import { getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, resendMagicLink, saveSimulatorBracket, verifyLoginOTP } from './lib/challengeData'
+import { getLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, resendMagicLink, saveSimulatorBracket, verifyLoginOTP } from './lib/challengeData'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -26,6 +26,7 @@ import type {
   MatchPrediction,
   Mode,
   PublicBracketShare,
+  ChallengeEntry,
   SimulatorBracketEntry,
   RankedStandingRow,
   Team,
@@ -897,8 +898,6 @@ function BracketBoard({
     }
     return grouped
   }, [matches])
-  const activeMobileRoundIndex = mobileRoundTabs.findIndex((tab) => tab.key === activeMobileRound)
-  const nextMobileRound = activeMobileRoundIndex >= 0 ? mobileRoundTabs[activeMobileRoundIndex + 1] : undefined
   const focusedPathMatches = useMemo(() => {
     if (!focusTeamId) return []
     return knockoutTemplates
@@ -1313,16 +1312,6 @@ function getShareText(url: string) {
               />
             ))}
           </div>
-          {nextMobileRound ? (
-            <button
-              type="button"
-              className="bracket-mobile-round__next"
-              onClick={() => selectMobileRound(nextMobileRound.key)}
-              aria-label={`Afficher ${nextMobileRound.label}`}
-            >
-              {nextMobileRound.label}
-            </button>
-          ) : null}
         </div>
       </div>
 
@@ -1552,7 +1541,7 @@ function App() {
   const [selectedDayKey, setSelectedDayKey] = useState(() => localDateStr())
   const [headerBracketMenuOpen, setHeaderBracketMenuOpen] = useState(false)
   const [isBracketFullscreen, setIsBracketFullscreen] = useState(false)
-  const [sidePanel, setSidePanel] = useState<'qualified' | 'thirds' | 'scorers' | 'groups' | 'results' | null>(null)
+  const [sidePanel, setSidePanel] = useState<'brackets' | 'scorers' | 'groups' | 'results' | null>(null)
   const [matchModalGroupId, setMatchModalGroupId] = useState<string | null>(null)
   const [matchStatsModal, setMatchStatsModal] = useState<{ match: GroupMatch; homeTeam: Team; awayTeam: Team } | null>(null)
   const [matchStatsData, setMatchStatsData] = useState<MatchEventsData | null>(null)
@@ -1570,6 +1559,10 @@ function App() {
   const [challengeLoginEmail, setChallengeLoginEmail] = useState<string | null>(null)
   const [challengeMenuOpen, setChallengeMenuOpen] = useState(false)
   const [simulatorOutcomeKey, setSimulatorOutcomeKey] = useState<string | null>(null)
+  const [publicBrackets, setPublicBrackets] = useState<ChallengeEntry[]>([])
+  const [publicBracketsLoading, setPublicBracketsLoading] = useState(false)
+  const [publicBracketsError, setPublicBracketsError] = useState<string | null>(null)
+  const [viewedPublicBracket, setViewedPublicBracket] = useState<ChallengeEntry | null>(null)
   const simulatorRemoteHydratedRef = useRef(false)
   const simulatorSaveTimerRef = useRef<number | null>(null)
   const initialSyncBaselineRef = useRef<string | null>(null)
@@ -1776,6 +1769,29 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (sidePanel !== 'brackets' || publicBrackets.length > 0 || publicBracketsLoading) {
+      return
+    }
+
+    let cancelled = false
+    setPublicBracketsLoading(true)
+    setPublicBracketsError(null)
+    getLeaderboard()
+      .then((entries) => {
+        if (!cancelled) setPublicBrackets(entries)
+      })
+      .catch((caught) => {
+        if (!cancelled) setPublicBracketsError(caught instanceof Error ? caught.message : 'Brackets indisponibles.')
+      })
+      .finally(() => {
+        if (!cancelled) setPublicBracketsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [publicBrackets.length, publicBracketsLoading, sidePanel])
+  useEffect(() => {
     if (!initialDayModalLoading) {
       return
     }
@@ -1981,10 +1997,13 @@ function App() {
   const predMap = new Map(liveSource.predictions.map((p) => [p.matchId, p]))
   const bestThirds = getBestThirdPlacedTeams(standings)
   const groupBracket = buildKnockoutBracket(standings, mergedMatches)
+  const isSharedBracketView = Boolean((sharedBracketId && sharedBracket) || (publicPseudo && publicSimulatorBracket))
   const activeKnockoutPicks = mode === 'simulation' ? knockoutPicks : {}
+  const displayedKnockoutPicks = viewedPublicBracket ? viewedPublicBracket.picks : activeKnockoutPicks
+  const bracketReadOnly = isSharedBracketView || Boolean(viewedPublicBracket)
   const liveMatchesById = new Map(liveSource.matches.map((match) => [match.id, match]))
   const liveWinnerCodesById = new Map(liveSource.matches.flatMap((match) => match.winnerTeamCode ? [[match.id, match.winnerTeamCode] as const] : []))
-  const displayBracket = resolveDisplayBracket(groupBracket, activeKnockoutPicks, liveWinnerCodesById, teamsById)
+  const displayBracket = resolveDisplayBracket(groupBracket, displayedKnockoutPicks, liveWinnerCodesById, teamsById)
   const knockoutDayMatches: DayMatch[] = displayBracket
     .map<DayMatch | null>((match) => {
       const live = liveMatchesById.get(match.id)
@@ -2025,7 +2044,6 @@ function App() {
     .filter((team): team is Team => Boolean(team))
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const shouldDockBracketHeader = view === 'bracket' && !isBracketFullscreen
-  const isSharedBracketView = Boolean((sharedBracketId && sharedBracket) || (publicPseudo && publicSimulatorBracket))
   const createFromShareHref = '/?simulator&new=1'
   const currentShareUrl = publicPseudo && publicSimulatorBracket ? window.location.origin + '/@' + encodeURIComponent(publicSimulatorBracket.pseudo) : isSharedBracketView && sharedBracket ? window.location.origin + '/share/bracket/' + sharedBracket.id : challengeProfile.pseudo ? window.location.origin + '/@' + encodeURIComponent(challengeProfile.pseudo) : null
   const isChallengeConnected = Boolean(challengeToken && challengeProfile.pseudo)
@@ -2867,12 +2885,12 @@ function App() {
               matches={displayBracket}
               teamsById={teamsById}
               focusId={focusId}
-              picks={activeKnockoutPicks}
-              simulationEnabled={mode === 'simulation' && !isSharedBracketView}
+              picks={displayedKnockoutPicks}
+              simulationEnabled={mode === 'simulation' && !bracketReadOnly}
               standings={standings}
-              shareOwnerName={publicSimulatorBracket?.pseudo || sharedBracket?.pseudo || challengeProfile.pseudo || 'Brakup'}
+              shareOwnerName={viewedPublicBracket?.pseudo || publicSimulatorBracket?.pseudo || sharedBracket?.pseudo || challengeProfile.pseudo || 'Brakup'}
               existingShareUrl={currentShareUrl}
-              readOnlyShare={isSharedBracketView}
+              readOnlyShare={bracketReadOnly}
               createHref={createFromShareHref}
               onPick={handlePickWinner}
               onClear={handleClearWinner}
@@ -2889,17 +2907,10 @@ function App() {
               <div className="float-tabs">
                 <button
                   type="button"
-                  className={`float-tab${sidePanel === 'qualified' ? ' is-active' : ''}`}
-                  onClick={() => setSidePanel((current) => current === 'qualified' ? null : 'qualified')}
+                  className={`float-tab${sidePanel === 'brackets' ? ' is-active' : ''}`}
+                  onClick={() => setSidePanel((current) => current === 'brackets' ? null : 'brackets')}
                 >
-                  Top 2
-                </button>
-                <button
-                  type="button"
-                  className={`float-tab${sidePanel === 'thirds' ? ' is-active' : ''}`}
-                  onClick={() => setSidePanel((current) => current === 'thirds' ? null : 'thirds')}
-                >
-                  Top 3
+                  Mes brackets
                 </button>
                 {liveSource.topScorers && liveSource.topScorers.length > 0 ? (
                   <button
@@ -2930,15 +2941,13 @@ function App() {
                 <div className="float-panel">
                   <div className="float-panel__head">
                     <div className="float-panel__title">
-                      {sidePanel === 'qualified'
-                        ? 'En route pour les 8es'
-                        : sidePanel === 'thirds'
-                          ? 'Meilleurs troisiemes'
-                          : sidePanel === 'scorers'
-                            ? 'Top buteurs'
-                            : sidePanel === 'groups'
-                              ? 'Groupes'
-                              : 'Resultats groupes'}
+                      {sidePanel === 'brackets'
+                        ? 'Mes brackets'
+                        : sidePanel === 'scorers'
+                          ? 'Top buteurs'
+                          : sidePanel === 'groups'
+                            ? 'Groupes'
+                            : 'Resultats'}
                     </div>
                     <button type="button" className="float-panel__close" onClick={() => setSidePanel(null)} aria-label="Fermer">
                       X
@@ -2946,58 +2955,21 @@ function App() {
                   </div>
 
                   <div className="float-panel__body">
-                    {sidePanel === 'qualified' ? (
-                      <>
-                        <div className="panel__sub">24 top 2 + 8 meilleurs troisiemes = {projectedQualifiedRows.length} qualifies</div>
-                        <div className="odds">
-                          {[...projectedQualifiedRows]
-                            .sort((a, b) => a.rank - b.rank || a.groupId.localeCompare(b.groupId))
-                            .map((row, index) => {
-                              const team = teamsById.get(row.teamId)
-                              if (!team) return null
-
-                              return (
-                                <button key={team.id} type="button" className={`oddrow${focusId === team.id ? ' is-focus' : ''}`} onClick={() => setFocusId(focusId === team.id ? null : team.id)}>
-                                  <span className="oddrow__rank">{index + 1}</span>
-                                  {flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
-                                  <span className="oddrow__name">{team.name}</span>
-                                  <span className="oddrow__bar">
-                                    <span className="oddrow__fill" style={{ width: `${Math.max(8, 100 - index * 2)}%` }} />
-                                  </span>
-                                  <span className="oddrow__pct">{row.label}</span>
-                                </button>
-                              )
-                            })}
-                        </div>
-                      </>
+                    {sidePanel === 'brackets' ? (
+                      <div className="scorers">
+                        {publicBracketsLoading ? <div className="panel__sub">Chargement des brackets...</div> : null}
+                        {publicBracketsError ? <div className="panel__sub">{publicBracketsError}</div> : null}
+                        {!publicBracketsLoading && !publicBracketsError && publicBrackets.length === 0 ? <div className="panel__sub">Aucun bracket public pour le moment.</div> : null}
+                        {publicBrackets.map((entry, index) => (
+                          <button key={entry.id} type="button" className="scorerrow" onClick={() => { setViewedPublicBracket(entry); setSidePanel(null); setFocusId(null) }}>
+                            <span className="scorerrow__rank">{index + 1}</span>
+                            <span className="scorerrow__name">{entry.pseudo}</span>
+                            <span className="scorerrow__team">{entry.bracketName}</span>
+                            <span className="scorerrow__goals"><b>{entry.score}</b></span>
+                          </button>
+                        ))}
+                      </div>
                     ) : null}
-
-                    {sidePanel === 'thirds' ? (
-                      <>
-                        <div className="panel__sub">Projection en cours pour les slots variables</div>
-                        <div className="scorers">
-                          {bestThirds.map((row, index) => {
-                            const team = teamsById.get(row.teamId)
-                            if (!team) return null
-
-                            return (
-                              <div key={team.id} className={`scorerrow${index === 0 ? ' is-top' : ''}`}>
-                                <span className="scorerrow__rank">{index + 1}</span>
-                                {flagUrl(team) ? <img src={flagUrl(team)} alt="" className="flag-image" /> : <span className="flag-emoji">{team.flagEmoji}</span>}
-                                <span className="scorerrow__name">{team.name}</span>
-                                <span className="scorerrow__team">{team.groupId}</span>
-                                <span className="scorerrow__goals"><b>{row.points}</b></span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        <div className="panel__foot">
-                          <span className={`srcdot srcdot--${mode === 'simulation' ? 'sim' : 'live'}`} />
-                          {mode === 'simulation' ? 'Donnees simulees' : 'Donnees live fusionnees au seed'}
-                        </div>
-                      </>
-                    ) : null}
-
                     {sidePanel === 'scorers' && liveSource.topScorers && liveSource.topScorers.length > 0 ? (
                       <div className="scorers">
                         {liveSource.topScorers.map((scorer, index) => {
@@ -3258,6 +3230,38 @@ function App() {
                             </div>
                           )
                         })}
+                        <section className="float-group">
+                          <button type="button" className="float-group__head">
+                            <span>Phase finale</span>
+                            <small>{knockoutDayMatches.length} matchs</small>
+                          </button>
+                          <div className="float-result-list">
+                            {knockoutDayMatches.map((match) => {
+                              const homeTeam = teamsById.get(match.homeTeamId)
+                              const awayTeam = teamsById.get(match.awayTeamId)
+                              const status = inferStatus(match)
+                              const canOpenStats = Boolean(match.fifaMatchPath) && (status === 'finished' || status === 'live') && homeTeam && awayTeam
+                              return (
+                                <button
+                                  key={match.id}
+                                  type="button"
+                                  className={`float-result${status === 'live' ? ' is-live' : ''}`}
+                                  onClick={canOpenStats && homeTeam && awayTeam ? () => void openMatchStats(match as GroupMatch) : undefined}
+                                >
+                                  <span className="float-result__teams">
+                                    <span>{homeTeam?.shortName || match.homeLabel || match.homeTeamId.replace(/^placeholder:[^:]+:/, '')}</span>
+                                    <i>{awayTeam?.shortName || match.awayLabel || match.awayTeamId.replace(/^placeholder:[^:]+:/, '')}</i>
+                                  </span>
+                                  <span className="float-result__score">
+                                    {status === 'scheduled'
+                                      ? formatKickoffTime(match) || 'A venir'
+                                      : `${match.homeScore ?? '-'}:${match.awayScore ?? '-'}`}
+                                  </span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </section>
                       </div>
                     ) : null}
 

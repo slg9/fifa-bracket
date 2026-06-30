@@ -4102,25 +4102,7 @@
     padding-right: 86px;
   }
 
-  .bracket-mobile-round__next {
-    position: fixed;
-    top: calc(50% + 154px);
-    right: max(8px, env(safe-area-inset-right));
-    width: 72px;
-    min-height: 54px;
-    display: grid;
-    place-items: center;
-    padding: 10px 8px;
-    border: 1px solid rgba(243, 201, 75, 0.38);
-    border-radius: 16px;
-    color: #07120c;
-    background: linear-gradient(180deg, #f6d76a, #2bff9a);
-    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32), 0 0 20px rgba(243, 201, 75, 0.22);
-    font-size: 11px;
-    font-weight: 950;
-    text-transform: uppercase;
-    animation: mobileRoundPulse 1.05s ease-in-out infinite;
-  }
+
 
   .bracket-mobile-path {
     padding: 14px;
@@ -4173,10 +4155,14 @@
     z-index: 60;
     top: 50%;
     right: max(8px, env(safe-area-inset-right));
-    display: grid;
-    gap: 7px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    gap: 10px;
     width: 72px;
-    padding: 8px 6px;
+    min-height: min(440px, calc(100dvh - 148px));
+    max-height: calc(100dvh - 88px);
+    padding: 18px 6px 14px;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 18px;
     background: rgba(5, 11, 22, 0.84);
@@ -5310,4 +5296,20 @@
 
 .app-shell.is-shared-bracket .bracket-board {
   min-height: 100vh;
+}
+
+.shared-bracket-back {
+  position: fixed;
+  z-index: 90;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: #f4fff9;
+  background: rgba(5, 11, 22, 0.86);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.36);
+  font-weight: 900;
+  letter-spacing: 0.04em;
 }
