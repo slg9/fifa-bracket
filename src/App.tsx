@@ -892,6 +892,7 @@ function BracketBoard({
   existingShareUrl,
   readOnlyShare,
   createHref,
+  createLabel,
   onPick,
   onClear,
   onFocusChange,
@@ -913,6 +914,7 @@ function BracketBoard({
   existingShareUrl?: string | null
   readOnlyShare?: boolean
   createHref?: string
+  createLabel?: string
   onPick: (matchId: string, teamId: string) => void
   onClear: (matchId: string) => void
   onFocusChange: (teamId: string | null) => void
@@ -1454,7 +1456,7 @@ function getShareText(url: string) {
                               <div className="finale__challenge-mark">
                                 <img src="/brakup-challenge-logo.png" alt="Brakup Challenge" className="finale__challenge-logo" />
                                 <a href={readOnlyShare ? createHref ?? '/?simulator' : localizedChallengeHref(getCurrentLocale())} className="finale__challenge-play">
-                                  {readOnlyShare ? 'CREER MON BRACKET' : 'JOUER'}
+                                  {readOnlyShare ? createLabel ?? 'CREER MON BRACKET' : 'JOUER'}
                                 </a>
                               </div>
                             ) : null}
@@ -2228,11 +2230,13 @@ function App() {
     .filter((team): team is Team => Boolean(team))
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const shouldDockBracketHeader = view === 'bracket' && !isBracketFullscreen
+  const isChallengeConnected = Boolean(challengeToken && challengeProfile.pseudo)
   const sharedViewOwnerPseudo = viewedPublicBracket?.pseudo ?? publicSimulatorBracket?.pseudo ?? sharedBracket?.pseudo ?? null
   const isOwnSharedBracket = Boolean(sharedViewOwnerPseudo && challengeProfile.pseudo && sharedViewOwnerPseudo.trim().toLowerCase() === challengeProfile.pseudo.trim().toLowerCase())
-  const createFromShareHref = isOwnSharedBracket ? '/?simulator' : '/?simulator&new=1'
+  const shouldReturnToOwnBracket = Boolean(isChallengeConnected || isOwnSharedBracket)
+  const createFromShareHref = shouldReturnToOwnBracket ? '/?simulator' : '/?simulator&new=1'
+  const createFromShareLabel = shouldReturnToOwnBracket ? 'RETOUR A MON BRACKET' : 'CREER MON BRACKET'
   const currentShareUrl = publicPseudo && publicSimulatorBracket ? window.location.origin + '/@' + encodeURIComponent(publicSimulatorBracket.pseudo) : isSharedBracketView && sharedBracket ? window.location.origin + '/share/bracket/' + sharedBracket.id : challengeProfile.pseudo ? window.location.origin + '/@' + encodeURIComponent(challengeProfile.pseudo) : null
-  const isChallengeConnected = Boolean(challengeToken && challengeProfile.pseudo)
   const seenSimulatorOutcomeKeys = new Set(readSeenSimulatorOutcomeKeys())
   const simulatorOutcomeNotices: SimulatorOutcomeNotice[] = displayBracket
     .filter((match) => Boolean(match.pickedWinnerId && match.realWinnerId && match.predictionState))
@@ -2968,6 +2972,9 @@ function App() {
       ) : null}
 
       <div className={`board${view === 'bracket' ? ' board--wide' : ''}`}>
+        {bracketReadOnly && shouldReturnToOwnBracket ? (
+          <a href="/?simulator" className="shared-bracket-back">Retour a mon bracket</a>
+        ) : null}
         <main className="board__main">
           {view === 'groups' ? (
             <div className="groups">
@@ -3084,6 +3091,7 @@ function App() {
               existingShareUrl={currentShareUrl}
               readOnlyShare={bracketReadOnly}
               createHref={createFromShareHref}
+              createLabel={createFromShareLabel}
               onPick={handlePickWinner}
               onClear={handleClearWinner}
               onFocusChange={setFocusId}
