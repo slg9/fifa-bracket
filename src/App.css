@@ -5340,98 +5340,173 @@
   z-index: 140;
   display: grid;
   place-items: center;
-  padding: 20px;
-  background: rgba(4, 8, 16, 0.74);
-  backdrop-filter: blur(10px);
+  padding: 18px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(4, 8, 20, .12), rgba(4, 8, 20, .55)),
+    url('/brakup-share-bg-brakup.png') center / cover no-repeat,
+    #050b16;
+}
+
+.simulator-outcome::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 48%, rgba(43, 255, 154, .13), rgba(5, 11, 22, .18) 38%, rgba(5, 11, 22, .72) 100%);
+  pointer-events: none;
+}
+
+.simulator-outcome.is-wrong::before {
+  background: radial-gradient(circle at 50% 48%, rgba(255, 68, 85, .1), rgba(5, 11, 22, .18) 38%, rgba(5, 11, 22, .72) 100%);
+}
+
+.simulator-outcome__blast {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: 240px;
+  height: 240px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: .88;
+}
+
+.simulator-outcome__blast i {
+  position: absolute;
+  inset: 38px;
+  border: 3px solid rgba(43, 255, 154, .82);
+  border-radius: 50%;
+  animation: simOutcomeShockwave .78s ease-out both;
+}
+
+.simulator-outcome.is-wrong .simulator-outcome__blast i {
+  border-color: rgba(255, 68, 85, .82);
+}
+
+.simulator-outcome__blast span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 50%;
+  transform-origin: 0 0;
+  background: rgba(43, 255, 154, .8);
+  animation: simOutcomeRay .68s ease-out both;
+}
+
+.simulator-outcome.is-wrong .simulator-outcome__blast span {
+  background: rgba(255, 68, 85, .8);
 }
 
 .simulator-outcome__panel {
-  width: min(100%, 420px);
+  width: min(100%, 430px);
+  position: relative;
+  z-index: 1;
   display: grid;
-  gap: 14px;
-  padding: 24px;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(8, 16, 31, 0.98), rgba(5, 10, 20, 0.98));
+  justify-items: center;
+  gap: 11px;
+  padding: 26px 20px;
   text-align: center;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  text-shadow: 0 6px 24px rgba(0, 0, 0, .48);
 }
 
-.simulator-outcome--complete .simulator-outcome__panel {
-  width: min(92vw, 430px);
-  max-height: min(92dvh, 760px);
-  aspect-ratio: 9 / 16;
-  align-content: center;
-  gap: 18px;
-  padding: 28px 24px;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(43, 255, 154, 0.22), transparent 34%),
-    radial-gradient(circle at 50% 100%, rgba(255, 184, 0, 0.18), transparent 30%),
-    linear-gradient(180deg, rgba(8, 16, 31, 0.99), rgba(5, 10, 20, 0.99));
+.simulator-outcome__logo {
+  width: min(200px, 55vw);
+  height: auto;
+  filter: drop-shadow(0 0 26px rgba(168, 85, 247, .5));
+  animation: simOutcomePop .48s .1s cubic-bezier(.2, 1.35, .32, 1) both;
 }
 
-.simulator-outcome.is-correct .simulator-outcome__panel {
-  border-color: rgba(243, 201, 75, 0.34);
+.simulator-outcome__boom {
+  position: relative;
+  color: #2bff9a;
+  font: 900 clamp(44px, 15vw, 82px)/.78 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  transform: rotate(-4deg);
+  text-shadow:
+    0 0 8px rgba(43, 255, 154, .9),
+    0 0 34px rgba(43, 255, 154, .64),
+    4px 4px 0 rgba(168, 85, 247, .86);
+  animation: simOutcomeBoom .64s .18s cubic-bezier(.12, 1.5, .32, 1) both;
 }
 
-.simulator-outcome.is-wrong .simulator-outcome__panel {
-  border-color: rgba(255, 98, 117, 0.24);
+.simulator-outcome.is-wrong .simulator-outcome__boom {
+  color: #ff6878;
+  text-shadow:
+    0 0 8px rgba(255, 68, 85, .9),
+    0 0 34px rgba(255, 68, 85, .64),
+    4px 4px 0 rgba(80, 0, 20, .86);
 }
 
-.simulator-outcome__icon {
-  width: 54px;
-  height: 54px;
-  margin: 0 auto;
-  border-radius: 999px;
+.simulator-outcome__points {
   display: grid;
-  place-items: center;
-  font-size: 24px;
-  font-weight: 900;
+  justify-items: center;
+  gap: 0;
+  animation: simOutcomePop .5s .48s both;
 }
 
-.simulator-outcome.is-correct .simulator-outcome__icon {
-  color: #f6cc51;
-  background: rgba(243, 201, 75, 0.14);
+.simulator-outcome__points strong {
+  color: #FFB800;
+  font: 900 clamp(60px, 19vw, 108px)/.78 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: .02em;
+  text-shadow: 0 0 30px rgba(255, 184, 0, .72), 4px 4px 0 rgba(0, 0, 0, .38);
 }
 
-.simulator-outcome.is-wrong .simulator-outcome__icon {
-  color: #ff6c82;
-  background: rgba(255, 98, 117, 0.14);
+.simulator-outcome.is-wrong .simulator-outcome__points strong {
+  color: #8898b8;
+  text-shadow: none;
 }
 
-.simulator-outcome__panel h2 {
-  margin: 0;
-  font-size: 28px;
+.simulator-outcome__points span {
+  color: #fff;
+  font: 900 13px 'Barlow Condensed', sans-serif;
+  letter-spacing: .2em;
+  text-transform: uppercase;
 }
 
 .simulator-outcome__panel p {
   margin: 0;
-  color: #93a3c3;
+  color: rgba(238, 245, 255, .82);
+  font: 800 13px/1.25 'Barlow Condensed', sans-serif;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  animation: simOutcomePop .5s .4s both;
 }
 
 .simulator-outcome__summary {
+  width: 100%;
   display: grid;
-  gap: 8px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  color: #dfe8fb;
-  text-align: left;
+  gap: 7px;
+  animation: simOutcomePop .5s .56s both;
 }
 
-.simulator-outcome__points {
-  display: inline-flex;
+.simulator-outcome__summary span {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 42px;
-  margin: 0 auto;
-  padding: 8px 18px;
-  border-radius: 999px;
-  border: 1px solid rgba(43, 255, 154, 0.62);
-  background: rgba(43, 255, 154, 0.14);
-  color: #2bff9a;
-  font: 900 18px var(--numbers);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .06);
+  color: rgba(238, 245, 255, .72);
+  font: 700 12px/1.3 'Barlow Condensed', sans-serif;
+  letter-spacing: .05em;
   text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, .08);
+  backdrop-filter: blur(8px);
+}
+
+.simulator-outcome__summary strong {
+  color: #FFB800;
+  font: 900 13px 'Barlow Condensed', sans-serif;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.simulator-outcome.is-wrong .simulator-outcome__summary strong {
+  color: #ff8898;
 }
 
 .simulator-outcome__actions {
@@ -5439,6 +5514,29 @@
   justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
+  animation: simOutcomePop .5s .64s both;
+}
+
+@keyframes simOutcomeShockwave {
+  0% { transform: scale(.12); opacity: 0; }
+  22% { opacity: 1; }
+  100% { transform: scale(1.72); opacity: 0; }
+}
+
+@keyframes simOutcomeRay {
+  0% { transform: rotate(var(--ray-rot, 0deg)) scaleY(0); opacity: 1; }
+  100% { transform: rotate(var(--ray-rot, 0deg)) scaleY(1.15); opacity: 0; }
+}
+
+@keyframes simOutcomeBoom {
+  0% { transform: rotate(-8deg) scale(.2); opacity: 0; filter: blur(6px); }
+  62% { transform: rotate(-4deg) scale(1.12); opacity: 1; filter: blur(0); }
+  100% { transform: rotate(-4deg) scale(1); opacity: 1; }
+}
+
+@keyframes simOutcomePop {
+  from { transform: translateY(18px) scale(.94); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
 

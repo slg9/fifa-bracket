@@ -2188,20 +2188,40 @@ function App() {
     setChallengeLoginBusy(true)
     setChallengeLoginError(null)
 
+    const pseudo = challengeProfile.pseudo.trim()
+      || (challengeLoginEmail.split('@')[0] ?? '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20)
+      || 'Joueur'
+
     try {
-      const result = await verifyLoginOTP(challengeLoginEmail, otp)
+      const result = await verifyLoginOTP(challengeLoginEmail, otp, pseudo)
+      window.localStorage.setItem(challengeTokenStorageKey, result.token)
+      setChallengeToken(result.token)
       setChallengeProfile((current) => {
         const next = { ...current, email: result.email }
         rememberChallengeProfile(next)
         return next
       })
-      setChallengeToken(result.token)
       setHasChallengeAccount(true)
       window.localStorage.setItem(challengeHadAccountStorageKey, 'true')
       setShowChallengeLoginEntry(false)
       setChallengeLoginSent(false)
     } catch (caught) {
-      setChallengeLoginError(caught instanceof Error ? caught.message : 'Code OTP invalide ou expire.')
+      setChallengeLoginError(caught instanceof Error ? caught.message : 'Code OTP invalide ou expiré.')
+    } finally {
+      setChallengeLoginBusy(false)
+    }
+  }
+
+  async function handleChallengeResend() {
+    if (!challengeLoginEmail) return
+    setChallengeLoginBusy(true)
+    setChallengeLoginError(null)
+    try {
+      await resendMagicLink(challengeLoginEmail)
+      setChallengeLoginSent(false)
+      window.setTimeout(() => setChallengeLoginSent(true), 50)
+    } catch (caught) {
+      setChallengeLoginError(caught instanceof Error ? caught.message : 'Renvoi impossible.')
     } finally {
       setChallengeLoginBusy(false)
     }
@@ -3381,12 +3401,19 @@ function App() {
         ) : null}
       </div>
       {completeBonusNoticeOpen ? (
-        <div className="simulator-outcome simulator-outcome--complete is-correct" role="dialog" aria-modal="true">
+        <div className="simulator-outcome is-correct" role="dialog" aria-modal="true">
+          <div className="simulator-outcome__blast" aria-hidden="true">
+            <i />
+            {Array.from({ length: 14 }, (_, i) => <span key={i} style={{ ['--ray-rot' as string]: `${i * (360 / 14)}deg` }} />)}
+          </div>
           <div className="simulator-outcome__panel">
-            <div className="simulator-outcome__icon" aria-hidden="true">*</div>
-            <h2>BOOOM !</h2>
-            <div className="simulator-outcome__points">+20 bracket complet</div>
-            <p>Tu as rempli tout ton bracket. Bonus complet ajoute au score.</p>
+            <img className="simulator-outcome__logo" src="/brakup-challenge-logo.png" alt="Brakup Challenge" />
+            <div className="simulator-outcome__boom">BOOM !</div>
+            <div className="simulator-outcome__points">
+              <strong>+20</strong>
+              <span>BRACKET COMPLET</span>
+            </div>
+            <p>Tu as rempli tout ton bracket — bonus complet ajouté au score.</p>
             <div className="simulator-outcome__actions">
               <button type="button" className="chip-btn chip-btn--sm" onClick={() => dispatchBracketAction('bracket:share')}>
                 Partager image
@@ -3404,16 +3431,24 @@ function App() {
         const realTeam = simulatorOutcomeNotice.match.realWinnerId ? teamsById.get(simulatorOutcomeNotice.match.realWinnerId) ?? null : null
         const realScore = challengeOfficialScores[simulatorOutcomeNotice.match.id]
         const reward = bracketRewards.rewardsByMatch.get(simulatorOutcomeNotice.match.id)
+        const isCorrect = simulatorOutcomeNotice.match.predictionState === 'correct'
         return (
-          <div className={`simulator-outcome${simulatorOutcomeNotice.match.predictionState === 'correct' ? ' is-correct' : ' is-wrong'}`} role="dialog" aria-modal="true">
+          <div className={`simulator-outcome${isCorrect ? ' is-correct' : ' is-wrong'}`} role="dialog" aria-modal="true">
+            <div className="simulator-outcome__blast" aria-hidden="true">
+              <i />
+              {Array.from({ length: 14 }, (_, i) => <span key={i} style={{ ['--ray-rot' as string]: `${i * (360 / 14)}deg` }} />)}
+            </div>
             <div className="simulator-outcome__panel">
-              <div className="simulator-outcome__icon" aria-hidden="true">{simulatorOutcomeNotice.match.predictionState === 'correct' ? '*' : 'x'}</div>
-              <h2>{simulatorOutcomeNotice.match.predictionState === 'correct' ? 'BOOOM !' : 'Prono rate'}</h2>
-              <div className="simulator-outcome__points">{reward ? reward.label : '0 pt'}</div>
-              <p>{simulatorOutcomeNotice.match.label} - score reel {formatScore(realScore)}</p>
+              <img className="simulator-outcome__logo" src="/brakup-challenge-logo.png" alt="Brakup Challenge" />
+              <div className="simulator-outcome__boom">{isCorrect ? 'PRONO OK !' : 'PRONO RATÉ'}</div>
+              <div className="simulator-outcome__points">
+                <strong>{reward && reward.points > 0 ? `+${reward.points}` : '0'}</strong>
+                <span>POINTS GAGNÉS</span>
+              </div>
+              <p>{simulatorOutcomeNotice.match.label} · score réel {formatScore(realScore)}</p>
               <div className="simulator-outcome__summary">
-                <span>Ton choix: <strong>{pickedTeam?.name ?? 'Aucun prono'}</strong></span>
-                <span>Vainqueur reel: <strong>{realTeam?.name ?? 'En attente'}</strong></span>
+                <span>Ton choix <strong>{pickedTeam?.name ?? 'Aucun prono'}</strong></span>
+                <span>Vainqueur réel <strong>{realTeam?.name ?? 'En attente'}</strong></span>
               </div>
               <div className="simulator-outcome__actions">
                 <button type="button" className="chip-btn chip-btn--sm" onClick={() => dispatchBracketAction('bracket:share')}>
@@ -3427,7 +3462,7 @@ function App() {
           </div>
         )
       })() : null}
-      {showChallengeLoginEntry ? <LoginEntry initialEmail={challengeProfile.email} busy={challengeLoginBusy} error={challengeLoginError} sent={challengeLoginSent} onSubmit={handleChallengeLogin} onVerify={handleChallengeLoginOTP} onCancel={() => setShowChallengeLoginEntry(false)} /> : null}
+      {showChallengeLoginEntry ? <LoginEntry initialEmail={challengeProfile.email} busy={challengeLoginBusy} error={challengeLoginError} sent={challengeLoginSent} onSubmit={handleChallengeLogin} onVerify={handleChallengeLoginOTP} onResend={handleChallengeResend} onCancel={() => setShowChallengeLoginEntry(false)} /> : null}
       {matchStatsModal ? (() => {
         const { match, homeTeam, awayTeam } = matchStatsModal
         const effectiveStatus = inferStatus(match)
