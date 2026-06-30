@@ -370,6 +370,19 @@
   font-size: 11px;
 }
 
+.chip-btn--icon {
+  padding: 6px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.chip-btn--icon.is-connected {
+  border-color: rgba(43, 255, 154, 0.5);
+  color: #2bff9a;
+}
+
 .chip-btn--challenge {
   display: inline-flex;
   align-items: center;
@@ -5894,6 +5907,45 @@
 
   .float-panel__state {
     min-height: 0;
+  }
+
+  /* Mobile: topbar above float-sidebar */
+  .topbar {
+    z-index: 120;
+  }
+
+  /* Mobile: float-panel becomes centered modal when active */
+  .float-sidebar.has-panel {
+    inset: 0;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    align-items: center;
+    justify-content: center;
+    z-index: 115;
+  }
+
+  .float-sidebar.has-panel .float-tabs {
+    position: absolute;
+    right: 0;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .float-sidebar.has-panel .float-panel {
+    width: min(400px, calc(100vw - 60px));
+    max-height: calc(100dvh - 80px);
+    height: auto;
+    min-height: unset;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .float-sidebar__scrim {
+    z-index: 113;
+    background: rgba(0, 0, 0, 0.55);
   }
 }
 @media (max-width: 680px) {

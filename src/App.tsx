@@ -1741,7 +1741,6 @@ function App() {
   const [publicSimulatorBracket, setPublicSimulatorBracket] = useState<SimulatorBracketEntry | null>(null)
   const [challengeToken, setChallengeToken] = useState<string | null>(() => window.localStorage.getItem(challengeTokenStorageKey))
   const [challengeProfile, setChallengeProfile] = useState<ChallengeProfile>(readStoredChallengeProfile)
-  const [hasChallengeAccount, setHasChallengeAccount] = useState(() => window.localStorage.getItem(challengeHadAccountStorageKey) === 'true')
   const [showChallengeLoginEntry, setShowChallengeLoginEntry] = useState(false)
   const [challengeLoginBusy, setChallengeLoginBusy] = useState(false)
   const [challengeLoginError, setChallengeLoginError] = useState<string | null>(null)
@@ -1935,7 +1934,6 @@ function App() {
         setMode('simulation')
       }
 
-      setHasChallengeAccount(true)
       window.localStorage.setItem(challengeHadAccountStorageKey, 'true')
     }).catch(() => undefined).finally(() => {
       if (!cancelled) {
@@ -2224,7 +2222,6 @@ function App() {
         rememberChallengeProfile(next)
         return next
       })
-      setHasChallengeAccount(true)
       window.localStorage.setItem(challengeHadAccountStorageKey, 'true')
       setShowChallengeLoginEntry(false)
       setChallengeLoginSent(false)
@@ -2333,10 +2330,6 @@ function App() {
   const dayScheduleMatches: DayMatch[] = [...mergedMatches, ...knockoutDayMatches]
   const knockoutTodayMatchIds = new Set(knockoutDayMatches.filter(isMatchToday).map((match) => match.id))
   const knockoutDayMatchesById = new Map(knockoutDayMatches.map((match) => [match.id, match]))
-  const bracketHeaderTeams = [...new Set(displayBracket.flatMap((match) => [getEntrantTeamId(match.home), getEntrantTeamId(match.away)]).filter((teamId): teamId is string => Boolean(teamId)))]
-    .map((teamId) => teamsById.get(teamId))
-    .filter((team): team is Team => Boolean(team))
-    .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const shouldDockBracketHeader = view === 'bracket' && !isBracketFullscreen
   const isChallengeConnected = Boolean(challengeToken && challengeProfile.pseudo)
   const sharedViewOwnerPseudo = viewedPublicBracket?.pseudo ?? publicSimulatorBracket?.pseudo ?? sharedBracket?.pseudo ?? null
@@ -2623,15 +2616,15 @@ function App() {
         <div className="topactions topactions--bracket-only">
           <button
             type="button"
-            className={`chip-btn chip-btn--sm topbar__daymatches${liveNowMatches.length > 0 ? ' is-live' : ''}`}
+            className={`chip-btn chip-btn--sm chip-btn--icon topbar__daymatches${liveNowMatches.length > 0 ? ' is-live' : ''}`}
             onClick={() => setShowDayModal(true)}
+            aria-label={liveNowMatches.length > 0 ? 'Match en cours' : 'Matchs du jour'}
+            title={liveNowMatches.length > 0 ? 'Match en cours' : 'Matchs du jour'}
           >
-            {liveNowMatches.length > 0 ? 'Match en cours' : 'Matchs du jour'}
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"><rect x="2" y="3.5" width="13" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M5.5 2v3M11.5 2v3M2 7.5h13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </button>
           {shouldDockBracketHeader ? (
             <>
-              <TeamFocusMenu teams={bracketHeaderTeams} focusId={focusId} onFocusChange={setFocusId} className="bracket-team-menu--topbar" />
-
               <a
                 href={localizedChallengeHref(locale)}
                 className="chip-btn chip-btn--sm chip-btn--challenge topbar__challenge-link"
@@ -2644,20 +2637,21 @@ function App() {
               <div className="challenge-auth-wrap">
                 <button
                   type="button"
-                  className="chip-btn chip-btn--sm"
+                  className={`chip-btn chip-btn--sm chip-btn--icon${isChallengeConnected ? ' is-connected' : ''}`}
                   aria-expanded={challengeMenuOpen}
-                  aria-label={challengeMenuOpen ? 'Fermer le menu de connexion' : 'Ouvrir le menu de connexion'}
+                  aria-label={isChallengeConnected ? `Compte : ${challengeProfile.pseudo || 'Connecté'}` : 'Connexion'}
+                  title={isChallengeConnected ? challengeProfile.pseudo || 'Connecté' : 'Connexion'}
                   onClick={() => setChallengeMenuOpen((open) => !open)}
                 >
-                  {isChallengeConnected ? challengeProfile.pseudo || 'Compte' : hasChallengeAccount ? 'Reconnexion' : 'Connexion'}
+                  <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"><circle cx="8.5" cy="6" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M2 15c0-3.59 2.91-6.5 6.5-6.5S15 11.41 15 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                 </button>
                 {challengeMenuOpen ? (
                   <div className="topmenu challenge-auth-drop" role="menu">
                     {isChallengeConnected ? (
                       <>
-                        <div className="topmenu__label">Connecte: {challengeProfile.pseudo}</div>
+                        <div className="topmenu__label">{challengeProfile.pseudo}</div>
                         <button type="button" className="topmenu__item" onClick={handleChallengeLogout}>
-                          Se deconnecter
+                          Se déconnecter
                         </button>
                       </>
                     ) : (
@@ -2671,7 +2665,7 @@ function App() {
                           setChallengeMenuOpen(false)
                         }}
                       >
-                        Se reconnecter
+                        Connexion
                       </button>
                     )}
                   </div>
@@ -2679,22 +2673,24 @@ function App() {
               </div>
               <a
                 href={alternateLanguageHref(locale)}
-                className="chip-btn chip-btn--sm"
+                className="chip-btn chip-btn--sm chip-btn--icon"
                 hrefLang={locale === 'en' ? 'fr' : 'en'}
                 aria-label={locale === 'en' ? 'Version française' : 'English version'}
+                title={locale === 'en' ? 'Version française' : 'English version'}
               >
-                {locale === 'en' ? 'FR' : 'EN'}
+                <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6" stroke="currentColor" strokeWidth="1.5"/><path d="M8.5 2.5c-2 2-2 9 0 11M8.5 2.5c2 2 2 9 0 11M2.5 8.5h12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
               </a>
 
               <div className="bracket-actions-wrap--topbar">
                 <button
                   type="button"
-                  className="chip-btn chip-btn--sm"
-                  aria-label={headerBracketMenuOpen ? 'Fermer les actions du tableau' : 'Ouvrir les actions du tableau'}
+                  className="chip-btn chip-btn--sm chip-btn--icon"
+                  aria-label={headerBracketMenuOpen ? 'Fermer le menu' : 'Menu'}
+                  title="Menu"
                   aria-expanded={headerBracketMenuOpen}
                   onClick={() => setHeaderBracketMenuOpen((open) => !open)}
                 >
-                  Menu
+                  <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"><path d="M2.5 4.5h12M2.5 8.5h12M2.5 12.5h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                 </button>
 
                 {headerBracketMenuOpen ? (
@@ -2716,6 +2712,13 @@ function App() {
                     >
                       <img src="/brakup-challenge-logo.png" alt="" className="topmenu__challenge-logo" />
                       Brakup Challenge
+                    </a>
+                    <a
+                      href={`${localizedChallengeHref(locale)}&board`}
+                      className="topmenu__item"
+                      onClick={() => setHeaderBracketMenuOpen(false)}
+                    >
+                      Classement
                     </a>
                     <div className="topmenu__sep" />
                     <button
@@ -3250,7 +3253,7 @@ function App() {
         {view === 'bracket' && !isSharedBracketView ? (
           <>
             {sidePanel ? <button type="button" className="float-sidebar__scrim" aria-label="Fermer le panneau lateral" onClick={() => setSidePanel(null)} /> : null}
-            <div className="float-sidebar">
+            <div className={`float-sidebar${sidePanel ? ' has-panel' : ''}`}>
               <div className="float-tabs">
                 <button
                   type="button"

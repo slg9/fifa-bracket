@@ -139,14 +139,15 @@ function menuTeamName(match: ChallengeMenuMatch, side: 'home' | 'away', teamsByI
   return side === 'home' ? match.homeLabel ?? 'A determiner' : match.awayLabel ?? 'A determiner'
 }
 
-function resolveMatches(baseMatches: KnockoutMatch[], picks: Record<string, string>): KnockoutMatch[] {
+function resolveMatches(baseMatches: KnockoutMatch[], picks: Record<string, string>, realResults: Record<string, string>): KnockoutMatch[] {
   const baseMap = new Map(baseMatches.map((match) => [match.id, match]))
   const resolved = new Map<string, KnockoutMatch>()
 
   const resolveSource = (source: (typeof knockoutTemplates)[number]['home']): KnockoutEntrant => {
     if ('matchId' in source) {
       const previous = resolved.get(source.matchId)
-      const winner = picks[source.matchId]
+      // Real result takes priority over user pick
+      const winner = realResults[source.matchId] ?? picks[source.matchId]
       if (!previous || !winner) return { kind: 'placeholder', label: `${source.type === 'loserOf' ? 'Perdant' : 'Vainqueur'} ${source.matchId}` }
       if (source.type === 'winnerOf') return { kind: 'team', teamId: winner }
       const ids = [previous.home, previous.away].flatMap((entrant) => entrant.kind === 'team' ? [entrant.teamId] : [])
@@ -267,7 +268,9 @@ export function BrakupHub({
   const audioVolume = useGameAudioVolume()
 
   const baseMatches = useMemo(() => buildKnockoutBracket(standings, groupMatches), [standings, groupMatches])
-  const matches = useMemo(() => resolveMatches(baseMatches, picks), [baseMatches, picks])
+  // Base real results (no dependency on matches — breaks circular dep)
+  const baseRealResults = useMemo<Record<string, string>>(() => ({ ...storedRealResults, ...officialResults }), [officialResults, storedRealResults])
+  const matches = useMemo(() => resolveMatches(baseMatches, picks, baseRealResults), [baseMatches, picks, baseRealResults])
   const activeMatch = matches.find((match) => match.id === activeMatchId)
   const hasSyncedProfile = Boolean(savedProfile.email && savedProfile.pseudo)
   const officialScoreMap = useMemo(
@@ -284,8 +287,8 @@ export function BrakupHub({
       results[match.id] = score.home > score.away ? match.home.teamId : match.away.teamId
       return results
     }, {})
-    return { ...storedRealResults, ...officialResults, ...derivedFromScores }
-  }, [matches, officialFinishedSet, officialResults, officialScoreMap, storedRealResults])
+    return { ...baseRealResults, ...derivedFromScores }
+  }, [matches, officialFinishedSet, officialScoreMap, baseRealResults, storedRealResults])
   const teamsByFifaCode = useMemo(() => new Map([...teamsById.values()].map((team) => [team.fifaCode, team])), [teamsById])
   const realScorers = useMemo<RealScorer[]>(() => topScorers.flatMap((scorer) => {
     const team = teamsByFifaCode.get(scorer.teamCode)
