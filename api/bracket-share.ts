@@ -89,10 +89,16 @@ async function readImage(id: string) {
   return Buffer.from(await new Response(result.stream).arrayBuffer())
 }
 
-function sendHtml(res: ApiResponse, share: PublicBracketShare, shareUrl: string, imageUrl: string) {
+function requestOrigin(req: ApiRequest) {
+  const proto = Array.isArray(req.headers['x-forwarded-proto']) ? req.headers['x-forwarded-proto'][0] : req.headers['x-forwarded-proto']
+  const host = Array.isArray(req.headers.host) ? req.headers.host[0] : req.headers.host
+  return host ? `${proto ?? 'http'}://${host}` : PUBLIC_SITE_URL
+}
+
+function sendHtml(res: ApiResponse, share: PublicBracketShare, shareUrl: string, imageUrl: string, appOrigin: string) {
   const title = `${share.bracketName || 'Bracket FIFA'} - ${share.pseudo || 'Brakup'}`
   const description = `Le bracket Coupe du Monde 2026 de ${share.pseudo || 'Brakup'}. Cree le tien et compare ton parcours.`
-  const appUrl = `${PUBLIC_SITE_URL}/?share=${encodeURIComponent(share.id)}`
+  const appUrl = `${appOrigin}/?share=${encodeURIComponent(share.id)}`
   const html = `<!doctype html>
 <html lang="fr">
 <head>
@@ -164,7 +170,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         memoryShares.set(id, share)
       }
 
-      res.status(200).json({ data: { share, shareUrl: `${PUBLIC_SITE_URL}/share/bracket/${id}` } })
+      const origin = requestOrigin(req)
+      res.status(200).json({ data: { share, shareUrl: `${origin}/share/bracket/${id}` } })
       return
     }
 
@@ -204,9 +211,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return
     }
 
-    const shareUrl = `${PUBLIC_SITE_URL}/share/bracket/${share.id}`
-    const imageUrl = `${PUBLIC_SITE_URL}/api/bracket-share?id=${encodeURIComponent(share.id)}&image=1`
-    sendHtml(res, share, shareUrl, imageUrl)
+    const origin = requestOrigin(req)
+    const shareUrl = `${origin}/share/bracket/${share.id}`
+    const imageUrl = `${origin}/api/bracket-share?id=${encodeURIComponent(share.id)}&image=1`
+    sendHtml(res, share, shareUrl, imageUrl, origin)
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : 'Partage indisponible.' })
   }

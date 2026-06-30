@@ -885,6 +885,8 @@ function BracketBoard({
     }
     return grouped
   }, [matches])
+  const activeMobileRoundIndex = mobileRoundTabs.findIndex((tab) => tab.key === activeMobileRound)
+  const nextMobileRound = activeMobileRoundIndex >= 0 ? mobileRoundTabs[activeMobileRoundIndex + 1] : undefined
   const focusedPathMatches = useMemo(() => {
     if (!focusTeamId) return []
     return knockoutTemplates
@@ -1298,23 +1300,35 @@ function BracketBoard({
         </div>
 
         <div className="bracket-mobile-round">
-          {(mobileRoundMatches.get(activeMobileRound) ?? []).map((match) => (
-            <MatchCard
-              key={match.id}
-              match={match}
-              teamsById={teamsById}
-              side="center"
-              simulationEnabled={simulationEnabled}
-              isActive={activeMatchIds.has(match.id)}
-              isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
-              isFinalCard={match.id === 'M104'}
-              focusId={focusId}
-              registerRef={() => undefined}
-              onPick={onPick}
-              onClear={onClear}
-              onPreview={setPreviewTeamId}
-            />
-          ))}
+          <div className="bracket-mobile-round__list">
+            {(mobileRoundMatches.get(activeMobileRound) ?? []).map((match) => (
+              <MatchCard
+                key={match.id}
+                match={match}
+                teamsById={teamsById}
+                side="center"
+                simulationEnabled={simulationEnabled}
+                isActive={activeMatchIds.has(match.id)}
+                isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
+                isFinalCard={match.id === 'M104'}
+                focusId={focusId}
+                registerRef={() => undefined}
+                onPick={onPick}
+                onClear={onClear}
+                onPreview={setPreviewTeamId}
+              />
+            ))}
+          </div>
+          {nextMobileRound ? (
+            <button
+              type="button"
+              className="bracket-mobile-round__next"
+              onClick={() => setActiveMobileRound(nextMobileRound.key)}
+              aria-label={`Afficher ${nextMobileRound.label}`}
+            >
+              {nextMobileRound.label}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -2238,14 +2252,14 @@ function App() {
   const isHomeBracketFocus = view === 'bracket' && mode === 'simulation'
 
   return (
-    <div className={`app-shell${simulatorMode ? ' is-simulator' : ''}${isHomeBracketFocus ? ' is-home-bracket' : ''}`}>
+    <div className={`app-shell${simulatorMode ? ' is-simulator' : ''}${isHomeBracketFocus ? ' is-home-bracket' : ''}${isSharedBracketView ? ' is-shared-bracket' : ''}`}>
       <div className="floods" aria-hidden="true">
         <i />
         <i />
         <i />
       </div>
 
-      <header className="topbar">
+      {!isSharedBracketView ? <header className="topbar">
         <div className="brand">
           <img src="/brakup-challenge-logo-wc.png" alt="BRAKUP" className="brand__logo" />
         </div>
@@ -2369,9 +2383,9 @@ function App() {
             </>
           ) : null}
         </div>
-      </header>
+      </header> : null}
 
-      {showDayModal && (dayMatches.length > 0 || initialDayModalLoading) ? (
+      {!isSharedBracketView && showDayModal && (dayMatches.length > 0 || initialDayModalLoading) ? (
         <div className="daymodal" role="dialog" aria-modal="true" aria-labelledby="daymodal-title">
           <div className="daymodal__scrim" onClick={closeDayModal} />
           <div className="daymodal__panel">
@@ -2840,7 +2854,7 @@ function App() {
           )}
         </main>
 
-        {view === 'bracket' ? (
+        {view === 'bracket' && !isSharedBracketView ? (
           <>
             {sidePanel ? <button type="button" className="float-sidebar__scrim" aria-label="Fermer le panneau lateral" onClick={() => setSidePanel(null)} /> : null}
             <div className="float-sidebar">

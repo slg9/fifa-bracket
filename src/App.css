@@ -4047,9 +4047,40 @@
   }
 
   .bracket-mobile-path,
-  .bracket-mobile-round {
+  .bracket-mobile-round__list {
     display: grid;
     gap: 10px;
+  }
+
+  .bracket-mobile-round {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 70%) minmax(70px, 1fr);
+    align-items: center;
+    gap: 10px;
+  }
+
+  .bracket-mobile-round__list {
+    min-width: 0;
+  }
+
+  .bracket-mobile-round__next {
+    position: sticky;
+    top: 48vh;
+    justify-self: end;
+    width: min(78px, 100%);
+    min-height: 92px;
+    display: grid;
+    place-items: center;
+    padding: 10px 8px;
+    border: 1px solid rgba(243, 201, 75, 0.38);
+    border-radius: 16px;
+    color: #07120c;
+    background: linear-gradient(180deg, #f6d76a, #2bff9a);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32), 0 0 20px rgba(243, 201, 75, 0.22);
+    font-size: 13px;
+    font-weight: 950;
+    text-transform: uppercase;
   }
 
   .bracket-mobile-path {
@@ -4125,7 +4156,8 @@
     color: #dffef5;
   }
 
-  .bracket-mobile-round .bm {
+  .bracket-mobile-round__list .bm {
+    width: 100%;
     min-height: auto;
   }
 
@@ -5165,4 +5197,61 @@
   background: #2bff9a;
   font-size: 10px;
   font-weight: 900;
+}
+
+
+.app-shell.is-shared-bracket {
+  min-height: 100vh;
+  padding: 0;
+  overflow: hidden;
+}
+
+.app-shell.is-shared-bracket .floods {
+  display: none;
+}
+
+.app-shell.is-shared-bracket .board {
+  min-height: 100vh;
+  padding: 0;
+}
+
+.app-shell.is-shared-bracket .board__main {
+  min-height: 100vh;
+}
+
+.app-shell.is-shared-bracket .bracket-shell {
+  min-height: 100vh;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: #050b16;
+}
+
+.app-shell.is-shared-bracket .bracket-shell__toolbar {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  pointer-events: none;
+}
+
+.app-shell.is-shared-bracket .bracket-shell__copy,
+.app-shell.is-shared-bracket .bracket-toolbar,
+.app-shell.is-shared-bracket .bracket-shell__feedback {
+  display: none;
+}
+
+.app-shell.is-shared-bracket .bracket-fit {
+  height: 100vh;
+  min-height: 100vh;
+  padding: 0;
+}
+
+.app-shell.is-shared-bracket .bracket-fit__stage {
+  min-height: 100vh;
+}
+
+.app-shell.is-shared-bracket .bracket-board {
+  min-height: 100vh;
 }
