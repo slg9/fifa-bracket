@@ -5264,7 +5264,7 @@
 .simulator-outcome {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 140;
   display: grid;
   place-items: center;
   padding: 20px;
@@ -5282,6 +5282,19 @@
   background: linear-gradient(180deg, rgba(8, 16, 31, 0.98), rgba(5, 10, 20, 0.98));
   text-align: center;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+}
+
+.simulator-outcome--complete .simulator-outcome__panel {
+  width: min(92vw, 430px);
+  max-height: min(92dvh, 760px);
+  aspect-ratio: 9 / 16;
+  align-content: center;
+  gap: 18px;
+  padding: 28px 24px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(43, 255, 154, 0.22), transparent 34%),
+    radial-gradient(circle at 50% 100%, rgba(255, 184, 0, 0.18), transparent 30%),
+    linear-gradient(180deg, rgba(8, 16, 31, 0.99), rgba(5, 10, 20, 0.99));
 }
 
 .simulator-outcome.is-correct .simulator-outcome__panel {

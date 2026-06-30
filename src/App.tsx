@@ -2371,18 +2371,21 @@ function App() {
 
   function handlePickWinner(matchId: string, teamId: string) {
     if (lockedMatchIds.has(matchId)) return
-    setKnockoutPicks((current) => {
-      const wasComplete = knockoutTemplates.every((template) => Boolean(current[template.id]))
-      const next = {
-        ...current,
-        [matchId]: teamId,
-      }
-      const isComplete = knockoutTemplates.every((template) => Boolean(next[template.id]))
-      if (!wasComplete && isComplete) setCompleteBonusNoticeOpen(true)
-      return next
-    })
 
-    if (!challengeToken && !showChallengeLoginEntry) {
+    const wasComplete = knockoutTemplates.every((template) => Boolean(knockoutPicks[template.id]))
+    const nextPicks = {
+      ...knockoutPicks,
+      [matchId]: teamId,
+    }
+    const isComplete = knockoutTemplates.every((template) => Boolean(nextPicks[template.id]))
+    const completedNow = !wasComplete && isComplete
+
+    setKnockoutPicks(nextPicks)
+    if (completedNow) {
+      setCompleteBonusNoticeOpen(true)
+    }
+
+    if (!completedNow && !challengeToken && !showChallengeLoginEntry) {
       setChallengeLoginError(null)
       setChallengeLoginSent(false)
       setShowChallengeLoginEntry(true)
@@ -3311,7 +3314,7 @@ function App() {
         ) : null}
       </div>
       {completeBonusNoticeOpen ? (
-        <div className="simulator-outcome is-correct" role="dialog" aria-modal="true">
+        <div className="simulator-outcome simulator-outcome--complete is-correct" role="dialog" aria-modal="true">
           <div className="simulator-outcome__panel">
             <div className="simulator-outcome__icon" aria-hidden="true">*</div>
             <h2>BOOOM !</h2>
