@@ -2473,6 +2473,18 @@
   color: #f3c94b;
 }
 
+.bm__state-badge--points.is-positive {
+  border: 1px solid rgba(43, 255, 154, 0.56);
+  background: rgba(43, 255, 154, 0.16);
+  color: #2bff9a;
+}
+
+.bm__state-badge--points.is-zero {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(238, 245, 255, 0.68);
+}
+
 .bm--locked {
   border-color: rgba(255, 255, 255, 0.16);
 }
@@ -3914,6 +3926,16 @@
   white-space: nowrap;
 }
 
+.bracket-owner-badge__score {
+  margin-left: 12px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(6, 17, 31, 0.16);
+  color: #06111f;
+  font: 900 12px var(--numbers);
+  white-space: nowrap;
+}
+
 .bracket-export-wrapper.is-exporting .bracket-owner-badge,
 .app-shell.is-shared-bracket .bracket-owner-badge {
   top: 58px;
@@ -4197,46 +4219,6 @@
     gap: 0;
   }
 
-  .bracket-mobile-hero {
-    position: sticky;
-    z-index: 62;
-    top: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    margin: 0 -10px;
-    padding: max(8px, env(safe-area-inset-top)) 86px 10px 10px;
-    background: linear-gradient(180deg, rgba(5, 11, 22, 0.98), rgba(5, 11, 22, 0.9) 76%, rgba(5, 11, 22, 0));
-    backdrop-filter: blur(12px);
-  }
-
-  .bracket-mobile-hero__logo {
-    width: min(230px, calc(100vw - 124px));
-    height: auto;
-    object-fit: contain;
-    filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.36));
-  }
-
-  .bracket-mobile-hero__cta {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 124px;
-    min-height: 36px;
-    padding: 8px 16px;
-    border: 1.5px solid rgba(43, 255, 154, 0.9);
-    border-radius: 999px;
-    background: linear-gradient(180deg, rgba(43, 255, 154, 0.24), rgba(43, 255, 154, 0.08));
-    color: #dfffee;
-    font: 900 12px var(--display);
-    letter-spacing: 0.12em;
-    text-align: center;
-    text-decoration: none;
-    box-shadow: 0 0 18px rgba(43, 255, 154, 0.42), inset 0 0 14px rgba(43, 255, 154, 0.14);
-    animation: finalePlayBlink 0.9s ease-in-out infinite alternate;
-  }
 
   .bracket-mobile-round__list {
     display: grid;
@@ -4253,8 +4235,8 @@
     flex-direction: column;
     justify-content: space-around;
     min-width: 0;
-    min-height: calc(100dvh - 230px);
-    padding: 14px 86px 18px 0;
+    min-height: calc(100dvh - 132px);
+    padding: 18px 86px 18px 0;
   }
 
 
@@ -4726,8 +4708,34 @@
   text-align: right;
 }
 
-.standings-popup__match strong {
+.standings-popup__match-team.is-winner {
   color: var(--neon);
+}
+
+.standings-popup__score {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: rgba(238, 245, 255, 0.78);
+  font-family: var(--numbers);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.standings-popup__score .is-winner {
+  color: var(--neon);
+}
+
+.standings-popup__score .is-loser {
+  color: rgba(238, 245, 255, 0.58);
+}
+
+.standings-popup__score i {
+  color: rgba(238, 245, 255, 0.45);
+  font-style: normal;
+}
+
+.standings-popup__match strong {
   font-family: var(--numbers);
   font-size: 11px;
   font-weight: 900;
@@ -5180,6 +5188,20 @@
   border-color: rgba(255, 98, 117, 0.34);
 }
 
+.bm--today {
+  border-color: rgba(43, 255, 154, 0.46);
+  animation: bracketTodayPulse 1.1s ease-in-out infinite alternate;
+}
+
+.bm.is-clickable {
+  cursor: pointer;
+}
+
+@keyframes bracketTodayPulse {
+  from { box-shadow: 0 0 0 rgba(43, 255, 154, 0); }
+  to { box-shadow: 0 0 22px rgba(43, 255, 154, 0.36); }
+}
+
 .bm__team.is-picked .bm__name {
   font-weight: 800;
 }
@@ -5308,6 +5330,21 @@
   background: rgba(255, 255, 255, 0.04);
   color: #dfe8fb;
   text-align: left;
+}
+
+.simulator-outcome__points {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  margin: 0 auto;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(43, 255, 154, 0.62);
+  background: rgba(43, 255, 154, 0.14);
+  color: #2bff9a;
+  font: 900 18px var(--numbers);
+  text-transform: uppercase;
 }
 
 .simulator-outcome__actions {

@@ -115,6 +115,27 @@ async function listBracketBlobs() {
   return blobs
 }
 
+async function listSimulatorBlobs() {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return []
+  const blobs: Array<{ pathname: string }> = []
+  let cursor: string | undefined
+
+  do {
+    const result = await list({
+      prefix: 'challenge/',
+      limit: 1000,
+      cursor,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    })
+    blobs.push(...result.blobs.filter((blob) => blob.pathname.endsWith('/simulator.json')).map((blob) => ({
+      pathname: blob.pathname,
+    })))
+    cursor = result.hasMore ? result.cursor : undefined
+  } while (cursor)
+
+  return blobs
+}
+
 function normalizePseudo(value: string) {
   return value.trim().toLowerCase()
 }
@@ -176,6 +197,23 @@ async function rebuildLeaderboardFromStoredScores(): Promise<ChallengeEntry[]> {
   const ranked = rankSubmittedEntries(await readAllBracketEntries())
   await writeJson('challenge/leaderboard.json', ranked)
   return ranked
+}
+
+async function readAllSimulatorEntries(): Promise<SimulatorBracketEntry[]> {
+  const blobs = await listSimulatorBlobs()
+  const entries: SimulatorBracketEntry[] = []
+  for (const blob of blobs) {
+    const entry = await readJson<SimulatorBracketEntry | null>(blob.pathname, null)
+    if (entry && entry.pseudo && Object.keys(entry.knockoutPicks ?? {}).length > 0) entries.push(entry)
+  }
+  return entries
+}
+
+function rankSimulatorEntries(entries: SimulatorBracketEntry[]): SimulatorBracketEntry[] {
+  return entries
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || a.updatedAt.localeCompare(b.updatedAt))
+    .slice(0, 100)
+    .map((entry, index) => ({ ...entry, rank: index + 1 }))
 }
 
 function emailAssetUrl(pathname: string) {
@@ -418,6 +456,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return
     }
 
+    if (action === 'simulatorBoard') {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        res.status(500).json({ error: 'Service Brakup indisponible.' })
+        return
+      }
+      res.status(200).json({ data: rankSimulatorEntries(await readAllSimulatorEntries()) })
+      return
+    }
+
     if (action === 'getSimulatorBracket') {
       const token = bearerToken(req) ?? String(body.token ?? '')
       const payload = token ? await verifyToken(token) : null
@@ -478,6 +525,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         bracketName: sanitizeBracketName(String(input.bracketName ?? current?.bracketName ?? 'Simulator')),
         overrides: input.overrides && typeof input.overrides === 'object' ? input.overrides : current?.overrides ?? {},
         knockoutPicks: input.knockoutPicks && typeof input.knockoutPicks === 'object' ? input.knockoutPicks : current?.knockoutPicks ?? {},
+        score: Math.max(0, Math.round(Number(input.score ?? current?.score ?? 0))),
+        scoreBreakdown: input.scoreBreakdown && typeof input.scoreBreakdown === 'object' ? input.scoreBreakdown : current?.scoreBreakdown ?? {},
+        completeBonus: Math.max(0, Math.round(Number(input.completeBonus ?? current?.completeBonus ?? 0))),
+        rank: current?.rank ?? null,
         createdAt: current?.createdAt ?? now,
         updatedAt: now,
       }

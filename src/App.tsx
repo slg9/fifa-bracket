@@ -9,7 +9,7 @@ import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import { formatScore } from './challenge/progress'
 import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
-import { getLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, resendMagicLink, saveSimulatorBracket, verifyLoginOTP } from './lib/challengeData'
+import { getSimulatorLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, resendMagicLink, saveSimulatorBracket, verifyLoginOTP } from './lib/challengeData'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -26,7 +26,6 @@ import type {
   MatchPrediction,
   Mode,
   PublicBracketShare,
-  ChallengeEntry,
   SimulatorBracketEntry,
   RankedStandingRow,
   Team,
@@ -149,6 +148,76 @@ type ChallengeProfile = {
 type SimulatorOutcomeNotice = {
   key: string
   match: DisplayMatch
+}
+
+type BracketReward = {
+  points: number
+  label: string
+  combo: number
+  correct: boolean
+}
+
+type BracketRewardSummary = {
+  total: number
+  completeBonus: number
+  rewardsByMatch: Map<string, BracketReward>
+  comboLinkIds: Set<string>
+}
+
+const knockoutScoringOrder = knockoutTemplates.map((template) => template.id)
+
+function calculateBracketRewards(matches: DisplayMatch[]): BracketRewardSummary {
+  const byId = new Map(matches.map((match) => [match.id, match]))
+  const rewardsByMatch = new Map<string, BracketReward>()
+  const comboLinkIds = new Set<string>()
+  const teamStreaks = new Map<string, number>()
+  let total = 0
+
+  for (const matchId of knockoutScoringOrder) {
+    const match = byId.get(matchId)
+    if (!match?.pickedWinnerId || !match.realWinnerId) continue
+
+    const correct = match.pickedWinnerId === match.realWinnerId
+    if (!correct) {
+      rewardsByMatch.set(match.id, { points: 0, label: '0', combo: 0, correct: false })
+      teamStreaks.delete(match.pickedWinnerId)
+      continue
+    }
+
+    const streak = (teamStreaks.get(match.pickedWinnerId) ?? 0) + 1
+    teamStreaks.set(match.pickedWinnerId, streak)
+    if (streak > 1) comboLinkIds.add(match.id)
+
+    const comboPoints = streak === 2 ? 3 : streak === 3 ? 7 : streak >= 4 ? 12 : 0
+    const championBonus = match.id === 'M104' ? 30 : 0
+    const thirdBonus = match.id === 'M103' ? 10 : 0
+    const points = 10 + comboPoints + championBonus + thirdBonus
+    const label = [`+${points}`]
+    if (comboPoints) label.push(`combo +${comboPoints}`)
+    if (championBonus) label.push('champion')
+    if (thirdBonus) label.push('3e')
+    rewardsByMatch.set(match.id, { points, label: label.join(' ? '), combo: streak, correct: true })
+    total += points
+  }
+
+  const finalMatch = byId.get('M104')
+  if (finalMatch?.pickedWinnerId && finalMatch.realWinnerId && finalMatch.pickedWinnerId !== finalMatch.realWinnerId) {
+    const finalEntrants = [getEntrantTeamId(finalMatch.home), getEntrantTeamId(finalMatch.away)]
+    const runnerUpId = finalEntrants.find((teamId) => teamId && teamId !== finalMatch.realWinnerId) ?? null
+    if (runnerUpId && finalMatch.pickedWinnerId === runnerUpId) {
+      const current = rewardsByMatch.get('M104') ?? { points: 0, label: '0', combo: 0, correct: false }
+      current.points += 15
+      current.label = current.label === '0' ? '+15 finaliste' : `${current.label} ? +15 finaliste`
+      rewardsByMatch.set('M104', current)
+      total += 15
+    }
+  }
+
+  const pickedCount = matches.filter((match) => match.pickedWinnerId).length
+  const completeBonus = pickedCount >= knockoutTemplates.length ? 20 : 0
+  total += completeBonus
+
+  return { total, completeBonus, rewardsByMatch, comboLinkIds }
 }
 
 const roundColumns: Array<{ key: string; stage: string; side: 'left' | 'center' | 'right'; ids: string[] }> = [
@@ -531,6 +600,7 @@ function KnockoutTeamBadge({
   onPick?: (teamId: string) => void
   onPreview?: (teamId: string | null) => void
   onStandingsHover?: (teamId: string | null, event: React.MouseEvent | React.FocusEvent) => void
+  onOpenDetails?: () => void
 }) {
   if (entrant.kind === 'placeholder') {
     return (
@@ -568,7 +638,8 @@ function KnockoutTeamBadge({
         isActivePath ? 'is-active-path' : '',
       ].filter(Boolean).join(' ')}
       aria-disabled={!isInteractive}
-      onClick={() => {
+      onClick={(event) => {
+        event.stopPropagation()
         if (!isInteractive) return
         onPick?.(team.id)
       }}
@@ -609,6 +680,10 @@ const MatchCard = memo(function MatchCard({
   onPreview,
   onStandingsHover,
   isLocked,
+  pickBadgeLabel,
+  reward,
+  isToday,
+  onOpenDetails,
 }: {
   match: DisplayMatch
   teamsById: Map<string, Team>
@@ -618,12 +693,16 @@ const MatchCard = memo(function MatchCard({
   isDimmed: boolean
   isFinalCard: boolean
   isLocked: boolean
+  pickBadgeLabel: string
+  reward?: BracketReward
+  isToday?: boolean
   focusId: string | null
   registerRef: (node: HTMLDivElement | null) => void
   onPick: (matchId: string, teamId: string) => void
   onClear: (matchId: string) => void
   onPreview: (teamId: string | null) => void
   onStandingsHover?: (teamId: string | null, event: React.MouseEvent | React.FocusEvent) => void
+  onOpenDetails?: () => void
 }) {
   const homeTeamId = getEntrantTeamId(match.home)
   const awayTeamId = getEntrantTeamId(match.away)
@@ -641,15 +720,19 @@ const MatchCard = memo(function MatchCard({
         match.predictionState === 'correct' ? 'bm--prono-correct' : '',
         match.predictionState === 'wrong' ? 'bm--prono-wrong' : '',
         isLocked ? 'bm--locked' : '',
+        isToday ? 'bm--today' : '',
+        onOpenDetails ? 'is-clickable' : '',
       ].filter(Boolean).join(' ')}
       ref={registerRef}
       data-match-id={match.id}
+      onClick={onOpenDetails}
     >
       <div className="bm__meta">
         <span>{match.label.toUpperCase()}</span>
         <span className="bm__dateblock">
           {isLocked ? <span className="bm__state-badge bm__state-badge--lock">LOCK</span> : null}
-          {match.pickedWinnerId ? <span className="bm__state-badge bm__state-badge--pick">MON PICK</span> : null}
+          {match.pickedWinnerId ? <span className="bm__state-badge bm__state-badge--pick">{pickBadgeLabel}</span> : null}
+          {reward ? <span className={`bm__state-badge bm__state-badge--points${reward.correct ? ' is-positive' : ' is-zero'}`}>{reward.points > 0 ? `+${reward.points}` : '0'}</span> : null}
           {match.hasOfficialResult ? <span className="bm__state-badge bm__state-badge--official">OFFICIEL</span> : null}
           <span className="bm__datetime">{dateTimeLabel}</span>
         </span>
@@ -686,7 +769,7 @@ const MatchCard = memo(function MatchCard({
       />
       {simulationEnabled && match.pickedWinnerId ? (
         <div className="bm__actions match-card-actions">
-          <button type="button" className="bm__clear" onClick={() => onClear(match.id)} aria-label={`Effacer ${match.label}`}>
+          <button type="button" className="bm__clear" onClick={(event) => { event.stopPropagation(); onClear(match.id) }} aria-label={`Effacer ${match.label}`}>
             ?
           </button>
         </div>
@@ -801,6 +884,10 @@ function BracketBoard({
   standings,
   groupMatches,
   lockedMatchIds,
+  rewards,
+  knockoutTodayMatchIds,
+  knockoutDayMatchesById,
+  openMatchStats,
   shareOwnerName,
   existingShareUrl,
   readOnlyShare,
@@ -818,6 +905,10 @@ function BracketBoard({
   standings: Record<string, RankedStandingRow[]>
   groupMatches: GroupMatch[]
   lockedMatchIds: Set<string>
+  rewards: BracketRewardSummary
+  knockoutTodayMatchIds: Set<string>
+  knockoutDayMatchesById: Map<string, DayMatch>
+  openMatchStats: (match: GroupMatch) => void
   shareOwnerName: string
   existingShareUrl?: string | null
   readOnlyShare?: boolean
@@ -1018,7 +1109,7 @@ function BracketBoard({
           id: match.id,
           d: buildConnectorPath(x1, y1, x2, y2),
           active: activeLineIds.has(match.id),
-          tone: match.predictionState === 'correct' ? 'correct' : undefined,
+          tone: match.predictionState === 'correct' || rewards.comboLinkIds.has(match.id) ? 'correct' : undefined,
         })
       }
 
@@ -1046,7 +1137,7 @@ function BracketBoard({
       window.clearTimeout(timeout)
       window.removeEventListener('resize', updateGeometry)
     }
-  }, [activeLineIds, matches, parentLookup, picks])
+  }, [activeLineIds, matches, parentLookup, picks, rewards.comboLinkIds])
 
 
   function handleStandingsHover(teamId: string | null, event: React.MouseEvent | React.FocusEvent) {
@@ -1199,8 +1290,15 @@ function getShareText(url: string) {
         return
       }
 
-      setShareSheet({ url: publicUrl })
-      setExportFeedback('Lien de partage pret.')
+      setExportFeedback('Preparation du partage...')
+      let blob: Blob | undefined
+      try {
+        blob = await generateBracketBlob()
+      } catch (imageError) {
+        console.warn('Bracket image share fallback:', imageError)
+      }
+      setShareSheet({ url: publicUrl, blob })
+      setExportFeedback(blob ? 'Image et lien prets.' : 'Lien de partage pret.')
     } catch (error) {
       console.error('Bracket link share failed:', error)
       setExportFeedback("Impossible de preparer le partage pour le moment.")
@@ -1273,16 +1371,6 @@ function getShareText(url: string) {
       ) : null}
 
       <div className="bracket-mobile-shell">
-        <div className="bracket-mobile-hero">
-          <img src="/brakup-challenge-logo.png" alt="Brakup Challenge" className="bracket-mobile-hero__logo" />
-          <a
-            href={readOnlyShare ? createHref ?? '/?simulator' : localizedChallengeHref(getCurrentLocale())}
-            className="bracket-mobile-hero__cta"
-          >
-            {readOnlyShare ? 'CREER MON BRACKET' : 'JOUER'}
-          </a>
-        </div>
-
         <div className="bracket-mobile-tabs" role="tablist" aria-label="Rounds du bracket">
           {mobileRoundTabs.map((tab) => (
             <button
@@ -1311,6 +1399,10 @@ function getShareText(url: string) {
                 isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
                 isFinalCard={match.id === 'M104'}
                 isLocked={lockedMatchIds.has(match.id)}
+                pickBadgeLabel={readOnlyShare ? 'SON PICK' : 'MON PICK'}
+                reward={rewards.rewardsByMatch.get(match.id)}
+                isToday={knockoutTodayMatchIds.has(match.id)}
+                onOpenDetails={knockoutDayMatchesById.has(match.id) ? () => void openMatchStats(knockoutDayMatchesById.get(match.id)!) : undefined}
                 focusId={focusId}
                 registerRef={() => undefined}
                 onPick={onPick}
@@ -1334,9 +1426,10 @@ function getShareText(url: string) {
           >
             <div className={`bracket-export-wrapper${isExporting ? ' is-exporting' : ''}`} ref={exportRef}>
               <div className={`bracket-board${readOnlyShare ? ' is-readonly-share' : ''}`} ref={boardRef}>
-                {readOnlyShare && ownerHandle ? (
+                {ownerHandle ? (
                   <div className="bracket-owner-badge" aria-label={`Bracket de ${shareOwnerName}`}>
                     <strong>{ownerHandle}</strong>
+                    <span className="bracket-owner-badge__score">{rewards.total} pts</span>
                   </div>
                 ) : null}
             <svg className="bracket__links" width={box.width} height={box.height} aria-hidden="true">
@@ -1374,7 +1467,11 @@ function getShareText(url: string) {
                               isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
                               isFinalCard={match.id === 'M104'}
                               isLocked={lockedMatchIds.has(match.id)}
-                              focusId={focusId}
+                              pickBadgeLabel={readOnlyShare ? 'SON PICK' : 'MON PICK'}
+                              reward={rewards.rewardsByMatch.get(match.id)}
+                              isToday={knockoutTodayMatchIds.has(match.id)}
+                onOpenDetails={knockoutDayMatchesById.has(match.id) ? () => void openMatchStats(knockoutDayMatchesById.get(match.id)!) : undefined}
+                focusId={focusId}
                               registerRef={(node) => {
                                 refs.current[match.id] = node
                               }}
@@ -1454,7 +1551,11 @@ function getShareText(url: string) {
                           isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
                           isFinalCard={false}
                           isLocked={lockedMatchIds.has(match.id)}
-                          focusId={focusId}
+                          pickBadgeLabel={readOnlyShare ? 'SON PICK' : 'MON PICK'}
+                          reward={rewards.rewardsByMatch.get(match.id)}
+                          isToday={knockoutTodayMatchIds.has(match.id)}
+                onOpenDetails={knockoutDayMatchesById.has(match.id) ? () => void openMatchStats(knockoutDayMatchesById.get(match.id)!) : undefined}
+                focusId={focusId}
                           registerRef={(node) => {
                             refs.current[match.id] = node
                           }}
@@ -1509,12 +1610,18 @@ function getShareText(url: string) {
                   const homeTeam = teamsById.get(match.homeTeamId)
                   const awayTeam = teamsById.get(match.awayTeamId)
                   if (!homeTeam || !awayTeam) return null
+                  const homeWin = match.homeScore !== null && match.awayScore !== null && match.homeScore > match.awayScore
+                  const awayWin = match.homeScore !== null && match.awayScore !== null && match.awayScore > match.homeScore
                   return (
                     <div key={match.id} className="standings-popup__match">
                       {flagUrl(homeTeam) ? <img src={flagUrl(homeTeam)} alt="" className="standings-popup__mini-flag" crossOrigin="anonymous" /> : <span className="standings-popup__mini-emoji">{homeTeam.flagEmoji}</span>}
-                      <span className="standings-popup__match-team">{homeTeam.shortName || homeTeam.name}</span>
-                      <strong>{match.homeScore}:{match.awayScore}</strong>
-                      <span className="standings-popup__match-team standings-popup__match-team--away">{awayTeam.shortName || awayTeam.name}</span>
+                      <span className={`standings-popup__match-team${homeWin ? ' is-winner' : ''}`}>{homeTeam.shortName || homeTeam.name}</span>
+                      <strong className="standings-popup__score">
+                        <span className={homeWin ? 'is-winner' : awayWin ? 'is-loser' : ''}>{match.homeScore}</span>
+                        <i>:</i>
+                        <span className={awayWin ? 'is-winner' : homeWin ? 'is-loser' : ''}>{match.awayScore}</span>
+                      </strong>
+                      <span className={`standings-popup__match-team standings-popup__match-team--away${awayWin ? ' is-winner' : ''}`}>{awayTeam.shortName || awayTeam.name}</span>
                       {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="standings-popup__mini-flag" crossOrigin="anonymous" /> : <span className="standings-popup__mini-emoji">{awayTeam.flagEmoji}</span>}
                     </div>
                   )
@@ -1614,13 +1721,29 @@ function App() {
   const [challengeLoginEmail, setChallengeLoginEmail] = useState<string | null>(null)
   const [challengeMenuOpen, setChallengeMenuOpen] = useState(false)
   const [simulatorOutcomeKey, setSimulatorOutcomeKey] = useState<string | null>(null)
-  const [publicBrackets, setPublicBrackets] = useState<ChallengeEntry[]>([])
+  const [publicBrackets, setPublicBrackets] = useState<SimulatorBracketEntry[]>([])
   const [publicBracketsLoading, setPublicBracketsLoading] = useState(false)
   const [publicBracketsError, setPublicBracketsError] = useState<string | null>(null)
-  const [viewedPublicBracket, setViewedPublicBracket] = useState<ChallengeEntry | null>(null)
+  const [viewedPublicBracket, setViewedPublicBracket] = useState<SimulatorBracketEntry | null>(null)
   const simulatorRemoteHydratedRef = useRef(false)
   const simulatorSaveTimerRef = useRef<number | null>(null)
   const initialSyncBaselineRef = useRef<string | null>(null)
+
+  const autosaveRewards = useMemo(() => {
+    if (!seed) return { total: 0, completeBonus: 0, scoreBreakdown: {} as NonNullable<SimulatorBracketEntry['scoreBreakdown']> }
+    const localTeamsById = new Map(seed.teams.map((team) => [team.id, team]))
+    const localMergedMatches = mergeScores(seed.matches, liveSource.matches, overrides, mode)
+    const localStandings = computeStandings(seed.teams, localMergedMatches)
+    const localGroupBracket = buildKnockoutBracket(localStandings, localMergedMatches)
+    const localWinnerCodes = new Map(liveSource.matches.flatMap((match) => match.winnerTeamCode ? [[match.id, match.winnerTeamCode] as const] : []))
+    const localDisplayBracket = resolveDisplayBracket(localGroupBracket, knockoutPicks, localWinnerCodes, localTeamsById)
+    const rewards = calculateBracketRewards(localDisplayBracket)
+    return {
+      total: rewards.total,
+      completeBonus: rewards.completeBonus,
+      scoreBreakdown: Object.fromEntries([...rewards.rewardsByMatch.entries()].map(([matchId, reward]) => [matchId, { points: reward.points, label: reward.label, correct: reward.correct, combo: reward.combo }])),
+    }
+  }, [knockoutPicks, liveSource.matches, mode, overrides, seed])
 
   useEffect(() => {
     let active = true
@@ -1798,6 +1921,9 @@ function App() {
         bracketName: challengeProfile.bracketName || 'Simulator accueil',
         overrides,
         knockoutPicks,
+        score: autosaveRewards.total,
+        scoreBreakdown: autosaveRewards.scoreBreakdown,
+        completeBonus: autosaveRewards.completeBonus,
       }).catch(() => undefined)
     }, 500)
 
@@ -1811,7 +1937,7 @@ function App() {
         simulatorSaveTimerRef.current = null
       }
     }
-  }, [challengeProfile.bracketName, challengeProfile.pseudo, challengeToken, knockoutPicks, overrides, publicPseudo, sharedBracketId])
+  }, [autosaveRewards.completeBonus, autosaveRewards.scoreBreakdown, autosaveRewards.total, challengeProfile.bracketName, challengeProfile.pseudo, challengeToken, knockoutPicks, overrides, publicPseudo, sharedBracketId])
 
   useEffect(() => {
     const syncViewport = () => {
@@ -1831,7 +1957,7 @@ function App() {
     let cancelled = false
     setPublicBracketsLoading(true)
     setPublicBracketsError(null)
-    getLeaderboard()
+    getSimulatorLeaderboard()
       .then((entries) => {
         if (!cancelled) setPublicBrackets(entries)
       })
@@ -2054,11 +2180,12 @@ function App() {
   const groupBracket = buildKnockoutBracket(standings, mergedMatches)
   const isSharedBracketView = Boolean((sharedBracketId && sharedBracket) || (publicPseudo && publicSimulatorBracket))
   const activeKnockoutPicks = mode === 'simulation' ? knockoutPicks : {}
-  const displayedKnockoutPicks = viewedPublicBracket ? viewedPublicBracket.picks : activeKnockoutPicks
+  const displayedKnockoutPicks = viewedPublicBracket ? viewedPublicBracket.knockoutPicks : activeKnockoutPicks
   const bracketReadOnly = isSharedBracketView || Boolean(viewedPublicBracket)
   const liveMatchesById = new Map(liveSource.matches.map((match) => [match.id, match]))
   const liveWinnerCodesById = new Map(liveSource.matches.flatMap((match) => match.winnerTeamCode ? [[match.id, match.winnerTeamCode] as const] : []))
   const displayBracket = resolveDisplayBracket(groupBracket, displayedKnockoutPicks, liveWinnerCodesById, teamsById)
+  const bracketRewards = calculateBracketRewards(displayBracket)
   const knockoutDayMatches: DayMatch[] = displayBracket
     .map<DayMatch | null>((match) => {
       const live = liveMatchesById.get(match.id)
@@ -2094,12 +2221,16 @@ function App() {
     })
     .filter((match): match is DayMatch => match !== null)
   const dayScheduleMatches: DayMatch[] = [...mergedMatches, ...knockoutDayMatches]
+  const knockoutTodayMatchIds = new Set(knockoutDayMatches.filter(isMatchToday).map((match) => match.id))
+  const knockoutDayMatchesById = new Map(knockoutDayMatches.map((match) => [match.id, match]))
   const bracketHeaderTeams = [...new Set(displayBracket.flatMap((match) => [getEntrantTeamId(match.home), getEntrantTeamId(match.away)]).filter((teamId): teamId is string => Boolean(teamId)))]
     .map((teamId) => teamsById.get(teamId))
     .filter((team): team is Team => Boolean(team))
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const shouldDockBracketHeader = view === 'bracket' && !isBracketFullscreen
-  const createFromShareHref = '/?simulator&new=1'
+  const sharedViewOwnerPseudo = viewedPublicBracket?.pseudo ?? publicSimulatorBracket?.pseudo ?? sharedBracket?.pseudo ?? null
+  const isOwnSharedBracket = Boolean(sharedViewOwnerPseudo && challengeProfile.pseudo && sharedViewOwnerPseudo.trim().toLowerCase() === challengeProfile.pseudo.trim().toLowerCase())
+  const createFromShareHref = isOwnSharedBracket ? '/?simulator' : '/?simulator&new=1'
   const currentShareUrl = publicPseudo && publicSimulatorBracket ? window.location.origin + '/@' + encodeURIComponent(publicSimulatorBracket.pseudo) : isSharedBracketView && sharedBracket ? window.location.origin + '/share/bracket/' + sharedBracket.id : challengeProfile.pseudo ? window.location.origin + '/@' + encodeURIComponent(challengeProfile.pseudo) : null
   const isChallengeConnected = Boolean(challengeToken && challengeProfile.pseudo)
   const seenSimulatorOutcomeKeys = new Set(readSeenSimulatorOutcomeKeys())
@@ -2945,6 +3076,10 @@ function App() {
               standings={standings}
               groupMatches={mergedMatches}
               lockedMatchIds={lockedMatchIds}
+              rewards={bracketRewards}
+              knockoutTodayMatchIds={knockoutTodayMatchIds}
+              knockoutDayMatchesById={knockoutDayMatchesById}
+              openMatchStats={(match) => void openMatchStats(match)}
               shareOwnerName={viewedPublicBracket?.pseudo || publicSimulatorBracket?.pseudo || sharedBracket?.pseudo || challengeProfile.pseudo || 'Brakup'}
               existingShareUrl={currentShareUrl}
               readOnlyShare={bracketReadOnly}
@@ -3018,11 +3153,11 @@ function App() {
                         {publicBracketsError ? <div className="panel__sub">{publicBracketsError}</div> : null}
                         {!publicBracketsLoading && !publicBracketsError && publicBrackets.length === 0 ? <div className="panel__sub">Aucun bracket public pour le moment.</div> : null}
                         {publicBrackets.map((entry, index) => (
-                          <button key={entry.id} type="button" className="scorerrow" onClick={() => { setViewedPublicBracket(entry); setSidePanel(null); setFocusId(null) }}>
+                          <button key={entry.emailHash || entry.pseudo} type="button" className="scorerrow" onClick={() => { setViewedPublicBracket(entry); setSidePanel(null); setFocusId(null) }}>
                             <span className="scorerrow__rank">{index + 1}</span>
                             <span className="scorerrow__name">{entry.pseudo}</span>
                             <span className="scorerrow__team">{entry.bracketName}</span>
-                            <span className="scorerrow__goals"><b>{entry.score}</b></span>
+                            <span className="scorerrow__goals"><b>{entry.score ?? 0}</b></span>
                           </button>
                         ))}
                       </div>
@@ -3131,11 +3266,13 @@ function App() {
         const pickedTeam = simulatorOutcomeNotice.match.pickedWinnerId ? teamsById.get(simulatorOutcomeNotice.match.pickedWinnerId) ?? null : null
         const realTeam = simulatorOutcomeNotice.match.realWinnerId ? teamsById.get(simulatorOutcomeNotice.match.realWinnerId) ?? null : null
         const realScore = challengeOfficialScores[simulatorOutcomeNotice.match.id]
+        const reward = bracketRewards.rewardsByMatch.get(simulatorOutcomeNotice.match.id)
         return (
           <div className={`simulator-outcome${simulatorOutcomeNotice.match.predictionState === 'correct' ? ' is-correct' : ' is-wrong'}`} role="dialog" aria-modal="true">
             <div className="simulator-outcome__panel">
               <div className="simulator-outcome__icon" aria-hidden="true">{simulatorOutcomeNotice.match.predictionState === 'correct' ? '*' : 'x'}</div>
-              <h2>{simulatorOutcomeNotice.match.predictionState === 'correct' ? 'Felicitations' : 'Prono rate'}</h2>
+              <h2>{simulatorOutcomeNotice.match.predictionState === 'correct' ? 'BOOOM !' : 'Prono rate'}</h2>
+              <div className="simulator-outcome__points">{reward ? reward.label : '0 pt'}</div>
               <p>{simulatorOutcomeNotice.match.label} - score reel {formatScore(realScore)}</p>
               <div className="simulator-outcome__summary">
                 <span>Ton choix: <strong>{pickedTeam?.name ?? 'Aucun prono'}</strong></span>
@@ -3143,7 +3280,7 @@ function App() {
               </div>
               <div className="simulator-outcome__actions">
                 <button type="button" className="chip-btn chip-btn--sm" onClick={() => dispatchBracketAction('bracket:share')}>
-                  Partager mon bracket
+                  Partager image
                 </button>
                 <button type="button" className="chip-btn chip-btn--sm" onClick={closeSimulatorOutcomeNotice}>
                   Continuer

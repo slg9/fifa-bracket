@@ -172,6 +172,10 @@ export interface SimulatorBracketEntry {
   bracketName: string
   overrides: Record<string, MatchOverride>
   knockoutPicks: Record<string, string>
+  score?: number
+  rank?: number | null
+  scoreBreakdown?: Record<string, { points: number; label: string; correct: boolean; combo: number }>
+  completeBonus?: number
   createdAt: string
   updatedAt: string
 }

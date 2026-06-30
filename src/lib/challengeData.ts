@@ -105,6 +105,16 @@ export async function getLeaderboard(): Promise<ChallengeEntry[]> {
   }
 }
 
+export async function getSimulatorLeaderboard(): Promise<SimulatorBracketEntry[]> {
+  try {
+    return await request('simulatorBoard')
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    const current = localSimulatorEntry()
+    return current ? [{ ...current, rank: 1 }] : []
+  }
+}
+
 export async function getBracketById(entryId: string): Promise<ChallengeEntry | null> {
   try {
     return await request<ChallengeEntry>('getById', { entryId })
@@ -221,7 +231,7 @@ export async function getSimulatorBracketByPseudo(pseudo: string): Promise<Simul
 }
 export async function saveSimulatorBracket(
   token: string,
-  entry: Pick<SimulatorBracketEntry, 'pseudo' | 'bracketName' | 'overrides' | 'knockoutPicks'>,
+  entry: Pick<SimulatorBracketEntry, 'pseudo' | 'bracketName' | 'overrides' | 'knockoutPicks'> & Pick<SimulatorBracketEntry, 'score' | 'scoreBreakdown' | 'completeBonus'>,
 ): Promise<SimulatorBracketEntry> {
   try {
     return await request<SimulatorBracketEntry>('saveSimulatorBracket', { entry }, token)
@@ -235,6 +245,10 @@ export async function saveSimulatorBracket(
       bracketName: entry.bracketName || current?.bracketName || 'Simulator',
       overrides: entry.overrides ?? current?.overrides ?? {},
       knockoutPicks: entry.knockoutPicks ?? current?.knockoutPicks ?? {},
+      score: Math.max(0, Math.round(entry.score ?? current?.score ?? 0)),
+      scoreBreakdown: entry.scoreBreakdown ?? current?.scoreBreakdown ?? {},
+      completeBonus: entry.completeBonus ?? current?.completeBonus ?? 0,
+      rank: current?.rank ?? null,
       createdAt: current?.createdAt ?? now,
       updatedAt: now,
     }
