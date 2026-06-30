@@ -9,7 +9,7 @@ import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import { formatScore } from './challenge/progress'
 import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
-import { getProfileStatus, getSimulatorBracket, resendMagicLink, saveSimulatorBracket, verifyLoginOTP } from './lib/challengeData'
+import { getProfileStatus, getPublicBracketShare, getSimulatorBracket, publishPublicBracketShare, resendMagicLink, saveSimulatorBracket, verifyLoginOTP } from './lib/challengeData'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -25,6 +25,7 @@ import type {
   MatchOverride,
   MatchPrediction,
   Mode,
+  PublicBracketShare,
   RankedStandingRow,
   Team,
   TournamentSeed,
@@ -772,8 +773,14 @@ function BracketBoard({
   teamsById,
   focusId,
   picks,
+  overrides,
   simulationEnabled,
   standings,
+  shareOwnerName,
+  shareBracketName,
+  existingShareUrl,
+  readOnlyShare,
+  createHref,
   onPick,
   onClear,
   onFocusChange,
@@ -783,8 +790,14 @@ function BracketBoard({
   teamsById: Map<string, Team>
   focusId: string | null
   picks: Record<string, string>
+  overrides: Record<string, MatchOverride>
   simulationEnabled: boolean
   standings: Record<string, RankedStandingRow[]>
+  shareOwnerName: string
+  shareBracketName: string
+  existingShareUrl?: string | null
+  readOnlyShare?: boolean
+  createHref?: string
   onPick: (matchId: string, teamId: string) => void
   onClear: (matchId: string) => void
   onFocusChange: (teamId: string | null) => void
@@ -804,6 +817,7 @@ function BracketBoard({
   const [activeMobileRound, setActiveMobileRound] = useState<(typeof mobileRoundTabs)[number]['key']>('R32')
   const [isExporting, setIsExporting] = useState(false)
   const [exportFeedback, setExportFeedback] = useState<string | null>(null)
+  const [shareSheet, setShareSheet] = useState<{ url: string; blob: Blob } | null>(null)
   const [standingsPopup, setStandingsPopup] = useState<{ teamId: string; x: number; y: number } | null>(null)
   const isFullscreenRef = useRef(false)
 
@@ -1083,6 +1097,57 @@ function BracketBoard({
     window.setTimeout(() => URL.revokeObjectURL(url), 0)
   }
 
+  function blobToDataUrl(blob: Blob) {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(reader.error ?? new Error('Lecture image impossible.'))
+      reader.readAsDataURL(blob)
+    })
+  }
+
+  function getShareText(url: string) {
+    return `${shareOwnerName || 'Brakup'} partage son bracket Coupe du Monde 2026: ${url}`
+  }
+
+  async function handleNativePreparedShare() {
+    if (!shareSheet) return
+    const file = new File([shareSheet.blob], getBracketFileName(), { type: 'image/png' })
+    const payload = {
+      title: 'FIFA Bracket',
+      text: getShareText(shareSheet.url),
+      url: shareSheet.url,
+      ...(navigator.canShare?.({ files: [file] }) ? { files: [file] } : {}),
+    }
+
+    if (!navigator.share) {
+      await navigator.clipboard?.writeText(shareSheet.url)
+      setExportFeedback('Lien copie.')
+      return
+    }
+
+    await navigator.share(payload)
+    setExportFeedback('Partage lance.')
+  }
+
+  async function copyPreparedShareLink() {
+    if (!shareSheet) return
+    await navigator.clipboard.writeText(shareSheet.url)
+    setExportFeedback('Lien copie.')
+  }
+
+  function openWhatsAppShare() {
+    if (!shareSheet) return
+    window.open(`https://wa.me/?text=${encodeURIComponent(getShareText(shareSheet.url))}`, '_blank', 'noopener,noreferrer')
+  }
+
+  function openMailShare() {
+    if (!shareSheet) return
+    const subject = encodeURIComponent('Mon bracket Coupe du Monde 2026')
+    const body = encodeURIComponent(getShareText(shareSheet.url))
+    window.location.href = `mailto:?subject=${subject}&body=${body}`
+  }
+
   async function handleDownload() {
     try {
       setExportFeedback("Generation de l'image...")
@@ -1099,44 +1164,33 @@ function BracketBoard({
     let blob: Blob | null = null
 
     try {
-      setExportFeedback("Generation de l'image...")
+      setExportFeedback(existingShareUrl ? "Preparation du partage..." : "Generation du lien de partage...")
       blob = await generateBracketBlob()
-      const file = new File([blob], getBracketFileName(), { type: 'image/png' })
+      const shareUrl = existingShareUrl ?? (await publishPublicBracketShare({
+        pseudo: shareOwnerName || 'Brakup',
+        bracketName: shareBracketName || 'Mon bracket',
+        overrides,
+        knockoutPicks: picks,
+        imageDataUrl: await blobToDataUrl(blob),
+      })).shareUrl
 
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: 'FIFA Bracket',
-          text: 'Voici mon bracket FIFA',
-          files: [file],
-        })
-        setExportFeedback("Image prete a etre partagee.")
-        return
-      }
-
-      downloadGeneratedBlob(blob)
-      setExportFeedback('Telechargement lance.')
+      setShareSheet({ url: shareUrl, blob })
+      setExportFeedback('Lien de partage pret.')
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         setExportFeedback(null)
         return
       }
 
-      console.error('Bracket image share failed:', error)
+      console.error('Bracket link share failed:', error)
 
       if (blob) {
         downloadGeneratedBlob(blob)
-        setExportFeedback('Partage non disponible, telechargement lance.')
+        setExportFeedback('Lien indisponible, image telechargee.')
         return
       }
 
-      try {
-        const fallbackBlob = await generateBracketBlob()
-        downloadGeneratedBlob(fallbackBlob)
-        setExportFeedback('Partage non disponible, telechargement lance.')
-      } catch (fallbackError) {
-        console.error('Bracket share fallback failed:', fallbackError)
-        setExportFeedback("Impossible de generer l'image pour le moment.")
-      }
+      setExportFeedback("Impossible de preparer le partage pour le moment.")
     }
   }
 
@@ -1176,6 +1230,26 @@ function BracketBoard({
       </div>
 
       {exportFeedback ? <div className="bracket-shell__feedback">{exportFeedback}</div> : null}
+
+      {shareSheet ? (
+        <div className="bracket-share-sheet" role="dialog" aria-modal="true" aria-label="Partager le bracket">
+          <button type="button" className="bracket-share-sheet__scrim" aria-label="Fermer" onClick={() => setShareSheet(null)} />
+          <div className="bracket-share-sheet__panel">
+            <div className="bracket-share-sheet__head">
+              <strong>Partager le bracket</strong>
+              <button type="button" onClick={() => setShareSheet(null)} aria-label="Fermer">x</button>
+            </div>
+            <div className="bracket-share-sheet__url">{shareSheet.url}</div>
+            <div className="bracket-share-sheet__actions">
+              <button type="button" onClick={() => void handleNativePreparedShare()}><span>N</span> Partage natif</button>
+              <button type="button" onClick={openWhatsAppShare}><span>WA</span> WhatsApp</button>
+              <button type="button" onClick={openMailShare}><span>@</span> Email</button>
+              <button type="button" onClick={() => void copyPreparedShareLink()}><span>CL</span> Copier lien</button>
+              <button type="button" onClick={() => downloadGeneratedBlob(shareSheet.blob)}><span>DL</span> PNG</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isFullscreen && !isLandscape ? (
         <div className="bracket-rotate">
@@ -1276,7 +1350,9 @@ function BracketBoard({
                             {match.id === 'M103' ? (
                               <div className="finale__challenge-mark">
                                 <img src="/brakup-challenge-logo.png" alt="Brakup Challenge" className="finale__challenge-logo" />
-                                <a href={localizedChallengeHref(getCurrentLocale())} className="finale__challenge-play">JOUER</a>
+                                <a href={readOnlyShare ? createHref ?? '/?simulator' : localizedChallengeHref(getCurrentLocale())} className="finale__challenge-play">
+                                  {readOnlyShare ? 'CREER MON BRACKET' : 'JOUER'}
+                                </a>
                               </div>
                             ) : null}
                             <MatchCard
@@ -1443,6 +1519,7 @@ function App() {
   const [mode, setMode] = useState<Mode>('simulation')
   const simulatorMode = useMemo(() => new URLSearchParams(window.location.search).has('simulator'), [])
   const challengeMode = useMemo(() => new URLSearchParams(window.location.search).has('challenge'), [])
+  const sharedBracketId = useMemo(() => new URLSearchParams(window.location.search).get('share'), [])
   const view = 'bracket' as View
   const [overrides, setOverrides] = useState<Record<string, MatchOverride>>({})
   const [knockoutPicks, setKnockoutPicks] = useState<Record<string, string>>({})
@@ -1464,6 +1541,7 @@ function App() {
   const [matchStatsData, setMatchStatsData] = useState<MatchEventsData | null>(null)
   const [matchStatsLoading, setMatchStatsLoading] = useState(false)
   const [oddsData, setOddsData] = useState<OddsSnapshot | null>(null)
+  const [sharedBracket, setSharedBracket] = useState<PublicBracketShare | null>(null)
   const [challengeToken, setChallengeToken] = useState<string | null>(() => window.localStorage.getItem(challengeTokenStorageKey))
   const [challengeProfile, setChallengeProfile] = useState<ChallengeProfile>(readStoredChallengeProfile)
   const [hasChallengeAccount, setHasChallengeAccount] = useState(() => window.localStorage.getItem(challengeHadAccountStorageKey) === 'true')
@@ -1493,15 +1571,25 @@ function App() {
         if (!active) return
 
         setSeed(seedData)
-        const storedSimulation = readStoredSimulation()
-        if (storedSimulation) {
-          setOverrides(storedSimulation.overrides)
-          setKnockoutPicks(storedSimulation.knockoutPicks)
-          if (
-            Object.keys(storedSimulation.overrides).length > 0 ||
-            Object.keys(storedSimulation.knockoutPicks).length > 0
-          ) {
-            setMode('simulation')
+        if (sharedBracketId) {
+          const share = await getPublicBracketShare(sharedBracketId)
+          if (!active) return
+          setSharedBracket(share)
+          setOverrides(share.overrides)
+          setKnockoutPicks(share.knockoutPicks)
+          setFocusId(null)
+          setMode('simulation')
+        } else {
+          const storedSimulation = readStoredSimulation()
+          if (storedSimulation) {
+            setOverrides(storedSimulation.overrides)
+            setKnockoutPicks(storedSimulation.knockoutPicks)
+            if (
+              Object.keys(storedSimulation.overrides).length > 0 ||
+              Object.keys(storedSimulation.knockoutPicks).length > 0
+            ) {
+              setMode('simulation')
+            }
           }
         }
 
@@ -1546,9 +1634,10 @@ function App() {
     return () => {
       active = false
     }
-  }, [])
+  }, [sharedBracketId])
 
   useEffect(() => {
+    if (sharedBracketId) return
     if (Object.keys(overrides).length === 0 && Object.keys(knockoutPicks).length === 0) {
       clearStoredSimulation()
       return
@@ -1563,6 +1652,11 @@ function App() {
   useEffect(() => {
     let cancelled = false
     simulatorRemoteHydratedRef.current = false
+
+    if (sharedBracketId) {
+      simulatorRemoteHydratedRef.current = true
+      return
+    }
 
     if (!challengeToken) {
       simulatorRemoteHydratedRef.current = true
@@ -1605,10 +1699,10 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [challengeToken])
+  }, [challengeToken, sharedBracketId])
 
   useEffect(() => {
-    if (!challengeToken || !simulatorRemoteHydratedRef.current || !challengeProfile.pseudo) {
+    if (sharedBracketId || !challengeToken || !simulatorRemoteHydratedRef.current || !challengeProfile.pseudo) {
       return
     }
 
@@ -1631,7 +1725,7 @@ function App() {
         simulatorSaveTimerRef.current = null
       }
     }
-  }, [challengeProfile.bracketName, challengeProfile.pseudo, challengeToken, knockoutPicks, overrides])
+  }, [challengeProfile.bracketName, challengeProfile.pseudo, challengeToken, knockoutPicks, overrides, sharedBracketId])
 
   useEffect(() => {
     const syncViewport = () => {
@@ -1894,6 +1988,8 @@ function App() {
     .filter((team): team is Team => Boolean(team))
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const shouldDockBracketHeader = view === 'bracket' && !isBracketFullscreen
+  const isSharedBracketView = Boolean(sharedBracketId && sharedBracket)
+  const currentShareUrl = isSharedBracketView && sharedBracket ? `${window.location.origin}/share/bracket/${sharedBracket.id}` : null
   const isChallengeConnected = Boolean(challengeToken && challengeProfile.pseudo)
   const simulatorOutcomeNotices = useMemo<SimulatorOutcomeNotice[]>(() => {
     const seen = new Set(readSeenSimulatorOutcomeKeys())
@@ -2033,6 +2129,12 @@ function App() {
       ...current,
       [matchId]: teamId,
     }))
+
+    if (!challengeToken && !showChallengeLoginEntry) {
+      setChallengeLoginError(null)
+      setChallengeLoginSent(false)
+      setShowChallengeLoginEntry(true)
+    }
   }
 
   function handleClearWinner(matchId: string) {
@@ -2728,8 +2830,14 @@ function App() {
               teamsById={teamsById}
               focusId={focusId}
               picks={activeKnockoutPicks}
-              simulationEnabled={mode === 'simulation'}
+              overrides={overrides}
+              simulationEnabled={mode === 'simulation' && !isSharedBracketView}
               standings={standings}
+              shareOwnerName={sharedBracket?.pseudo || challengeProfile.pseudo || 'Brakup'}
+              shareBracketName={sharedBracket?.bracketName || challengeProfile.bracketName || 'Mon bracket'}
+              existingShareUrl={currentShareUrl}
+              readOnlyShare={isSharedBracketView}
+              createHref="/?simulator"
               onPick={handlePickWinner}
               onClear={handleClearWinner}
               onFocusChange={setFocusId}

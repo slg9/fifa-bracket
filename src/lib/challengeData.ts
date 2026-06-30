@@ -1,4 +1,4 @@
-import type { ChallengeEntry, SimulatorBracketEntry } from '../types'
+import type { ChallengeEntry, PublicBracketShare, SimulatorBracketEntry } from '../types'
 
 async function sha256(message: string): Promise<string> {
   const msgBuffer = new TextEncoder().encode(message)
@@ -231,6 +231,34 @@ export async function saveSimulatorBracket(
     saveLocalSimulatorEntry(next)
     return next
   }
+}
+
+
+export async function publishPublicBracketShare(payload: {
+  pseudo: string
+  bracketName: string
+  overrides: PublicBracketShare['overrides']
+  knockoutPicks: PublicBracketShare['knockoutPicks']
+  imageDataUrl: string
+  expiresInDays?: number
+}): Promise<{ share: PublicBracketShare; shareUrl: string }> {
+  const response = await fetch('/api/bracket-share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const body = await response.json() as { data?: { share: PublicBracketShare; shareUrl: string }; error?: string }
+  if (!response.ok || !body.data) throw new Error(body.error ?? 'Partage indisponible.')
+  return body.data
+}
+
+export async function getPublicBracketShare(id: string): Promise<PublicBracketShare> {
+  const response = await fetch(`/api/bracket-share?id=${encodeURIComponent(id)}`, {
+    headers: { Accept: 'application/json' },
+  })
+  const body = await response.json() as { data?: PublicBracketShare; error?: string }
+  if (!response.ok || !body.data) throw new Error(body.error ?? 'Bracket partage indisponible.')
+  return body.data
 }
 
 export function updateProfile(token: string, values: { email: string; pseudo: string }): Promise<{

@@ -176,6 +176,17 @@ export interface SimulatorBracketEntry {
   updatedAt: string
 }
 
+export interface PublicBracketShare {
+  id: string
+  pseudo: string
+  bracketName: string
+  overrides: Record<string, MatchOverride>
+  knockoutPicks: Record<string, string>
+  imagePath: string
+  createdAt: string
+  expiresAt: string | null
+}
+
 export type CommentaryPhase =
   | 'pre_attack'
   | 'attack_success'
