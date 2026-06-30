@@ -3122,9 +3122,6 @@ function App() {
       ) : null}
 
       <div className={`board${view === 'bracket' ? ' board--wide' : ''}`}>
-        {bracketReadOnly && shouldReturnToOwnBracket ? (
-          <a href="/?simulator" className="shared-bracket-back">Retour a mon bracket</a>
-        ) : null}
         <main className="board__main">
           {view === 'groups' ? (
             <div className="groups">
