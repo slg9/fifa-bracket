@@ -4859,9 +4859,6 @@
 }
 
 /* ── Simulator mode (/?simulator route) ──────────────────────── */
-.app-shell.is-simulator .topbar {
-  display: none;
-}
 
 .app-shell.is-simulator .controls {
   padding-top: 8px;

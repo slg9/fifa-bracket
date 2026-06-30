@@ -8,7 +8,7 @@ import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchM
 import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
-import { getSimulatorLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, requestOTP, resendMagicLink, saveSimulatorBracket, verifyLoginOTP, verifyOTP } from './lib/challengeData'
+import { checkEmailExists, getSimulatorLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, requestOTP, resendMagicLink, saveSimulatorBracket, verifyLoginOTP, verifyOTP } from './lib/challengeData'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -2169,32 +2169,26 @@ function App() {
     challengeLoginPseudoRef.current = pseudo
 
     try {
-      try {
-        // Try existing account flow first
-        const result = await resendMagicLink(email)
+      const emailExists = await checkEmailExists(email)
+      if (emailExists) {
         challengeLoginFlowRef.current = 'existing'
-        setChallengeLoginSent(true)
-        setChallengeProfile((current) => {
-          const next = { ...current, email }
-          rememberChallengeProfile(next)
-          return next
-        })
+        const result = await resendMagicLink(email)
         if (result.token) {
           window.localStorage.setItem(challengeTokenStorageKey, result.token)
           setChallengeToken(result.token)
           setShowChallengeLoginEntry(false)
+          return
         }
-      } catch {
-        // No existing account — send OTP to create one
+      } else {
         challengeLoginFlowRef.current = 'new'
         await requestOTP(email, pseudo)
-        setChallengeLoginSent(true)
-        setChallengeProfile((current) => {
-          const next = { ...current, email }
-          rememberChallengeProfile(next)
-          return next
-        })
       }
+      setChallengeLoginSent(true)
+      setChallengeProfile((current) => {
+        const next = { ...current, email }
+        rememberChallengeProfile(next)
+        return next
+      })
     } catch (caught) {
       setChallengeLoginError(caught instanceof Error ? caught.message : 'Connexion impossible.')
     } finally {
@@ -2234,21 +2228,8 @@ function App() {
       window.localStorage.setItem(challengeHadAccountStorageKey, 'true')
       setShowChallengeLoginEntry(false)
       setChallengeLoginSent(false)
-    } catch (loginError) {
-      if (challengeLoginFlowRef.current === 'existing') {
-        // verifyLoginOTP failed (account not found) — switch to creation flow
-        try {
-          challengeLoginFlowRef.current = 'new'
-          await requestOTP(challengeLoginEmail, pseudo)
-          setChallengeLoginError('Pas encore de compte Brakup pour cet email. Un code de création vient d\'être envoyé.')
-          setChallengeLoginSent(false)
-          window.setTimeout(() => setChallengeLoginSent(true), 50)
-        } catch {
-          setChallengeLoginError(loginError instanceof Error ? loginError.message : 'Code invalide.')
-        }
-      } else {
-        setChallengeLoginError(loginError instanceof Error ? loginError.message : 'Code OTP invalide ou expiré.')
-      }
+    } catch (caught) {
+      setChallengeLoginError(caught instanceof Error ? caught.message : 'Code OTP invalide ou expiré.')
     } finally {
       setChallengeLoginBusy(false)
     }

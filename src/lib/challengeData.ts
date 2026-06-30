@@ -184,6 +184,15 @@ export async function verifyOTP(email: string, pseudo: string, otp: string): Pro
   }
 }
 
+export async function checkEmailExists(email: string): Promise<boolean> {
+  try {
+    const result = await request<{ emailExists: boolean; pseudoExists: boolean }>('checkCredentials', { email, pseudo: '__noop__' })
+    return result.emailExists
+  } catch {
+    return false
+  }
+}
+
 export function resendMagicLink(email: string): Promise<{ sent: boolean; token?: string }> {
   return request('resend', { email })
 }
