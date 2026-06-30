@@ -375,8 +375,66 @@
 @keyframes fruitAppear { from{transform:scale(.2);opacity:1}to{transform:scale(2);opacity:0} } @keyframes fruitExplode { to{transform:scale(1.8);opacity:0} } @keyframes balloonFloat { from{transform:translateY(0)}to{transform:translateY(calc(-70vh - 120px))} } @keyframes vibrate { 0%,100%{margin-left:-30px}50%{margin-left:-25px} }
 @keyframes commentaryIn { from{transform:translateX(-25px);opacity:0}to{transform:none;opacity:1} } @keyframes commentaryOut { to{transform:translateX(20px);opacity:0} } @keyframes cursorBlink { 50%{opacity:0} }
 @keyframes starOrbit { to{transform:rotate(360deg)} } @keyframes starPulse { to{scale:1.35} } @keyframes lightningDraw { from{stroke-dashoffset:150}to{stroke-dashoffset:0} } @keyframes flashFade { from{opacity:.8}to{opacity:0} }
+/* Phase navigation bar — hidden on desktop, sticky on mobile */
+.brakup-phase-nav { display: none; }
+.brakup-bracket-header__hint { font: 500 13px Barlow, sans-serif; color: rgba(255,255,255,.45); margin-bottom: 18px; }
+
 @media (max-width: 1023px) { .brakup-bracket-layout { grid-template-columns: 1fr; }.bksp { display:none; } }
 @media (max-width: 680px) {
+  /* Phase navigation */
+  .brakup-phase-nav {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    gap: 6px;
+    padding: 8px 14px;
+    background: rgba(5, 11, 22, 0.96);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .brakup-phase-nav::-webkit-scrollbar { display: none; }
+  .brakup-phase-nav__btn {
+    flex-shrink: 0;
+    padding: 6px 16px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 20px;
+    background: rgba(255,255,255,.04);
+    color: rgba(255,255,255,.48);
+    font: 800 11px 'Barlow Condensed', sans-serif;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, color .15s;
+  }
+  .brakup-phase-nav__btn.is-active {
+    border-color: rgba(43, 255, 154, .5);
+    background: rgba(43, 255, 154, .1);
+    color: #2bff9a;
+  }
+  /* Magnetic horizontal snap for the bracket */
+  .brakup-bracket-layout { padding: 0; }
+  .brakup-bracket-wrapper {
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .brakup-bracket {
+    grid-template-columns: repeat(5, 100vw);
+    gap: 0;
+    padding: 0 0 32px;
+  }
+  .brakup-bracket__round {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    padding: 10px 16px 10px;
+    box-sizing: border-box;
+  }
+  .brakup-bracket-header { padding: 14px 16px 0; }
+  .brakup-bracket-header__hint { display: none; }
+
   .brakup-topbar { min-height: 62px; }
   .brakup-brand small,.brakup-exit { display:none; }
   .brakup-topbar nav { gap:2px; }

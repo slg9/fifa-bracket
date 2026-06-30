@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, useRef, useCallback } from 'react'
+import { useLayoutEffect, useState, useRef, useCallback, useEffect } from 'react'
 import type { ChallengeEntry, KnockoutMatch, Team } from '../types'
 import ScorePanel from './ScorePanel'
 import { sfx } from '../lib/sfx'
@@ -69,7 +69,42 @@ function getRelativeRect(el: HTMLElement, container: HTMLElement) {
 
 export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, brackets = [], activeBracketId = null, onSelectBracket = () => undefined, realResults = {}, scores = {}, officialScores = {}, readOnly = false, ownerPseudo }: BracketChallengeProps) {
   const bracketRef = useRef<HTMLElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const [paths, setPaths] = useState<PathInfo[]>([])
+  const [activeRound, setActiveRound] = useState(0)
+
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    let tid: ReturnType<typeof window.setTimeout>
+    const handleScroll = () => {
+      window.clearTimeout(tid)
+      tid = window.setTimeout(() => {
+        const idx = wrapper.clientWidth > 0
+          ? Math.min(Math.round(wrapper.scrollLeft / wrapper.clientWidth), ROUND_ORDER.length - 1)
+          : 0
+        setActiveRound(Math.max(0, idx))
+      }, 40)
+    }
+    wrapper.addEventListener('scroll', handleScroll, { passive: true })
+    return () => { wrapper.removeEventListener('scroll', handleScroll); window.clearTimeout(tid) }
+  }, [])
+
+  const scrollToRound = useCallback((idx: number) => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    wrapper.scrollTo({ left: idx * wrapper.clientWidth, behavior: 'smooth' })
+    setActiveRound(idx)
+    let el: HTMLElement | null = wrapper.parentElement
+    while (el) {
+      const { overflowY, overflow } = getComputedStyle(el)
+      if ((overflowY === 'auto' || overflowY === 'scroll' || overflow === 'auto' || overflow === 'scroll') && el.scrollTop > 0) {
+        el.scrollTo({ top: 0, behavior: 'smooth' })
+        break
+      }
+      el = el.parentElement
+    }
+  }, [])
 
   const buildPaths = useCallback(() => {
     const container = bracketRef.current
@@ -133,13 +168,26 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
 
   return (
     <div className="brakup-bracket-layout">
-      <div className="brakup-bracket-wrapper">
+      <nav className="brakup-phase-nav" aria-label="Phases">
+        {ROUND_ORDER.map((stage, i) => (
+          <button
+            key={stage}
+            type="button"
+            className={`brakup-phase-nav__btn${activeRound === i ? ' is-active' : ''}`}
+            onClick={() => scrollToRound(i)}
+            aria-current={activeRound === i ? 'step' : undefined}
+          >
+            {STAGE_SHORT[stage] ?? stage}
+          </button>
+        ))}
+      </nav>
+      <div className="brakup-bracket-wrapper" ref={wrapperRef}>
         <div className="brakup-bracket-header">
           <div style={{ font: '900 22px Barlow Condensed, Arial Narrow, sans-serif', letterSpacing: '.04em', textTransform: 'uppercase' }}>
             {ownerPseudo ? `Bracket de ${ownerPseudo}` : 'Bracket — Coupe du Monde 2026'}
           </div>
-          <div style={{ font: '500 13px Barlow, sans-serif', color: 'rgba(255,255,255,.45)', marginBottom: 18 }}>
-            {ownerPseudo ? `Mode lecture seule` : 'R32 → Finale · glisse horizontalement sur mobile pour voir tout le tableau'}
+          <div className="brakup-bracket-header__hint">
+            {ownerPseudo ? 'Mode lecture seule' : 'R32 → Finale'}
           </div>
         </div>
         <section className="brakup-bracket" aria-label="Bracket challenge" ref={bracketRef}>
