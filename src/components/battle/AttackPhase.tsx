@@ -57,6 +57,9 @@ const PLAYER_SPEED  = 60
 const JUMP_DURATION = 620
 const JUMP_ACTIVE_START = 110
 const JUMP_ACTIVE_END = 500
+const DASH_DISTANCE = 18
+const DASH_DURATION = 210
+const DASH_COOLDOWN = 620
 
 const GD_COMMENTS = [
   'Beau dribble !', 'Petit pont !', 'Il passe !', 'Quel crochet !',
@@ -84,6 +87,7 @@ const KNOWN_PLAYER_NUMBERS: Record<string, number> = {
 }
 
 type SlalomWaveType = 'gate' | 'narrow_gate' | 'slide_wall' | 'double_slide_wall' | 'diagonal_press' | 'moving_gate' | 'bonus_choice' | 'combo_gate_slide'
+type BonusKind = 'coin' | 'boots' | 'whistle'
 
 type SlalomDefender = {
   id: string
@@ -91,6 +95,9 @@ type SlalomDefender = {
   yOffset: number
   label: string
   variant: 'normal' | 'press' | 'tackle' | 'sliding' | 'diagonal' | 'bonus_guard'
+  moveAmplitude?: number
+  moveDuration?: number
+  moveDelay?: number
 }
 
 type SlalomWave = {
@@ -107,6 +114,7 @@ type SlalomWave = {
   failed?: boolean
   requiresJump?: boolean
   hasBonus?: boolean
+  bonusKind?: BonusKind
   bonusCollected?: boolean
   allowsJump?: boolean
   moveAmplitude?: number
@@ -247,6 +255,9 @@ function makeGateDefenders(i: number, center: number, gateWidth: number, players
     yOffset: yJitter(index),
     label: defenderLabel(players, i * 4 + index, String([4, 5, 6, 8, 2, 3, 7, 10][(i + index) % 8])),
     variant: type === 'combo_gate_slide' && index === blockers.length - 1 ? 'sliding' : type === 'diagonal_press' || index === 2 ? 'press' : 'normal',
+    moveAmplitude: type === 'diagonal_press' || type === 'moving_gate' || type === 'combo_gate_slide' || index === 2 ? 3 + rng() * 5 : rng() < 0.35 ? 2 + rng() * 3 : 0,
+    moveDuration: 0.72 + rng() * 0.58,
+    moveDelay: -rng() * 0.7,
   }))
 }
 
@@ -258,6 +269,9 @@ function makeSlideDefenders(i: number, players: string[], doubleLine: boolean): 
     yOffset: doubleLine && index % 2 ? 17 : doubleLine ? -17 : (index - 1) * 5,
     label: defenderLabel(players, i * 4 + index, String([2, 4, 5, 6][index % 4])),
     variant: 'sliding' as const,
+    moveAmplitude: doubleLine ? 5 : 3,
+    moveDuration: doubleLine ? 0.62 : 0.78,
+    moveDelay: index * -0.12,
   }))
 }
 
@@ -289,6 +303,7 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
     const minBonusGap = gateWidth / 2 + Math.max(14, cfg.narrowGateWidth - 2) / 2 + 18
     const bonusGateCenterX = isBonus ? Math.max(18, Math.min(82, safeCenter + bonusDirection * (minBonusGap + rng() * 6))) : undefined
     const bonusGateWidth = isBonus ? Math.max(16, cfg.narrowGateWidth - 2) : undefined
+    const bonusKind = isBonus ? (['coin', 'boots', 'whistle'] as const)[Math.floor(rng() * 3)] : undefined
     const defenders = isSlide
       ? makeSlideDefenders(i, params.players, type === 'double_slide_wall')
       : makeGateDefenders(i, safeCenter, gateWidth, params.players, type, rng, bonusGateCenterX != null && bonusGateWidth != null ? { center: bonusGateCenterX, width: bonusGateWidth } : undefined)
@@ -306,6 +321,7 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
       checked: false,
       requiresJump: isSlide || type === 'combo_gate_slide',
       hasBonus: isBonus,
+      bonusKind,
       bonusCollected: false,
       allowsJump: false,
       moveAmplitude,
@@ -340,12 +356,12 @@ function getJumpTone(wave: SlalomWave, now: number, jump: { isJumping: boolean; 
   return 'TACLE !'
 }
 
-function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive: boolean }, elapsed: number): { success: boolean; bonus?: boolean; label: string } {
-  const halfGate = wave.gateWidth / 2
+function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive: boolean }, elapsed: number, dashActive = false): { success: boolean; bonus?: boolean; label: string } {
+  const halfGate = wave.gateWidth / 2 + (dashActive && isGatePassWave(wave) ? 3 : 0)
   const center = getWaveGateCenter(wave, elapsed)
   const inGate = playerX >= center - halfGate && playerX <= center + halfGate
   const inBonusGate = wave.bonusGateCenterX != null && wave.bonusGateWidth != null
-    ? playerX >= wave.bonusGateCenterX - wave.bonusGateWidth / 2 && playerX <= wave.bonusGateCenterX + wave.bonusGateWidth / 2
+    ? playerX >= wave.bonusGateCenterX - wave.bonusGateWidth / 2 - (dashActive ? 2 : 0) && playerX <= wave.bonusGateCenterX + wave.bonusGateWidth / 2 + (dashActive ? 2 : 0)
     : false
 
   if (wave.type === 'gate') return { success: inGate, label: inGate ? 'PASSE !' : 'INTERCEPTE !' }
@@ -499,6 +515,10 @@ export function AttackPhase({
   const gdWallsRef      = useRef<SlalomWave[]>([])
   const isJumpingRef    = useRef(false)
   const jumpStartedAtRef = useRef<number | null>(null)
+  const dashUntilRef     = useRef(0)
+  const dashCooldownUntilRef = useRef(0)
+  const dashDirectionRef = useRef<1 | -1>(1)
+  const dribbleBoostUntilRef = useRef(0)
   const keysRef         = useRef({ left: false, right: false })
   const commentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const gdCheckedRef    = useRef(0)  // count of walls passed
@@ -513,6 +533,8 @@ export function AttackPhase({
   const [comboDisplay, setComboDisplay] = useState(0)
   const [flow, setFlow] = useState(0)
   const [bonusFlash, setBonusFlash] = useState(false)
+  const [dashActive, setDashActive] = useState(false)
+  const [powerupLabel, setPowerupLabel] = useState<string | null>(null)
 
   const startTutorialCountdown = useCallback(() => {
     sfx.click()
@@ -623,10 +645,15 @@ export function AttackPhase({
     comboRef.current = 0
     maxComboRef.current = 0
     flowRef.current = 0
+    dashUntilRef.current = 0
+    dashCooldownUntilRef.current = 0
+    dribbleBoostUntilRef.current = 0
     shotBonusRef.current = { widerGreen: 0, slowKeeper: 0, powerShot: false }
     setComboDisplay(0)
     setFlow(0)
     setBonusFlash(false)
+    setDashActive(false)
+    setPowerupLabel(null)
     setGdWallsDisplay([...waves])
     if (wallContainerRef.current) wallContainerRef.current.style.transform = 'translateY(0%)'
   }, [awayTeamPlayers, difficulty, shotOnly])
@@ -683,9 +710,21 @@ export function AttackPhase({
 
     if (outcome.bonus) {
       wave.bonusCollected = true
-      shotBonusRef.current.widerGreen += 1
+      const bonusKind = wave.bonusKind ?? 'coin'
+      if (bonusKind === 'coin') {
+        shotBonusRef.current.widerGreen += 1
+        setPowerupLabel('PIECE + ZONE VERTE')
+      } else if (bonusKind === 'boots') {
+        dribbleBoostUntilRef.current = performance.now() + 3200
+        shotBonusRef.current.widerGreen += 0.5
+        setPowerupLabel('CRAMPONS TURBO')
+      } else {
+        shotBonusRef.current.slowKeeper += 1
+        setPowerupLabel('SIFFLET - GARDIEN RALENTI')
+      }
       setBonusFlash(true)
       window.setTimeout(() => setBonusFlash(false), 420)
+      window.setTimeout(() => setPowerupLabel(null), 1150)
     }
 
     if (nextFlow >= 70 && shotBonusRef.current.slowKeeper === 0) {
@@ -722,6 +761,38 @@ export function AttackPhase({
     }, JUMP_DURATION)
   }
 
+  const handleDash = (direction?: -1 | 1) => {
+    const now = performance.now()
+    if (now < dashCooldownUntilRef.current) return
+    const inferredDirection: -1 | 1 = direction
+      ?? (keysRef.current.left && !keysRef.current.right ? -1 : keysRef.current.right && !keysRef.current.left ? 1 : gdPlayerXRef.current < 50 ? 1 : -1)
+    dashDirectionRef.current = inferredDirection
+    dashUntilRef.current = now + DASH_DURATION
+    dashCooldownUntilRef.current = now + DASH_COOLDOWN
+    gdPlayerXRef.current = Math.max(3, Math.min(97, gdPlayerXRef.current + inferredDirection * DASH_DISTANCE))
+    if (playerElRef.current) {
+      const width = gameWidthRef.current || containerRectRef.current.width
+      const x = (gdPlayerXRef.current / 100) * width - 29
+      playerElRef.current.style.transform = `translateX(${x}px)`
+      playerElRef.current.style.setProperty('--atk-player-x', `${x}px`)
+    }
+    sfx.jump()
+    setDashActive(true)
+    setGdComment('ESQUIVE !')
+    if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
+    commentTimerRef.current = setTimeout(() => setGdComment(null), 520)
+    window.setTimeout(() => setDashActive(false), DASH_DURATION)
+  }
+
+  const handleEvade = () => {
+    const nextWave = gdWallsRef.current.find((wave) => !wave.checked)
+    if (nextWave?.requiresJump) {
+      handleJump()
+      return
+    }
+    handleDash()
+  }
+
   //  Keyboard handler 
   useEffect(() => {
     if (!tutorialDone) return
@@ -729,6 +800,7 @@ export function AttackPhase({
       if (e.key === 'ArrowLeft')  { keysRef.current.left  = true; e.preventDefault() }
       if (e.key === 'ArrowRight') { keysRef.current.right = true; e.preventDefault() }
       if (e.key === ' ')          { handleJump(); e.preventDefault() }
+      if (e.key === 'Shift')      { handleDash(); e.preventDefault() }
     }
     const onUp = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft')  keysRef.current.left  = false
@@ -762,12 +834,19 @@ export function AttackPhase({
 
       gdElapsedRef.current += delta
 
+      const isTurboActive = now < dribbleBoostUntilRef.current
+      const playerSpeed = PLAYER_SPEED * (isTurboActive ? 1.22 : 1) * (flowRef.current >= 70 ? 1.08 : 1)
+      const dashActiveNow = now < dashUntilRef.current
+
       // Move player X via keyboard  direct DOM, no React re-render
       if (keysRef.current.left) {
-        gdPlayerXRef.current = Math.max(3, gdPlayerXRef.current - PLAYER_SPEED * delta)
+        gdPlayerXRef.current = Math.max(3, gdPlayerXRef.current - playerSpeed * delta)
       }
       if (keysRef.current.right) {
-        gdPlayerXRef.current = Math.min(97, gdPlayerXRef.current + PLAYER_SPEED * delta)
+        gdPlayerXRef.current = Math.min(97, gdPlayerXRef.current + playerSpeed * delta)
+      }
+      if (dashActiveNow) {
+        gdPlayerXRef.current = Math.max(3, Math.min(97, gdPlayerXRef.current + dashDirectionRef.current * 48 * delta))
       }
       if (playerElRef.current) {
         // transform: compositor thread only  no layout, no paint
@@ -805,7 +884,7 @@ export function AttackPhase({
 
         wall.checked = true
         const jump = getJumpState(now)
-        const outcome = evaluateWaveSuccess(wall, playerX, jump, gdElapsedRef.current)
+        const outcome = evaluateWaveSuccess(wall, playerX, jump, gdElapsedRef.current, dashActiveNow)
 
         if (outcome.success) {
           wall.passed = true
@@ -1151,7 +1230,7 @@ export function AttackPhase({
         if (phase === 'gd') {
           handleGdPointerMove(e)
           const rect = containerRectRef.current
-          if (rect.width && e.clientY > window.innerHeight * 0.58) handleJump()
+          if (rect.width && e.clientY > window.innerHeight * 0.58) handleEvade()
         }
         else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerDown(e)
       }}
@@ -1282,6 +1361,7 @@ export function AttackPhase({
         .atk-dribble-title small { display:block; margin-top:2px; color:rgba(255,255,255,.6); font:800 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .atk-flow-bar { width:min(210px,58vw); height:7px; margin-top:7px; border-radius:999px; background:rgba(255,255,255,.13); overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
         .atk-flow-bar__fill { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#2bff9a,#b8ff6a,#ffb800); box-shadow:0 0 12px rgba(43,255,154,.52); transition:width .22s ease-out; }
+        .atk-powerup-label { margin-top:5px; width:max-content; max-width:min(220px,58vw); padding:4px 8px; border-radius:999px; background:rgba(255,184,0,.16); border:1px solid rgba(255,184,0,.42); color:#ffdf73; font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-transform:uppercase; box-shadow:0 0 14px rgba(255,184,0,.24); animation:atkPowerupPop .42s ease-out both; }
         .atk-combo-badge { min-width:72px; padding:7px 9px; border-radius:12px; text-align:center; color:#dfffee; background:rgba(5,16,21,.68); border:1px solid rgba(43,255,154,.32); font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.12em; box-shadow:0 0 18px rgba(43,255,154,.14); }
         .atk-combo-badge.is-hot { color:#201300; background:linear-gradient(180deg,#ffdc73,#ffb800); border-color:rgba(255,255,255,.48); box-shadow:0 0 22px rgba(255,184,0,.42); }
         .atk-bonus-flash { position:absolute; inset:0; z-index:23; pointer-events:none; background:radial-gradient(circle at 50% 72%, rgba(255,184,0,.34), transparent 42%); animation:atkBonusFlash .42s ease-out both; }
@@ -1310,6 +1390,8 @@ export function AttackPhase({
         .atk-gd-player--flash .atk-player-inner { filter: drop-shadow(0 0 14px rgba(255,68,85,1)); }
         .atk-gd-player--pass .atk-player-inner { transform:scale(1.28);filter:drop-shadow(0 0 18px rgba(43,255,154,.65)); }
         .atk-gd-player--pass .atk-player-shadow { transform:translateX(-50%) scale(1.55);opacity:.18; }
+        .atk-gd-player.is-dashing .atk-player-inner { transform:scale(1.18) skewX(-8deg); filter:drop-shadow(0 0 20px rgba(25,211,255,.82)); }
+        .atk-gd-player.is-dashing::before { content:''; position:absolute; right:38px; top:22px; width:58px; height:18px; border-radius:999px; background:linear-gradient(90deg, transparent, rgba(25,211,255,.55)); transform:scaleX(calc(var(--atk-dash-dir, 1))); opacity:.86; animation:atkDashTrail .2s ease-out both; }
         .atk-player-whoosh { position:absolute;left:50%;top:46%;width:62px;height:62px;border-radius:50%;border:2px solid rgba(43,255,154,.34);transform:translate(-50%,-50%) scale(.7);opacity:0;pointer-events:none; }
         .atk-gd-player--pass .atk-player-whoosh { animation:atkJumpWhoosh .34s ease-out both; }
         .atk-gd-player.is-flowing .atk-player-inner { filter:drop-shadow(0 0 18px rgba(43,255,154,.82)); }
@@ -1356,6 +1438,9 @@ export function AttackPhase({
         .atk-slalom-gate.is-bonus { border-color:#FFB800; color:#2b1800; background:radial-gradient(ellipse at center,rgba(255,184,0,.28),rgba(255,184,0,.08) 72%,transparent 100%); box-shadow:0 0 30px rgba(255,184,0,.48), inset 0 0 18px rgba(255,255,255,.18); }
         .atk-slalom-gate.is-bonus::before { background:#FFB800; box-shadow:0 0 16px rgba(255,184,0,.9); }
         .atk-slalom-gate.is-bonus .atk-slalom-gate__label { color:#fff2bf; text-shadow:0 0 12px rgba(255,184,0,.95); }
+        .atk-bonus-orb { position:absolute; left:50%; top:-18px; transform:translateX(-50%); min-width:30px; height:30px; padding:0 5px; border-radius:999px; display:grid; place-items:center; background:linear-gradient(180deg,#fff2b6,#ffb800); color:#1e1300; font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.05em; border:2px solid rgba(255,255,255,.72); box-shadow:0 0 20px rgba(255,184,0,.72); animation:atkBonusOrb 1s ease-in-out infinite alternate; }
+        .atk-bonus-orb.is-boots { background:linear-gradient(180deg,#bdfcff,#19d3ff); color:#01141b; box-shadow:0 0 20px rgba(25,211,255,.72); }
+        .atk-bonus-orb.is-whistle { background:linear-gradient(180deg,#d8ffba,#2bff9a); color:#03160c; box-shadow:0 0 20px rgba(43,255,154,.72); }
         .atk-bonus-choice-label { position:absolute; left:50%; top:34px; transform:translateX(-50%); color:#ffdf73; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-shadow:0 0 10px rgba(255,184,0,.8); white-space:nowrap; }
         .atk-slalom-gate__label { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:1; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.16em; color:#dfffee; text-shadow:0 0 10px rgba(43,255,154,.8); }
         .atk-slide-wall { position:absolute;left:0;right:0;height:74px;top:0;transform:translateY(-50%);pointer-events:none;z-index:4; }
@@ -1363,6 +1448,7 @@ export function AttackPhase({
         .atk-slide-wall.is-failed .atk-slide-danger { background:rgba(255,68,85,.18);border-color:rgba(255,68,85,.7);box-shadow:0 0 24px rgba(255,68,85,.42); }
         .atk-slide-label { position:absolute;left:50%;top:-16px;transform:translateX(-50%);color:#FFB800;font:900 12px 'Barlow Condensed',sans-serif;letter-spacing:.13em;text-shadow:0 0 12px rgba(255,184,0,.85);white-space:nowrap; }
         .atk-slalom-defender { position:absolute; transform:translate(-50%,-50%); z-index:9; filter:drop-shadow(0 10px 12px rgba(0,0,0,.44)); animation: atkRunnerBob .42s ease-in-out infinite alternate; }
+        .atk-slalom-defender.is-mobile { animation: atkRunnerBob .42s ease-in-out infinite alternate, atkDefenderPatrol var(--atk-defender-duration,.9s) ease-in-out var(--atk-defender-delay,0s) infinite alternate; }
         .atk-slalom-defender.is-tackle { animation: atkTackle .62s ease-in-out infinite alternate; }
         .atk-slalom-defender.is-sliding { transform:translate(-50%,-50%) rotate(-68deg) scale(1.04);filter:drop-shadow(0 8px 10px rgba(0,0,0,.45));animation:atkSlideSkid .38s ease-in-out infinite alternate; }
         .atk-slalom-defender.is-press,.atk-slalom-defender.is-diagonal { filter:drop-shadow(0 0 14px rgba(25,211,255,.34)) drop-shadow(0 10px 12px rgba(0,0,0,.44)); }
@@ -1376,6 +1462,7 @@ export function AttackPhase({
         @keyframes atkGatePulse { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.9} 50%{transform:translate(-50%,-50%) scale(1.06);opacity:1} }
         @keyframes atkGatePass { from{transform:translate(-50%,-50%) scale(1);opacity:1} to{transform:translate(-50%,-50%) scale(1.35);opacity:.2} }
         @keyframes atkRunnerBob { from{translate:0 -2px} to{translate:0 3px} }
+        @keyframes atkDefenderPatrol { from{ margin-left:calc(var(--atk-defender-patrol,0%) * -1); } to{ margin-left:var(--atk-defender-patrol,0%); } }
         @keyframes slideDangerPulse { from{opacity:.45} to{opacity:1} }
         @keyframes atkSlideSkid { from{translate:-1px -1px} to{translate:2px 2px} }
         @keyframes atkJumpWhoosh { 0%{opacity:.75;transform:translate(-50%,-50%) scale(.55)} 100%{opacity:0;transform:translate(-50%,-50%) scale(1.35)} }
@@ -1384,6 +1471,9 @@ export function AttackPhase({
         @keyframes atkLegR { from{transform:rotate(8deg)} to{transform:rotate(-6deg)} }
         @keyframes atkPassPop { from{opacity:0;transform:translate(-50%,8px) scale(.8)} 20%{opacity:1} to{opacity:0;transform:translate(-50%,-18px) scale(1.1)} }
         @keyframes atkBonusFlash { from{opacity:1; transform:scale(.92)} to{opacity:0; transform:scale(1.08)} }
+        @keyframes atkBonusOrb { from{ transform:translateX(-50%) translateY(0) scale(.95); } to{ transform:translateX(-50%) translateY(-4px) scale(1.08); } }
+        @keyframes atkPowerupPop { from{ opacity:0; transform:translateY(6px) scale(.92); } to{ opacity:1; transform:none; } }
+        @keyframes atkDashTrail { from{ opacity:.9; transform:translateX(0); } to{ opacity:0; transform:translateX(-22px); } }
         @keyframes atkJumpButtonAlert { from{ transform:translateY(0); filter:brightness(1); } to{ transform:translateY(-2px); filter:brightness(1.18); } }
         @keyframes atkGhostPlayer { 0%,100%{ transform:translateX(-42px); } 50%{ transform:translateX(42px); } }
         @keyframes atkGhostFinger { 0%,100%{ transform:translate(-62px,-50%); opacity:.35; } 50%{ transform:translate(44px,-50%); opacity:.9; } }
@@ -1809,7 +1899,7 @@ export function AttackPhase({
             <br /><br />
             Garde le <b style={{ color:'#FFB800' }}>FLOW</b> : les combos agrandissent la zone verte, ralentissent le gardien ou boostent la frappe.
             <br /><br />
-            <span style={{ color:'rgba(255,255,255,.5)', fontSize:'0.9em' }}> Clavier :   pour se deplacer  Espace pour sauter</span>
+            <span style={{ color:'rgba(255,255,255,.5)', fontSize:'0.9em' }}>Clavier : fleches pour se deplacer, Espace pour sauter, Shift pour esquiver</span>
           </div>
           <span className="atk-tutorial__arrow"></span>
           <button
@@ -1861,6 +1951,7 @@ export function AttackPhase({
               <div>
                 <div className="atk-dribble-title">DRIBBLE RUSH<small>Vague {gdCheckedRef.current + 1}/{cfg.waveCount} - {gdInstruction}</small></div>
                 <div className="atk-flow-bar"><div className="atk-flow-bar__fill" style={{ width: `${flow}%` }} /></div>
+                {powerupLabel ? <div className="atk-powerup-label">{powerupLabel}</div> : null}
               </div>
               <div className={`atk-combo-badge${comboDisplay >= 5 ? ' is-hot' : ''}`}>COMBO x{comboDisplay}</div>
             </div>
@@ -1920,13 +2011,26 @@ export function AttackPhase({
                     ) : wave.passed ? <span className="atk-pass-pop atk-pass-pop--slide">SAUTE !</span> : null}
                     {wave.hasBonus && wave.bonusGateCenterX != null && wave.bonusGateWidth != null ? (
                       <div className={`atk-slalom-gate is-bonus${wave.bonusCollected ? ' is-passed' : ''}${wave.failed ? ' is-failed' : ''}`} style={{ left: `${wave.bonusGateCenterX}%`, width: bonusGatePxWidth }}>
-                        <span className="atk-slalom-gate__label">BONUS</span>
+                        <span className={`atk-bonus-orb is-${wave.bonusKind ?? 'coin'}`}>
+                          {wave.bonusKind === 'boots' ? 'SPD' : wave.bonusKind === 'whistle' ? 'STOP' : '$'}
+                        </span>
+                        <span className="atk-slalom-gate__label">{wave.bonusKind === 'boots' ? 'TURBO' : wave.bonusKind === 'whistle' ? 'SIFFLET' : 'PIECE'}</span>
                         <span className="atk-bonus-choice-label">RISQUE = BONUS</span>
                         {wave.bonusCollected ? <span className="atk-pass-pop">BONUS !</span> : null}
                       </div>
                     ) : null}
                     {wave.defenders.map((defender) => (
-                      <div key={defender.id} className={`atk-slalom-defender is-${defender.variant}`} style={{ left: `${defender.x}%`, top: defender.yOffset }}>
+                      <div
+                        key={defender.id}
+                        className={`atk-slalom-defender is-${defender.variant}${defender.moveAmplitude ? ' is-mobile' : ''}`}
+                        style={{
+                          left: `${defender.x}%`,
+                          top: defender.yOffset,
+                          '--atk-defender-patrol': `${defender.moveAmplitude ?? 0}%`,
+                          '--atk-defender-duration': `${defender.moveDuration ?? 0.9}s`,
+                          '--atk-defender-delay': `${defender.moveDelay ?? 0}s`,
+                        } as CSSProperties}
+                      >
                         <KawaiiFootballer
                           label={defender.label}
                           jerseyColor={opponentJerseyColor}
@@ -1948,11 +2052,16 @@ export function AttackPhase({
               className={[
                 'atk-gd-player',
                 gdJumping ? 'atk-gd-player--pass' : '',
+                dashActive ? 'is-dashing' : '',
                 gdFlash   ? 'atk-gd-player--flash' : '',
                 flow >= 40 ? 'is-flowing' : '',
                 flow >= 100 ? 'is-max-flow' : '',
               ].join(' ')}
-              style={{ transform: `translateX(${(gdPlayerXRef.current / 100) * gameWidthRef.current - 29}px)`, '--atk-player-x': `${(gdPlayerXRef.current / 100) * gameWidthRef.current - 29}px` } as CSSProperties}
+              style={{
+                transform: `translateX(${(gdPlayerXRef.current / 100) * gameWidthRef.current - 29}px)`,
+                '--atk-player-x': `${(gdPlayerXRef.current / 100) * gameWidthRef.current - 29}px`,
+                '--atk-dash-dir': dashDirectionRef.current,
+              } as CSSProperties}
             >
               <div className="atk-player-shadow" />
               <div className="atk-player-inner">
@@ -2131,7 +2240,7 @@ export function AttackPhase({
           <div className="atk-controls__stat">FLOW {flow}<small>Combo x{comboDisplay}</small></div>
           <div className="atk-controls__buttons">
             <button type="button" className="atk-ctrl-btn" data-control="left" aria-label="Gauche" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.left = true }} onPointerUp={() => { keysRef.current.left = false }} onPointerCancel={() => { keysRef.current.left = false }} onPointerLeave={() => { keysRef.current.left = false }}>←</button>
-            <button type="button" className={`atk-ctrl-btn atk-ctrl-btn--evade${gdJumping ? ' is-jumping' : ''}${nextGdWave?.requiresJump ? ' is-danger' : ''}`} data-control="jump" aria-label="Saut" onPointerDown={(e) => { e.stopPropagation(); handleJump() }}><b>↑</b>SAUT</button>
+            <button type="button" className={`atk-ctrl-btn atk-ctrl-btn--evade${gdJumping || dashActive ? ' is-jumping' : ''}${nextGdWave?.requiresJump ? ' is-danger' : ''}`} data-control="jump" aria-label="Esquive" onPointerDown={(e) => { e.stopPropagation(); handleEvade() }}><b>{nextGdWave?.requiresJump ? '↑' : '↯'}</b>{nextGdWave?.requiresJump ? 'SAUT' : 'ESQUIVE'}</button>
             <button type="button" className="atk-ctrl-btn" data-control="right" aria-label="Droite" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.right = true }} onPointerUp={() => { keysRef.current.right = false }} onPointerCancel={() => { keysRef.current.right = false }} onPointerLeave={() => { keysRef.current.right = false }}>→</button>
           </div>
           <div className={`atk-controls__phase${gdBadgeClass}`}>SLALOM<small>{gdInstruction}</small></div>
