@@ -7,6 +7,7 @@ import react from '@vitejs/plugin-react'
 import { buildFifaLiveSnapshot } from './scripts/fifa-sync-core.mjs'
 import bracketShareHandler from './api/bracket-share'
 import adminAnalyticsHandler from './api/admin-analytics'
+import challengeHandler from './api/challenge'
 
 const seedPath = fileURLToPath(new URL('./public/data/world-cup-2026.json', import.meta.url))
 
@@ -377,6 +378,43 @@ function adminAnalyticsApi() {
   }
 }
 
+function challengeApi() {
+  const handler = async (req: { method?: string; headers: Record<string, string | string[] | undefined>; on: (event: string, callback: (chunk?: Buffer) => void) => void }, res: ApiResponse) => {
+    const body = req.method === 'POST' ? await readRequestBody(req) : undefined
+    let statusCode = 200
+    const apiRes: BracketShareResponse = {
+      status(code) {
+        statusCode = code
+        res.statusCode = code
+        return apiRes
+      },
+      json(payload) {
+        res.statusCode = statusCode
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        res.end(JSON.stringify(payload))
+      },
+      setHeader(name, value) {
+        res.setHeader(name, String(value))
+      },
+      end(payload) {
+        res.statusCode = statusCode
+        res.end(payload ?? '')
+      },
+    }
+    await challengeHandler({ method: req.method, headers: req.headers, body }, apiRes)
+  }
+
+  return {
+    name: 'challenge-api',
+    configureServer(server: { middlewares: { use: (path: string, callback: (req: Parameters<typeof handler>[0], res: ApiResponse) => void) => void } }) {
+      server.middlewares.use('/api/challenge', handler)
+    },
+    configurePreviewServer(server: { middlewares: { use: (path: string, callback: (req: Parameters<typeof handler>[0], res: ApiResponse) => void) => void } }) {
+      server.middlewares.use('/api/challenge', handler)
+    },
+  }
+}
+
 function oddsApi() {
   const handler = async (_req: unknown, res: ApiResponse) => {
     const apiKey = process.env.ODDS_API_KEY
@@ -451,5 +489,5 @@ function oddsApi() {
 }
 
 export default defineConfig({
-  plugins: [seoRedirects(), react(), fifaSyncApi(), matchStatsApi(), oddsApi(), bracketShareApi(), adminAnalyticsApi()],
+  plugins: [seoRedirects(), react(), fifaSyncApi(), matchStatsApi(), oddsApi(), bracketShareApi(), adminAnalyticsApi(), challengeApi()],
 })

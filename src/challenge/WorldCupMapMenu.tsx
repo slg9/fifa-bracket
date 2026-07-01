@@ -18,6 +18,7 @@ export interface WorldCupMapMenuProps {
   onSimulate?: (matchId: string) => void
   onShowBracket?: () => void
   autosavedAt?: string | null
+  ownerPseudo?: string
 }
 
 type NodeStatus = 'locked' | 'available' | 'picked' | 'completed' | 'live' | 'closed'
@@ -141,11 +142,6 @@ function entrantTeam(match: KnockoutMatch, side: 'home' | 'away', teamsById: Map
 function displayTeamName(team?: Team, fallback?: string) {
   if (team) return team.shortName || team.name
   return fallback ?? 'À déterminer'
-}
-
-function formatAutosaveTime(value?: string | null) {
-  if (!value) return 'Brouillon local'
-  return `Sauvé ${new Date(value).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
 function formatMatchDetailDateTime(matchId: string, fallbackDateLabel: string) {
@@ -619,7 +615,7 @@ export function WorldCupMapMenu({
   onPlay,
   onSimulate,
   onShowBracket,
-  autosavedAt,
+  ownerPseudo = 'Invite',
 }: WorldCupMapMenuProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const panFocusRef = useRef<string | null>(null)
@@ -852,12 +848,13 @@ export function WorldCupMapMenu({
     sfx.click()
     onPlay(selectedNode.id, selectedNode.pickedTeamId)
   }
+  const displayedPseudo = ownerPseudo.trim() || 'Invite'
 
   return (
     <section className="wcmap">
       <div className="wcmap__autosave" aria-live="polite">
-        <span>{formatAutosaveTime(autosavedAt)}</span>
-        {onShowBracket ? <button type="button" onClick={onShowBracket}>Tableau</button> : null}
+        <span>{displayedPseudo}</span>
+        {onShowBracket ? <button type="button" onClick={onShowBracket} aria-label="Ouvrir le tableau">⊞</button> : null}
       </div>
       <div
         className="wcmap__viewport"

@@ -35,7 +35,7 @@ async function sha256(value: string): Promise<string> {
   return base64Url(new Uint8Array(digest))
 }
 
-async function signingKey(): Promise<CryptoKey> {
+async function signingKey() {
   return crypto.subtle.importKey(
     'raw',
     encoder.encode(process.env.JWT_SECRET ?? DEV_SECRET),
@@ -575,8 +575,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         res.status(500).json({ error: 'Connexion indisponible: stockage Brakup non configuré.' })
         return
       }
-      const entries = await readJson<ChallengeEntry[]>(`challenge/${emailHash}/brackets.json`, [])
-      
       // Generer OTP et envoyer email dans tous les cas
       // La creation de compte se fera dans verifyLoginOTP si necessaire
       const token = await signToken(emailHash)
@@ -598,7 +596,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     if (action === 'verifyLoginOTP') {
       const email = String(body.email ?? '')
       const otp = String(body.otp ?? '')
-      const pseudo = String(body.pseudo ?? '')
       if (!email.includes('@') || !otp || otp.length !== 6) {
         res.status(400).json({ error: 'Email et code OTP (6 chiffres) requis.' })
         return
@@ -719,7 +716,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       
       const emailHash = await sha256(email)
       const otpPathname = `challenge/otp/${emailHash}.json`
-      const otpData = await readJson<{ email: string; pseudo: string; otp: string; expiresAt: number }>(otpPathname, null)
+      const otpData = await readJson<{ email: string; pseudo: string; otp: string; expiresAt: number } | null>(otpPathname, null)
       
       if (!otpData || otpData.otp !== otp || otpData.expiresAt < Date.now()) {
         res.status(401).json({ error: 'Code OTP invalide ou expiré.' })
