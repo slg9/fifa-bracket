@@ -27,7 +27,7 @@ type AttackPhaseProps = {
 //  Config 
 const ATTACK_CFG = {
   easy:   { waveCount: 18, gateWidth: 42, narrowGateWidth: 32, gdSpeed: 28, difficultyRamp: 0.34, spacing: 42, gaugeGreenPx: 42, gaugeSpeed: 0.78 },
-  medium: { waveCount: 22, gateWidth: 36, narrowGateWidth: 28, gdSpeed: 35, difficultyRamp: 0.52, spacing: 40, gaugeGreenPx: 36, gaugeSpeed: 1.15 },
+  medium: { waveCount: 22, gateWidth: 36, narrowGateWidth: 28, gdSpeed: 35, difficultyRamp: 0.52, spacing: 40, gaugeGreenPx: 38, gaugeSpeed: 0.96 },
   hard:   { waveCount: 26, gateWidth: 31, narrowGateWidth: 24, gdSpeed: 41, difficultyRamp: 0.74, spacing: 37, gaugeGreenPx: 33, gaugeSpeed: 1.34 },
 }
 
@@ -60,9 +60,9 @@ const JUMP_ACTIVE_END = 500
 const DASH_DISTANCE = 18
 const DASH_DURATION = 210
 const DASH_COOLDOWN = 620
-const ROULETTE_DURATION = 520
+const ROULETTE_DURATION = 820
 const ROULETTE_ACTIVE_START = 90
-const ROULETTE_ACTIVE_END = 430
+const ROULETTE_ACTIVE_END = 720
 const ROULETTE_COOLDOWN = 760
 const FEVER_DURATION = 3600
 const ATTACK_MAX_LIVES = 3
@@ -229,7 +229,7 @@ function pickWaveType(rng: () => number, difficulty: BattleDifficulty, previous:
     if (difficulty === 'easy' && (type === 'double_slide_wall' || type === 'combo_gate_slide')) continue
     if (difficulty === 'easy' && type === 'combo_gate_slide') continue
     if (difficulty === 'medium' && type === 'combo_gate_slide' && rng() < 0.35) continue
-    if (type === 'roulette_wall' && index < 5) continue
+    if (type === 'roulette_wall' && index < 3) continue
     return type
   }
   return 'gate'
@@ -317,8 +317,9 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
     const progress = i / Math.max(1, cfg.waveCount - 1)
     const bonusEvery = params.difficulty === 'easy' ? 5 : params.difficulty === 'medium' ? 4 : 4
     const forceBonus = i > 2 && i < cfg.waveCount - 2 && i % bonusEvery === 1
+    const forceRoulette = i === 4 || (params.difficulty !== 'easy' && i > 7 && i % 7 === 4)
     const forceDiagonal = i > 3 && params.difficulty !== 'easy' && i % 6 === 3
-    const rawType = forceBonus ? 'bonus_choice' : forceDiagonal ? 'diagonal_press' : pickWaveType(rng, params.difficulty, types, i)
+    const rawType = forceRoulette ? 'roulette_wall' : forceBonus ? 'bonus_choice' : forceDiagonal ? 'diagonal_press' : pickWaveType(rng, params.difficulty, types, i)
     const type = i < 2 && rawType !== 'gate' && rawType !== 'narrow_gate' ? 'gate' : rawType
     const center = pickGateCenter(rng, centers, params.difficulty)
     centers.push(center)
@@ -1577,9 +1578,11 @@ export function AttackPhase({
         .atk-gd-player.is-dashing .atk-player-inner { transform:scale(1.18) skewX(-8deg); filter:drop-shadow(0 0 20px rgba(25,211,255,.82)); }
         .atk-gd-player.is-dashing::before { content:''; position:absolute; right:38px; top:22px; width:58px; height:18px; border-radius:999px; background:linear-gradient(90deg, transparent, rgba(25,211,255,.55)); transform:scaleX(calc(var(--atk-dash-dir, 1))); opacity:.86; animation:atkDashTrail .2s ease-out both; }
         .atk-gd-player.is-ghost .atk-player-inner { opacity:.48;filter:drop-shadow(0 0 24px rgba(189,252,255,.95));animation:atkGhostBlink .18s linear infinite alternate; }
-        .atk-gd-player.is-roulette .atk-player-inner { animation:atkRouletteSpin .52s cubic-bezier(.2,.9,.25,1) both;filter:drop-shadow(0 0 24px rgba(255,184,0,.9)); }
+        .atk-gd-player.is-roulette .atk-player-inner { animation:atkRouletteSpin .82s cubic-bezier(.16,.92,.22,1) both;filter:drop-shadow(0 0 30px rgba(255,184,0,.95)) drop-shadow(0 0 18px rgba(43,255,154,.72)); }
         .atk-player-whoosh { position:absolute;left:50%;top:46%;width:62px;height:62px;border-radius:50%;border:2px solid rgba(43,255,154,.34);transform:translate(-50%,-50%) scale(.7);opacity:0;pointer-events:none; }
         .atk-gd-player--pass .atk-player-whoosh { animation:atkJumpWhoosh .34s ease-out both; }
+        .atk-gd-player.is-roulette .atk-player-whoosh { width:128px;height:128px;border-color:rgba(255,184,0,.72);box-shadow:0 0 26px rgba(255,184,0,.42), inset 0 0 24px rgba(43,255,154,.18);animation:atkRouletteRing .82s ease-out both; }
+        .atk-gd-player.is-roulette::after { content:'ROULETTE'; position:absolute; left:50%; top:-26px; transform:translateX(-50%); color:#FFB800; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.14em; white-space:nowrap; text-shadow:0 0 14px rgba(255,184,0,.9); animation:atkPowerupPop .2s ease-out both; }
         .atk-gd-player.is-flowing .atk-player-inner { filter:drop-shadow(0 0 18px rgba(43,255,154,.82)); }
         .atk-gd-player.is-max-flow .atk-player-inner { filter:drop-shadow(0 0 22px rgba(255,184,0,.9)) drop-shadow(0 0 16px rgba(43,255,154,.62)); }
         .atk-gd-player.is-max-flow::after { content:'TIR BOOSTE'; position:absolute; left:50%; top:-22px; transform:translateX(-50%); color:#ffdd73; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; white-space:nowrap; text-shadow:0 0 12px rgba(255,184,0,.8); }
@@ -1665,7 +1668,8 @@ export function AttackPhase({
         @keyframes atkFeverPulse { from{ filter:brightness(1); } to{ filter:brightness(1.32); } }
         @keyframes atkFeverPlayer { from{ transform:scale(1.02) rotate(-1deg); } to{ transform:scale(1.1) rotate(1deg); } }
         @keyframes atkGhostBlink { from{ opacity:.36; } to{ opacity:.72; } }
-        @keyframes atkRouletteSpin { 0%{ transform:rotate(0deg) scale(1); } 58%{ transform:rotate(300deg) scale(1.16); } 100%{ transform:rotate(360deg) scale(1); } }
+        @keyframes atkRouletteSpin { 0%{ transform:rotate(0deg) scale(1); } 30%{ transform:rotate(270deg) scale(1.18) skewX(-10deg); } 62%{ transform:rotate(620deg) scale(1.26) skewX(8deg); } 100%{ transform:rotate(900deg) scale(1); } }
+        @keyframes atkRouletteRing { 0%{ opacity:0;transform:translate(-50%,-50%) scale(.35) rotate(0deg); } 22%{ opacity:.95; } 100%{ opacity:0;transform:translate(-50%,-50%) scale(1.45) rotate(420deg); } }
         @keyframes atkBonusOrb { from{ transform:translateX(-50%) translateY(0) scale(.95); } to{ transform:translateX(-50%) translateY(-4px) scale(1.08); } }
         @keyframes atkPowerupPop { from{ opacity:0; transform:translateY(6px) scale(.92); } to{ opacity:1; transform:none; } }
         @keyframes atkDashTrail { from{ opacity:.9; transform:translateX(0); } to{ opacity:0; transform:translateX(-22px); } }
