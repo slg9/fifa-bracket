@@ -1395,8 +1395,8 @@ export function AttackPhase({
           pointer-events: none; overflow: visible;
         }
         .atk-dribble-hud {
-          position: absolute; top: max(106px, calc(env(safe-area-inset-top) + 96px)); left: 14px; right: 14px; z-index: 24;
-          display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start;
+          position: absolute; top: max(106px, calc(env(safe-area-inset-top) + 96px)); left: 14px; right: auto; width: min(270px, 72vw); z-index: 24;
+          display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; align-items: start;
           pointer-events: none;
         }
         .atk-dribble-title { color:#eafff5; font:900 13px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-shadow:0 0 12px rgba(43,255,154,.42); }
@@ -1405,7 +1405,7 @@ export function AttackPhase({
         .atk-flow-bar__fill { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#2bff9a,#b8ff6a,#ffb800); box-shadow:0 0 12px rgba(43,255,154,.52); transition:width .22s ease-out; }
         .atk-flow-bar.is-fever .atk-flow-bar__fill { background:linear-gradient(90deg,#19d3ff,#2bff9a,#ffb800,#ff5f7c); box-shadow:0 0 20px rgba(255,184,0,.72); animation:atkFeverPulse .32s ease-in-out infinite alternate; }
         .atk-powerup-label { margin-top:5px; width:max-content; max-width:min(220px,58vw); padding:4px 8px; border-radius:999px; background:rgba(255,184,0,.16); border:1px solid rgba(255,184,0,.42); color:#ffdf73; font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-transform:uppercase; box-shadow:0 0 14px rgba(255,184,0,.24); animation:atkPowerupPop .42s ease-out both; }
-        .atk-combo-badge { min-width:72px; padding:7px 9px; border-radius:12px; text-align:center; color:#dfffee; background:rgba(5,16,21,.68); border:1px solid rgba(43,255,154,.32); font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.12em; box-shadow:0 0 18px rgba(43,255,154,.14); }
+        .atk-combo-badge { margin-top:5px; width:max-content; min-width:0; padding:4px 7px; border-radius:999px; text-align:center; color:rgba(223,255,238,.86); background:rgba(5,16,21,.52); border:1px solid rgba(43,255,154,.24); font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.1em; box-shadow:0 0 12px rgba(43,255,154,.1); opacity:.82; }
         .atk-combo-badge.is-hot { color:#201300; background:linear-gradient(180deg,#ffdc73,#ffb800); border-color:rgba(255,255,255,.48); box-shadow:0 0 22px rgba(255,184,0,.42); }
         .atk-perfect-badge { margin-top:7px; width:max-content; padding:4px 8px; border-radius:999px; color:#03131d; background:linear-gradient(90deg,#bdfcff,#2bff9a); font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; box-shadow:0 0 14px rgba(43,255,154,.38); }
         .atk-perfect-badge.is-fever { background:linear-gradient(90deg,#ffdf73,#ff5f7c); box-shadow:0 0 20px rgba(255,184,0,.54); animation:atkFeverPulse .36s ease-in-out infinite alternate; }
@@ -2001,8 +2001,8 @@ export function AttackPhase({
                 <div className={`atk-flow-bar${feverActive ? ' is-fever' : ''}`}><div className="atk-flow-bar__fill" style={{ width: `${flow}%` }} /></div>
                 {perfectStreak > 0 ? <div className={`atk-perfect-badge${feverActive ? ' is-fever' : ''}`}>{feverActive ? 'FEVER' : 'PERFECT'} x{perfectStreak}</div> : null}
                 {powerupLabel ? <div className="atk-powerup-label">{powerupLabel}</div> : null}
+                {comboDisplay > 0 ? <div className={`atk-combo-badge${comboDisplay >= 5 || feverActive ? ' is-hot' : ''}`}>COMBO x{comboDisplay}</div> : null}
               </div>
-              <div className={`atk-combo-badge${comboDisplay >= 5 || feverActive ? ' is-hot' : ''}`}>COMBO x{comboDisplay}</div>
             </div>
 
             {/* Faint pitch markings SVG */}

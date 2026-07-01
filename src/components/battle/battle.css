@@ -110,11 +110,11 @@
 .battle-match-scorers span { color:#2bff9a;font:900 11px 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.16em;text-transform:uppercase; }
 .battle-match-scorers div { display:flex;flex-wrap:wrap;justify-content:center;gap:7px; }
 .battle-match-scorers b { padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.1);color:#fff;font:900 12px 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.08em;text-transform:uppercase; }
-.battle-difficulty-pill { position:absolute;top:max(116px,calc(env(safe-area-inset-top) + 104px));left:12px;z-index:145;display:grid;place-items:center;min-width:46px;height:30px;padding:0 10px;border:1px solid rgba(255,255,255,.22);border-radius:999px;background:rgba(5,11,22,.74);backdrop-filter:blur(4px);box-shadow:0 10px 24px rgba(0,0,0,.28); }
-.battle-difficulty-pill span { color:#fff;font:900 10px 'JetBrains Mono',monospace;letter-spacing:.08em; }
-.battle-difficulty-pill.is-easy { border-color:rgba(43,255,154,.44);box-shadow:0 0 18px rgba(43,255,154,.14); }
-.battle-difficulty-pill.is-medium { border-color:rgba(255,184,0,.48);box-shadow:0 0 18px rgba(255,184,0,.14); }
-.battle-difficulty-pill.is-hard { border-color:rgba(255,68,85,.55);box-shadow:0 0 18px rgba(255,68,85,.18); }
+.battle-difficulty-pill { position:absolute;left:10px;bottom:max(8px,calc(env(safe-area-inset-bottom) + 6px));z-index:42;display:grid;place-items:center;min-width:34px;height:20px;padding:0 7px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(5,11,22,.46);backdrop-filter:blur(3px);box-shadow:none;opacity:.62;pointer-events:none; }
+.battle-difficulty-pill span { color:rgba(255,255,255,.86);font:900 8px 'JetBrains Mono',monospace;letter-spacing:.04em; }
+.battle-difficulty-pill.is-easy { border-color:rgba(43,255,154,.26);box-shadow:none; }
+.battle-difficulty-pill.is-medium { border-color:rgba(255,184,0,.28);box-shadow:none; }
+.battle-difficulty-pill.is-hard { border-color:rgba(255,68,85,.32);box-shadow:none; }
 .battle-intro__difficulty,.battle-match-result__difficulty { display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;max-width:330px;margin:10px auto 0;padding:10px 12px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(255,255,255,.06);text-align:left; }
 .battle-intro__difficulty span,.battle-match-result__difficulty span { color:#8997ab;font:900 10px 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.12em;text-transform:uppercase; }
 .battle-intro__difficulty strong,.battle-match-result__difficulty strong { color:#fff;font:900 18px 'Barlow Condensed','Arial Narrow',sans-serif;text-transform:uppercase; }
