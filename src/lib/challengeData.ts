@@ -10,14 +10,19 @@ async function sha256(message: string): Promise<string> {
 type ChallengeResponse<T> = { data: T; token?: string }
 
 async function request<T>(action: string, body: Record<string, unknown> = {}, token?: string): Promise<T> {
-  const response = await fetch('/api/challenge', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ action, ...body }),
-  })
+  let response: Response
+  try {
+    response = await fetch('/api/challenge', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ action, ...body }),
+    })
+  } catch {
+    throw new Error('Connexion Brakup interrompue. Ton résultat reste sauvegardé sur cet appareil.')
+  }
   const contentType = response.headers.get('content-type') ?? ''
   let payload: (ChallengeResponse<T> & { error?: string }) | null = null
   if (contentType.includes('application/json')) {

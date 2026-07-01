@@ -742,7 +742,6 @@ export function BrakupHub({
         submitted: true,
       }).catch((caught) => {
         setSaveError(caught instanceof Error ? caught.message : 'Sauvegarde impossible.')
-        setShowEmailEntry(true)
       }).finally(() => setSaving(false))
     } else {
       setShowEmailEntry(true)
@@ -1230,6 +1229,7 @@ export function BrakupHub({
                 )}
               </div>
               <small>{savedProfile.email || 'Profil local sur cet appareil'}</small>
+              {hasSyncedProfile && saveError ? <small>{saveError}</small> : null}
             </div>
             <div className="game-menu-modal__score">
               <strong>{progressStats.points}</strong>

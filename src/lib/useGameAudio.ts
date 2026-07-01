@@ -37,6 +37,10 @@ const DEDICATED_TRACKS = new Set<string>([
   '/audio/final-kick-freeze.mp3',
   '/audio/save-the-chaos.mp3',
 ])
+const INSTANT_TRACKS = new Set<string>([
+  '/audio/cup-victory-parade.mp3',
+  '/audio/final-whistle-fumble.mp3',
+])
 const resumePositions = new Map<string, number>()
 
 function shouldResume(src: string | null): src is string {
@@ -177,7 +181,7 @@ async function loadAudioBuffer(src: string) {
   return pending
 }
 
-function startTrack(src: string) {
+function startTrack(src: string, instant = false) {
   installGestureUnlockListeners()
   const audio = _audio ?? new Audio()
   audio.pause()
@@ -197,7 +201,17 @@ function startTrack(src: string) {
   _src = src
   audio.play().catch(() => undefined)
 
-  let v = 0
+  let v = instant ? 1 : 0
+  if (instant) {
+    audio.muted = _muted
+    if (_musicGain && _ctx) {
+      _musicGain.gain.value = _muted ? 0 : targetMusicGain()
+      audio.volume = _muted ? 0 : 1
+    } else {
+      audio.volume = targetMusicVolume()
+    }
+    return
+  }
   const step = 1 / FADE_STEPS
   _interval = window.setInterval(() => {
     v = Math.min(1, v + step)
@@ -213,12 +227,30 @@ function startTrack(src: string) {
 }
 
 function switchTo(newSrc: string | null) {
-  if (newSrc === _src) return
+  if (newSrc === _src) {
+    applyMusicVolume()
+    if (newSrc && _audio?.paused && !_muted) {
+      unlockGameAudio()
+      _audio.play().catch(() => undefined)
+    }
+    return
+  }
   stopInterval()
 
   const prev = _audio
   const prevSrc = _src
   _src = newSrc
+  const instantSwitch = newSrc !== null && INSTANT_TRACKS.has(newSrc)
+
+  if (instantSwitch && newSrc) {
+    if (prev) {
+      rememberPosition(prev, prevSrc)
+      prev.pause()
+      _audio = prev
+    }
+    startTrack(newSrc, true)
+    return
+  }
 
   if (prev && !prev.paused) {
     const startVol = _musicGain ? _musicGain.gain.value : prev.volume
