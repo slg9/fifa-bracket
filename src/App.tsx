@@ -1747,7 +1747,7 @@ function App() {
   const [classicProfileBusy, setClassicProfileBusy] = useState(false)
   const [classicProfileError, setClassicProfileError] = useState<string | null>(null)
   const [completeBonusNoticeOpen, setCompleteBonusNoticeOpen] = useState(false)
-  const [simulatorOutcomeSeenVersion, setSimulatorOutcomeSeenVersion] = useState(0)
+  const [, setSimulatorOutcomeSeenVersion] = useState(0)
   const [publicBrackets, setPublicBrackets] = useState<SimulatorBracketEntry[]>([])
   const [publicBracketsLoading, setPublicBracketsLoading] = useState(false)
   const [publicBracketsLoaded, setPublicBracketsLoaded] = useState(false)
@@ -2392,10 +2392,7 @@ function App() {
   const createFromShareHref = shouldReturnToOwnBracket ? '/?simulator' : '/?simulator&new=1'
   const createFromShareLabel = shouldReturnToOwnBracket ? 'RETOUR A MON BRACKET' : 'CREER MON BRACKET'
   const currentShareUrl = publicPseudo && publicSimulatorBracket ? window.location.origin + '/@' + encodeURIComponent(publicSimulatorBracket.pseudo) : isSharedBracketView && sharedBracket ? window.location.origin + '/share/bracket/' + sharedBracket.id : challengeProfile.pseudo ? window.location.origin + '/@' + encodeURIComponent(challengeProfile.pseudo) : null
-  const seenSimulatorOutcomeKeys = useMemo(
-    () => new Set(readSeenSimulatorOutcomeKeys()),
-    [simulatorOutcomeSeenVersion],
-  )
+  const seenSimulatorOutcomeKeys = new Set(readSeenSimulatorOutcomeKeys())
   const simulatorOutcomeNotices: SimulatorOutcomeNotice[] = displayBracket
     .filter((match) => Boolean(match.pickedWinnerId && match.realWinnerId && match.predictionState))
     .map((match) => ({
