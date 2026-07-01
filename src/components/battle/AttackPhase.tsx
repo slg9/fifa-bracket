@@ -162,7 +162,7 @@ function playerLastName(value: string) {
 
 function buildShooterOptions(players: string[], teamId: string): BattleScorer[] {
   const uniquePlayers = Array.from(new Set(players.map((name) => name.trim()).filter(Boolean)))
-  const source = uniquePlayers.length ? uniquePlayers : [`Buteur ${teamId.toUpperCase()}`]
+  const source = uniquePlayers.length ? uniquePlayers.reverse() : [`Buteur ${teamId.toUpperCase()}`]
 
   return source.map((name, index) => ({
     name,

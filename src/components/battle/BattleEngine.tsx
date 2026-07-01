@@ -62,8 +62,8 @@ function pickDefender(players: string[] | undefined, fallback?: string) {
 function pickForward(players: string[] | undefined, fallback?: string) {
   if (!players?.length) return fallback
   // last 6 players = forwards/attackers
-  const pool = players.slice(Math.max(1, players.length - 6))
-  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : players[players.length - 1]
+  const pool = players.slice(Math.max(1, players.length - 6)).reverse()
+  return pool[0] ?? players[players.length - 1]
 }
 
 type NextAction = { type: 'next'; append?: BattleRoundType; insertNext?: BattleRoundType } | { type: 'finish' } | { type: 'coin_flip' }

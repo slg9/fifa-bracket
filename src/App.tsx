@@ -9,6 +9,7 @@ import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
 import { checkEmailExists, getSimulatorLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, requestOTP, resendMagicLink, saveSimulatorBracket, verifyLoginOTP, verifyOTP } from './lib/challengeData'
+import { CHAMPION_BONUS, STAGE_POINTS } from './lib/scoring'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -169,19 +170,10 @@ function isBracketComplete(picks: Record<string, string>): boolean {
   return knockoutTemplates.every((template) => Boolean(picks[template.id]))
 }
 
-function isScoringBracketComplete(matches: DisplayMatch[]): boolean {
-  const byId = new Map(matches.map((match) => [match.id, match]))
-  return knockoutTemplates.every((template) => {
-    const match = byId.get(template.id)
-    return Boolean(match?.pickedWinnerId || match?.hasOfficialResult)
-  })
-}
-
 function calculateBracketRewards(matches: DisplayMatch[]): BracketRewardSummary {
   const byId = new Map(matches.map((match) => [match.id, match]))
   const rewardsByMatch = new Map<string, BracketReward>()
   const comboLinkIds = new Set<string>()
-  const teamStreaks = new Map<string, number>()
   let total = 0
 
   for (const matchId of knockoutScoringOrder) {
@@ -191,41 +183,18 @@ function calculateBracketRewards(matches: DisplayMatch[]): BracketRewardSummary 
     const correct = match.pickedWinnerId === match.realWinnerId
     if (!correct) {
       rewardsByMatch.set(match.id, { points: 0, label: '0', combo: 0, correct: false })
-      teamStreaks.delete(match.pickedWinnerId)
       continue
     }
 
-    const streak = (teamStreaks.get(match.pickedWinnerId) ?? 0) + 1
-    teamStreaks.set(match.pickedWinnerId, streak)
-    if (streak > 1) comboLinkIds.add(match.id)
-
-    const comboPoints = streak === 2 ? 3 : streak === 3 ? 7 : streak >= 4 ? 12 : 0
-    const championBonus = match.id === 'M104' ? 30 : 0
-    const thirdBonus = match.id === 'M103' ? 10 : 0
-    const points = 10 + comboPoints + championBonus + thirdBonus
+    const stagePoints = STAGE_POINTS[match.stage] ?? 0
+    const championBonus = match.id === 'M104' ? CHAMPION_BONUS : 0
+    const points = stagePoints + championBonus
     const label = [`+${points}`]
-    if (comboPoints) label.push(`combo +${comboPoints}`)
     if (championBonus) label.push('champion')
-    if (thirdBonus) label.push('3e')
-    rewardsByMatch.set(match.id, { points, label: label.join(' ? '), combo: streak, correct: true })
+    rewardsByMatch.set(match.id, { points, label: label.join(' / '), combo: 0, correct: true })
     total += points
   }
-
-  const finalMatch = byId.get('M104')
-  if (finalMatch?.pickedWinnerId && finalMatch.realWinnerId && finalMatch.pickedWinnerId !== finalMatch.realWinnerId) {
-    const finalEntrants = [getEntrantTeamId(finalMatch.home), getEntrantTeamId(finalMatch.away)]
-    const runnerUpId = finalEntrants.find((teamId) => teamId && teamId !== finalMatch.realWinnerId) ?? null
-    if (runnerUpId && finalMatch.pickedWinnerId === runnerUpId) {
-      const current = rewardsByMatch.get('M104') ?? { points: 0, label: '0', combo: 0, correct: false }
-      current.points += 15
-      current.label = current.label === '0' ? '+15 finaliste' : `${current.label} ? +15 finaliste`
-      rewardsByMatch.set('M104', current)
-      total += 15
-    }
-  }
-
-  const completeBonus = isScoringBracketComplete(matches) ? 20 : 0
-  total += completeBonus
+  const completeBonus = 0
 
   return { total, completeBonus, rewardsByMatch, comboLinkIds }
 }
@@ -3772,4 +3741,3 @@ function App() {
 }
 
 export default App
-

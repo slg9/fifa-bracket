@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { setGameAudioVolume, setGameMuted, useGameAudio, useGameAudioVolume, useGameMuted } from '../lib/useGameAudio'
-import { getBrackets, getProfileStatus, publishResultShare, resendMagicLink, submitBracket, updateProfile, verifyLoginOTP, verifyOTP } from '../lib/challengeData'
+import { checkEmailExists, getBrackets, getProfileStatus, publishResultShare, requestOTP, resendMagicLink, submitBracket, updateProfile, verifyLoginOTP, verifyOTP } from '../lib/challengeData'
 import { alternateLanguageHref, localizedRootPath, type Locale } from '../lib/i18n'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
 import type { BattleResult, BattleScorer, ChallengeBreakdown, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
@@ -216,7 +216,7 @@ export function BrakupHub({
   const [activeSide, setActiveSide] = useState<'home' | 'away'>('home')
   const [battleBonuses, setBattleBonuses] = useState(0)
   const [savedProfile, setSavedProfile] = useState<SavedProfile>(readSavedProfile)
-  const [hadAccount, setHadAccount] = useState(() => localStorage.getItem(HAD_ACCOUNT_KEY) === 'true')
+  const [, setHadAccount] = useState(() => localStorage.getItem(HAD_ACCOUNT_KEY) === 'true')
   const [autosavedAt, setAutosavedAt] = useState<string | null>(() => localStorage.getItem(AUTOSAVE_STORAGE_KEY))
   const [brackets, setBrackets] = useState<ChallengeEntry[]>([])
   const [activeBracketId, setActiveBracketId] = useState<string | null>(null)
@@ -241,6 +241,8 @@ export function BrakupHub({
   const [loginError, setLoginError] = useState<string | null>(null)
   const [loginSent, setLoginSent] = useState(false)
   const [loginEmail, setLoginEmail] = useState<string | null>(null)
+  const [loginFlow, setLoginFlow] = useState<'existing' | 'new'>('existing')
+  const [loginPseudo, setLoginPseudo] = useState('')
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
   const [outcomeShareStatus, setOutcomeShareStatus] = useState<'idle' | 'working' | 'ready' | 'done' | 'error'>('idle')
   const [outcomeShareUrl, setOutcomeShareUrl] = useState<string | null>(null)
@@ -685,10 +687,17 @@ export function BrakupHub({
     setLoginError(null)
     setLoginSent(false)
     setLoginEmail(email)
+    const pseudo = savedProfile.pseudo.trim()
+      || (email.split('@')[0] ?? '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20)
+      || 'Joueur'
+    setLoginPseudo(pseudo)
     try {
-      const result = await resendMagicLink(email)
+      const emailExists = await checkEmailExists(email)
+      setLoginFlow(emailExists ? 'existing' : 'new')
+      const result = emailExists ? await resendMagicLink(email) : null
+      if (!emailExists) await requestOTP(email, pseudo)
       setLoginSent(true)
-      if (result.token) {
+      if (result?.token) {
         localStorage.setItem('brakup:token', result.token)
         setAccessToken(result.token)
         const entries = await getBrackets(result.token)
@@ -730,25 +739,43 @@ export function BrakupHub({
     setLoginBusy(true)
     setLoginError(null)
     try {
-      const result = await verifyLoginOTP(loginEmail, otp)
-      
-      if (result.needsProfile) {
-        // Nouveau compte, il faut demander un pseudo
-        setLoginSent(false)
-        setLoginToken(result.token)
-        setPendingEmail(result.email)
-        setShowLoginEntry(false)
-        // Ouvrir EmailEntry pour demander le pseudo
-        setShowEmailEntry(true)
-        return
-      }
-      
+      const pseudo = loginPseudo
+        || (loginEmail.split('@')[0] ?? '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20)
+        || 'Joueur'
+      const result = loginFlow === 'new'
+        ? { token: await verifyOTP(loginEmail, pseudo, otp), email: loginEmail }
+        : await verifyLoginOTP(loginEmail, otp, pseudo)
+
       await loadAccountFromToken(result.token, result.email)
+      if (loginFlow === 'new') {
+        rememberProfile({ email: result.email, pseudo, bracketName: savedProfile.bracketName || pseudo })
+      }
       setLoginToken(null)
       setShowLoginEntry(false)
       setLoginSent(false)
+      setHadAccount(true)
+      localStorage.setItem(HAD_ACCOUNT_KEY, 'true')
     } catch (caught) {
       setLoginError(caught instanceof Error ? caught.message : 'Code invalide.')
+    } finally {
+      setLoginBusy(false)
+    }
+  }
+
+  const handleLoginResend = async () => {
+    if (!loginEmail) return
+    setLoginBusy(true)
+    setLoginError(null)
+    try {
+      if (loginFlow === 'new') {
+        await requestOTP(loginEmail, loginPseudo || 'Joueur')
+      } else {
+        await resendMagicLink(loginEmail)
+      }
+      setLoginSent(false)
+      window.setTimeout(() => setLoginSent(true), 50)
+    } catch (caught) {
+      setLoginError(caught instanceof Error ? caught.message : 'Renvoi impossible.')
     } finally {
       setLoginBusy(false)
     }
@@ -1017,13 +1044,9 @@ export function BrakupHub({
                   <button type="button" onClick={handleLogout}>
                     Se déconnecter
                   </button>
-                ) : hadAccount ? (
-                  <button type="button" onClick={() => { setLoginError(null); setLoginSent(false); setShowLoginEntry(true); setShowGameMenu(false) }}>
-                    Se reconnecter
-                  </button>
                 ) : (
-                  <button type="button" onClick={() => { setSaveError(null); setPendingEmail(null); setLoginToken(null); setShowEmailEntry(true); setShowGameMenu(false) }}>
-                    Créer mon compte
+                  <button type="button" onClick={() => { setLoginError(null); setLoginSent(false); setLoginEmail(null); setShowLoginEntry(true); setShowGameMenu(false) }}>
+                    Se connecter
                   </button>
                 )}
               </div>
@@ -1051,7 +1074,7 @@ export function BrakupHub({
             </div>
             <div className="game-menu-modal__section">
               <h3>Stats</h3>
-              {topScorers.length > 0 ? topScorers.slice(0, 6).map((scorer, index) => {
+              {topScorers.length > 0 ? topScorers.map((scorer, index) => {
                 const team = teamsByFifaCode.get(scorer.teamCode)
                 return (
                   <div className="game-menu-modal__stat" key={`${scorer.name}-${scorer.teamCode}`}>
@@ -1201,7 +1224,7 @@ export function BrakupHub({
         </div>
       ) : null}
       {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={pendingEmail || savedProfile.email} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => { setShowEmailEntry(false); setLoginToken(null); setPendingEmail(null); }} /> : null}
-      {showLoginEntry ? <LoginEntry initialEmail={savedProfile.email} busy={loginBusy} error={loginError} sent={loginSent} onSubmit={handleLogin} onVerify={handleLoginOTP} onCancel={() => setShowLoginEntry(false)} /> : null}
+      {showLoginEntry ? <LoginEntry initialEmail={savedProfile.email} busy={loginBusy} error={loginError} sent={loginSent} onSubmit={handleLogin} onVerify={handleLoginOTP} onResend={handleLoginResend} onCancel={() => setShowLoginEntry(false)} /> : null}
       {showOTPEntry && pendingEmail && pendingPseudo ? <OTPEntry email={pendingEmail} pseudo={pendingPseudo} busy={otpBusy} error={otpError} onSubmit={handleOTPSubmit} onCancel={() => { setShowOTPEntry(false); setPendingEmail(null); setPendingPseudo(null); setShowEmailEntry(true) }} /> : null}
       {showProfileSettings ? <ProfileSettings initialEmail={savedProfile.email} initialPseudo={savedProfile.pseudo} busy={profileBusy} error={profileError} status={profileStatus} onSubmit={handleProfileUpdate} onClose={() => setShowProfileSettings(false)} /> : null}
       <footer className="brakup-footer"><span>BRAKUP 2026</span><small>Données tournoi : {seed.meta.name} · {liveSource?.syncedAt ? `sync ${new Date(liveSource.syncedAt).toLocaleString('fr-FR')}` : 'projection locale'}</small></footer>
