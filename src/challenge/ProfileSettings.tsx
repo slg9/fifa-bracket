@@ -55,14 +55,6 @@ export function ProfileSettings({ initialEmail, initialPseudo, busy = false, err
             ))}
           </div>
         </section>
-        <div className="brakup-settings__status">
-          <strong>Blob Vercel</strong>
-          <span>{status?.blobConfigured ? 'Connecte' : 'Indisponible'}</span>
-          <strong>Brackets</strong>
-          <span>{status ? status.bracketCount : '...'}</span>
-          <strong>Derniere synchro</strong>
-          <span>{status?.lastSavedAt ? new Date(status.lastSavedAt).toLocaleString('fr-FR') : 'Aucune'}</span>
-        </div>
         {status && !status.hasEntries ? <p className="brakup-form-error">Aucune donnee distante trouvee pour ce compte.</p> : null}
         {error ? <p className="brakup-form-error">{error}</p> : null}
         <div className="brakup-email__actions">

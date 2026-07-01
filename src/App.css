@@ -179,6 +179,10 @@
   z-index: 1;
 }
 
+.bracket-challenge-mobile {
+  display: none;
+}
+
 .topbar {
   position: sticky;
   top: 0;
@@ -5052,6 +5056,100 @@
 
   .app-shell.is-home-bracket .bracket-shell {
     min-width: 0;
+  }
+
+  .app-shell.is-home-bracket .float-sidebar,
+  .app-shell.is-home-bracket .float-sidebar__scrim {
+    display: none;
+  }
+
+  .app-shell.is-home-bracket .bracket-mobile-tabs,
+  .app-shell.is-home-bracket .bracket-fit {
+    display: none;
+  }
+
+  .app-shell.is-home-bracket .bracket-challenge-mobile {
+    display: block;
+    margin: 0 -10px;
+  }
+
+  .app-shell.is-home-bracket .bracket-challenge-mobile .brakup-phase-nav {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 70;
+    gap: 6px;
+    padding: 8px 14px;
+    overflow-x: auto;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(5, 11, 22, 0.96);
+    backdrop-filter: blur(14px);
+    scrollbar-width: none;
+  }
+
+  .app-shell.is-home-bracket .bracket-challenge-mobile .brakup-phase-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-shell.is-home-bracket .bracket-challenge-mobile .brakup-phase-nav__btn {
+    flex-shrink: 0;
+    padding: 6px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.48);
+    font: 800 11px 'Barlow Condensed', sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+  }
+
+  .app-shell.is-home-bracket .bracket-challenge-mobile .brakup-phase-nav__btn.is-active {
+    border-color: rgba(43, 255, 154, 0.5);
+    background: rgba(43, 255, 154, 0.1);
+    color: #2bff9a;
+  }
+
+  .app-shell.is-home-bracket .bracket-challenge-mobile .brakup-bracket-layout {
+    display: block;
+    padding: 0;
+  }
+
+  .app-shell.is-home-bracket .bracket-challenge-mobile .brakup-bracket-header {
+    padding: 14px 16px 0;
+  }
+
+  .app-shell.is-home-bracket .bracket-challenge-mobile .brakup-bracket-header__hint {
+    display: none;
+  }
+
+  .app-shell.is-home-bracket .bracket-challenge-mobile .brakup-bracket-wrapper {
+    overflow-x: auto;
+    overflow-y: visible;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-shell.is-home-bracket .bracket-challenge-mobile .brakup-bracket {
+    grid-template-columns: repeat(5, 100vw);
+    align-items: start;
+    gap: 0;
+    padding: 0 0 48px;
+  }
+
+  .app-shell.is-home-bracket .bracket-challenge-mobile .brakup-bracket__round {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 10px 15vw 24px;
+    box-sizing: border-box;
+  }
+
+  .app-shell.is-home-bracket .bracket-challenge-mobile .brakup-bracket-connectors path {
+    stroke-width: 3;
   }
 
   .app-shell.is-home-bracket .bracket-fit {

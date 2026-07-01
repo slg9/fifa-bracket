@@ -3,6 +3,7 @@ import { toBlob } from 'html-to-image'
 import './App.css'
 import BootLoaderMark from './components/BootLoaderMark'
 import BrakupHub from './challenge/BrakupHub'
+import BracketChallenge from './challenge/BracketChallenge'
 import Leaderboard from './challenge/Leaderboard'
 import LoginEntry from './challenge/LoginEntry'
 import ProfileSettings from './challenge/ProfileSettings'
@@ -12,6 +13,8 @@ import { alternateLanguageHref, getCurrentLocale, isChallengeRoute, localizedCha
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
 import { checkEmailExists, getSimulatorLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, requestOTP, resendMagicLink, saveSimulatorBracket, updateProfile, verifyLoginOTP, verifyOTP } from './lib/challengeData'
 import { CHAMPION_BONUS, STAGE_POINTS } from './lib/scoring'
+import { formatStageLongLabel, formatStageShortLabel } from './lib/stageLabels'
+import { clearChallengeProfile, readChallengeProfile, subscribeChallengeProfile, writeChallengeProfile } from './lib/challengeProfile'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -108,7 +111,6 @@ type DragState = {
 
 const simulationStorageKey = 'fifabracket:simulation'
 const challengeDraftStorageKey = 'brakup:draft'
-const challengeProfileStorageKey = 'brakup:profile'
 const challengeTokenStorageKey = 'brakup:token'
 const challengeHadAccountStorageKey = 'brakup:hadAccount'
 const simulatorOutcomeSeenStorageKey = 'fifabracket:simulator-seen-outcomes'
@@ -385,27 +387,16 @@ function readPublicPseudoFromLocation(): string | null {
   return match ? decodeURIComponent(match[1]) : null
 }
 function readStoredChallengeProfile(): ChallengeProfile {
-  if (typeof window === 'undefined') {
-    return { email: '', pseudo: '', bracketName: 'Mon bracket' }
-  }
-
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(challengeProfileStorageKey) ?? '{}') as Partial<ChallengeProfile>
-    return {
-      email: parsed.email ?? '',
-      pseudo: parsed.pseudo ?? '',
-      bracketName: parsed.bracketName ?? 'Mon bracket',
-    }
-  } catch {
-    return { email: '', pseudo: '', bracketName: 'Mon bracket' }
+  const profile = readChallengeProfile()
+  return {
+    email: profile.email,
+    pseudo: profile.pseudo,
+    bracketName: profile.bracketName,
   }
 }
 
 function rememberChallengeProfile(profile: ChallengeProfile) {
-  if (typeof window === 'undefined') {
-    return
-  }
-  window.localStorage.setItem(challengeProfileStorageKey, JSON.stringify(profile))
+  writeChallengeProfile(profile)
 }
 
 function readSeenSimulatorOutcomeKeys() {
@@ -472,15 +463,15 @@ function normalizeFilePart(value: string): string {
 }
 
 const mobileRoundTabs = [
-  { key: 'L_R32', label: '16e', stage: 'Round of 32' },
-  { key: 'L_R16', label: '8e', stage: 'Round of 16' },
-  { key: 'L_QF', label: 'Quarts', stage: 'Quarter-final' },
-  { key: 'L_SF', label: 'Demies', stage: 'Semi-final' },
-  { key: 'F', label: 'Finale', stage: 'Finale' },
-  { key: 'R_SF', label: 'Demies', stage: 'Semi-final' },
-  { key: 'R_QF', label: 'Quarts', stage: 'Quarter-final' },
-  { key: 'R_R16', label: '8e', stage: 'Round of 16' },
-  { key: 'R_R32', label: '16e', stage: 'Round of 32' },
+  { key: 'L_R32', stage: 'Round of 32' },
+  { key: 'L_R16', stage: 'Round of 16' },
+  { key: 'L_QF', stage: 'Quarter-final' },
+  { key: 'L_SF', stage: 'Semi-final' },
+  { key: 'F', stage: 'Finale' },
+  { key: 'R_SF', stage: 'Semi-final' },
+  { key: 'R_QF', stage: 'Quarter-final' },
+  { key: 'R_R16', stage: 'Round of 16' },
+  { key: 'R_R32', stage: 'Round of 32' },
 ] as const
 
 const mobileRoundColumnIndex: Record<(typeof mobileRoundTabs)[number]['key'], number> = {
@@ -508,16 +499,8 @@ function getMobileBracketColumnWidth(viewport: HTMLDivElement) {
   return width > 0 ? width : viewport.clientWidth
 }
 
-const stageLabels: Record<string, string> = {
-  'Round of 32': '16emes',
-  'Round of 16': '8emes',
-  'Quarter-final': 'Quarts',
-  'Semi-final': 'Demies',
-  Finale: 'Finale',
-}
-
 function formatStageLabel(stage: string): string {
-  return stageLabels[stage] ?? stage
+  return formatStageLongLabel(stage, getCurrentLocale())
 }
 
 function TeamFocusMenu({
@@ -1481,11 +1464,25 @@ function getShareText(url: string) {
               className={`bracket-mobile-tab${activeMobileRound === tab.key ? ' is-active' : ''}`}
               onClick={() => selectMobileRound(tab.key)}
             >
-              {tab.label}
+              {formatStageShortLabel(tab.stage, getCurrentLocale())}
             </button>
           ))}
         </div>
 
+      </div>
+
+      <div className="bracket-challenge-mobile">
+        <BracketChallenge
+          matches={matches}
+          teamsById={teamsById}
+          picks={picks}
+          onPick={onPick}
+          onPlay={onPick}
+          readOnly={readOnlyShare || !simulationEnabled}
+          ownerPseudo={ownerName || undefined}
+          showScorePanel={false}
+          locale={getCurrentLocale()}
+        />
       </div>
 
       <div className="bracket-fit" ref={viewportRef}>
@@ -1815,6 +1812,16 @@ function App() {
   const [viewedPublicBracket, setViewedPublicBracket] = useState<SimulatorBracketEntry | null>(null)
   const simulatorRemoteHydratedRef = useRef(false)
   const simulatorSaveTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return subscribeChallengeProfile((profile) => {
+      setChallengeProfile({
+        email: profile.email,
+        pseudo: profile.pseudo,
+        bracketName: profile.bracketName,
+      })
+    })
+  }, [])
   const initialSyncBaselineRef = useRef<string | null>(null)
   const previousCompleteBonusRef = useRef(0)
   const completeBonusArmedRef = useRef(false)
@@ -2226,7 +2233,7 @@ function App() {
 
   function handleChallengeLogout() {
     window.localStorage.removeItem(challengeTokenStorageKey)
-    window.localStorage.removeItem(challengeProfileStorageKey)
+    clearChallengeProfile()
     setChallengeToken(null)
     setChallengeProfile({ email: '', pseudo: '', bracketName: 'Mon bracket' })
     setChallengeMenuOpen(false)

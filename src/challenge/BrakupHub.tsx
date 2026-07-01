@@ -21,6 +21,7 @@ import { blobToDataUrl, shareLink } from './shareImage'
 import { renderResultShareCanvas } from './shareCanvas'
 import { sfx } from '../lib/sfx'
 import { evaluateMatchProgress, formatScore, summarizeProgress, teamLabel, type OfficialScore, type RealScorer } from './progress'
+import { clearChallengeProfile, readChallengeProfile, subscribeChallengeProfile, writeChallengeProfile, type StoredChallengeProfile } from '../lib/challengeProfile'
 import './challenge.css'
 
 export type ChallengeMenuMatch = GroupMatch & {
@@ -46,9 +47,8 @@ export interface BrakupHubProps {
 }
 
 type HubView = 'challenge' | 'battle' | 'brackets' | 'board' | 'viewBracket'
-type SavedProfile = { email: string; pseudo: string; bracketName: string; savedAt?: string }
+type SavedProfile = StoredChallengeProfile
 
-const PROFILE_STORAGE_KEY = 'brakup:profile'
 const AUTOSAVE_STORAGE_KEY = 'brakup:autosave-at'
 const OFFICIAL_RESULTS_STORAGE_KEY = 'brakup:official-results'
 const OFFICIAL_SCORES_STORAGE_KEY = 'brakup:official-scores'
@@ -59,17 +59,7 @@ const CLASSIC_SIMULATION_STORAGE_KEY = 'fifabracket:simulation'
 const DIFFICULTY_STORAGE_KEY = 'brakup:difficulty'
 
 function readSavedProfile(): SavedProfile {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) ?? '{}') as Partial<SavedProfile>
-    return {
-      email: parsed.email ?? '',
-      pseudo: parsed.pseudo ?? '',
-      bracketName: parsed.bracketName ?? 'Mon bracket',
-      savedAt: parsed.savedAt,
-    }
-  } catch {
-    return { email: '', pseudo: '', bracketName: 'Mon bracket' }
-  }
+  return readChallengeProfile()
 }
 
 function readDifficultySetting(): BattleDifficultySetting {
@@ -225,7 +215,7 @@ function ChallengeSeoContent({ locale }: { locale: Locale }) {
           Brakup is a World Cup 2026 prediction game built for friends: choose knockout winners,
           predict scores, play football mini-games and follow your points on the leaderboard.
         </p>
-        <div className="brakup-seo-content__grid">
+        <div id="brakup-map-info" className="brakup-seo-content__grid">
           <article>
             <h2>How does the Brakup Challenge work?</h2>
             <p>Start from the match map, pick a side for each fixture and confirm your prediction by playing the arcade match.</p>
@@ -243,7 +233,7 @@ function ChallengeSeoContent({ locale }: { locale: Locale }) {
             <p>Yes. You can build a local bracket first, then sync it later to publish your score and compare with friends.</p>
           </article>
         </div>
-        <div className="brakup-seo-content__faq" aria-label="World Cup 2026 Challenge FAQ">
+        <div id="brakup-map-faq" className="brakup-seo-content__faq" aria-label="World Cup 2026 Challenge FAQ">
           <h2>World Cup 2026 Challenge FAQ</h2>
           <details open>
             <summary>What is the Brakup Challenge?</summary>
@@ -270,7 +260,7 @@ function ChallengeSeoContent({ locale }: { locale: Locale }) {
         Brakup est un jeu de prédiction Coupe du Monde 2026 pensé pour jouer entre amis :
         crée ton bracket, prédis les scores, lance des mini-jeux foot arcade et grimpe au classement.
       </p>
-      <div className="brakup-seo-content__grid">
+      <div id="brakup-map-info" className="brakup-seo-content__grid">
         <article>
           <h2>Comment fonctionne le Brakup Challenge ?</h2>
           <p>Tu pars de la carte des matchs, tu choisis ton camp sur chaque affiche puis tu confirmes ton prono en jouant le match.</p>
@@ -288,7 +278,7 @@ function ChallengeSeoContent({ locale }: { locale: Locale }) {
           <p>Oui. Tu peux préparer un bracket local, puis le synchroniser ensuite pour publier ton score et te comparer aux autres joueurs.</p>
         </article>
       </div>
-      <div className="brakup-seo-content__faq" aria-label="FAQ Coupe du Monde 2026 Challenge">
+      <div id="brakup-map-faq" className="brakup-seo-content__faq" aria-label="FAQ Coupe du Monde 2026 Challenge">
         <h2>FAQ Coupe du Monde 2026 Challenge</h2>
         <details open>
           <summary>Qu’est-ce que le Brakup Challenge ?</summary>
@@ -402,6 +392,10 @@ export function BrakupHub({
   const audioMuted = useGameMuted()
   const audioVolume = useGameAudioVolume()
 
+  useEffect(() => {
+    return subscribeChallengeProfile((profile) => setSavedProfile(profile))
+  }, [])
+
   const baseMatches = useMemo(() => buildKnockoutBracket(standings, groupMatches), [standings, groupMatches])
   // Base real results (no dependency on matches — breaks circular dep)
   const baseRealResults = useMemo<Record<string, string>>(() => ({ ...storedRealResults, ...officialResults }), [officialResults, storedRealResults])
@@ -506,7 +500,7 @@ export function BrakupHub({
 
   const rememberProfile = useCallback((values: { email: string; pseudo: string; bracketName: string }) => {
     const next = { ...values, savedAt: new Date().toISOString() }
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(next))
+    writeChallengeProfile(next)
     setSavedProfile(next)
   }, [])
 
@@ -558,7 +552,7 @@ export function BrakupHub({
           bracketName: activeEntry.bracketName ?? current.bracketName,
           savedAt: current.savedAt ?? new Date().toISOString(),
         }
-        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(next))
+        writeChallengeProfile(next)
         return next
       })
     }).catch(() => undefined).finally(() => setLoadingBrackets(false))
@@ -598,6 +592,18 @@ export function BrakupHub({
     setView(next)
     setActiveMatchId(matchId ?? null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const scrollToMapSection = (sectionId: 'brakup-map-info' | 'brakup-map-faq') => {
+    setShowGameMenu(false)
+    if (view !== 'challenge') {
+      navigate('challenge')
+      window.setTimeout(() => {
+        document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 80)
+      return
+    }
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   const viewBracket = async (entry: ChallengeEntry) => {
@@ -815,6 +821,7 @@ export function BrakupHub({
   const handleLogout = () => {
     localStorage.clear()
     sessionStorage.clear()
+    clearChallengeProfile()
     setAccessToken(null)
     setSavedProfile({ email: '', pseudo: '', bracketName: 'Mon bracket' })
     setHadAccount(false)
@@ -1243,6 +1250,8 @@ export function BrakupHub({
             <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay() }}>Tableau</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); navigate('challenge') }}>Carte des matchs</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
+            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); scrollToMapSection('brakup-map-info') }}>Infos challenge</button>
+            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); scrollToMapSection('brakup-map-faq') }}>FAQ</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { setProfileError(null); setShowProfileSettings(true); setShowGameMenu(false) }}>Parametres du compte</button>
             <div className="game-menu-modal__section">
               <h3>Matchs du jour</h3>
@@ -1257,7 +1266,7 @@ export function BrakupHub({
             </div>
             <div className="game-menu-modal__section">
               <h3>Stats</h3>
-              {topScorers.length > 0 ? topScorers.map((scorer, index) => {
+              {topScorers.length > 0 ? topScorers.slice(0, 5).map((scorer, index) => {
                 const team = teamsByFifaCode.get(scorer.teamCode)
                 return (
                   <div className="game-menu-modal__stat" key={`${scorer.name}-${scorer.teamCode}`}>

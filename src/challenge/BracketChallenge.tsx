@@ -2,7 +2,9 @@ import { useLayoutEffect, useState, useRef, useCallback, useEffect } from 'react
 import type { ChallengeEntry, KnockoutMatch, Team } from '../types'
 import ScorePanel from './ScorePanel'
 import { sfx } from '../lib/sfx'
+import type { Locale } from '../lib/i18n'
 import { formatKnockoutDateTime } from '../lib/knockoutSchedule'
+import { KNOCKOUT_ROUND_ORDER, formatBracketPathLabel, formatStageShortLabel } from '../lib/stageLabels'
 import { evaluateMatchProgress, formatScore, type BattleScore, type OfficialScore } from './progress'
 
 export interface BracketChallengeProps {
@@ -19,12 +21,11 @@ export interface BracketChallengeProps {
   officialScores?: Record<string, OfficialScore>
   readOnly?: boolean
   ownerPseudo?: string
+  showScorePanel?: boolean
+  locale?: Locale
 }
 
-const ROUND_ORDER = ['Round of 32', 'Round of 16', 'Quarter-final', 'Semi-final', 'Finale']
-const STAGE_SHORT: Record<string, string> = {
-  'Round of 32': 'R32', 'Round of 16': 'R16', 'Quarter-final': 'QF', 'Semi-final': 'SF', 'Finale': 'F',
-}
+const ROUND_ORDER = [...KNOCKOUT_ROUND_ORDER]
 const LATE_STAGES = new Set(['Quarter-final', 'Semi-final', 'Finale'])
 const BRACKET_DISPLAY_ORDER: Record<string, string[]> = {
   'Round of 32': [
@@ -96,7 +97,7 @@ function getRelativeRect(el: HTMLElement, container: HTMLElement) {
   return { top, left, width: el.offsetWidth, height: el.offsetHeight }
 }
 
-export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, brackets = [], activeBracketId = null, onSelectBracket = () => undefined, realResults = {}, scores = {}, officialScores = {}, readOnly = false, ownerPseudo }: BracketChallengeProps) {
+export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, brackets = [], activeBracketId = null, onSelectBracket = () => undefined, realResults = {}, scores = {}, officialScores = {}, readOnly = false, ownerPseudo, showScorePanel = true, locale = 'fr' }: BracketChallengeProps) {
   const bracketRef = useRef<HTMLElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [paths, setPaths] = useState<PathInfo[]>([])
@@ -215,7 +216,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
             onClick={() => scrollToRound(i)}
             aria-current={activeRound === i ? 'step' : undefined}
           >
-            {STAGE_SHORT[stage] ?? stage}
+            {formatStageShortLabel(stage, locale)}
           </button>
         ))}
       </nav>
@@ -225,7 +226,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
             {ownerPseudo ? `Bracket de ${ownerPseudo}` : 'Bracket — Coupe du Monde 2026'}
           </div>
           <div className="brakup-bracket-header__hint">
-            {ownerPseudo ? 'Mode lecture seule' : 'R32 → Finale'}
+            {ownerPseudo ? 'Mode lecture seule' : formatBracketPathLabel(locale)}
           </div>
         </div>
         <section className="brakup-bracket" aria-label="Bracket challenge" ref={bracketRef}>
@@ -246,7 +247,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
             ))}
           </svg>
           {ROUND_ORDER.map((stage) => <div className={`brakup-bracket__round${LATE_STAGES.has(stage) ? ' is-late' : ''}`} key={stage}>
-            <h2>{STAGE_SHORT[stage] ?? stage}</h2>
+            <h2>{formatStageShortLabel(stage, locale)}</h2>
             {orderedStageMatches(matches, stage).map((match) => {
               const isPicked = picks[match.id] != null
               const bothTeamsKnown = match.home.kind === 'team' && match.away.kind === 'team'
@@ -296,7 +297,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
           </div>)}
         </section>
       </div>
-      {!readOnly && <ScorePanel brackets={brackets} activeBracketId={activeBracketId} onSelect={onSelectBracket} realResults={realResults} />}
+      {!readOnly && showScorePanel ? <ScorePanel brackets={brackets} activeBracketId={activeBracketId} onSelect={onSelectBracket} realResults={realResults} /> : null}
     </div>
   )
 }
