@@ -26,9 +26,9 @@ type AttackPhaseProps = {
 
 //  Config 
 const ATTACK_CFG = {
-  easy:   { waveCount: 18, gateWidth: 34, narrowGateWidth: 26, gdSpeed: 28, difficultyRamp: 0.34, spacing: 42, gaugeGreenPx: 42, gaugeSpeed: 0.78 },
-  medium: { waveCount: 22, gateWidth: 28, narrowGateWidth: 21, gdSpeed: 35, difficultyRamp: 0.52, spacing: 40, gaugeGreenPx: 36, gaugeSpeed: 1.15 },
-  hard:   { waveCount: 26, gateWidth: 23, narrowGateWidth: 17, gdSpeed: 41, difficultyRamp: 0.74, spacing: 37, gaugeGreenPx: 33, gaugeSpeed: 1.34 },
+  easy:   { waveCount: 18, gateWidth: 42, narrowGateWidth: 32, gdSpeed: 28, difficultyRamp: 0.34, spacing: 42, gaugeGreenPx: 42, gaugeSpeed: 0.78 },
+  medium: { waveCount: 22, gateWidth: 36, narrowGateWidth: 28, gdSpeed: 35, difficultyRamp: 0.52, spacing: 40, gaugeGreenPx: 36, gaugeSpeed: 1.15 },
+  hard:   { waveCount: 26, gateWidth: 31, narrowGateWidth: 24, gdSpeed: 41, difficultyRamp: 0.74, spacing: 37, gaugeGreenPx: 33, gaugeSpeed: 1.34 },
 }
 
 const KEEPER_CFG = {
@@ -909,7 +909,7 @@ export function AttackPhase({
     gdPlayerXRef.current = Math.max(3, Math.min(97, gdPlayerXRef.current + inferredDirection * DASH_DISTANCE))
     if (playerElRef.current) {
       const width = gameWidthRef.current || containerRectRef.current.width
-      const x = (gdPlayerXRef.current / 100) * width - 29
+      const x = (gdPlayerXRef.current / 100) * width - 58
       playerElRef.current.style.transform = `translateX(${x}px)`
       playerElRef.current.style.setProperty('--atk-player-x', `${x}px`)
     }
@@ -1011,7 +1011,7 @@ export function AttackPhase({
       }
       if (playerElRef.current) {
         // transform: compositor thread only  no layout, no paint
-        const x = (gdPlayerXRef.current / 100) * gameWidthRef.current - 29
+        const x = (gdPlayerXRef.current / 100) * gameWidthRef.current - 58
         playerElRef.current.style.transform = `translateX(${x}px)`
         playerElRef.current.style.setProperty('--atk-player-x', `${x}px`)
       }
@@ -1127,7 +1127,7 @@ export function AttackPhase({
     if (!width) return
     gdPlayerXRef.current = Math.max(3, Math.min(97, ((e.clientX - left) / width) * 100))
     if (playerElRef.current) {
-      const x = (gdPlayerXRef.current / 100) * (gameWidthRef.current || width) - 29
+      const x = (gdPlayerXRef.current / 100) * (gameWidthRef.current || width) - 58
       playerElRef.current.style.transform = `translateX(${x}px)`
       playerElRef.current.style.setProperty('--atk-player-x', `${x}px`)
     }
@@ -1562,13 +1562,14 @@ export function AttackPhase({
         .atk-gd-player {
           position: absolute;
           left: 0;
-          top: calc(${GD_PLAYER_Y}% - 34px);
-          width: 58px;
-          height: 76px;
+          top: calc(${GD_PLAYER_Y}% - 68px);
+          width: 116px;
+          height: 152px;
           pointer-events: none; z-index: 10;
           will-change: transform;
         }
         .atk-player-inner { position:relative;width:100%;height:100%;transform-origin:50% 70%;transition:transform .12s ease-out,filter .12s ease-out;filter:drop-shadow(0 0 14px rgba(43,255,154,.52)); }
+        .atk-gd-player .atk-kawaii { width:116px;height:140px; }
         .atk-player-shadow { position:absolute;left:50%;bottom:2px;width:42px;height:14px;border-radius:999px;background:rgba(0,0,0,.38);transform:translateX(-50%);transition:transform .12s ease-out,opacity .12s ease-out;z-index:-1; }
         .atk-gd-player--flash .atk-player-inner { filter: drop-shadow(0 0 14px rgba(255,68,85,1)); }
         .atk-gd-player--pass .atk-player-inner { transform:scale(1.28);filter:drop-shadow(0 0 18px rgba(43,255,154,.65)); }
@@ -2263,8 +2264,8 @@ export function AttackPhase({
                 flow >= 100 ? 'is-max-flow' : '',
               ].join(' ')}
               style={{
-                transform: `translateX(${(gdPlayerXRef.current / 100) * gameWidthRef.current - 29}px)`,
-                '--atk-player-x': `${(gdPlayerXRef.current / 100) * gameWidthRef.current - 29}px`,
+                transform: `translateX(${(gdPlayerXRef.current / 100) * gameWidthRef.current - 58}px)`,
+                '--atk-player-x': `${(gdPlayerXRef.current / 100) * gameWidthRef.current - 58}px`,
                 '--atk-dash-dir': dashDirectionRef.current,
               } as CSSProperties}
             >
