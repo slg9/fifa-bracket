@@ -60,7 +60,13 @@ const JUMP_ACTIVE_END = 500
 const DASH_DISTANCE = 18
 const DASH_DURATION = 210
 const DASH_COOLDOWN = 620
+const ROULETTE_DURATION = 520
+const ROULETTE_ACTIVE_START = 90
+const ROULETTE_ACTIVE_END = 430
+const ROULETTE_COOLDOWN = 760
 const FEVER_DURATION = 3600
+const ATTACK_MAX_LIVES = 3
+const ATTACK_GHOST_DURATION = 1550
 
 const GD_COMMENTS = [
   'Beau dribble !', 'Petit pont !', 'Il passe !', 'Quel crochet !',
@@ -87,8 +93,8 @@ const KNOWN_PLAYER_NUMBERS: Record<string, number> = {
   'cyle larin': 17,
 }
 
-type SlalomWaveType = 'gate' | 'narrow_gate' | 'slide_wall' | 'double_slide_wall' | 'diagonal_press' | 'moving_gate' | 'bonus_choice' | 'combo_gate_slide'
-type BonusKind = 'coin' | 'boots' | 'whistle'
+type SlalomWaveType = 'gate' | 'narrow_gate' | 'slide_wall' | 'double_slide_wall' | 'diagonal_press' | 'moving_gate' | 'bonus_choice' | 'combo_gate_slide' | 'roulette_wall'
+type BonusKind = 'coin' | 'boots' | 'whistle' | 'slowmo' | 'wide' | 'blast'
 type DribbleQuality = 'clean' | 'perfect'
 
 type SlalomDefender = {
@@ -115,6 +121,7 @@ type SlalomWave = {
   checked: boolean
   failed?: boolean
   requiresJump?: boolean
+  requiresRoulette?: boolean
   hasBonus?: boolean
   bonusKind?: BonusKind
   bonusCollected?: boolean
@@ -199,9 +206,9 @@ function pickGateCenter(rng: () => number, previous: number[], difficulty: Battl
 }
 
 function waveWeights(difficulty: BattleDifficulty): Array<[SlalomWaveType, number]> {
-  if (difficulty === 'easy') return [['gate', 36], ['narrow_gate', 18], ['slide_wall', 14], ['diagonal_press', 10], ['bonus_choice', 16], ['moving_gate', 6]]
-  if (difficulty === 'medium') return [['gate', 22], ['narrow_gate', 18], ['slide_wall', 14], ['double_slide_wall', 10], ['diagonal_press', 16], ['bonus_choice', 14], ['moving_gate', 10], ['combo_gate_slide', 6]]
-  return [['gate', 14], ['narrow_gate', 16], ['slide_wall', 16], ['double_slide_wall', 12], ['diagonal_press', 18], ['bonus_choice', 14], ['moving_gate', 12], ['combo_gate_slide', 8]]
+  if (difficulty === 'easy') return [['gate', 32], ['narrow_gate', 17], ['slide_wall', 14], ['diagonal_press', 9], ['bonus_choice', 18], ['moving_gate', 6], ['roulette_wall', 4]]
+  if (difficulty === 'medium') return [['gate', 20], ['narrow_gate', 17], ['slide_wall', 13], ['double_slide_wall', 9], ['diagonal_press', 15], ['bonus_choice', 16], ['moving_gate', 9], ['combo_gate_slide', 6], ['roulette_wall', 7]]
+  return [['gate', 13], ['narrow_gate', 15], ['slide_wall', 15], ['double_slide_wall', 11], ['diagonal_press', 17], ['bonus_choice', 16], ['moving_gate', 11], ['combo_gate_slide', 7], ['roulette_wall', 8]]
 }
 
 function pickWaveType(rng: () => number, difficulty: BattleDifficulty, previous: SlalomWaveType[], index: number): SlalomWaveType {
@@ -222,6 +229,7 @@ function pickWaveType(rng: () => number, difficulty: BattleDifficulty, previous:
     if (difficulty === 'easy' && (type === 'double_slide_wall' || type === 'combo_gate_slide')) continue
     if (difficulty === 'easy' && type === 'combo_gate_slide') continue
     if (difficulty === 'medium' && type === 'combo_gate_slide' && rng() < 0.35) continue
+    if (type === 'roulette_wall' && index < 5) continue
     return type
   }
   return 'gate'
@@ -237,7 +245,7 @@ function makeGateDefenders(i: number, center: number, gateWidth: number, players
   const blockers: number[] = []
   const addBlocker = (x: number) => {
     const clamped = Math.max(7, Math.min(93, x))
-    if (blockers.every((existing) => Math.abs(existing - clamped) >= 9)) blockers.push(clamped)
+    if (blockers.every((existing) => Math.abs(existing - clamped) >= 7)) blockers.push(clamped)
   }
 
   addBlocker(gates[0].left - 9 - rng() * 2)
@@ -248,11 +256,31 @@ function makeGateDefenders(i: number, center: number, gateWidth: number, players
     if (gap > 15) addBlocker((gates[g].right + gates[g + 1].left) / 2)
   }
 
+  const blockedSegments: Array<{ left: number; right: number }> = []
+  let cursor = 7
+  for (const gate of gates) {
+    const left = Math.max(7, gate.left - 4)
+    const right = Math.min(93, gate.right + 4)
+    if (left - cursor >= 7) blockedSegments.push({ left: cursor, right: left })
+    cursor = Math.max(cursor, right)
+  }
+  if (93 - cursor >= 7) blockedSegments.push({ left: cursor, right: 93 })
+
+  blockedSegments.forEach((segment, segmentIndex) => {
+    const width = segment.right - segment.left
+    const count = Math.max(1, Math.floor(width / 10))
+    for (let n = 0; n < count; n += 1) {
+      const t = (n + 0.5) / count
+      const jitter = (rng() - 0.5) * 2.2
+      addBlocker(segment.left + width * t + jitter + (segmentIndex % 2 ? 1 : -1))
+    }
+  })
+
   if (!bonusGate && (type === 'diagonal_press' || type === 'combo_gate_slide' || type === 'moving_gate' || rng() < 0.68)) {
     addBlocker(center + (center < 50 ? 1 : -1) * (half + 23 + rng() * 7))
   }
 
-  return blockers.slice(0, 4).map((x, index) => ({
+  return blockers.sort((a, b) => a - b).slice(0, 10).map((x, index) => ({
     id: `${i}-block-${index}`,
     x,
     yOffset: yJitter(index),
@@ -297,6 +325,7 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
     types.push(type)
 
     const isSlide = type === 'slide_wall' || type === 'double_slide_wall'
+    const isRoulette = type === 'roulette_wall'
     const isNarrow = type === 'narrow_gate' || type === 'combo_gate_slide'
     const isBonus = type === 'bonus_choice'
     const isMoving = type === 'moving_gate'
@@ -309,10 +338,12 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
     const minBonusGap = gateWidth / 2 + Math.max(14, cfg.narrowGateWidth - 2) / 2 + 18
     const bonusGateCenterX = isBonus ? Math.max(18, Math.min(82, safeCenter + bonusDirection * (minBonusGap + rng() * 6))) : undefined
     const bonusGateWidth = isBonus ? Math.max(16, cfg.narrowGateWidth - 2) : undefined
-    const bonusKind = isBonus ? (['coin', 'boots', 'whistle', 'boots'] as const)[Math.floor(rng() * 4)] : undefined
+    const bonusKind = isBonus ? (['coin', 'boots', 'whistle', 'slowmo', 'wide', 'blast'] as const)[Math.floor(rng() * 6)] : undefined
     const defenders = isSlide
       ? makeSlideDefenders(i, params.players, type === 'double_slide_wall')
-      : makeGateDefenders(i, safeCenter, gateWidth, params.players, type, rng, bonusGateCenterX != null && bonusGateWidth != null ? { center: bonusGateCenterX, width: bonusGateWidth } : undefined)
+      : isRoulette
+        ? makeSlideDefenders(i, params.players, true).map((defender, index) => ({ ...defender, id: `${i}-roulette-${index}`, variant: 'press' as const, x: [18, 34, 50, 66, 82][index % 5] }))
+        : makeGateDefenders(i, safeCenter, gateWidth, params.players, type, rng, bonusGateCenterX != null && bonusGateWidth != null ? { center: bonusGateCenterX, width: bonusGateWidth } : undefined)
 
     waves.push({
       id: `wave-${i}`,
@@ -326,6 +357,7 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
       passed: false,
       checked: false,
       requiresJump: isSlide || type === 'combo_gate_slide',
+      requiresRoulette: isRoulette,
       hasBonus: isBonus,
       bonusKind,
       bonusCollected: false,
@@ -342,6 +374,7 @@ function getWaveInstruction(wave?: SlalomWave) {
   if (wave?.type === 'slide_wall') return 'SAUTE !'
   if (wave?.type === 'double_slide_wall') return 'DOUBLE TACLE : SAUTE !'
   if (wave?.type === 'combo_gate_slide') return 'PASSE + SAUTE !'
+  if (wave?.type === 'roulette_wall') return 'ROULETTE !'
   if (wave?.type === 'bonus_choice') return 'Vert sur / Dore bonus'
   if (wave?.type === 'moving_gate') return 'Lis la porte !'
   if (wave?.type === 'diagonal_press') return 'Evite le pressing'
@@ -362,8 +395,8 @@ function getJumpTone(wave: SlalomWave, now: number, jump: { isJumping: boolean; 
   return 'TACLE !'
 }
 
-function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive: boolean }, elapsed: number, dashActive = false): { success: boolean; bonus?: boolean; label: string; quality?: DribbleQuality } {
-  const halfGate = wave.gateWidth / 2 + (dashActive && isGatePassWave(wave) ? 3 : 0)
+function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive: boolean }, elapsed: number, dashActive = false, rouletteActive = false, wideActive = false): { success: boolean; bonus?: boolean; label: string; quality?: DribbleQuality } {
+  const halfGate = wave.gateWidth / 2 + (dashActive && isGatePassWave(wave) ? 3 : 0) + (wideActive && isGatePassWave(wave) ? 6 : 0)
   const center = getWaveGateCenter(wave, elapsed)
   const inGate = playerX >= center - halfGate && playerX <= center + halfGate
   const perfectGate = inGate && Math.abs(playerX - center) <= Math.max(3.2, wave.gateWidth * 0.16)
@@ -387,6 +420,7 @@ function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive
     return { success: false, label: 'INTERCEPTE !' }
   }
   if (wave.type === 'combo_gate_slide') return { success: inGate && jump.isActive, label: inGate && jump.isActive ? perfectGate ? 'COMBO PERFECT !' : 'MAGNIFIQUE !' : 'TROP LENT !', quality }
+  if (wave.type === 'roulette_wall') return { success: rouletteActive, label: rouletteActive ? 'ROULETTE !' : 'DRIBBLE FORCE !' }
   return { success: inGate, label: inGate ? perfectGate ? 'PERFECT !' : 'PASSE !' : 'INTERCEPTE !', quality }
 }
 
@@ -409,6 +443,7 @@ function flowGainForWave(wave: SlalomWave, bonus?: boolean) {
   if (wave.type === 'moving_gate') return 16
   if (wave.type === 'bonus_choice') return 10
   if (wave.type === 'combo_gate_slide') return 24
+  if (wave.type === 'roulette_wall') return 20
   return 8
 }
 
@@ -529,7 +564,15 @@ export function AttackPhase({
   const dashUntilRef     = useRef(0)
   const dashCooldownUntilRef = useRef(0)
   const dashDirectionRef = useRef<1 | -1>(1)
+  const rouletteUntilRef = useRef(0)
+  const rouletteCooldownUntilRef = useRef(0)
+  const rouletteStartedAtRef = useRef<number | null>(null)
   const dribbleBoostUntilRef = useRef(0)
+  const slowmoUntilRef = useRef(0)
+  const wideGateUntilRef = useRef(0)
+  const blastNextWaveRef = useRef(false)
+  const attackLivesRef = useRef(ATTACK_MAX_LIVES)
+  const ghostUntilRef = useRef(0)
   const keysRef         = useRef({ left: false, right: false })
   const commentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const gdCheckedRef    = useRef(0)  // count of walls passed
@@ -547,6 +590,9 @@ export function AttackPhase({
   const [flow, setFlow] = useState(0)
   const [bonusFlash, setBonusFlash] = useState(false)
   const [dashActive, setDashActive] = useState(false)
+  const [rouletteActive, setRouletteActive] = useState(false)
+  const [attackLives, setAttackLives] = useState(ATTACK_MAX_LIVES)
+  const [ghostActive, setGhostActive] = useState(false)
   const [powerupLabel, setPowerupLabel] = useState<string | null>(null)
   const [perfectStreak, setPerfectStreak] = useState(0)
   const [feverActive, setFeverActive] = useState(false)
@@ -664,12 +710,23 @@ export function AttackPhase({
     flowRef.current = 0
     dashUntilRef.current = 0
     dashCooldownUntilRef.current = 0
+    rouletteUntilRef.current = 0
+    rouletteCooldownUntilRef.current = 0
+    rouletteStartedAtRef.current = null
     dribbleBoostUntilRef.current = 0
+    slowmoUntilRef.current = 0
+    wideGateUntilRef.current = 0
+    blastNextWaveRef.current = false
+    attackLivesRef.current = ATTACK_MAX_LIVES
+    ghostUntilRef.current = 0
     shotBonusRef.current = { widerGreen: 0, slowKeeper: 0, powerShot: false }
     setComboDisplay(0)
     setFlow(0)
     setBonusFlash(false)
     setDashActive(false)
+    setRouletteActive(false)
+    setAttackLives(ATTACK_MAX_LIVES)
+    setGhostActive(false)
     setPowerupLabel(null)
     setPerfectStreak(0)
     setFeverActive(false)
@@ -757,9 +814,21 @@ export function AttackPhase({
         dribbleBoostUntilRef.current = performance.now() + 3200
         shotBonusRef.current.widerGreen += 0.5
         setPowerupLabel('CRAMPONS TURBO')
-      } else {
+      } else if (bonusKind === 'whistle') {
         shotBonusRef.current.slowKeeper += 1
         setPowerupLabel('SIFFLET - GARDIEN RALENTI')
+      } else if (bonusKind === 'slowmo') {
+        slowmoUntilRef.current = performance.now() + 3600
+        shotBonusRef.current.slowKeeper += 0.5
+        setPowerupLabel('SLOWMO - JEU RALENTI')
+      } else if (bonusKind === 'wide') {
+        wideGateUntilRef.current = performance.now() + 4200
+        shotBonusRef.current.widerGreen += 0.75
+        setPowerupLabel('PORTE LARGE')
+      } else {
+        blastNextWaveRef.current = true
+        shotBonusRef.current.widerGreen += 0.35
+        setPowerupLabel('BOMBE CLEAN - NEXT WAVE')
       }
       setBonusFlash(true)
       window.setTimeout(() => setBonusFlash(false), 420)
@@ -785,6 +854,35 @@ export function AttackPhase({
       elapsed,
     }
   }
+
+  function getRouletteState(now: number) {
+    const startedAt = rouletteStartedAtRef.current
+    if (!startedAt) return { isActive: false, elapsed: 0 }
+    const elapsed = now - startedAt
+    return {
+      isActive: elapsed >= ROULETTE_ACTIVE_START && elapsed <= ROULETTE_ACTIVE_END,
+      elapsed,
+    }
+  }
+
+  const absorbDribbleHit = useCallback((label: string) => {
+    const nextLives = Math.max(0, attackLivesRef.current - 1)
+    attackLivesRef.current = nextLives
+    setAttackLives(nextLives)
+    ghostUntilRef.current = performance.now() + ATTACK_GHOST_DURATION
+    setGhostActive(true)
+    window.setTimeout(() => setGhostActive(false), ATTACK_GHOST_DURATION)
+    comboRef.current = 0
+    perfectStreakRef.current = 0
+    flowRef.current = Math.max(0, flowRef.current - 18)
+    setComboDisplay(0)
+    setPerfectStreak(0)
+    setFlow(flowRef.current)
+    setGdFlash(true)
+    setGdComment(nextLives > 0 ? `${label} - ${nextLives} VIE${nextLives > 1 ? 'S' : ''}` : 'PLUS DE VIES !')
+    window.setTimeout(() => setGdFlash(false), 300)
+    return nextLives
+  }, [])
 
   //  Jump handler 
   const handleJump = () => {
@@ -823,8 +921,29 @@ export function AttackPhase({
     window.setTimeout(() => setDashActive(false), DASH_DURATION)
   }
 
+  const handleRoulette = () => {
+    const now = performance.now()
+    if (now < rouletteCooldownUntilRef.current) return
+    rouletteStartedAtRef.current = now
+    rouletteUntilRef.current = now + ROULETTE_DURATION
+    rouletteCooldownUntilRef.current = now + (now < feverUntilRef.current ? ROULETTE_COOLDOWN * 0.62 : ROULETTE_COOLDOWN)
+    sfx.jump()
+    setRouletteActive(true)
+    setGdComment('ROULETTE !')
+    if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
+    commentTimerRef.current = setTimeout(() => setGdComment(null), 560)
+    window.setTimeout(() => {
+      rouletteStartedAtRef.current = null
+      setRouletteActive(false)
+    }, ROULETTE_DURATION)
+  }
+
   const handleEvade = () => {
     const nextWave = gdWallsRef.current.find((wave) => !wave.checked)
+    if (nextWave?.requiresRoulette) {
+      handleRoulette()
+      return
+    }
     if (nextWave?.requiresJump) {
       handleJump()
       return
@@ -838,8 +957,8 @@ export function AttackPhase({
     const onDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft')  { keysRef.current.left  = true; e.preventDefault() }
       if (e.key === 'ArrowRight') { keysRef.current.right = true; e.preventDefault() }
-      if (e.key === ' ')          { handleJump(); e.preventDefault() }
-      if (e.key === 'Shift')      { handleDash(); e.preventDefault() }
+      if (e.key === ' ')          { handleEvade(); e.preventDefault() }
+      if (e.key === 'Shift')      { handleEvade(); e.preventDefault() }
     }
     const onUp = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft')  keysRef.current.left  = false
@@ -875,8 +994,10 @@ export function AttackPhase({
 
       const isTurboActive = now < dribbleBoostUntilRef.current
       const isFeverActive = now < feverUntilRef.current
+      const isSlowmoActive = now < slowmoUntilRef.current
       const playerSpeed = PLAYER_SPEED * (isTurboActive ? 1.22 : 1) * (flowRef.current >= 70 ? 1.08 : 1) * (isFeverActive ? 1.14 : 1)
       const dashActiveNow = now < dashUntilRef.current
+      const rouletteActiveNow = now < rouletteUntilRef.current
 
       // Move player X via keyboard  direct DOM, no React re-render
       if (keysRef.current.left) {
@@ -896,7 +1017,7 @@ export function AttackPhase({
       }
 
       const progress = gdCheckedRef.current / Math.max(1, cfg.waveCount)
-      const speed = cfg.gdSpeed * (1 + progress * cfg.difficultyRamp)
+      const speed = cfg.gdSpeed * (1 + progress * cfg.difficultyRamp) * (isSlowmoActive ? 0.68 : 1)
 
       // Walls fall: update ONE container transform  GPU composited, zero layout reflow
       gdFallPctRef.current += speed * delta
@@ -924,11 +1045,26 @@ export function AttackPhase({
 
         wall.checked = true
         const jump = getJumpState(now)
-        const outcome = evaluateWaveSuccess(wall, playerX, jump, gdElapsedRef.current, dashActiveNow)
+        const roulette = getRouletteState(now)
+        const ghostActiveNow = now < ghostUntilRef.current
 
-        if (outcome.success) {
+        if (blastNextWaveRef.current && wall.type !== 'bonus_choice') {
+          blastNextWaveRef.current = false
           wall.passed = true
-          registerDribbleSuccess(wall, outcome)
+          registerDribbleSuccess(wall, { label: 'EXPLOSION !', quality: 'perfect' })
+          gdCheckedRef.current++
+          setGdWallsDisplay([...gdWallsRef.current])
+          setGdComment('RANGEE EXPLOSEE !')
+          if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
+          commentTimerRef.current = setTimeout(() => setGdComment(null), 760)
+          continue
+        }
+
+        const outcome = evaluateWaveSuccess(wall, playerX, jump, gdElapsedRef.current, dashActiveNow, roulette.isActive || rouletteActiveNow, now < wideGateUntilRef.current)
+
+        if (outcome.success || ghostActiveNow) {
+          wall.passed = true
+          registerDribbleSuccess(wall, ghostActiveNow && !outcome.success ? { label: 'GHOST !' } : outcome)
           if (isGatePassWave(wall)) sfx.gatePass()
           gdCheckedRef.current++
           setGdWallsDisplay([...gdWallsRef.current])
@@ -959,13 +1095,12 @@ export function AttackPhase({
         } else {
           wall.failed = true
           setGdWallsDisplay([...gdWallsRef.current])
-          setGdFlash(true)
-          comboRef.current = 0
-          setComboDisplay(0)
-          setGdComment(outcome.label || getJumpTone(wall, now, jump))
-          setTimeout(() => setGdFlash(false), 300)
-          setTimeout(() => finish(false, 'intercepted'), 260)
-          return
+          const nextLives = absorbDribbleHit(outcome.label || getJumpTone(wall, now, jump))
+          gdCheckedRef.current++
+          if (nextLives <= 0) {
+            setTimeout(() => finish(false, 'intercepted'), 420)
+            return
+          }
         }
       }
 
@@ -983,7 +1118,7 @@ export function AttackPhase({
 
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [phase, tutorialDone, showShotIntro, cfg.gdSpeed, cfg.difficultyRamp, cfg.waveCount, finish, registerDribbleSuccess])
+  }, [phase, tutorialDone, showShotIntro, cfg.gdSpeed, cfg.difficultyRamp, cfg.waveCount, finish, registerDribbleSuccess, absorbDribbleHit])
 
   //  Pointer move for GD (drag ball left/right)  direct DOM, no re-render, no getBCR 
   const handleGdPointerMove = (e: React.PointerEvent<HTMLElement>) => {
@@ -1256,7 +1391,7 @@ export function AttackPhase({
   const gaugeGreenLeftPct = gaugeGreenLeft.current * 100  // % of track
   const nextGdWave = gdWallsDisplay.find((wave) => !wave.checked)
   const gdInstruction = getWaveInstruction(nextGdWave)
-  const gdBadgeClass = nextGdWave?.type === 'slide_wall' || nextGdWave?.type === 'double_slide_wall' ? ' is-jump' : nextGdWave?.type === 'combo_gate_slide' ? ' is-combo' : nextGdWave?.type === 'bonus_choice' ? ' is-bonus' : nextGdWave?.moveAmplitude ? ' is-moving' : ''
+  const gdBadgeClass = nextGdWave?.type === 'slide_wall' || nextGdWave?.type === 'double_slide_wall' ? ' is-jump' : nextGdWave?.type === 'roulette_wall' ? ' is-roulette' : nextGdWave?.type === 'combo_gate_slide' ? ' is-combo' : nextGdWave?.type === 'bonus_choice' ? ' is-bonus' : nextGdWave?.moveAmplitude ? ' is-moving' : ''
 
   return (
     <section
@@ -1407,6 +1542,9 @@ export function AttackPhase({
         .atk-powerup-label { margin-top:5px; width:max-content; max-width:min(220px,58vw); padding:4px 8px; border-radius:999px; background:rgba(255,184,0,.16); border:1px solid rgba(255,184,0,.42); color:#ffdf73; font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-transform:uppercase; box-shadow:0 0 14px rgba(255,184,0,.24); animation:atkPowerupPop .42s ease-out both; }
         .atk-combo-badge { margin-top:5px; width:max-content; min-width:0; padding:4px 7px; border-radius:999px; text-align:center; color:rgba(223,255,238,.86); background:rgba(5,16,21,.52); border:1px solid rgba(43,255,154,.24); font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.1em; box-shadow:0 0 12px rgba(43,255,154,.1); opacity:.82; }
         .atk-combo-badge.is-hot { color:#201300; background:linear-gradient(180deg,#ffdc73,#ffb800); border-color:rgba(255,255,255,.48); box-shadow:0 0 22px rgba(255,184,0,.42); }
+        .atk-life-badge { margin-top:5px;display:flex;gap:4px;width:max-content;padding:4px 7px;border-radius:999px;background:rgba(5,16,21,.5);border:1px solid rgba(255,255,255,.14); }
+        .atk-life-badge i { width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18); }
+        .atk-life-badge i.is-on { background:#FF4455;box-shadow:0 0 10px rgba(255,68,85,.72); }
         .atk-perfect-badge { margin-top:7px; width:max-content; padding:4px 8px; border-radius:999px; color:#03131d; background:linear-gradient(90deg,#bdfcff,#2bff9a); font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; box-shadow:0 0 14px rgba(43,255,154,.38); }
         .atk-perfect-badge.is-fever { background:linear-gradient(90deg,#ffdf73,#ff5f7c); box-shadow:0 0 20px rgba(255,184,0,.54); animation:atkFeverPulse .36s ease-in-out infinite alternate; }
         .atk-bonus-flash { position:absolute; inset:0; z-index:23; pointer-events:none; background:radial-gradient(circle at 50% 72%, rgba(255,184,0,.34), transparent 42%); animation:atkBonusFlash .42s ease-out both; }
@@ -1437,6 +1575,8 @@ export function AttackPhase({
         .atk-gd-player--pass .atk-player-shadow { transform:translateX(-50%) scale(1.55);opacity:.18; }
         .atk-gd-player.is-dashing .atk-player-inner { transform:scale(1.18) skewX(-8deg); filter:drop-shadow(0 0 20px rgba(25,211,255,.82)); }
         .atk-gd-player.is-dashing::before { content:''; position:absolute; right:38px; top:22px; width:58px; height:18px; border-radius:999px; background:linear-gradient(90deg, transparent, rgba(25,211,255,.55)); transform:scaleX(calc(var(--atk-dash-dir, 1))); opacity:.86; animation:atkDashTrail .2s ease-out both; }
+        .atk-gd-player.is-ghost .atk-player-inner { opacity:.48;filter:drop-shadow(0 0 24px rgba(189,252,255,.95));animation:atkGhostBlink .18s linear infinite alternate; }
+        .atk-gd-player.is-roulette .atk-player-inner { animation:atkRouletteSpin .52s cubic-bezier(.2,.9,.25,1) both;filter:drop-shadow(0 0 24px rgba(255,184,0,.9)); }
         .atk-player-whoosh { position:absolute;left:50%;top:46%;width:62px;height:62px;border-radius:50%;border:2px solid rgba(43,255,154,.34);transform:translate(-50%,-50%) scale(.7);opacity:0;pointer-events:none; }
         .atk-gd-player--pass .atk-player-whoosh { animation:atkJumpWhoosh .34s ease-out both; }
         .atk-gd-player.is-flowing .atk-player-inner { filter:drop-shadow(0 0 18px rgba(43,255,154,.82)); }
@@ -1487,11 +1627,15 @@ export function AttackPhase({
         .atk-bonus-orb { position:absolute; left:50%; top:-18px; transform:translateX(-50%); min-width:30px; height:30px; padding:0 5px; border-radius:999px; display:grid; place-items:center; background:linear-gradient(180deg,#fff2b6,#ffb800); color:#1e1300; font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.05em; border:2px solid rgba(255,255,255,.72); box-shadow:0 0 20px rgba(255,184,0,.72); animation:atkBonusOrb 1s ease-in-out infinite alternate; }
         .atk-bonus-orb.is-boots { background:linear-gradient(180deg,#bdfcff,#19d3ff); color:#01141b; box-shadow:0 0 20px rgba(25,211,255,.72); }
         .atk-bonus-orb.is-whistle { background:linear-gradient(180deg,#d8ffba,#2bff9a); color:#03160c; box-shadow:0 0 20px rgba(43,255,154,.72); }
+        .atk-bonus-orb.is-slowmo { background:linear-gradient(180deg,#e7d5ff,#a855f7); color:#17051f; box-shadow:0 0 20px rgba(168,85,247,.72); }
+        .atk-bonus-orb.is-wide { background:linear-gradient(180deg,#d8ffba,#b8ff6a); color:#132100; box-shadow:0 0 20px rgba(184,255,106,.72); }
+        .atk-bonus-orb.is-blast { background:linear-gradient(180deg,#fff4a8,#FF4455); color:#210305; box-shadow:0 0 24px rgba(255,68,85,.72); }
         .atk-bonus-choice-label { position:absolute; left:50%; top:34px; transform:translateX(-50%); color:#ffdf73; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-shadow:0 0 10px rgba(255,184,0,.8); white-space:nowrap; }
         .atk-slalom-gate__label { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:1; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.16em; color:#dfffee; text-shadow:0 0 10px rgba(43,255,154,.8); }
         .atk-slide-wall { position:absolute;left:0;right:0;height:74px;top:0;transform:translateY(-50%);pointer-events:none;z-index:4; }
         .atk-slide-danger { position:absolute;left:4%;right:4%;top:50%;height:34px;transform:translateY(-50%);border-radius:999px;background:rgba(255,184,0,.14);border:1px solid rgba(255,184,0,.55);box-shadow:0 0 18px rgba(255,184,0,.28);animation:slideDangerPulse .45s ease-in-out infinite alternate; }
         .atk-slide-wall.is-failed .atk-slide-danger { background:rgba(255,68,85,.18);border-color:rgba(255,68,85,.7);box-shadow:0 0 24px rgba(255,68,85,.42); }
+        .atk-slide-wall.is-roulette .atk-slide-danger { height:46px;background:repeating-linear-gradient(90deg,rgba(255,184,0,.22) 0 18px,rgba(255,68,85,.18) 18px 36px);border-color:rgba(255,184,0,.78);box-shadow:0 0 28px rgba(255,184,0,.36); }
         .atk-slide-label { position:absolute;left:50%;top:-16px;transform:translateX(-50%);color:#FFB800;font:900 12px 'Barlow Condensed',sans-serif;letter-spacing:.13em;text-shadow:0 0 12px rgba(255,184,0,.85);white-space:nowrap; }
         .atk-slalom-defender { position:absolute; transform:translate(-50%,-50%); z-index:9; filter:drop-shadow(0 10px 12px rgba(0,0,0,.44)); animation: atkRunnerBob .42s ease-in-out infinite alternate; }
         .atk-slalom-defender.is-mobile { animation: atkRunnerBob .42s ease-in-out infinite alternate, atkDefenderPatrol var(--atk-defender-duration,.9s) ease-in-out var(--atk-defender-delay,0s) infinite alternate; }
@@ -1519,6 +1663,8 @@ export function AttackPhase({
         @keyframes atkBonusFlash { from{opacity:1; transform:scale(.92)} to{opacity:0; transform:scale(1.08)} }
         @keyframes atkFeverPulse { from{ filter:brightness(1); } to{ filter:brightness(1.32); } }
         @keyframes atkFeverPlayer { from{ transform:scale(1.02) rotate(-1deg); } to{ transform:scale(1.1) rotate(1deg); } }
+        @keyframes atkGhostBlink { from{ opacity:.36; } to{ opacity:.72; } }
+        @keyframes atkRouletteSpin { 0%{ transform:rotate(0deg) scale(1); } 58%{ transform:rotate(300deg) scale(1.16); } 100%{ transform:rotate(360deg) scale(1); } }
         @keyframes atkBonusOrb { from{ transform:translateX(-50%) translateY(0) scale(.95); } to{ transform:translateX(-50%) translateY(-4px) scale(1.08); } }
         @keyframes atkPowerupPop { from{ opacity:0; transform:translateY(6px) scale(.92); } to{ opacity:1; transform:none; } }
         @keyframes atkDashTrail { from{ opacity:.9; transform:translateX(0); } to{ opacity:0; transform:translateX(-22px); } }
@@ -1539,6 +1685,7 @@ export function AttackPhase({
         .atk-controls__phase { grid-area:phase; min-width:112px; text-align:right; color:#2bff9a; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.14em; }
         .atk-controls__phase.is-jump { color:#FFB800; }
         .atk-controls__phase.is-combo { color:#FF4455; }
+        .atk-controls__phase.is-roulette { color:#FFB800; text-shadow:0 0 12px rgba(255,184,0,.45); }
         .atk-controls__phase.is-moving { color:#19d3ff; }
         .atk-controls__phase.is-bonus { color:#FFB800; }
         .atk-controls__phase small { display:block; color:rgba(255,255,255,.62); font:800 10px 'Barlow Condensed',sans-serif; letter-spacing:.08em; margin-top:2px; max-width:132px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -1945,6 +2092,8 @@ export function AttackPhase({
             <br />
             Les portes peuvent etre etroites, mobiles, diagonales ou protegees par des murs.
             <br /><br />
+            Si tu rates, ton attaquant perd une vie et passe en <b style={{ color:'#bdfcff' }}>mode ghost</b> quelques instants. Certaines rangees demandent une <b style={{ color:'#FFB800' }}>roulette</b> avec Esquive.
+            <br /><br />
             Garde le <b style={{ color:'#FFB800' }}>FLOW</b> : les combos agrandissent la zone verte, ralentissent le gardien ou boostent la frappe.
             <br /><br />
             <span style={{ color:'rgba(255,255,255,.5)', fontSize:'0.9em' }}>Clavier : fleches pour se deplacer, Espace pour sauter, Shift pour esquiver</span>
@@ -2002,6 +2151,9 @@ export function AttackPhase({
                 {perfectStreak > 0 ? <div className={`atk-perfect-badge${feverActive ? ' is-fever' : ''}`}>{feverActive ? 'FEVER' : 'PERFECT'} x{perfectStreak}</div> : null}
                 {powerupLabel ? <div className="atk-powerup-label">{powerupLabel}</div> : null}
                 {comboDisplay > 0 ? <div className={`atk-combo-badge${comboDisplay >= 5 || feverActive ? ' is-hot' : ''}`}>COMBO x{comboDisplay}</div> : null}
+                <div className="atk-life-badge" aria-label={`${attackLives} vies`}>
+                  {Array.from({ length: ATTACK_MAX_LIVES }, (_, index) => <i key={index} className={index < attackLives ? 'is-on' : ''} />)}
+                </div>
               </div>
             </div>
 
@@ -2030,6 +2182,7 @@ export function AttackPhase({
                 const bonusGatePxWidth = wave.bonusGateWidth ? `${wave.bonusGateWidth}%` : '0%' 
                 const isSlideWave = wave.type === 'slide_wall' || wave.type === 'double_slide_wall'
                 const isComboWave = wave.type === 'combo_gate_slide'
+                const isRouletteWave = wave.type === 'roulette_wall'
                 const moveAmp = wave.moveAmplitude ?? 0
                 const moveDur = wave.moveFrequency ? `${1 / wave.moveFrequency}s` : '1.4s'
                 const moveDelay = wave.movePhase && wave.moveFrequency ? `${-(wave.movePhase / (Math.PI * 2)) / wave.moveFrequency}s` : '0s'
@@ -2046,13 +2199,13 @@ export function AttackPhase({
                 } as CSSProperties
                 return (
                   <div key={wi} className={`atk-slalom-wave is-${wave.type}${moveAmp ? ' is-moving' : ''}`} style={waveMotionStyle}>
-                    {isSlideWave || isComboWave ? (
-                      <div className={`atk-slide-wall${wave.failed ? ' is-failed' : ''}${wave.passed ? ' is-passed' : ''}`}>
+                    {isSlideWave || isComboWave || isRouletteWave ? (
+                      <div className={`atk-slide-wall${wave.failed ? ' is-failed' : ''}${wave.passed ? ' is-passed' : ''}${isRouletteWave ? ' is-roulette' : ''}`}>
                         <div className="atk-slide-danger" />
-                        <span className="atk-slide-label">{wave.type === 'double_slide_wall' ? 'DOUBLE TACLE : SAUTE !' : isComboWave ? 'PLACE-TOI + SAUTE !' : 'SAUTE !'}</span>
+                        <span className="atk-slide-label">{isRouletteWave ? 'ROULETTE OBLIGATOIRE !' : wave.type === 'double_slide_wall' ? 'DOUBLE TACLE : SAUTE !' : isComboWave ? 'PLACE-TOI + SAUTE !' : 'SAUTE !'}</span>
                       </div>
                     ) : null}
-                    {!isSlideWave ? (
+                    {!isSlideWave && !isRouletteWave ? (
                       <div className={`atk-slalom-gate${wave.passed ? ' is-passed' : ''}${wave.failed ? ' is-failed' : ''}${isComboWave ? ' is-combo' : ''}${wave.type === 'narrow_gate' ? ' is-narrow' : ''}${wave.type === 'moving_gate' ? ' is-moving' : ''}`} style={{ left: `${wave.gateCenterX}%`, width: gatePxWidth }}>
                         <span className="atk-slalom-gate__label">PASSAGE</span>
                         {wave.passed && !wave.bonusCollected ? <span className="atk-pass-pop">PASSE !</span> : null}
@@ -2061,9 +2214,9 @@ export function AttackPhase({
                     {wave.hasBonus && wave.bonusGateCenterX != null && wave.bonusGateWidth != null ? (
                       <div className={`atk-slalom-gate is-bonus${wave.bonusCollected ? ' is-passed' : ''}${wave.failed ? ' is-failed' : ''}`} style={{ left: `${wave.bonusGateCenterX}%`, width: bonusGatePxWidth }}>
                         <span className={`atk-bonus-orb is-${wave.bonusKind ?? 'coin'}`}>
-                          {wave.bonusKind === 'boots' ? 'SPD' : wave.bonusKind === 'whistle' ? 'STOP' : '$'}
+                          {wave.bonusKind === 'boots' ? 'SPD' : wave.bonusKind === 'whistle' ? 'STOP' : wave.bonusKind === 'slowmo' ? 'SLOW' : wave.bonusKind === 'wide' ? 'WIDE' : wave.bonusKind === 'blast' ? 'BOOM' : '$'}
                         </span>
-                        <span className="atk-slalom-gate__label">{wave.bonusKind === 'boots' ? 'TURBO' : wave.bonusKind === 'whistle' ? 'SIFFLET' : 'PIECE'}</span>
+                        <span className="atk-slalom-gate__label">{wave.bonusKind === 'boots' ? 'TURBO' : wave.bonusKind === 'whistle' ? 'SIFFLET' : wave.bonusKind === 'slowmo' ? 'SLOWMO' : wave.bonusKind === 'wide' ? 'PORTE +' : wave.bonusKind === 'blast' ? 'BOOM' : 'PIECE'}</span>
                         <span className="atk-bonus-choice-label">RISQUE = BONUS</span>
                         {wave.bonusCollected ? <span className="atk-pass-pop">BONUS !</span> : null}
                       </div>
@@ -2103,6 +2256,8 @@ export function AttackPhase({
                 gdJumping ? 'atk-gd-player--pass' : '',
                 dashActive ? 'is-dashing' : '',
                 gdFlash   ? 'atk-gd-player--flash' : '',
+                ghostActive ? 'is-ghost' : '',
+                rouletteActive ? 'is-roulette' : '',
                 flow >= 40 ? 'is-flowing' : '',
                 feverActive ? 'is-fever' : '',
                 flow >= 100 ? 'is-max-flow' : '',
@@ -2287,10 +2442,10 @@ export function AttackPhase({
 
       {phase === 'gd' && showControls && (
         <div className="atk-controls">
-          <div className="atk-controls__stat">FLOW {flow}<small>Combo x{comboDisplay}</small></div>
+          <div className="atk-controls__stat">FLOW {flow}<small>Vie {attackLives}/{ATTACK_MAX_LIVES} - Combo x{comboDisplay}</small></div>
           <div className="atk-controls__buttons">
             <button type="button" className="atk-ctrl-btn" data-control="left" aria-label="Gauche" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.left = true }} onPointerUp={() => { keysRef.current.left = false }} onPointerCancel={() => { keysRef.current.left = false }} onPointerLeave={() => { keysRef.current.left = false }}>←</button>
-            <button type="button" className={`atk-ctrl-btn atk-ctrl-btn--evade${gdJumping || dashActive ? ' is-jumping' : ''}${nextGdWave?.requiresJump ? ' is-danger' : ''}`} data-control="jump" aria-label="Esquive" onPointerDown={(e) => { e.stopPropagation(); handleEvade() }}><b>{nextGdWave?.requiresJump ? '↑' : '↯'}</b>{nextGdWave?.requiresJump ? 'SAUT' : 'ESQUIVE'}</button>
+            <button type="button" className={`atk-ctrl-btn atk-ctrl-btn--evade${gdJumping || dashActive || rouletteActive ? ' is-jumping' : ''}${nextGdWave?.requiresJump || nextGdWave?.requiresRoulette ? ' is-danger' : ''}`} data-control="jump" aria-label="Esquive" onPointerDown={(e) => { e.stopPropagation(); handleEvade() }}><b>{nextGdWave?.requiresRoulette ? 'R' : nextGdWave?.requiresJump ? '↑' : '↯'}</b>{nextGdWave?.requiresRoulette ? 'ROULETTE' : nextGdWave?.requiresJump ? 'SAUT' : 'ESQUIVE'}</button>
             <button type="button" className="atk-ctrl-btn" data-control="right" aria-label="Droite" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.right = true }} onPointerUp={() => { keysRef.current.right = false }} onPointerCancel={() => { keysRef.current.right = false }} onPointerLeave={() => { keysRef.current.right = false }}>→</button>
           </div>
           <div className={`atk-controls__phase${gdBadgeClass}`}>SLALOM<small>{gdInstruction}</small></div>
