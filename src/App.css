@@ -5056,12 +5056,16 @@
 
   .app-shell.is-home-bracket .bracket-fit {
     min-height: calc(100dvh - 130px);
-    height: auto;
+    height: calc(100dvh - 130px);
+    max-height: calc(100dvh - 130px);
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: auto;
     scroll-snap-type: x mandatory;
     scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
   }
 
   .app-shell.is-home-bracket .bracket-fit__stage {
@@ -5090,6 +5094,7 @@
     flex: 0 0 100vw;
     width: 100vw;
     max-width: 100vw;
+    min-height: calc(100dvh - 132px);
     scroll-snap-align: start;
   }
 }

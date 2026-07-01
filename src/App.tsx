@@ -472,27 +472,31 @@ function normalizeFilePart(value: string): string {
 }
 
 const mobileRoundTabs = [
-  { key: 'R32', label: '16e', stage: 'Round of 32' },
-  { key: 'R16', label: '8e', stage: 'Round of 16' },
-  { key: 'QF', label: 'Quarts', stage: 'Quarter-final' },
-  { key: 'SF', label: 'Demies', stage: 'Semi-final' },
+  { key: 'L_R32', label: '16e', stage: 'Round of 32' },
+  { key: 'L_R16', label: '8e', stage: 'Round of 16' },
+  { key: 'L_QF', label: 'Quarts', stage: 'Quarter-final' },
+  { key: 'L_SF', label: 'Demies', stage: 'Semi-final' },
   { key: 'F', label: 'Finale', stage: 'Finale' },
+  { key: 'R_SF', label: 'Demies', stage: 'Semi-final' },
+  { key: 'R_QF', label: 'Quarts', stage: 'Quarter-final' },
+  { key: 'R_R16', label: '8e', stage: 'Round of 16' },
+  { key: 'R_R32', label: '16e', stage: 'Round of 32' },
 ] as const
 
 const mobileRoundColumnIndex: Record<(typeof mobileRoundTabs)[number]['key'], number> = {
-  R32: 0,
-  R16: 1,
-  QF: 2,
-  SF: 3,
+  L_R32: 0,
+  L_R16: 1,
+  L_QF: 2,
+  L_SF: 3,
   F: 4,
+  R_SF: 5,
+  R_QF: 6,
+  R_R16: 7,
+  R_R32: 8,
 }
 
 function mobileRoundForColumnIndex(index: number): (typeof mobileRoundTabs)[number]['key'] {
-  if (index <= 0 || index >= 8) return 'R32'
-  if (index === 1 || index === 7) return 'R16'
-  if (index === 2 || index === 6) return 'QF'
-  if (index === 3 || index === 5) return 'SF'
-  return 'F'
+  return mobileRoundTabs[Math.max(0, Math.min(mobileRoundTabs.length - 1, index))].key
 }
 
 function getMobileBracketColumnWidth(viewport: HTMLDivElement) {
@@ -977,13 +981,13 @@ function BracketBoard({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isLandscape, setIsLandscape] = useState(() => window.innerWidth >= window.innerHeight)
   const [previewTeamId, setPreviewTeamId] = useState<string | null>(null)
-  const [activeMobileRound, setActiveMobileRound] = useState<(typeof mobileRoundTabs)[number]['key']>('R32')
+  const [activeMobileRound, setActiveMobileRound] = useState<(typeof mobileRoundTabs)[number]['key']>('L_R32')
   const [isExporting, setIsExporting] = useState(false)
   const [exportFeedback, setExportFeedback] = useState<string | null>(null)
   const [shareSheet, setShareSheet] = useState<{ url: string; blob?: Blob } | null>(null)
   const [standingsPopup, setStandingsPopup] = useState<{ teamId: string; x: number; y: number } | null>(null)
   const isFullscreenRef = useRef(false)
-  const activeMobileRoundRef = useRef<(typeof mobileRoundTabs)[number]['key']>('R32')
+  const activeMobileRoundRef = useRef<(typeof mobileRoundTabs)[number]['key']>('L_R32')
 
   const matchMap = useMemo(() => new Map(matches.map((match) => [match.id, match])), [matches])
   const parentLookup = useMemo(() => {
