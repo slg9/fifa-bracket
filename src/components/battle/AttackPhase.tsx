@@ -60,6 +60,7 @@ const JUMP_ACTIVE_END = 500
 const DASH_DISTANCE = 18
 const DASH_DURATION = 210
 const DASH_COOLDOWN = 620
+const FEVER_DURATION = 3600
 
 const GD_COMMENTS = [
   'Beau dribble !', 'Petit pont !', 'Il passe !', 'Quel crochet !',
@@ -88,6 +89,7 @@ const KNOWN_PLAYER_NUMBERS: Record<string, number> = {
 
 type SlalomWaveType = 'gate' | 'narrow_gate' | 'slide_wall' | 'double_slide_wall' | 'diagonal_press' | 'moving_gate' | 'bonus_choice' | 'combo_gate_slide'
 type BonusKind = 'coin' | 'boots' | 'whistle'
+type DribbleQuality = 'clean' | 'perfect'
 
 type SlalomDefender = {
   id: string
@@ -356,27 +358,32 @@ function getJumpTone(wave: SlalomWave, now: number, jump: { isJumping: boolean; 
   return 'TACLE !'
 }
 
-function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive: boolean }, elapsed: number, dashActive = false): { success: boolean; bonus?: boolean; label: string } {
+function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive: boolean }, elapsed: number, dashActive = false): { success: boolean; bonus?: boolean; label: string; quality?: DribbleQuality } {
   const halfGate = wave.gateWidth / 2 + (dashActive && isGatePassWave(wave) ? 3 : 0)
   const center = getWaveGateCenter(wave, elapsed)
   const inGate = playerX >= center - halfGate && playerX <= center + halfGate
+  const perfectGate = inGate && Math.abs(playerX - center) <= Math.max(3.2, wave.gateWidth * 0.16)
   const inBonusGate = wave.bonusGateCenterX != null && wave.bonusGateWidth != null
     ? playerX >= wave.bonusGateCenterX - wave.bonusGateWidth / 2 - (dashActive ? 2 : 0) && playerX <= wave.bonusGateCenterX + wave.bonusGateWidth / 2 + (dashActive ? 2 : 0)
     : false
+  const perfectBonus = inBonusGate && wave.bonusGateCenterX != null && wave.bonusGateWidth != null
+    ? Math.abs(playerX - wave.bonusGateCenterX) <= Math.max(2.8, wave.bonusGateWidth * 0.16)
+    : false
+  const quality: DribbleQuality = perfectGate || perfectBonus ? 'perfect' : 'clean'
 
-  if (wave.type === 'gate') return { success: inGate, label: inGate ? 'PASSE !' : 'INTERCEPTE !' }
-  if (wave.type === 'narrow_gate') return { success: inGate, label: inGate ? 'PETIT PONT !' : 'HORS PORTE !' }
+  if (wave.type === 'gate') return { success: inGate, label: inGate ? perfectGate ? 'PERFECT !' : 'PASSE !' : 'INTERCEPTE !', quality }
+  if (wave.type === 'narrow_gate') return { success: inGate, label: inGate ? perfectGate ? 'PETIT PONT PARFAIT !' : 'PETIT PONT !' : 'HORS PORTE !', quality }
   if (wave.type === 'slide_wall') return { success: jump.isActive, label: jump.isActive ? 'SAUTE !' : 'TACLE !' }
   if (wave.type === 'double_slide_wall') return { success: jump.isActive, label: jump.isActive ? 'DOUBLE TACLE EVITE !' : 'TACLE !' }
-  if (wave.type === 'diagonal_press') return { success: inGate, label: inGate ? 'CROCHET !' : 'PRESSE !' }
-  if (wave.type === 'moving_gate') return { success: inGate, label: inGate ? 'BIEN LU !' : 'INTERCEPTE !' }
+  if (wave.type === 'diagonal_press') return { success: inGate, label: inGate ? perfectGate ? 'CROCHET PARFAIT !' : 'CROCHET !' : 'PRESSE !', quality }
+  if (wave.type === 'moving_gate') return { success: inGate, label: inGate ? perfectGate ? 'TIMING PARFAIT !' : 'BIEN LU !' : 'INTERCEPTE !', quality }
   if (wave.type === 'bonus_choice') {
-    if (inBonusGate) return { success: true, bonus: true, label: 'BONUS !' }
-    if (inGate) return { success: true, label: 'PASSE !' }
+    if (inBonusGate) return { success: true, bonus: true, label: perfectBonus ? 'BONUS PERFECT !' : 'BONUS !', quality }
+    if (inGate) return { success: true, label: perfectGate ? 'PERFECT !' : 'PASSE !', quality }
     return { success: false, label: 'INTERCEPTE !' }
   }
-  if (wave.type === 'combo_gate_slide') return { success: inGate && jump.isActive, label: inGate && jump.isActive ? 'MAGNIFIQUE !' : 'TROP LENT !' }
-  return { success: inGate, label: inGate ? 'PASSE !' : 'INTERCEPTE !' }
+  if (wave.type === 'combo_gate_slide') return { success: inGate && jump.isActive, label: inGate && jump.isActive ? perfectGate ? 'COMBO PERFECT !' : 'MAGNIFIQUE !' : 'TROP LENT !', quality }
+  return { success: inGate, label: inGate ? perfectGate ? 'PERFECT !' : 'PASSE !' : 'INTERCEPTE !', quality }
 }
 
 function isGatePassWave(wave: SlalomWave) {
@@ -528,6 +535,8 @@ export function AttackPhase({
   const slalomCompleteWorldYRef = useRef<number | null>(null)
   const comboRef       = useRef(0)
   const maxComboRef    = useRef(0)
+  const perfectStreakRef = useRef(0)
+  const feverUntilRef  = useRef(0)
   const flowRef        = useRef(0)
   const shotBonusRef   = useRef({ widerGreen: 0, slowKeeper: 0, powerShot: false })
   const [comboDisplay, setComboDisplay] = useState(0)
@@ -535,6 +544,8 @@ export function AttackPhase({
   const [bonusFlash, setBonusFlash] = useState(false)
   const [dashActive, setDashActive] = useState(false)
   const [powerupLabel, setPowerupLabel] = useState<string | null>(null)
+  const [perfectStreak, setPerfectStreak] = useState(0)
+  const [feverActive, setFeverActive] = useState(false)
 
   const startTutorialCountdown = useCallback(() => {
     sfx.click()
@@ -644,6 +655,8 @@ export function AttackPhase({
     slalomCompleteWorldYRef.current = null
     comboRef.current = 0
     maxComboRef.current = 0
+    perfectStreakRef.current = 0
+    feverUntilRef.current = 0
     flowRef.current = 0
     dashUntilRef.current = 0
     dashCooldownUntilRef.current = 0
@@ -654,6 +667,8 @@ export function AttackPhase({
     setBonusFlash(false)
     setDashActive(false)
     setPowerupLabel(null)
+    setPerfectStreak(0)
+    setFeverActive(false)
     setGdWallsDisplay([...waves])
     if (wallContainerRef.current) wallContainerRef.current.style.transform = 'translateY(0%)'
   }, [awayTeamPlayers, difficulty, shotOnly])
@@ -697,13 +712,33 @@ export function AttackPhase({
     return Math.min(110, cfg.gaugeGreenPx + shotBonusRef.current.widerGreen * 4 + (flowRef.current >= 70 ? 4 : 0) + (shotBonusRef.current.powerShot ? 4 : 0))
   }, [cfg.gaugeGreenPx])
 
-  const registerDribbleSuccess = useCallback((wave: SlalomWave, outcome: { bonus?: boolean; label: string }) => {
+  const registerDribbleSuccess = useCallback((wave: SlalomWave, outcome: { bonus?: boolean; label: string; quality?: DribbleQuality }) => {
     const comboIncrement = outcome.bonus ? 2 : 1
     comboRef.current += comboIncrement
     maxComboRef.current = Math.max(maxComboRef.current, comboRef.current)
     setComboDisplay(comboRef.current)
 
-    const nextFlow = Math.min(100, flowRef.current + flowGainForWave(wave, outcome.bonus))
+    if (outcome.quality === 'perfect') {
+      perfectStreakRef.current += 1
+      setPerfectStreak(perfectStreakRef.current)
+      shotBonusRef.current.widerGreen += 0.35
+      if (perfectStreakRef.current > 0 && perfectStreakRef.current % 3 === 0) {
+        feverUntilRef.current = performance.now() + FEVER_DURATION
+        shotBonusRef.current.widerGreen += 1
+        shotBonusRef.current.slowKeeper += 1
+        setFeverActive(true)
+        setPowerupLabel('FEVER MODE')
+        window.setTimeout(() => setFeverActive(false), FEVER_DURATION)
+        window.setTimeout(() => setPowerupLabel(null), 1250)
+      }
+    } else if (!outcome.bonus) {
+      perfectStreakRef.current = 0
+      setPerfectStreak(0)
+    }
+
+    const qualityGain = outcome.quality === 'perfect' ? 6 : 0
+    const feverGain = performance.now() < feverUntilRef.current ? 3 : 0
+    const nextFlow = Math.min(100, flowRef.current + flowGainForWave(wave, outcome.bonus) + qualityGain + feverGain)
     const wasBelowMax = flowRef.current < 100
     flowRef.current = nextFlow
     setFlow(nextFlow)
@@ -768,7 +803,7 @@ export function AttackPhase({
       ?? (keysRef.current.left && !keysRef.current.right ? -1 : keysRef.current.right && !keysRef.current.left ? 1 : gdPlayerXRef.current < 50 ? 1 : -1)
     dashDirectionRef.current = inferredDirection
     dashUntilRef.current = now + DASH_DURATION
-    dashCooldownUntilRef.current = now + DASH_COOLDOWN
+    dashCooldownUntilRef.current = now + (now < feverUntilRef.current ? DASH_COOLDOWN * 0.58 : DASH_COOLDOWN)
     gdPlayerXRef.current = Math.max(3, Math.min(97, gdPlayerXRef.current + inferredDirection * DASH_DISTANCE))
     if (playerElRef.current) {
       const width = gameWidthRef.current || containerRectRef.current.width
@@ -778,7 +813,7 @@ export function AttackPhase({
     }
     sfx.jump()
     setDashActive(true)
-    setGdComment('ESQUIVE !')
+    setGdComment(now < feverUntilRef.current ? 'FEVER DASH !' : 'ESQUIVE !')
     if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
     commentTimerRef.current = setTimeout(() => setGdComment(null), 520)
     window.setTimeout(() => setDashActive(false), DASH_DURATION)
@@ -835,7 +870,8 @@ export function AttackPhase({
       gdElapsedRef.current += delta
 
       const isTurboActive = now < dribbleBoostUntilRef.current
-      const playerSpeed = PLAYER_SPEED * (isTurboActive ? 1.22 : 1) * (flowRef.current >= 70 ? 1.08 : 1)
+      const isFeverActive = now < feverUntilRef.current
+      const playerSpeed = PLAYER_SPEED * (isTurboActive ? 1.22 : 1) * (flowRef.current >= 70 ? 1.08 : 1) * (isFeverActive ? 1.14 : 1)
       const dashActiveNow = now < dashUntilRef.current
 
       // Move player X via keyboard  direct DOM, no React re-render
@@ -892,7 +928,9 @@ export function AttackPhase({
           if (isGatePassWave(wall)) sfx.gatePass()
           gdCheckedRef.current++
           setGdWallsDisplay([...gdWallsRef.current])
-          const comboLabel = comboRef.current >= 10 ? 'INARRETABLE !' : comboRef.current >= 7 ? 'FLOW !' : comboRef.current >= 5 ? 'DRIBBLE FOU !' : comboRef.current >= 3 ? 'CROCHET !' : outcome.label
+          const comboLabel = outcome.quality === 'perfect'
+            ? perfectStreakRef.current >= 3 ? `PERFECT x${perfectStreakRef.current}` : 'PERFECT !'
+            : comboRef.current >= 10 ? 'INARRETABLE !' : comboRef.current >= 7 ? 'FLOW !' : comboRef.current >= 5 ? 'DRIBBLE FOU !' : comboRef.current >= 3 ? 'CROCHET !' : outcome.label
           const comment = outcome.bonus ? 'BONUS !' : comboLabel || GD_COMMENTS[Math.floor(Math.random() * GD_COMMENTS.length)]
           setGdComment(comment)
           if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
@@ -1361,9 +1399,12 @@ export function AttackPhase({
         .atk-dribble-title small { display:block; margin-top:2px; color:rgba(255,255,255,.6); font:800 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .atk-flow-bar { width:min(210px,58vw); height:7px; margin-top:7px; border-radius:999px; background:rgba(255,255,255,.13); overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
         .atk-flow-bar__fill { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#2bff9a,#b8ff6a,#ffb800); box-shadow:0 0 12px rgba(43,255,154,.52); transition:width .22s ease-out; }
+        .atk-flow-bar.is-fever .atk-flow-bar__fill { background:linear-gradient(90deg,#19d3ff,#2bff9a,#ffb800,#ff5f7c); box-shadow:0 0 20px rgba(255,184,0,.72); animation:atkFeverPulse .32s ease-in-out infinite alternate; }
         .atk-powerup-label { margin-top:5px; width:max-content; max-width:min(220px,58vw); padding:4px 8px; border-radius:999px; background:rgba(255,184,0,.16); border:1px solid rgba(255,184,0,.42); color:#ffdf73; font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-transform:uppercase; box-shadow:0 0 14px rgba(255,184,0,.24); animation:atkPowerupPop .42s ease-out both; }
         .atk-combo-badge { min-width:72px; padding:7px 9px; border-radius:12px; text-align:center; color:#dfffee; background:rgba(5,16,21,.68); border:1px solid rgba(43,255,154,.32); font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.12em; box-shadow:0 0 18px rgba(43,255,154,.14); }
         .atk-combo-badge.is-hot { color:#201300; background:linear-gradient(180deg,#ffdc73,#ffb800); border-color:rgba(255,255,255,.48); box-shadow:0 0 22px rgba(255,184,0,.42); }
+        .atk-perfect-badge { margin-top:7px; width:max-content; padding:4px 8px; border-radius:999px; color:#03131d; background:linear-gradient(90deg,#bdfcff,#2bff9a); font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; box-shadow:0 0 14px rgba(43,255,154,.38); }
+        .atk-perfect-badge.is-fever { background:linear-gradient(90deg,#ffdf73,#ff5f7c); box-shadow:0 0 20px rgba(255,184,0,.54); animation:atkFeverPulse .36s ease-in-out infinite alternate; }
         .atk-bonus-flash { position:absolute; inset:0; z-index:23; pointer-events:none; background:radial-gradient(circle at 50% 72%, rgba(255,184,0,.34), transparent 42%); animation:atkBonusFlash .42s ease-out both; }
 
         /*  GD speed indicator  */
@@ -1397,6 +1438,7 @@ export function AttackPhase({
         .atk-gd-player.is-flowing .atk-player-inner { filter:drop-shadow(0 0 18px rgba(43,255,154,.82)); }
         .atk-gd-player.is-max-flow .atk-player-inner { filter:drop-shadow(0 0 22px rgba(255,184,0,.9)) drop-shadow(0 0 16px rgba(43,255,154,.62)); }
         .atk-gd-player.is-max-flow::after { content:'TIR BOOSTE'; position:absolute; left:50%; top:-22px; transform:translateX(-50%); color:#ffdd73; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; white-space:nowrap; text-shadow:0 0 12px rgba(255,184,0,.8); }
+        .atk-gd-player.is-fever .atk-player-inner { filter:drop-shadow(0 0 26px rgba(255,184,0,.9)) drop-shadow(0 0 20px rgba(25,211,255,.62)); animation:atkFeverPlayer .32s ease-in-out infinite alternate; }
         .atk-control-ghost { position:absolute; left:50%; bottom:max(28px,calc(env(safe-area-inset-bottom) + 18px)); z-index:18; display:grid; justify-items:center; gap:8px; width:148px; transform:translateX(-50%); pointer-events:none; opacity:.44; filter:drop-shadow(0 0 16px rgba(43,255,154,.28)); }
         .atk-control-ghost__player { width:44px; height:54px; border-radius:999px 999px 18px 18px; background:linear-gradient(180deg,rgba(43,255,154,.38),rgba(43,255,154,.12)); border:1px solid rgba(43,255,154,.42); box-shadow:inset 0 0 18px rgba(255,255,255,.12); animation:atkGhostPlayer 1.75s ease-in-out infinite; }
         .atk-control-ghost__trail { position:relative; width:132px; height:7px; border-radius:999px; background:linear-gradient(90deg,transparent,rgba(43,255,154,.72),transparent); }
@@ -1471,6 +1513,8 @@ export function AttackPhase({
         @keyframes atkLegR { from{transform:rotate(8deg)} to{transform:rotate(-6deg)} }
         @keyframes atkPassPop { from{opacity:0;transform:translate(-50%,8px) scale(.8)} 20%{opacity:1} to{opacity:0;transform:translate(-50%,-18px) scale(1.1)} }
         @keyframes atkBonusFlash { from{opacity:1; transform:scale(.92)} to{opacity:0; transform:scale(1.08)} }
+        @keyframes atkFeverPulse { from{ filter:brightness(1); } to{ filter:brightness(1.32); } }
+        @keyframes atkFeverPlayer { from{ transform:scale(1.02) rotate(-1deg); } to{ transform:scale(1.1) rotate(1deg); } }
         @keyframes atkBonusOrb { from{ transform:translateX(-50%) translateY(0) scale(.95); } to{ transform:translateX(-50%) translateY(-4px) scale(1.08); } }
         @keyframes atkPowerupPop { from{ opacity:0; transform:translateY(6px) scale(.92); } to{ opacity:1; transform:none; } }
         @keyframes atkDashTrail { from{ opacity:.9; transform:translateX(0); } to{ opacity:0; transform:translateX(-22px); } }
@@ -1925,7 +1969,7 @@ export function AttackPhase({
         <div className="atk-transition">
           <div style={{ fontSize: 36 }}></div>
           <div className="atk-transition__title">ZONE DE TIR</div>
-          <div className="atk-transition__sub">{flow >= 70 || shotBonusRef.current.powerShot ? 'TIR BOOSTE' : 'Maintiens, vise, relache'}</div>
+          <div className="atk-transition__sub">{flow >= 70 || shotBonusRef.current.powerShot ? perfectStreak >= 3 ? `TIR BOOSTE - PERFECT x${perfectStreak}` : 'TIR BOOSTE' : 'Maintiens, vise, relache'}</div>
           <div className="atk-transition__desc">
             Maintiens la balle au pied, tire vers le bas comme un lance-pierre, vise une zone de l'ecran, puis relache quand la jauge est dans le vert.<br /><br />
             <b style={{ color:'#2bff9a' }}>Vert = tir cadre</b>  Hors cage = rate  Gardien sur la route = arret<br />
@@ -1950,10 +1994,11 @@ export function AttackPhase({
             <div className="atk-dribble-hud">
               <div>
                 <div className="atk-dribble-title">DRIBBLE RUSH<small>Vague {gdCheckedRef.current + 1}/{cfg.waveCount} - {gdInstruction}</small></div>
-                <div className="atk-flow-bar"><div className="atk-flow-bar__fill" style={{ width: `${flow}%` }} /></div>
+                <div className={`atk-flow-bar${feverActive ? ' is-fever' : ''}`}><div className="atk-flow-bar__fill" style={{ width: `${flow}%` }} /></div>
+                {perfectStreak > 0 ? <div className={`atk-perfect-badge${feverActive ? ' is-fever' : ''}`}>{feverActive ? 'FEVER' : 'PERFECT'} x{perfectStreak}</div> : null}
                 {powerupLabel ? <div className="atk-powerup-label">{powerupLabel}</div> : null}
               </div>
-              <div className={`atk-combo-badge${comboDisplay >= 5 ? ' is-hot' : ''}`}>COMBO x{comboDisplay}</div>
+              <div className={`atk-combo-badge${comboDisplay >= 5 || feverActive ? ' is-hot' : ''}`}>COMBO x{comboDisplay}</div>
             </div>
 
             {/* Faint pitch markings SVG */}
@@ -2055,6 +2100,7 @@ export function AttackPhase({
                 dashActive ? 'is-dashing' : '',
                 gdFlash   ? 'atk-gd-player--flash' : '',
                 flow >= 40 ? 'is-flowing' : '',
+                feverActive ? 'is-fever' : '',
                 flow >= 100 ? 'is-max-flow' : '',
               ].join(' ')}
               style={{
