@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import type { BattleMatchState, BattleResult, BattleRoundType, BattleScorer, DefenseOutcome, KnockoutMatch, Team } from '../../types'
+import type { BattleDifficulty, BattleDifficultySetting, BattleMatchState, BattleResult, BattleRoundType, BattleScorer, DefenseOutcome, KnockoutMatch, Team } from '../../types'
 import { getCommentary } from '../../lib/commentary'
 import { playGameSound, setGameAudioVolume, setGameMuted, setGameMusicVolumeMultiplier, useGameAudio, useGameAudioVolume, useGameMuted } from '../../lib/useGameAudio'
 import { sfx } from '../../lib/sfx'
@@ -33,6 +33,8 @@ type BattleEngineProps = {
   syncStatusLabel?: string
   ownerPseudo?: string
   existingResult?: BattleResult | null
+  difficultySetting?: BattleDifficultySetting
+  onDifficultyChange?: (difficulty: BattleDifficultySetting) => void
 }
 
 type RetrySnapshot = {
@@ -77,6 +79,21 @@ const ROUND_LABELS: Record<BattleRoundType, { short: string; label: string }> = 
   fruit_ninja: { short: 'TM', label: 'Tirs massifs' },
 }
 
+const DIFFICULTY_META: Record<BattleDifficulty, { label: string; short: string }> = {
+  easy: { label: 'Facile', short: 'EASY' },
+  medium: { label: 'Moyen', short: 'MID' },
+  hard: { label: 'Difficile', short: 'HARD' },
+}
+
+function resolveDifficulty(stage: string, setting: BattleDifficultySetting = 'auto'): BattleDifficulty {
+  return setting === 'auto' ? difficultyForStage(stage) : setting
+}
+
+function difficultySettingLabel(setting: BattleDifficultySetting, stage: string) {
+  if (setting === 'auto') return `Auto - ${DIFFICULTY_META[difficultyForStage(stage)].label}`
+  return DIFFICULTY_META[setting].label
+}
+
 function audioForRound(round: BattleRoundType | undefined): string {
   if (round === 'attack') return AUDIO.attack
   if (round === 'fruit_ninja') return AUDIO.chaos
@@ -88,7 +105,7 @@ function entrantId(match: KnockoutMatch, side: 'home' | 'away') {
   return entrant.kind === 'team' ? entrant.teamId : side
 }
 
-function makeInitialState(homeTeamId: string, awayTeamId: string, stage: string, skipIntro: boolean): BattleMatchState {
+function makeInitialState(homeTeamId: string, awayTeamId: string, skipIntro: boolean, difficulty: BattleDifficulty): BattleMatchState {
   return {
     roundIndex: 0,
     rounds: [...STANDARD_ROUNDS],
@@ -96,7 +113,7 @@ function makeInitialState(homeTeamId: string, awayTeamId: string, stage: string,
     playerScore: 0,
     opponentScore: 0,
     phase: skipIntro ? 'round_start' : 'intro',
-    difficulty: difficultyForStage(stage),
+    difficulty,
     homeTeamId,
     awayTeamId,
   }
@@ -197,7 +214,7 @@ function BattleFlag({ team, emoji }: { team?: Team; emoji: string }) {
   return <span>{emoji}</span>
 }
 
-export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false, syncStatusLabel, ownerPseudo, existingResult }: BattleEngineProps) {
+export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false, syncStatusLabel, ownerPseudo, existingResult, difficultySetting = 'medium', onDifficultyChange }: BattleEngineProps) {
   const rawHomeId = entrantId(match, 'home')
   const rawAwayId = entrantId(match, 'away')
   const homeTeamId = playerSide === 'away' ? rawAwayId : rawHomeId
@@ -210,12 +227,13 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const awayKit = useMemo(() => resolveTeamKit(awayTeam, awayTeamId), [awayTeam, awayTeamId])
   const skipIntro = playerSide != null
   const skipScreens = false
+  const selectedDifficulty = resolveDifficulty(match.stage, difficultySetting)
 
   // Si un resultat existant est fourni, commencer directement en phase match_result
   const [state, setState] = useState<BattleMatchState>(() => 
     existingResult 
-      ? { ...makeInitialState(homeTeamId, awayTeamId, match.stage, skipIntro), phase: 'match_result' }
-      : makeInitialState(homeTeamId, awayTeamId, match.stage, skipIntro)
+      ? { ...makeInitialState(homeTeamId, awayTeamId, skipIntro, existingResult.difficulty ?? selectedDifficulty), phase: 'match_result' }
+      : makeInitialState(homeTeamId, awayTeamId, skipIntro, selectedDifficulty)
   )
   const [history, setHistory] = useState<BattleResult['rounds']>([])
   const [roundOutcome, setRoundOutcome] = useState<RoundOutcome>('miss')
@@ -256,9 +274,10 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     awayScore: state.opponentScore,
     winnerId: coinFlipWinnerId ?? (state.playerScore > state.opponentScore ? homeTeamId : awayTeamId),
     playerScore: state.playerScore,
+    difficulty: state.difficulty,
     rounds: history,
     scorers: matchScorers,
-  }), [awayTeamId, coinFlipWinnerId, history, homeTeamId, matchScorers, state.opponentScore, state.playerScore])
+  }), [awayTeamId, coinFlipWinnerId, history, homeTeamId, matchScorers, state.difficulty, state.opponentScore, state.playerScore])
   const displayedResult = existingResult ?? simulatedResult ?? result
   const countdownProgress = countdownNum === 3 ? '100%' : countdownNum === 2 ? '66%' : countdownNum === 1 ? '33%' : '100%'
 
@@ -279,6 +298,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   })()
   const audioSrc = audioOverride ?? baseAudioSrc
   useGameAudio(audioSrc)
+
+  useEffect(() => {
+    if (existingResult) return
+    setState((current) => current.difficulty === selectedDifficulty ? current : { ...current, difficulty: selectedDifficulty })
+  }, [existingResult, selectedDifficulty])
 
   useEffect(() => {
     setGameMusicVolumeMultiplier(state.phase === 'intro' || state.phase === 'match_result' ? 1 : 0.14)
@@ -450,6 +474,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         awayScore: score.away,
         winnerId,
         playerScore: score.home,
+        difficulty: state.difficulty,
         rounds: [],
         simulated: true,
         commentary,
@@ -493,7 +518,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     setCoinFlipWinnerId(null)
     setSimulatedResult(null)
     setCoinFlipMode('sudden_death')
-    setState(makeInitialState(homeTeamId, awayTeamId, match.stage, skipIntro))
+    setState(makeInitialState(homeTeamId, awayTeamId, skipIntro, selectedDifficulty))
   }
 
   const handleRetryRound = () => {
@@ -525,6 +550,9 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           <em>-</em>
           <strong>{state.opponentScore}</strong>
           <span className="battle-score-strip__flag"><BattleFlag team={awayTeam} emoji={awayFlag || awayTeam?.shortName?.slice(0, 2).toUpperCase() || awayTeamId.slice(0, 2).toUpperCase()} /></span>
+        </div>
+        <div className={`battle-difficulty-pill is-${state.difficulty}`} aria-label={`Difficulte ${DIFFICULTY_META[state.difficulty].label}`}>
+          <span>{DIFFICULTY_META[state.difficulty].short}</span>
         </div>
         {suddenDeath ? <SuddenDeathShootout history={history} currentIndex={state.roundIndex} currentRound={currentRound} phase={state.phase} suddenDeathStartIndex={state.suddenDeathStartIndex} /> : <BattleProgressRail rounds={state.rounds} currentIndex={state.roundIndex} phase={state.phase} suddenDeathStartIndex={state.suddenDeathStartIndex} />}
         </>
@@ -562,6 +590,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
               <small>{round === 'fruit_ninja' ? 'TIRS' : round === 'attack' ? 'ATT' : 'DEF'}</small>
             </div>
           ))}
+        </div>
+        <div className={`battle-intro__difficulty is-${state.difficulty}`}>
+          <span>Difficulte</span>
+          <strong>{DIFFICULTY_META[state.difficulty].label}</strong>
+          <small>{difficultySetting === 'auto' ? 'Auto selon le stade' : 'Reglage manuel'}</small>
         </div>
         <div className="battle-intro__actions">
           <button type="button" className="battle-intro__cta" onClick={() => { sfx.battle(); startRoundCountdown() }}>
@@ -617,11 +650,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
       {/* Game phases */}
       {/* Show during countdown too so the player can preview the game layout */}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'attack' && !suddenDeath
-        ? <AttackPhase key={`attack-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeTeam?.players} awayTeamPlayers={awayTeam?.players} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} shotOnly={isCounterAttackRound} shotAudioMode={isCounterAttackRound ? 'heartOnly' : undefined} shotTitle={isCounterAttackRound ? 'CONTRE-ATTAQUE' : undefined} />
+        ? <AttackPhase key={`attack-${state.roundIndex}-${state.difficulty}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeTeam?.players} awayTeamPlayers={awayTeam?.players} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} shotOnly={isCounterAttackRound} shotAudioMode={isCounterAttackRound ? 'heartOnly' : undefined} shotTitle={isCounterAttackRound ? 'CONTRE-ATTAQUE' : undefined} />
         : null}
       {state.phase === 'playing' && currentRound === 'attack' && suddenDeath
         ? <AttackPhase
-            key={`sudden-shot-${state.roundIndex}`}
+            key={`sudden-shot-${state.roundIndex}-${state.difficulty}`}
             difficulty={state.difficulty}
             homeTeamId={homeTeamId}
             awayTeamId={awayTeamId}
@@ -639,11 +672,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           />
         : null}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'defense' && !suddenDeath
-        ? <DefensePhase key={`defense-${state.roundIndex}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} playerKit={homeKit} opponentKit={awayKit} awayTeamPlayers={awayTeam?.players} defenderName={homeDefenderName} keeperName={homeKeeperName} onRoundEnd={handleDefenseEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} />
+        ? <DefensePhase key={`defense-${state.roundIndex}-${state.difficulty}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} playerKit={homeKit} opponentKit={awayKit} awayTeamPlayers={awayTeam?.players} defenderName={homeDefenderName} keeperName={homeKeeperName} onRoundEnd={handleDefenseEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} />
         : null}
       {state.phase === 'playing' && currentRound === 'defense' && suddenDeath
         ? <GoalSave
-            key={`sudden-goal-save-${state.roundIndex}`}
+            key={`sudden-goal-save-${state.roundIndex}-${state.difficulty}`}
             ballCount={1}
             difficulty={state.difficulty}
             playerKit={homeKit}
@@ -658,7 +691,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         : null}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'fruit_ninja'
         ? <FruitNinjaPhase
-            key={`ninja-${state.roundIndex}`}
+            key={`ninja-${state.roundIndex}-${state.difficulty}`}
             attackersInZone={2}
             difficulty={state.difficulty}
             onResult={handleFruitNinjaEnd}
@@ -698,7 +731,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           onComplete={(winnerId, score, commentary) => { sfx.click(); handleCoinFlipEnd(winnerId, score, commentary) }}
         />
       ) : null}
-      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} syncStatusLabel={syncStatusLabel} ownerPseudo={ownerPseudo} onContinue={() => { sfx.click(); existingResult ? onQuit?.() : onComplete(displayedResult) }} /> : null}
+      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} syncStatusLabel={syncStatusLabel} ownerPseudo={ownerPseudo} difficulty={existingResult ? existingResult.difficulty : displayedResult.difficulty ?? state.difficulty} onContinue={() => { sfx.click(); existingResult ? onQuit?.() : onComplete(displayedResult) }} /> : null}
 
       {/* Countdown overlay */}
       {state.phase === 'countdown' && countdownNum !== null ? (
@@ -741,6 +774,22 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
               />
               <strong>{Math.round(audioVolume * 100)}</strong>
             </label>
+            <div className="battle-pause-modal__difficulty" aria-label="Reglage difficulte">
+              <span>Difficulte</span>
+              <strong>{difficultySettingLabel(difficultySetting, match.stage)}</strong>
+              <div>
+                {(['auto', 'easy', 'medium', 'hard'] as BattleDifficultySetting[]).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={difficultySetting === option ? 'is-active' : ''}
+                    onClick={() => { sfx.click(); onDifficultyChange?.(option) }}
+                  >
+                    {option === 'auto' ? 'AUTO' : DIFFICULTY_META[option].short}
+                  </button>
+                ))}
+              </div>
+            </div>
             <button type="button" className="battle-pause-modal__btn" onClick={handleRestart}>
               Recommencer
             </button>

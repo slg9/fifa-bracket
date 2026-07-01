@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { BattleResult } from '../../types'
+import type { BattleDifficulty, BattleResult } from '../../types'
 import { publishResultShare } from '../../lib/challengeData'
 import { blobToDataUrl, shareLink } from '../../challenge/shareImage'
 import { renderResultShareCanvas } from '../../challenge/shareCanvas'
@@ -16,12 +16,18 @@ type MatchResultProps = {
   awayFlag?: string
   syncStatusLabel?: string
   ownerPseudo?: string
+  difficulty?: BattleDifficulty
   onContinue: () => void
 }
 
 const CONFETTI_COLORS = ['#ffb800', '#2bff9a', '#ff4455', '#a855f7', '#3b82f6', '#ff6b35']
+const DIFFICULTY_LABELS: Record<BattleDifficulty, { label: string; detail: string }> = {
+  easy: { label: 'Facile', detail: 'rythme plus cool' },
+  medium: { label: 'Moyen', detail: 'pression equilibree' },
+  hard: { label: 'Difficile', detail: 'mode arcade intense' },
+}
 
-export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTeamName, awayTeamName, homeFlag, awayFlag, syncStatusLabel, ownerPseudo, onContinue }: MatchResultProps) {
+export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTeamName, awayTeamName, homeFlag, awayFlag, syncStatusLabel, ownerPseudo, difficulty, onContinue }: MatchResultProps) {
   const [shareStatus, setShareStatus] = useState<'idle' | 'working' | 'ready' | 'done' | 'error'>('idle')
   const [preparedShareUrl, setPreparedShareUrl] = useState<string | null>(null)
   const [sharePreviewUrl, setSharePreviewUrl] = useState<string | null>(null)
@@ -31,9 +37,10 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
   const matchLabel = `${homeName} - ${awayName}`
   const scoreLabel = `${result.homeScore}-${result.awayScore}`
   const scorerNames = result.scorers?.map((scorer) => scorer.name) ?? []
+  const difficultyMeta = difficulty ? DIFFICULTY_LABELS[difficulty] : null
   const shareText = playerWon
-    ? `Brakup ${matchLabel}: j'ai gagne mon duel ${scoreLabel}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. Et toi, tu veux tenter ton prono ?`
-    : `Brakup ${matchLabel}: j'ai tente mon duel ${scoreLabel}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. A toi de faire mieux ?`
+    ? `Brakup ${matchLabel}: j'ai gagne mon duel ${scoreLabel}${difficultyMeta ? ` en difficulte ${difficultyMeta.label}` : ''}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. Et toi, tu veux tenter ton prono ?`
+    : `Brakup ${matchLabel}: j'ai tente mon duel ${scoreLabel}${difficultyMeta ? ` en difficulte ${difficultyMeta.label}` : ''}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. A toi de faire mieux ?`
 
   const shareRows = result.scorers?.length
     ? result.scorers.slice(0, 4).map((scorer) => ({ label: `Buteur: ${scorer.name}`, tone: 'win' as const }))
@@ -91,7 +98,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
         messageLines: [
           `Match ${matchLabel}`,
           `Score Brakup: ${homeName} ${scoreLabel} ${awayName}`,
-          scorerNames.length ? `Buteur: ${scorerNames.slice(0, 3).join(', ')}` : '',
+          difficultyMeta ? `Difficulte: ${difficultyMeta.label}` : scorerNames.length ? `Buteur: ${scorerNames.slice(0, 3).join(', ')}` : '',
         ],
         pointsLabel: playerWon ? 'Duel gagne' : 'Resultat partage',
         rows: shareRows,
@@ -144,6 +151,13 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
           </div>
         ) : null}
         {syncStatusLabel ? <div className="battle-match-result__sync">{syncStatusLabel}</div> : null}
+        {difficultyMeta ? (
+          <div className={`battle-match-result__difficulty is-${difficulty}`}>
+            <span>Difficulte jouee</span>
+            <strong>{difficultyMeta.label}</strong>
+            <small>{difficultyMeta.detail}</small>
+          </div>
+        ) : null}
         <p className="battle-match-result__share-copy">Invite tes potes a tenter leur prono sur Brakup.</p>
         <button type="button" className="battle-share" onClick={() => { sharePreviewUrl ? setSharePreviewOpen(true) : void handleShare() }} disabled={shareStatus === 'working'}>
           {shareStatus === 'working' ? 'Preparation...' : shareStatus === 'ready' ? 'Voir le visuel' : 'Partager'}

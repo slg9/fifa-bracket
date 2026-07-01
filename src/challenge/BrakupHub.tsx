@@ -3,7 +3,7 @@ import { setGameAudioVolume, setGameMuted, useGameAudio, useGameAudioVolume, use
 import { checkEmailExists, getBrackets, getProfileStatus, getSeenOutcomeKeys, markSeenOutcomeKeys, publishResultShare, requestOTP, resendMagicLink, submitBracket, updateProfile, verifyLoginOTP, verifyOTP } from '../lib/challengeData'
 import { alternateLanguageHref, localizedChallengeHref, type Locale } from '../lib/i18n'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
-import type { BattleResult, BattleScorer, ChallengeBreakdown, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
+import type { BattleDifficultySetting, BattleResult, BattleScorer, ChallengeBreakdown, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
 import BattleEngine from '../components/battle/BattleEngine'
 import CoinFlip from '../components/battle/CoinFlip'
 import BracketChallenge from './BracketChallenge'
@@ -56,6 +56,7 @@ const SEEN_OUTCOMES_STORAGE_KEY = 'brakup:seen-outcomes'
 const HAD_ACCOUNT_KEY = 'brakup:hadAccount'
 const SCORERS_STORAGE_KEY = 'brakup:scorers'
 const CLASSIC_SIMULATION_STORAGE_KEY = 'fifabracket:simulation'
+const DIFFICULTY_STORAGE_KEY = 'brakup:difficulty'
 
 function readSavedProfile(): SavedProfile {
   try {
@@ -68,6 +69,15 @@ function readSavedProfile(): SavedProfile {
     }
   } catch {
     return { email: '', pseudo: '', bracketName: 'Mon bracket' }
+  }
+}
+
+function readDifficultySetting(): BattleDifficultySetting {
+  try {
+    const saved = localStorage.getItem(DIFFICULTY_STORAGE_KEY)
+    return saved === 'auto' || saved === 'easy' || saved === 'medium' || saved === 'hard' ? saved : 'medium'
+  } catch {
+    return 'medium'
   }
 }
 
@@ -337,6 +347,7 @@ export function BrakupHub({
   const [activeSide, setActiveSide] = useState<'home' | 'away'>('home')
   const [battleBonuses, setBattleBonuses] = useState(0)
   const [savedProfile, setSavedProfile] = useState<SavedProfile>(readSavedProfile)
+  const [difficultySetting, setDifficultySetting] = useState<BattleDifficultySetting>(readDifficultySetting)
   const [, setHadAccount] = useState(() => localStorage.getItem(HAD_ACCOUNT_KEY) === 'true')
   const [autosavedAt, setAutosavedAt] = useState<string | null>(() => localStorage.getItem(AUTOSAVE_STORAGE_KEY))
   const [brackets, setBrackets] = useState<ChallengeEntry[]>([])
@@ -497,6 +508,15 @@ export function BrakupHub({
     const next = { ...values, savedAt: new Date().toISOString() }
     localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(next))
     setSavedProfile(next)
+  }, [])
+
+  const updateDifficultySetting = useCallback((difficulty: BattleDifficultySetting) => {
+    setDifficultySetting(difficulty)
+    try {
+      localStorage.setItem(DIFFICULTY_STORAGE_KEY, difficulty)
+    } catch {
+      // localStorage can be unavailable in private browsing.
+    }
   }, [])
 
   useEffect(() => {
@@ -1160,6 +1180,8 @@ export function BrakupHub({
           onQuit={() => navigate('challenge')} 
           showControls={showBattleControls}
           ownerPseudo={savedProfile.pseudo || undefined}
+          difficultySetting={difficultySetting}
+          onDifficultyChange={updateDifficultySetting}
           syncStatusLabel={hasSyncedProfile ? `Deja synchronise : ${savedProfile.pseudo || 'profil'} sera sauvegarde automatiquement.` : 'Synchro proposee apres ce match pour publier ton score.'}
           existingResult={activeMatch ? makeExistingBattleResult(activeMatch, battleScores, scorers) : null}
         />
@@ -1213,6 +1235,10 @@ export function BrakupHub({
               <strong>{progressStats.points}</strong>
               <span>pts</span>
               <small>{progressStats.correct} pronos OK · {progressStats.exact} scores exacts · {progressStats.scorers} buteurs</small>
+            </div>
+            <div className="game-menu-modal__difficulty">
+              <span>Difficulte</span>
+              <strong>{difficultySetting === 'auto' ? 'Auto' : difficultySetting === 'easy' ? 'Facile' : difficultySetting === 'medium' ? 'Moyen' : 'Difficile'}</strong>
             </div>
             <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay() }}>Tableau</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); navigate('challenge') }}>Carte des matchs</button>
@@ -1395,7 +1421,7 @@ export function BrakupHub({
       {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={pendingEmail || savedProfile.email} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => { setShowEmailEntry(false); setLoginToken(null); setPendingEmail(null); }} /> : null}
       {showLoginEntry ? <LoginEntry initialEmail={savedProfile.email} busy={loginBusy} error={loginError} sent={loginSent} onSubmit={handleLogin} onVerify={handleLoginOTP} onResend={handleLoginResend} onCancel={() => setShowLoginEntry(false)} /> : null}
       {showOTPEntry && pendingEmail && pendingPseudo ? <OTPEntry email={pendingEmail} pseudo={pendingPseudo} busy={otpBusy} error={otpError} onSubmit={handleOTPSubmit} onCancel={() => { setShowOTPEntry(false); setPendingEmail(null); setPendingPseudo(null); setShowEmailEntry(true) }} /> : null}
-      {showProfileSettings ? <ProfileSettings initialEmail={savedProfile.email} initialPseudo={savedProfile.pseudo} busy={profileBusy} error={profileError} status={profileStatus} onSubmit={handleProfileUpdate} onClose={() => setShowProfileSettings(false)} /> : null}
+      {showProfileSettings ? <ProfileSettings initialEmail={savedProfile.email} initialPseudo={savedProfile.pseudo} busy={profileBusy} error={profileError} status={profileStatus} difficultySetting={difficultySetting} onDifficultyChange={updateDifficultySetting} onSubmit={handleProfileUpdate} onClose={() => setShowProfileSettings(false)} /> : null}
       <footer className="brakup-footer"><span>BRAKUP 2026</span><small>Données tournoi : {seed.meta.name} · {liveSource?.syncedAt ? `sync ${new Date(liveSource.syncedAt).toLocaleString('fr-FR')}` : 'projection locale'}</small></footer>
     </div>
   )

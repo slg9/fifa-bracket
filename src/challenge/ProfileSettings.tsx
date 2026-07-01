@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { BattleDifficultySetting } from '../types'
 
 type ProfileStatus = {
   blobConfigured: boolean
@@ -15,11 +16,13 @@ export interface ProfileSettingsProps {
   busy?: boolean
   error?: string | null
   status?: ProfileStatus | null
+  difficultySetting?: BattleDifficultySetting
   onSubmit: (values: { email: string; pseudo: string }) => void
+  onDifficultyChange?: (difficulty: BattleDifficultySetting) => void
   onClose: () => void
 }
 
-export function ProfileSettings({ initialEmail, initialPseudo, busy = false, error, status, onSubmit, onClose }: ProfileSettingsProps) {
+export function ProfileSettings({ initialEmail, initialPseudo, busy = false, error, status, difficultySetting = 'medium', onSubmit, onDifficultyChange, onClose }: ProfileSettingsProps) {
   const [email, setEmail] = useState(initialEmail)
   const [pseudo, setPseudo] = useState(initialPseudo)
 
@@ -34,6 +37,24 @@ export function ProfileSettings({ initialEmail, initialPseudo, busy = false, err
         <p>Ton pseudo doit rester unique sur le leaderboard public.</p>
         <label>Email<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="toi@exemple.com" /></label>
         <label>Pseudo<input required maxLength={40} value={pseudo} onChange={(event) => setPseudo(event.target.value)} placeholder="Le selectionneur" /></label>
+        <section className="brakup-settings__game" aria-label="Parametres du jeu">
+          <div>
+            <strong>Difficulte du jeu</strong>
+            <span>{difficultySetting === 'auto' ? 'Auto selon le stade' : difficultySetting === 'easy' ? 'Facile' : difficultySetting === 'medium' ? 'Moyen' : 'Difficile'}</span>
+          </div>
+          <div className="brakup-settings__difficulty">
+            {(['auto', 'easy', 'medium', 'hard'] as BattleDifficultySetting[]).map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={difficultySetting === option ? 'is-active' : ''}
+                onClick={() => onDifficultyChange?.(option)}
+              >
+                {option === 'auto' ? 'Auto' : option === 'easy' ? 'Facile' : option === 'medium' ? 'Moyen' : 'Dur'}
+              </button>
+            ))}
+          </div>
+        </section>
         <div className="brakup-settings__status">
           <strong>Blob Vercel</strong>
           <span>{status?.blobConfigured ? 'Connecte' : 'Indisponible'}</span>

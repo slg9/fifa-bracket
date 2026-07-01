@@ -2785,6 +2785,80 @@
   text-align: right;
 }
 
+.brakup-settings__game {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px 13px;
+  border: 1px solid rgba(255, 184, 0, .32);
+  border-radius: 10px;
+  background: rgba(255, 184, 0, .08);
+}
+
+.brakup-settings__game > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brakup-settings__game strong {
+  color: #fff;
+  font-size: 13px;
+}
+
+.brakup-settings__game span {
+  color: #ffdf86;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.brakup-settings__difficulty {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.brakup-settings__difficulty button {
+  min-height: 34px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .06);
+  color: rgba(255, 255, 255, .76);
+  font: 800 11px Barlow, sans-serif;
+  cursor: pointer;
+}
+
+.brakup-settings__difficulty button.is-active {
+  border-color: rgba(43, 255, 154, .62);
+  background: rgba(43, 255, 154, .14);
+  color: #2bff9a;
+}
+
+.game-menu-modal__difficulty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 184, 0, .28);
+  border-radius: 12px;
+  background: rgba(255, 184, 0, .08);
+}
+
+.game-menu-modal__difficulty span {
+  color: #a9b5c7;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game-menu-modal__difficulty strong {
+  color: #ffdf86;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
 .game-menu-modal__item--link {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.82);

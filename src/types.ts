@@ -204,6 +204,7 @@ export type CommentaryPhase =
   | 'defense_fail'
 
 export type BattleDifficulty = 'easy' | 'medium' | 'hard'
+export type BattleDifficultySetting = 'auto' | BattleDifficulty
 
 export type DefenderType = 'normal' | 'costaud' | 'agile' | 'sonic'
 
@@ -250,6 +251,7 @@ export type BattleResult = {
   awayScore: number
   winnerId: string
   playerScore: number
+  difficulty?: BattleDifficulty
   rounds: Array<{ type: BattleRoundType; success: boolean; isGoal: boolean; scorer?: BattleScorer }>
   scorers?: BattleScorer[]
   penalties?: { home: number; away: number }

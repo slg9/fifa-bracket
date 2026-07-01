@@ -26,9 +26,9 @@ type AttackPhaseProps = {
 
 //  Config 
 const ATTACK_CFG = {
-  easy:   { waveCount: 12, gateWidth: 34, narrowGateWidth: 26, gdSpeed: 31, difficultyRamp: 0.32, spacing: 41, gaugeGreenPx: 42, gaugeSpeed: 0.78 },
-  medium: { waveCount: 15, gateWidth: 28, narrowGateWidth: 21, gdSpeed: 39, difficultyRamp: 0.5, spacing: 37, gaugeGreenPx: 36, gaugeSpeed: 1.15 },
-  hard:   { waveCount: 18, gateWidth: 23, narrowGateWidth: 17, gdSpeed: 46, difficultyRamp: 0.72, spacing: 33, gaugeGreenPx: 30, gaugeSpeed: 1.6 },
+  easy:   { waveCount: 18, gateWidth: 34, narrowGateWidth: 26, gdSpeed: 28, difficultyRamp: 0.34, spacing: 42, gaugeGreenPx: 42, gaugeSpeed: 0.78 },
+  medium: { waveCount: 22, gateWidth: 28, narrowGateWidth: 21, gdSpeed: 35, difficultyRamp: 0.52, spacing: 40, gaugeGreenPx: 36, gaugeSpeed: 1.15 },
+  hard:   { waveCount: 26, gateWidth: 23, narrowGateWidth: 17, gdSpeed: 41, difficultyRamp: 0.74, spacing: 37, gaugeGreenPx: 30, gaugeSpeed: 1.6 },
 }
 
 const KEEPER_CFG = {
@@ -199,9 +199,9 @@ function pickGateCenter(rng: () => number, previous: number[], difficulty: Battl
 }
 
 function waveWeights(difficulty: BattleDifficulty): Array<[SlalomWaveType, number]> {
-  if (difficulty === 'easy') return [['gate', 50], ['narrow_gate', 20], ['slide_wall', 15], ['bonus_choice', 10], ['moving_gate', 5]]
-  if (difficulty === 'medium') return [['gate', 30], ['narrow_gate', 20], ['slide_wall', 15], ['double_slide_wall', 10], ['diagonal_press', 10], ['bonus_choice', 10], ['moving_gate', 5]]
-  return [['gate', 20], ['narrow_gate', 18], ['slide_wall', 18], ['double_slide_wall', 12], ['diagonal_press', 12], ['bonus_choice', 10], ['moving_gate', 5], ['combo_gate_slide', 5]]
+  if (difficulty === 'easy') return [['gate', 36], ['narrow_gate', 18], ['slide_wall', 14], ['diagonal_press', 10], ['bonus_choice', 16], ['moving_gate', 6]]
+  if (difficulty === 'medium') return [['gate', 22], ['narrow_gate', 18], ['slide_wall', 14], ['double_slide_wall', 10], ['diagonal_press', 16], ['bonus_choice', 14], ['moving_gate', 10], ['combo_gate_slide', 6]]
+  return [['gate', 14], ['narrow_gate', 16], ['slide_wall', 16], ['double_slide_wall', 12], ['diagonal_press', 18], ['bonus_choice', 14], ['moving_gate', 12], ['combo_gate_slide', 8]]
 }
 
 function pickWaveType(rng: () => number, difficulty: BattleDifficulty, previous: SlalomWaveType[], index: number): SlalomWaveType {
@@ -212,7 +212,7 @@ function pickWaveType(rng: () => number, difficulty: BattleDifficulty, previous:
     ['bonus_choice', 'narrow_gate', 'moving_gate'],
     ['slide_wall', 'narrow_gate', 'combo_gate_slide'],
   ]
-  if (index > 2 && rng() < 0.24) return scripted[Math.floor(rng() * scripted.length)][index % 3]
+  if (index > 2 && rng() < 0.34) return scripted[Math.floor(rng() * scripted.length)][index % 3]
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const type = pickWeighted(rng, waveWeights(difficulty))
     const last = previous[previous.length - 1]
@@ -220,7 +220,8 @@ function pickWaveType(rng: () => number, difficulty: BattleDifficulty, previous:
     if (last === type && before === type) continue
     if ((type === 'combo_gate_slide' || type === 'double_slide_wall') && last === type) continue
     if (difficulty === 'easy' && (type === 'double_slide_wall' || type === 'combo_gate_slide')) continue
-    if (difficulty !== 'hard' && type === 'combo_gate_slide' && rng() < 0.65) continue
+    if (difficulty === 'easy' && type === 'combo_gate_slide') continue
+    if (difficulty === 'medium' && type === 'combo_gate_slide' && rng() < 0.35) continue
     return type
   }
   return 'gate'
@@ -247,7 +248,7 @@ function makeGateDefenders(i: number, center: number, gateWidth: number, players
     if (gap > 15) addBlocker((gates[g].right + gates[g + 1].left) / 2)
   }
 
-  if (!bonusGate && (type === 'diagonal_press' || type === 'combo_gate_slide' || type === 'moving_gate' || rng() < 0.5)) {
+  if (!bonusGate && (type === 'diagonal_press' || type === 'combo_gate_slide' || type === 'moving_gate' || rng() < 0.68)) {
     addBlocker(center + (center < 50 ? 1 : -1) * (half + 23 + rng() * 7))
   }
 
@@ -257,9 +258,9 @@ function makeGateDefenders(i: number, center: number, gateWidth: number, players
     yOffset: yJitter(index),
     label: defenderLabel(players, i * 4 + index, String([4, 5, 6, 8, 2, 3, 7, 10][(i + index) % 8])),
     variant: type === 'combo_gate_slide' && index === blockers.length - 1 ? 'sliding' : type === 'diagonal_press' || index === 2 ? 'press' : 'normal',
-    moveAmplitude: type === 'diagonal_press' || type === 'moving_gate' || type === 'combo_gate_slide' || index === 2 ? 3 + rng() * 5 : rng() < 0.35 ? 2 + rng() * 3 : 0,
-    moveDuration: 0.72 + rng() * 0.58,
-    moveDelay: -rng() * 0.7,
+    moveAmplitude: type === 'diagonal_press' || type === 'moving_gate' || type === 'combo_gate_slide' || index === 2 ? 5 + rng() * 7 : rng() < 0.55 ? 3 + rng() * 4 : 0,
+    moveDuration: 0.58 + rng() * 0.48,
+    moveDelay: -rng() * 0.9,
   }))
 }
 
@@ -271,8 +272,8 @@ function makeSlideDefenders(i: number, players: string[], doubleLine: boolean): 
     yOffset: doubleLine && index % 2 ? 17 : doubleLine ? -17 : (index - 1) * 5,
     label: defenderLabel(players, i * 4 + index, String([2, 4, 5, 6][index % 4])),
     variant: 'sliding' as const,
-    moveAmplitude: doubleLine ? 5 : 3,
-    moveDuration: doubleLine ? 0.62 : 0.78,
+    moveAmplitude: doubleLine ? 8 : 5,
+    moveDuration: doubleLine ? 0.52 : 0.66,
     moveDelay: index * -0.12,
   }))
 }
@@ -286,7 +287,10 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
 
   for (let i = 0; i < cfg.waveCount; i += 1) {
     const progress = i / Math.max(1, cfg.waveCount - 1)
-    const rawType = pickWaveType(rng, params.difficulty, types, i)
+    const bonusEvery = params.difficulty === 'easy' ? 5 : params.difficulty === 'medium' ? 4 : 4
+    const forceBonus = i > 2 && i < cfg.waveCount - 2 && i % bonusEvery === 1
+    const forceDiagonal = i > 3 && params.difficulty !== 'easy' && i % 6 === 3
+    const rawType = forceBonus ? 'bonus_choice' : forceDiagonal ? 'diagonal_press' : pickWaveType(rng, params.difficulty, types, i)
     const type = i < 2 && rawType !== 'gate' && rawType !== 'narrow_gate' ? 'gate' : rawType
     const center = pickGateCenter(rng, centers, params.difficulty)
     centers.push(center)
@@ -299,13 +303,13 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
     const gateWidth = isBonus ? cfg.gateWidth + 2 : isNarrow ? cfg.narrowGateWidth : cfg.gateWidth + (progress < 0.25 ? 2 : 0)
     const spacing = cfg.spacing + (type === 'double_slide_wall' ? 7 : type === 'slide_wall' ? 4 : type === 'combo_gate_slide' ? 5 : 0)
     const worldY = WALL_FIRST_Y - i * spacing
-    const moveAmplitude = isMoving ? (params.difficulty === 'hard' ? 8 + rng() * 4 : params.difficulty === 'medium' ? 6 + rng() * 4 : 4 + rng() * 3) : 0
+    const moveAmplitude = isMoving ? (params.difficulty === 'hard' ? 11 + rng() * 5 : params.difficulty === 'medium' ? 8 + rng() * 5 : 5 + rng() * 4) : 0
     const safeCenter = Math.max(16 + moveAmplitude, Math.min(84 - moveAmplitude, center))
     const bonusDirection = safeCenter < 50 ? 1 : -1
     const minBonusGap = gateWidth / 2 + Math.max(14, cfg.narrowGateWidth - 2) / 2 + 18
     const bonusGateCenterX = isBonus ? Math.max(18, Math.min(82, safeCenter + bonusDirection * (minBonusGap + rng() * 6))) : undefined
     const bonusGateWidth = isBonus ? Math.max(16, cfg.narrowGateWidth - 2) : undefined
-    const bonusKind = isBonus ? (['coin', 'boots', 'whistle'] as const)[Math.floor(rng() * 3)] : undefined
+    const bonusKind = isBonus ? (['coin', 'boots', 'whistle', 'boots'] as const)[Math.floor(rng() * 4)] : undefined
     const defenders = isSlide
       ? makeSlideDefenders(i, params.players, type === 'double_slide_wall')
       : makeGateDefenders(i, safeCenter, gateWidth, params.players, type, rng, bonusGateCenterX != null && bonusGateWidth != null ? { center: bonusGateCenterX, width: bonusGateWidth } : undefined)
@@ -327,7 +331,7 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
       bonusCollected: false,
       allowsJump: false,
       moveAmplitude,
-      moveFrequency: isMoving ? 0.75 + rng() * 0.38 : 0,
+      moveFrequency: isMoving ? 0.9 + rng() * 0.48 : 0,
       movePhase: rng() * Math.PI * 2,
     })
   }

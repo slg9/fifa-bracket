@@ -26,6 +26,27 @@ const STAGE_SHORT: Record<string, string> = {
   'Round of 32': 'R32', 'Round of 16': 'R16', 'Quarter-final': 'QF', 'Semi-final': 'SF', 'Finale': 'F',
 }
 const LATE_STAGES = new Set(['Quarter-final', 'Semi-final', 'Finale'])
+const BRACKET_DISPLAY_ORDER: Record<string, string[]> = {
+  'Round of 32': [
+    'M74', 'M77', // -> M89
+    'M73', 'M75', // -> M90
+    'M83', 'M84', // -> M93
+    'M81', 'M82', // -> M94
+    'M76', 'M78', // -> M91
+    'M79', 'M80', // -> M92
+    'M86', 'M88', // -> M95
+    'M85', 'M87', // -> M96
+  ],
+  'Round of 16': [
+    'M89', 'M90', // -> M97
+    'M93', 'M94', // -> M98
+    'M91', 'M92', // -> M99
+    'M95', 'M96', // -> M100
+  ],
+  'Quarter-final': ['M97', 'M98', 'M99', 'M100'],
+  'Semi-final': ['M101', 'M102'],
+  Finale: ['M103', 'M104'],
+}
 
 const CONNECTIONS: { from: [string, string]; to: string }[] = [
   // R32 → R16
@@ -54,6 +75,14 @@ interface PathInfo {
   d: string
   color: string
   glow: boolean
+}
+
+function orderedStageMatches(matches: KnockoutMatch[], stage: string) {
+  const stageMatches = matches.filter((match) => match.stage === stage)
+  const order = BRACKET_DISPLAY_ORDER[stage]
+  if (!order) return stageMatches
+  const rank = new Map(order.map((id, index) => [id, index]))
+  return [...stageMatches].sort((a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999))
 }
 
 function getRelativeRect(el: HTMLElement, container: HTMLElement) {
@@ -218,7 +247,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
           </svg>
           {ROUND_ORDER.map((stage) => <div className={`brakup-bracket__round${LATE_STAGES.has(stage) ? ' is-late' : ''}`} key={stage}>
             <h2>{STAGE_SHORT[stage] ?? stage}</h2>
-            {matches.filter((match) => match.stage === stage).map((match) => {
+            {orderedStageMatches(matches, stage).map((match) => {
               const isPicked = picks[match.id] != null
               const bothTeamsKnown = match.home.kind === 'team' && match.away.kind === 'team'
               const isReady = bothTeamsKnown && !isPicked
