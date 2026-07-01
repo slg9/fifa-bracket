@@ -55,6 +55,7 @@ const OFFICIAL_SCORES_STORAGE_KEY = 'brakup:official-scores'
 const SEEN_OUTCOMES_STORAGE_KEY = 'brakup:seen-outcomes'
 const HAD_ACCOUNT_KEY = 'brakup:hadAccount'
 const SCORERS_STORAGE_KEY = 'brakup:scorers'
+const CLASSIC_SIMULATION_STORAGE_KEY = 'fifabracket:simulation'
 
 function readSavedProfile(): SavedProfile {
   try {
@@ -75,6 +76,29 @@ function readStorageMap<T extends object>(key: string, fallback: T): T {
     return JSON.parse(localStorage.getItem(key) ?? JSON.stringify(fallback)) as T
   } catch {
     return fallback
+  }
+}
+
+function readClassicKnockoutPicks(): Record<string, string> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CLASSIC_SIMULATION_STORAGE_KEY) ?? '{}') as { knockoutPicks?: unknown }
+    return parsed.knockoutPicks && typeof parsed.knockoutPicks === 'object' && !Array.isArray(parsed.knockoutPicks)
+      ? parsed.knockoutPicks as Record<string, string>
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeClassicKnockoutPicks(picks: Record<string, string>) {
+  try {
+    const current = JSON.parse(localStorage.getItem(CLASSIC_SIMULATION_STORAGE_KEY) ?? '{}') as { overrides?: unknown; knockoutPicks?: unknown }
+    localStorage.setItem(CLASSIC_SIMULATION_STORAGE_KEY, JSON.stringify({
+      overrides: current.overrides && typeof current.overrides === 'object' ? current.overrides : {},
+      knockoutPicks: picks,
+    }))
+  } catch {
+    localStorage.setItem(CLASSIC_SIMULATION_STORAGE_KEY, JSON.stringify({ overrides: {}, knockoutPicks: picks }))
   }
 }
 
@@ -203,7 +227,12 @@ export function BrakupHub({
   const [accessToken, setAccessToken] = useState<string | null>(() => new URLSearchParams(window.location.search).get('token') ?? localStorage.getItem('brakup:token'))
   const [otpMode] = useState(() => new URLSearchParams(window.location.search).has('otp'))
   const [picks, setPicks] = useState<Record<string, string>>(() => {
-    try { return JSON.parse(localStorage.getItem('brakup:draft') ?? '{}') as Record<string, string> } catch { return {} }
+    try {
+      const challengeDraft = JSON.parse(localStorage.getItem('brakup:draft') ?? '{}') as Record<string, string>
+      return { ...challengeDraft, ...readClassicKnockoutPicks() }
+    } catch {
+      return readClassicKnockoutPicks()
+    }
   })
   const [battleScores, setBattleScores] = useState<Record<string, { p: number; o: number }>>(() => {
     try { return JSON.parse(localStorage.getItem('brakup:scores') ?? '{}') } catch { return {} }
@@ -380,6 +409,7 @@ export function BrakupHub({
 
   useEffect(() => {
     localStorage.setItem('brakup:draft', JSON.stringify(picks))
+    writeClassicKnockoutPicks(picks)
     const now = new Date().toISOString()
     localStorage.setItem(AUTOSAVE_STORAGE_KEY, now)
     setAutosavedAt(now)
@@ -405,7 +435,7 @@ export function BrakupHub({
       if (!entries[0]) return
       const activeEntry = entries.find((entry) => entry.id === activeBracketId) ?? entries[0]
       setActiveBracketId(activeEntry.id)
-      setPicks(activeEntry.picks ?? {})
+      setPicks({ ...(activeEntry.picks ?? {}), ...readClassicKnockoutPicks() })
       setBattleScores(activeEntry.battleScores ?? {})
       setScorers(activeEntry.scorers ?? {})
       setBattleBonuses(activeEntry.battleBonuses ?? 0)
@@ -507,7 +537,7 @@ export function BrakupHub({
       setBrackets(entries)
       if (entries[0]) {
         setActiveBracketId(entries[0].id)
-        setPicks(entries[0].picks ?? {})
+        setPicks({ ...(entries[0].picks ?? {}), ...readClassicKnockoutPicks() })
       }
       // Sauvegarder le profil
       rememberProfile({ email: pendingEmail, pseudo: pendingPseudo, bracketName: pendingPseudo })
@@ -615,18 +645,19 @@ export function BrakupHub({
       return
     }
 
-    const winnerIsHome = winnerId === match.home.teamId
     handlePick(match.id, winnerId)
     if (score) {
-      setBattleScores((current) => ({
-        ...current,
-        [match.id]: {
-          p: winnerIsHome ? score.home : score.away,
-          o: winnerIsHome ? score.away : score.home,
-        },
-      }))
+      setBattleScores((current) => {
+        const next = { ...current }
+        delete next[match.id]
+        return next
+      })
     }
-    setScorers((current) => ({ ...current, [match.id]: [] }))
+    setScorers((current) => {
+      const next = { ...current }
+      delete next[match.id]
+      return next
+    })
     setSimulatedMatchId(null)
     setMapResetKey((key) => key + 1)
     navigate('challenge')
@@ -718,7 +749,7 @@ export function BrakupHub({
         setBrackets(entries)
         if (entries[0]) {
           setActiveBracketId(entries[0].id)
-          setPicks(entries[0].picks ?? {})
+          setPicks({ ...(entries[0].picks ?? {}), ...readClassicKnockoutPicks() })
           setBattleScores(entries[0].battleScores ?? {})
           setScorers(entries[0].scorers ?? {})
           setBattleBonuses(entries[0].battleBonuses ?? 0)
@@ -740,7 +771,7 @@ export function BrakupHub({
     setBrackets(entries)
     if (entries[0]) {
       setActiveBracketId(entries[0].id)
-      setPicks(entries[0].picks ?? {})
+      setPicks({ ...(entries[0].picks ?? {}), ...readClassicKnockoutPicks() })
       setBattleScores(entries[0].battleScores ?? {})
       setScorers(entries[0].scorers ?? {})
       setBattleBonuses(entries[0].battleBonuses ?? 0)
@@ -795,7 +826,7 @@ export function BrakupHub({
     }
   }
 
-  const openBracket = (entry: ChallengeEntry) => { setPicks(entry.picks); setBattleScores(entry.battleScores ?? {}); setScorers(entry.scorers ?? {}); setBattleBonuses(entry.battleBonuses); setActiveBracketId(entry.id); navigate('challenge') }
+  const openBracket = (entry: ChallengeEntry) => { setPicks({ ...(entry.picks ?? {}), ...readClassicKnockoutPicks() }); setBattleScores(entry.battleScores ?? {}); setScorers(entry.scorers ?? {}); setBattleBonuses(entry.battleBonuses); setActiveBracketId(entry.id); navigate('challenge') }
   const openBracketOverlay = () => {
     setShowBracket(true)
   }
@@ -1179,7 +1210,7 @@ export function BrakupHub({
           </div>
         </div>
       ) : null}
-      {view === 'brackets' ? <div className="brakup-phone-shell"><MyBrackets brackets={brackets} loading={loadingBrackets} onOpen={openBracket} onCreate={() => { setPicks({}); setActiveBracketId(null); navigate('challenge') }} /></div> : null}
+      {view === 'brackets' ? <div className="brakup-phone-shell"><MyBrackets brackets={brackets} loading={loadingBrackets} onOpen={openBracket} onCreate={() => { writeClassicKnockoutPicks({}); setPicks({}); setActiveBracketId(null); navigate('challenge') }} /></div> : null}
       {view === 'board' ? <div className="brakup-phone-shell"><Leaderboard currentEntry={currentLeaderboardEntry} currentStats={progressStats} onBackToGame={() => { sfx.tab(); navigate('challenge') }} onViewBracket={viewBracket} /></div> : null}
       {view === 'viewBracket' && viewedBracketEntry ? (
         <div className="brakup-bracket-overlay">

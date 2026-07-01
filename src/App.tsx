@@ -107,6 +107,7 @@ type DragState = {
 }
 
 const simulationStorageKey = 'fifabracket:simulation'
+const challengeDraftStorageKey = 'brakup:draft'
 const challengeProfileStorageKey = 'brakup:profile'
 const challengeTokenStorageKey = 'brakup:token'
 const challengeHadAccountStorageKey = 'brakup:hadAccount'
@@ -341,6 +342,19 @@ function readStoredSimulation(): StoredSimulation | null {
   }
 }
 
+function readChallengeDraftPicks(): Record<string, string> {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(challengeDraftStorageKey) ?? '{}') as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, string> : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeChallengeDraftPicks(picks: Record<string, string>) {
+  window.localStorage.setItem(challengeDraftStorageKey, JSON.stringify(picks))
+}
+
 function writeStoredSimulation(simulation: StoredSimulation) {
   if (typeof window === 'undefined') {
     return
@@ -482,6 +496,9 @@ function mobileRoundForColumnIndex(index: number): (typeof mobileRoundTabs)[numb
 }
 
 function getMobileBracketColumnWidth(viewport: HTMLDivElement) {
+  if (window.matchMedia('(max-width: 860px)').matches) {
+    return viewport.clientWidth > 0 ? viewport.clientWidth : window.innerWidth
+  }
   const firstColumn = viewport.querySelector<HTMLElement>('.bcol')
   const width = firstColumn?.getBoundingClientRect().width ?? viewport.clientWidth
   return width > 0 ? width : viewport.clientWidth
@@ -916,6 +933,7 @@ function BracketBoard({
   knockoutDayMatchesById,
   openMatchStats,
   shareOwnerName,
+  shareOwnerScore,
   existingShareUrl,
   readOnlyShare,
   createHref,
@@ -938,6 +956,7 @@ function BracketBoard({
   knockoutDayMatchesById: Map<string, DayMatch>
   openMatchStats: (match: GroupMatch) => void
   shareOwnerName: string
+  shareOwnerScore?: number | null
   existingShareUrl?: string | null
   readOnlyShare?: boolean
   createHref?: string
@@ -1025,6 +1044,7 @@ function BracketBoard({
   const thirdPlaceMatch = matchMap.get('M103') ?? null
   const ownerName = shareOwnerName.trim()
   const ownerHandle = ownerName ? (ownerName.startsWith('@') ? ownerName : '@' + ownerName) : null
+  const ownerScore = shareOwnerScore ?? rewards.total
   const championTeam = finalMatch?.winnerId ? teamsById.get(finalMatch.winnerId) ?? null : null
   const finalEntrantIds = finalMatch ? [getEntrantTeamId(finalMatch.home), getEntrantTeamId(finalMatch.away)].filter((teamId): teamId is string => Boolean(teamId)) : []
   const runnerUpTeamId = finalMatch?.winnerId ? finalEntrantIds.find((teamId) => teamId !== finalMatch.winnerId) ?? null : null
@@ -1206,7 +1226,8 @@ function BracketBoard({
     activeMobileRoundRef.current = round
     const viewport = viewportRef.current
     if (viewport && window.matchMedia('(max-width: 860px)').matches) {
-      viewport.scrollTo({ left: mobileRoundColumnIndex[round] * getMobileBracketColumnWidth(viewport), behavior: 'smooth' })
+      const columnWidth = getMobileBracketColumnWidth(viewport)
+      viewport.scrollTo({ left: mobileRoundColumnIndex[round] * columnWidth, behavior: 'smooth' })
       return
     }
     requestAnimationFrame(() => {
@@ -1434,7 +1455,7 @@ function getShareText(url: string) {
           <div className="bracket-mobile-sharebar">
             <div className="bracket-mobile-sharebar__identity" aria-label={`Bracket de ${shareOwnerName}`}>
               <strong>{ownerHandle}</strong>
-              <span>{rewards.total} pts</span>
+              <span>{ownerScore} pts</span>
             </div>
             <a
               href={createHref ?? '/?simulator'}
@@ -1477,7 +1498,7 @@ function getShareText(url: string) {
                 {ownerHandle ? (
                   <div className="bracket-owner-badge" aria-label={`Bracket de ${shareOwnerName}`}>
                     <strong>{ownerHandle}</strong>
-                    <span className="bracket-owner-badge__score">{rewards.total} pts</span>
+                    <span className="bracket-owner-badge__score">{ownerScore} pts</span>
                   </div>
                 ) : null}
             <svg className="bracket__links" width={box.width} height={box.height} aria-hidden="true">
@@ -1853,15 +1874,20 @@ function App() {
           setMode('simulation')
         } else {
           const storedSimulation = readStoredSimulation()
+          const challengeDraftPicks = readChallengeDraftPicks()
           if (storedSimulation) {
             setOverrides(storedSimulation.overrides)
-            setKnockoutPicks(storedSimulation.knockoutPicks)
+            setKnockoutPicks({ ...challengeDraftPicks, ...storedSimulation.knockoutPicks })
             if (
               Object.keys(storedSimulation.overrides).length > 0 ||
-              Object.keys(storedSimulation.knockoutPicks).length > 0
+              Object.keys(storedSimulation.knockoutPicks).length > 0 ||
+              Object.keys(challengeDraftPicks).length > 0
             ) {
               setMode('simulation')
             }
+          } else if (Object.keys(challengeDraftPicks).length > 0) {
+            setKnockoutPicks(challengeDraftPicks)
+            setMode('simulation')
           }
         }
 
@@ -1919,6 +1945,7 @@ function App() {
       overrides,
       knockoutPicks,
     })
+    writeChallengeDraftPicks(knockoutPicks)
   }, [overrides, knockoutPicks])
 
   useEffect(() => {
@@ -1956,7 +1983,7 @@ function App() {
 
       if (simulatorEntry) {
         setOverrides(simulatorEntry.overrides ?? {})
-        setKnockoutPicks(simulatorEntry.knockoutPicks ?? {})
+        setKnockoutPicks({ ...(simulatorEntry.knockoutPicks ?? {}), ...readChallengeDraftPicks() })
         setMode('simulation')
       }
 
@@ -2020,7 +2047,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (sidePanel !== 'brackets' || publicBracketsLoaded || publicBracketsLoading) {
+    if (sidePanel !== 'brackets' || publicBracketsLoaded) {
       return
     }
 
@@ -2029,10 +2056,10 @@ function App() {
     const timeoutId = window.setTimeout(() => {
       if (cancelled || settled) return
       settled = true
-      setPublicBracketsError('Chargement trop long. Reouvre le panneau pour reessayer.')
+      setPublicBracketsError('Chargement trop long. Reessaie dans quelques secondes.')
       setPublicBracketsLoaded(true)
       setPublicBracketsLoading(false)
-    }, 12000)
+    }, 6000)
 
     setPublicBracketsLoading(true)
     setPublicBracketsError(null)
@@ -2056,7 +2083,7 @@ function App() {
       cancelled = true
       window.clearTimeout(timeoutId)
     }
-  }, [publicBracketsLoaded, publicBracketsLoading, sidePanel])
+  }, [publicBracketsLoaded, sidePanel])
 
   useEffect(() => {
     if (!initialDayModalLoading) {
@@ -2553,10 +2580,11 @@ function App() {
     const completesBracketNow = !isBracketComplete(knockoutPicks) && isBracketComplete({ ...knockoutPicks, [matchId]: teamId })
     completeBonusArmedRef.current = true
 
-    setKnockoutPicks((current) => ({
-      ...current,
-      [matchId]: teamId,
-    }))
+    setKnockoutPicks((current) => {
+      const next = { ...current, [matchId]: teamId }
+      writeChallengeDraftPicks(next)
+      return next
+    })
 
     if (!completesBracketNow && !challengeToken && !showChallengeLoginEntry) {
       setChallengeLoginError(null)
@@ -2572,6 +2600,7 @@ function App() {
       const wasComplete = isBracketComplete(current)
       const next = { ...current }
       delete next[matchId]
+      writeChallengeDraftPicks(next)
       if (wasComplete) {
         previousCompleteBonusRef.current = 0
         setCompleteBonusNoticeOpen(false)
@@ -3344,6 +3373,7 @@ function App() {
               knockoutDayMatchesById={knockoutDayMatchesById}
               openMatchStats={(match) => void openMatchStats(match)}
               shareOwnerName={viewedPublicBracket?.pseudo || publicSimulatorBracket?.pseudo || sharedBracket?.pseudo || challengeProfile.pseudo || 'Brakup'}
+              shareOwnerScore={viewedPublicBracket?.score ?? publicSimulatorBracket?.score ?? null}
               existingShareUrl={currentShareUrl}
               readOnlyShare={bracketReadOnly}
               createHref={createFromShareHref}
@@ -3629,6 +3659,11 @@ function App() {
         const effectiveStatus = inferStatus(match)
         const msHomeWin = effectiveStatus === 'finished' && match.homeScore !== null && match.awayScore !== null && match.homeScore > match.awayScore
         const msAwayWin = effectiveStatus === 'finished' && match.homeScore !== null && match.awayScore !== null && match.awayScore > match.homeScore
+        const statsKickoffDate = new Date(match.kickoffIso ?? `${match.kickoffDate}T12:00:00Z`)
+        const statsDateLabel = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).format(statsKickoffDate)
+        const statsKickoffTime = match.kickoffIso
+          ? new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(match.kickoffIso))
+          : match.kickoffTime
 
         return (
           <div className="statsmodal" role="dialog" aria-modal="true">
@@ -3656,6 +3691,11 @@ function App() {
                   <span>{awayTeam.name}</span>
                   {flagUrl(awayTeam) ? <img src={flagUrl(awayTeam)} alt="" className="daymatch__flag-image" /> : <span className="daymatch__flag">{awayTeam.flagEmoji}</span>}
                 </div>
+              </div>
+
+              <div className="statsmodal__matchinfo">
+                <span>{statsDateLabel}{statsKickoffTime ? ` · ${statsKickoffTime}` : ' · heure a confirmer'}</span>
+                <strong>{match.venue || 'Stade a confirmer'}</strong>
               </div>
 
               {/* Odds probability bar */}

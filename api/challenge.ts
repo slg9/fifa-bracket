@@ -212,7 +212,6 @@ async function readAllSimulatorEntries(): Promise<SimulatorBracketEntry[]> {
 function rankSimulatorEntries(entries: SimulatorBracketEntry[]): SimulatorBracketEntry[] {
   return entries
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || a.updatedAt.localeCompare(b.updatedAt))
-    .slice(0, 100)
     .map((entry, index) => ({ ...entry, rank: index + 1 }))
 }
 

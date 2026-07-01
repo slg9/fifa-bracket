@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { sfx } from '../lib/sfx'
-import { formatKnockoutDateTime } from '../lib/knockoutSchedule'
+import { formatKnockoutDateTime, knockoutKickoffById } from '../lib/knockoutSchedule'
 import type { BattleScorer, KnockoutMatch, Team } from '../types'
 import { evaluateMatchProgress, formatScore, scoreForPick, type BattleScore, type DisplayScore, type MatchProgress, type OfficialScore, type RealScorer } from './progress'
 
@@ -20,7 +20,7 @@ export interface WorldCupMapMenuProps {
   autosavedAt?: string | null
 }
 
-type NodeStatus = 'locked' | 'available' | 'completed' | 'live' | 'closed'
+type NodeStatus = 'locked' | 'available' | 'picked' | 'completed' | 'live' | 'closed'
 
 type DisplayNode = {
   id: string
@@ -121,7 +121,9 @@ function getStatusHint(status: NodeStatus) {
     case 'closed':
       return 'Match deja joue. Impossible de rejouer.'
     case 'completed':
-      return 'Choix enregistre. Touche une equipe pour rejouer avec ce camp.'
+      return 'Match joue. Touche une equipe pour rejouer avec ce camp.'
+    case 'picked':
+      return 'Choix vainqueur enregistre. Confirme ton prono en gagnant ce match.'
     case 'live':
       return 'Choisis une equipe pour lancer le match.'
     case 'available':
@@ -144,6 +146,19 @@ function displayTeamName(team?: Team, fallback?: string) {
 function formatAutosaveTime(value?: string | null) {
   if (!value) return 'Brouillon local'
   return `Sauvé ${new Date(value).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+}
+
+function formatMatchDetailDateTime(matchId: string, fallbackDateLabel: string) {
+  const schedule = knockoutKickoffById[matchId]
+  if (!schedule) return `${fallbackDateLabel} · heure a confirmer`
+  return new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(schedule.kickoffIso)).replace(',', ' ·')
 }
 
 function teamFlagEmoji(team?: Team) {
@@ -208,7 +223,7 @@ function buildDisplayNodes(
     .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
 
   const firstPlayable = orderedResolved.find((entry) =>
-    !entry.pickedTeamId &&
+    !scores[entry.match.id] &&
     !realResults[entry.match.id] &&
     entry.homeTeam &&
     entry.awayTeam,
@@ -221,10 +236,13 @@ function buildDisplayNodes(
     const isNextPlayable = match.id === firstPlayable
     const isUnlockedByDate = homeTeam && awayTeam && isMatchDayOrPast(match)
     const hasOfficialResult = realWinnerTeamId
+    const hasPlayedScore = Boolean(scores[match.id])
     const status: NodeStatus = hasOfficialResult
       ? 'closed'
-      : pickedTeamId
+      : hasPlayedScore
         ? 'completed'
+        : pickedTeamId
+          ? 'picked'
         : homeTeam && awayTeam && isNextPlayable
           ? 'live'
           : homeTeam && awayTeam && isUnlockedByDate
@@ -311,10 +329,11 @@ function MatchNode({
   const isClosed = node.status === 'closed'
   const isLive = node.status === 'live'
   const isAvailable = node.status === 'available'
+  const isPicked = node.status === 'picked'
   const displayScore = scoreForNode(node, score)
   const officialScore = node.progress.realScore
   const panelScore = isClosed && officialScore ? officialScore : displayScore
-  const resultTeams = node.homeTeam && node.awayTeam && ((isCompleted && node.pickedTeamId) || (isClosed && node.realWinnerTeamId))
+  const resultTeams = node.homeTeam && node.awayTeam && (((isCompleted || isPicked) && node.pickedTeamId) || (isClosed && node.realWinnerTeamId))
     ? [node.homeTeam, node.awayTeam] as const
     : null
   const officialPending = isCompleted && Boolean(node.pickedTeamId) && !node.progress.played
@@ -374,7 +393,7 @@ function MatchNode({
           </span>
         ) : null}
 
-        {(isLive || isAvailable) && node.homeTeam && node.awayTeam ? (
+        {(isLive || isAvailable || isPicked) && node.homeTeam && node.awayTeam ? (
           <span className={`wcmap__live-matchup${isAvailable ? ' is-available' : ''}`} aria-hidden="true">
             <TeamFlag team={node.homeTeam} />
             <strong>VS</strong>
@@ -387,6 +406,7 @@ function MatchNode({
 
       {(isLocked || isClosed) && <span className="wcmap__status-badge wcmap__status-badge--lock">{'\uD83D\uDD12'}</span>}
       {isCompleted && <span className="wcmap__status-badge">{'\u2713'}</span>}
+      {isPicked && <span className="wcmap__status-badge wcmap__status-badge--pick">PICK</span>}
       {node.progress.played ? (
         <span className={`wcmap__outcome-badge${node.progress.correct ? ' is-correct' : ' is-wrong'}`} title={node.progress.correct ? `Prono reussi +${node.progress.points}` : 'Prono rate'}>
           {node.progress.correct ? `★ +${node.progress.points}` : '!'}
@@ -442,6 +462,8 @@ function LevelEntryScreen({
   const officialPending = node.status === 'completed' && Boolean(node.pickedTeamId) && !node.progress.played
   const canReplayPlayedMatch = node.status === 'completed' && !isClosed
   const canSharePlayedMatch = canShare && Boolean(node.pickedTeamId && displayScore) && node.status === 'completed'
+  const hasPreselectedWinner = node.status === 'picked' && Boolean(node.pickedTeamId)
+  const schedule = knockoutKickoffById[node.match.id]
 
   return (
     <div className="wcmap-entry" role="dialog" aria-modal="true">
@@ -451,20 +473,25 @@ function LevelEntryScreen({
 
         <div className="wcmap-entry__header">
           <div className="wcmap-entry__badge">{node.roundLabel.toUpperCase()}</div>
-          <div className="wcmap-entry__match-num">{formatKnockoutDateTime(node.match.id, node.match.dateLabel)}</div>
+          <div className="wcmap-entry__match-num">{formatMatchDetailDateTime(node.match.id, node.match.dateLabel)}</div>
           <button type="button" className="wcmap-entry__close" onClick={onClose} aria-label="Fermer">✕</button>
+        </div>
+
+        <div className="wcmap-entry__schedule" aria-label="Informations du match">
+          <span>{formatKnockoutDateTime(node.match.id, node.match.dateLabel)}</span>
+          {schedule?.venue ? <strong>{schedule.venue}</strong> : <strong>Stade a confirmer</strong>}
         </div>
 
         <p className="wcmap-entry__hint">{getStatusHint(node.status)}</p>
 
-        {((node.status === 'completed' && node.pickedTeamId) || (isClosed && resultWinnerTeam)) ? (
+        {(((node.status === 'completed' || node.status === 'picked') && node.pickedTeamId) || (isClosed && resultWinnerTeam)) ? (
           <div className="wcmap-entry__result">
             <div className="wcmap-entry__result-winner">
               <span className="wcmap-entry__result-flag">
                 {teamFlagEmoji(resultWinnerTeam)}
               </span>
               <div>
-                <small className="wcmap-entry__result-label">{isClosed ? 'VAINQUEUR OFFICIEL' : 'VAINQUEUR'}</small>
+                <small className="wcmap-entry__result-label">{isClosed ? 'VAINQUEUR OFFICIEL' : hasPreselectedWinner ? 'CHOIX VAINQUEUR' : 'VAINQUEUR'}</small>
                 <strong className="wcmap-entry__result-name">
                   {resultWinnerTeam?.name ?? node.pickedTeamId}
                 </strong>
@@ -505,6 +532,11 @@ function LevelEntryScreen({
                 <strong>Match verrouille</strong>
                 <span>Resultat officiel enregistre. Ce match ne peut plus etre joue.</span>
               </div>
+            ) : hasPreselectedWinner ? (
+              <div className="wcmap-entry__verdict is-pending">
+                <strong>A confirmer sur le terrain</strong>
+                <span>Ton vainqueur est pret. Lance le match avec ce camp pour enregistrer un vrai score et des buteurs.</span>
+              </div>
             ) : null}
             {scorers.length ? (
               <div className="wcmap-entry__scorers">
@@ -523,8 +555,8 @@ function LevelEntryScreen({
 
         {(node.status !== 'completed' && !isClosed) || canReplayPlayedMatch ? (
           <div className="wcmap-entry__choose">
-            <span>Choisis une equipe</span>
-            <small>{canReplayPlayedMatch ? "Touche une equipe pour rejouer ce match avec elle." : "Le match demarre avec l'equipe que tu touches."}</small>
+            <span>{hasPreselectedWinner ? 'Confirme ton prono' : 'Choisis une equipe'}</span>
+            <small>{canReplayPlayedMatch ? "Touche une equipe pour rejouer ce match avec elle." : hasPreselectedWinner ? "Le flag selectionne lance le match avec ton vainqueur choisi." : "Le match demarre avec l'equipe que tu touches."}</small>
           </div>
         ) : null}
 
