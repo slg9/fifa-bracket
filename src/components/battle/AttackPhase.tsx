@@ -28,7 +28,7 @@ type AttackPhaseProps = {
 const ATTACK_CFG = {
   easy:   { waveCount: 18, gateWidth: 34, narrowGateWidth: 26, gdSpeed: 28, difficultyRamp: 0.34, spacing: 42, gaugeGreenPx: 42, gaugeSpeed: 0.78 },
   medium: { waveCount: 22, gateWidth: 28, narrowGateWidth: 21, gdSpeed: 35, difficultyRamp: 0.52, spacing: 40, gaugeGreenPx: 36, gaugeSpeed: 1.15 },
-  hard:   { waveCount: 26, gateWidth: 23, narrowGateWidth: 17, gdSpeed: 41, difficultyRamp: 0.74, spacing: 37, gaugeGreenPx: 30, gaugeSpeed: 1.6 },
+  hard:   { waveCount: 26, gateWidth: 23, narrowGateWidth: 17, gdSpeed: 41, difficultyRamp: 0.74, spacing: 37, gaugeGreenPx: 33, gaugeSpeed: 1.34 },
 }
 
 const KEEPER_CFG = {
