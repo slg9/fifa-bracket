@@ -463,6 +463,22 @@ const mobileRoundTabs = [
   { key: 'F', label: 'Finale', stage: 'Finale' },
 ] as const
 
+const mobileRoundColumnIndex: Record<(typeof mobileRoundTabs)[number]['key'], number> = {
+  R32: 0,
+  R16: 1,
+  QF: 2,
+  SF: 3,
+  F: 4,
+}
+
+function mobileRoundForColumnIndex(index: number): (typeof mobileRoundTabs)[number]['key'] {
+  if (index <= 0 || index >= 8) return 'R32'
+  if (index === 1 || index === 7) return 'R16'
+  if (index === 2 || index === 6) return 'QF'
+  if (index === 3 || index === 5) return 'SF'
+  return 'F'
+}
+
 const stageLabels: Record<string, string> = {
   'Round of 32': '16emes',
   'Round of 16': '8emes',
@@ -916,6 +932,7 @@ function BracketBoard({
   const [shareSheet, setShareSheet] = useState<{ url: string; blob?: Blob } | null>(null)
   const [standingsPopup, setStandingsPopup] = useState<{ teamId: string; x: number; y: number } | null>(null)
   const isFullscreenRef = useRef(false)
+  const activeMobileRoundRef = useRef<(typeof mobileRoundTabs)[number]['key']>('R32')
 
   const matchMap = useMemo(() => new Map(matches.map((match) => [match.id, match])), [matches])
   const parentLookup = useMemo(() => {
@@ -981,13 +998,6 @@ function BracketBoard({
   const runnerUpTeamId = finalMatch?.winnerId ? finalEntrantIds.find((teamId) => teamId !== finalMatch.winnerId) ?? null : null
   const runnerUpTeam = runnerUpTeamId ? teamsById.get(runnerUpTeamId) ?? null : null
   const thirdPlaceTeam = thirdPlaceMatch?.winnerId ? teamsById.get(thirdPlaceMatch.winnerId) ?? null : null
-  const mobileRoundMatches = useMemo(() => {
-    const grouped = new Map<string, DisplayMatch[]>()
-    for (const tab of mobileRoundTabs) {
-      grouped.set(tab.key, matches.filter((match) => match.stage === tab.stage))
-    }
-    return grouped
-  }, [matches])
   useEffect(() => {
     if (!exportFeedback) {
       return
@@ -1001,6 +1011,10 @@ function BracketBoard({
     isFullscreenRef.current = isFullscreen
     onFullscreenChange?.(isFullscreen)
   }, [isFullscreen, onFullscreenChange])
+
+  useEffect(() => {
+    activeMobileRoundRef.current = activeMobileRound
+  }, [activeMobileRound])
 
   useEffect(() => {
     const handleToggleFullscreen = () => {
@@ -1052,12 +1066,13 @@ function BracketBoard({
       const nextHeight = Math.ceil(boardRef.current.scrollHeight)
       const viewportWidth = viewportRef.current?.clientWidth ?? 0
       const viewportHeight = viewportRef.current?.clientHeight ?? 0
+      const isMobileBracket = window.matchMedia('(max-width: 860px)').matches
       const scaleByWidth = viewportWidth > 0 && nextWidth > 0 ? (viewportWidth - 24) / nextWidth : 1
       const scaleByHeight = viewportHeight > 0 && nextHeight > 0
         ? (viewportHeight - (isFullscreenRef.current ? 40 : 18)) / nextHeight
         : 1
       const maxScale = isFullscreenRef.current ? 1.8 : 1.65
-      const nextScale = Math.min(maxScale, Math.max(0.35, Math.min(scaleByWidth, scaleByHeight)))
+      const nextScale = isMobileBracket ? 1 : Math.min(maxScale, Math.max(0.35, Math.min(scaleByWidth, scaleByHeight)))
       const boardRect = boardRef.current.getBoundingClientRect()
       const safeScale = nextScale || 1
       const nextLines: Array<{ id: string; d: string; active: boolean; tone?: 'correct' }> = []
@@ -1120,6 +1135,30 @@ function BracketBoard({
     }
   }, [activeLineIds, matches, parentLookup, picks, rewards.comboLinkIds])
 
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    let tid: ReturnType<typeof window.setTimeout> | null = null
+
+    const handleScroll = () => {
+      if (!window.matchMedia('(max-width: 860px)').matches || !viewport.clientWidth) return
+      if (tid) window.clearTimeout(tid)
+      tid = window.setTimeout(() => {
+        const index = Math.max(0, Math.min(roundColumns.length - 1, Math.round(viewport.scrollLeft / viewport.clientWidth)))
+        const round = mobileRoundForColumnIndex(index)
+        if (round !== activeMobileRoundRef.current) {
+          activeMobileRoundRef.current = round
+          setActiveMobileRound(round)
+        }
+      }, 70)
+    }
+
+    viewport.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      viewport.removeEventListener('scroll', handleScroll)
+      if (tid) window.clearTimeout(tid)
+    }
+  }, [])
 
   function handleStandingsHover(teamId: string | null, event: React.MouseEvent | React.FocusEvent) {
     const rect = event.currentTarget.getBoundingClientRect()
@@ -1131,6 +1170,12 @@ function BracketBoard({
 
   function selectMobileRound(round: (typeof mobileRoundTabs)[number]['key']) {
     setActiveMobileRound(round)
+    activeMobileRoundRef.current = round
+    const viewport = viewportRef.current
+    if (viewport && window.matchMedia('(max-width: 860px)').matches) {
+      viewport.scrollTo({ left: mobileRoundColumnIndex[round] * viewport.clientWidth, behavior: 'smooth' })
+      return
+    }
     requestAnimationFrame(() => {
       document.querySelector('.bracket-mobile-shell')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
@@ -1383,33 +1428,6 @@ function getShareText(url: string) {
           ))}
         </div>
 
-        <div className="bracket-mobile-round">
-          <div className="bracket-mobile-round__list">
-            {(mobileRoundMatches.get(activeMobileRound) ?? []).map((match) => (
-              <MatchCard
-                key={match.id}
-                match={match}
-                teamsById={teamsById}
-                side="center"
-                simulationEnabled={simulationEnabled}
-                isActive={activeMatchIds.has(match.id)}
-                isDimmed={Boolean(focusTeamId) && !activeMatchIds.has(match.id)}
-                isFinalCard={match.id === 'M104'}
-                isLocked={lockedMatchIds.has(match.id)}
-                pickBadgeLabel={readOnlyShare ? 'SON PICK' : 'MON PICK'}
-                reward={rewards.rewardsByMatch.get(match.id)}
-                isToday={knockoutTodayMatchIds.has(match.id)}
-                onOpenDetails={knockoutDayMatchesById.has(match.id) ? () => void openMatchStats(knockoutDayMatchesById.get(match.id)!) : undefined}
-                focusId={focusId}
-                registerRef={() => undefined}
-                onPick={onPick}
-                onClear={onClear}
-                onPreview={setPreviewTeamId}
-                onStandingsHover={handleStandingsHover}
-              />
-            ))}
-          </div>
-        </div>
       </div>
 
       <div className="bracket-fit" ref={viewportRef}>
@@ -2251,6 +2269,10 @@ function App() {
   const standings = mode === 'real' && liveSource.standings.length > 0
     ? officialStandings
     : computedStandings
+  const challengeMergedMatches = mergeScores(seed.matches, liveSource.matches, {}, 'real')
+  const challengeStandings = liveSource.standings.length > 0
+    ? officialStandings
+    : computeStandings(seed.teams, challengeMergedMatches)
   const predMap = new Map(liveSource.predictions.map((p) => [p.matchId, p]))
   const bestThirds = getBestThirdPlacedTeams(standings)
   const groupBracket = buildKnockoutBracket(standings, mergedMatches)
@@ -2552,8 +2574,8 @@ function App() {
       <BrakupHub
         seed={seed}
         liveSource={liveSource}
-        standings={standings}
-        groupMatches={mergedMatches}
+        standings={challengeStandings}
+        groupMatches={challengeMergedMatches}
         teamsById={teamsById}
         todayMatches={challengeTodayMatches}
         officialResults={challengeOfficialResults}

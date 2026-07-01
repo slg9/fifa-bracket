@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { sfx } from '../lib/sfx'
+import { formatKnockoutDateTime } from '../lib/knockoutSchedule'
 import type { BattleScorer, KnockoutMatch, Team } from '../types'
 import { evaluateMatchProgress, formatScore, scoreForPick, type BattleScore, type DisplayScore, type MatchProgress, type OfficialScore, type RealScorer } from './progress'
 
@@ -333,8 +334,6 @@ function MatchNode({
       onClick={onClick}
     >
       <div className="wcmap__field-panel">
-        <span className="wcmap__match-number">M{node.matchNumber}</span>
-
         {!isLocked ? (
           panelScore ? (
             <span className={`wcmap__score-badge${isClosed ? ' is-official' : ''}`} aria-label={`Score ${panelScore.home} a ${panelScore.away}`}>
@@ -355,15 +354,6 @@ function MatchNode({
           <span className="wcmap__locked-label">VERROUILLE</span>
         )}
       </div>
-      {node.progress.played && node.progress.realScore ? (
-        <span className="wcmap__score-compare">
-          J {formatScore(node.progress.playedScore)}
-        </span>
-      ) : officialPending ? (
-        <span className="wcmap__score-compare is-pending">
-          J {formatScore(displayScore)}
-        </span>
-      ) : null}
 
       <div className="wcmap__mini-field">
         <div className="wcmap__pitch-line wcmap__pitch-line--mid" />
@@ -461,7 +451,7 @@ function LevelEntryScreen({
 
         <div className="wcmap-entry__header">
           <div className="wcmap-entry__badge">{node.roundLabel.toUpperCase()}</div>
-          <div className="wcmap-entry__match-num">Match {node.matchNumber}</div>
+          <div className="wcmap-entry__match-num">{formatKnockoutDateTime(node.match.id, node.match.dateLabel)}</div>
           <button type="button" className="wcmap-entry__close" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
 

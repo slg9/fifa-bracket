@@ -1,218 +1,8 @@
 {
-  "syncedAt": "2026-06-29T05:58:27.701Z",
+  "syncedAt": "2026-07-01T05:43:12.699Z",
   "source": "fifa-live",
   "warnings": [],
   "matches": [
-    {
-      "id": "J1",
-      "homeScore": 3,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-17T01:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021496"
-    },
-    {
-      "id": "J3",
-      "homeScore": 2,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-22T17:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021494"
-    },
-    {
-      "id": "J6",
-      "homeScore": 1,
-      "awayScore": 3,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-28T02:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021495"
-    },
-    {
-      "id": "G2",
-      "homeScore": 1,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-15T19:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021478"
-    },
-    {
-      "id": "G3",
-      "homeScore": 0,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-21T19:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021477"
-    },
-    {
-      "id": "G6",
-      "homeScore": 1,
-      "awayScore": 5,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-27T03:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021481"
-    },
-    {
-      "id": "C2",
-      "homeScore": 1,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-13T22:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021456"
-    },
-    {
-      "id": "C3",
-      "homeScore": 3,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-20T00:30:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021457"
-    },
-    {
-      "id": "C5",
-      "homeScore": 0,
-      "awayScore": 3,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-24T22:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021455"
-    },
-    {
-      "id": "K2",
-      "homeScore": 1,
-      "awayScore": 3,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-18T02:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021504"
-    },
-    {
-      "id": "K4",
-      "homeScore": 1,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-24T02:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021501"
-    },
-    {
-      "id": "K5",
-      "homeScore": 0,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-27T23:30:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021505"
-    },
-    {
-      "id": "L2",
-      "homeScore": 4,
-      "awayScore": 2,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-17T20:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021507"
-    },
-    {
-      "id": "L3",
-      "homeScore": 0,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-23T20:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021506"
-    },
-    {
-      "id": "L5",
-      "homeScore": 0,
-      "awayScore": 2,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-27T21:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021508"
-    },
-    {
-      "id": "I1",
-      "homeScore": 3,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-16T19:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021490"
-    },
-    {
-      "id": "I4",
-      "homeScore": 3,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-22T21:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021492"
-    },
-    {
-      "id": "I5",
-      "homeScore": 1,
-      "awayScore": 4,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-26T19:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021489"
-    },
-    {
-      "id": "E2",
-      "homeScore": 7,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-14T17:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021464"
-    },
-    {
-      "id": "E3",
-      "homeScore": 2,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-20T20:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021469"
-    },
-    {
-      "id": "E6",
-      "homeScore": 2,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-25T20:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021466"
-    },
     {
       "id": "A1",
       "homeScore": 2,
@@ -222,6 +12,26 @@
       "kickoffIso": "2026-06-11T19:00:00Z",
       "liveMinute": null,
       "fifaMatchPath": "17/285023/289273/400021443"
+    },
+    {
+      "id": "A2",
+      "homeScore": 2,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-12T02:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021441"
+    },
+    {
+      "id": "A3",
+      "homeScore": 1,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-18T16:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021440"
     },
     {
       "id": "A4",
@@ -244,64 +54,24 @@
       "fifaMatchPath": "17/285023/289273/400021444"
     },
     {
-      "id": "F1",
-      "homeScore": 2,
-      "awayScore": 2,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-14T20:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021470"
-    },
-    {
-      "id": "F3",
-      "homeScore": 5,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-20T17:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021472"
-    },
-    {
-      "id": "F6",
+      "id": "A6",
       "homeScore": 1,
-      "awayScore": 3,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-25T23:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021473"
-    },
-    {
-      "id": "H2",
-      "homeScore": 0,
       "awayScore": 0,
       "status": "finished",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-15T16:00:00Z",
+      "kickoffIso": "2026-06-25T01:00:00Z",
       "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021482"
+      "fifaMatchPath": "17/285023/289273/400021445"
     },
     {
-      "id": "H4",
-      "homeScore": 4,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-21T16:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021483"
-    },
-    {
-      "id": "H6",
-      "homeScore": 0,
+      "id": "B1",
+      "homeScore": 1,
       "awayScore": 1,
       "status": "finished",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-27T00:00:00Z",
+      "kickoffIso": "2026-06-12T19:00:00Z",
       "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021484"
+      "fifaMatchPath": "17/285023/289273/400021449"
     },
     {
       "id": "B2",
@@ -324,6 +94,16 @@
       "fifaMatchPath": "17/285023/289273/400021446"
     },
     {
+      "id": "B4",
+      "homeScore": 6,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-18T22:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021450"
+    },
+    {
       "id": "B5",
       "homeScore": 2,
       "awayScore": 1,
@@ -334,6 +114,76 @@
       "fifaMatchPath": "17/285023/289273/400021451"
     },
     {
+      "id": "B6",
+      "homeScore": 3,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-24T19:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021448"
+    },
+    {
+      "id": "C1",
+      "homeScore": 0,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-14T01:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021453"
+    },
+    {
+      "id": "C2",
+      "homeScore": 1,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-13T22:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021456"
+    },
+    {
+      "id": "C3",
+      "homeScore": 3,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-20T00:30:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021457"
+    },
+    {
+      "id": "C4",
+      "homeScore": 0,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-19T22:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021454"
+    },
+    {
+      "id": "C5",
+      "homeScore": 0,
+      "awayScore": 3,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-24T22:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021455"
+    },
+    {
+      "id": "C6",
+      "homeScore": 4,
+      "awayScore": 2,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-24T22:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021452"
+    },
+    {
       "id": "D1",
       "homeScore": 4,
       "awayScore": 1,
@@ -342,6 +192,26 @@
       "kickoffIso": "2026-06-13T01:00:00Z",
       "liveMinute": null,
       "fifaMatchPath": "17/285023/289273/400021458"
+    },
+    {
+      "id": "D2",
+      "homeScore": 2,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-14T04:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021463"
+    },
+    {
+      "id": "D3",
+      "homeScore": 0,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-20T03:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021460"
     },
     {
       "id": "D4",
@@ -364,16 +234,6 @@
       "fifaMatchPath": "17/285023/289273/400021459"
     },
     {
-      "id": "D2",
-      "homeScore": 2,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-14T04:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021463"
-    },
-    {
       "id": "D6",
       "homeScore": 0,
       "awayScore": 0,
@@ -382,66 +242,6 @@
       "kickoffIso": "2026-06-26T02:00:00Z",
       "liveMinute": null,
       "fifaMatchPath": "17/285023/289273/400021461"
-    },
-    {
-      "id": "J2",
-      "homeScore": 3,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-17T04:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021498"
-    },
-    {
-      "id": "J5",
-      "homeScore": 3,
-      "awayScore": 3,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-28T02:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021497"
-    },
-    {
-      "id": "H3",
-      "homeScore": 2,
-      "awayScore": 2,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-21T22:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021487"
-    },
-    {
-      "id": "H5",
-      "homeScore": 0,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-27T00:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021485"
-    },
-    {
-      "id": "B1",
-      "homeScore": 1,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-12T19:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021449"
-    },
-    {
-      "id": "B4",
-      "homeScore": 6,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-18T22:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021450"
     },
     {
       "id": "E1",
@@ -454,6 +254,36 @@
       "fifaMatchPath": "17/285023/289273/400021467"
     },
     {
+      "id": "E2",
+      "homeScore": 7,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-14T17:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021464"
+    },
+    {
+      "id": "E3",
+      "homeScore": 2,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-20T20:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021469"
+    },
+    {
+      "id": "E4",
+      "homeScore": 0,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-21T00:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021465"
+    },
+    {
       "id": "E5",
       "homeScore": 0,
       "awayScore": 2,
@@ -464,44 +294,44 @@
       "fifaMatchPath": "17/285023/289273/400021468"
     },
     {
-      "id": "L4",
-      "homeScore": 0,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-23T23:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021511"
-    },
-    {
-      "id": "L6",
+      "id": "E6",
       "homeScore": 2,
       "awayScore": 1,
       "status": "finished",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-27T21:00:00Z",
+      "kickoffIso": "2026-06-25T20:00:00Z",
       "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021509"
+      "fifaMatchPath": "17/285023/289273/400021466"
     },
     {
-      "id": "G4",
-      "homeScore": 1,
-      "awayScore": 3,
+      "id": "F1",
+      "homeScore": 2,
+      "awayScore": 2,
       "status": "finished",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-22T01:00:00Z",
+      "kickoffIso": "2026-06-14T20:00:00Z",
       "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021480"
+      "fifaMatchPath": "17/285023/289273/400021470"
     },
     {
-      "id": "G5",
-      "homeScore": 1,
+      "id": "F2",
+      "homeScore": 5,
       "awayScore": 1,
       "status": "finished",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-27T03:00:00Z",
+      "kickoffIso": "2026-06-15T02:00:00Z",
       "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021479"
+      "fifaMatchPath": "17/285023/289273/400021474"
+    },
+    {
+      "id": "F3",
+      "homeScore": 5,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-20T17:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021472"
     },
     {
       "id": "F4",
@@ -524,24 +354,144 @@
       "fifaMatchPath": "17/285023/289273/400021471"
     },
     {
-      "id": "C4",
+      "id": "F6",
+      "homeScore": 1,
+      "awayScore": 3,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-25T23:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021473"
+    },
+    {
+      "id": "G1",
+      "homeScore": 2,
+      "awayScore": 2,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-16T01:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021476"
+    },
+    {
+      "id": "G2",
+      "homeScore": 1,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-15T19:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021478"
+    },
+    {
+      "id": "G3",
+      "homeScore": 0,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-21T19:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021477"
+    },
+    {
+      "id": "G4",
+      "homeScore": 1,
+      "awayScore": 3,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-22T01:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021480"
+    },
+    {
+      "id": "G5",
+      "homeScore": 1,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T03:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021479"
+    },
+    {
+      "id": "G6",
+      "homeScore": 1,
+      "awayScore": 5,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T03:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021481"
+    },
+    {
+      "id": "H1",
+      "homeScore": 1,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-15T22:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021486"
+    },
+    {
+      "id": "H2",
+      "homeScore": 0,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-15T16:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021482"
+    },
+    {
+      "id": "H3",
+      "homeScore": 2,
+      "awayScore": 2,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-21T22:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021487"
+    },
+    {
+      "id": "H4",
+      "homeScore": 4,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-21T16:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021483"
+    },
+    {
+      "id": "H5",
+      "homeScore": 0,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T00:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021485"
+    },
+    {
+      "id": "H6",
       "homeScore": 0,
       "awayScore": 1,
       "status": "finished",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-19T22:00:00Z",
+      "kickoffIso": "2026-06-27T00:00:00Z",
       "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021454"
+      "fifaMatchPath": "17/285023/289273/400021484"
     },
     {
-      "id": "C6",
-      "homeScore": 4,
-      "awayScore": 2,
+      "id": "I1",
+      "homeScore": 3,
+      "awayScore": 1,
       "status": "finished",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-24T22:00:00Z",
+      "kickoffIso": "2026-06-16T19:00:00Z",
       "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021452"
+      "fifaMatchPath": "17/285023/289273/400021490"
     },
     {
       "id": "I2",
@@ -564,134 +514,24 @@
       "fifaMatchPath": "17/285023/289273/400021491"
     },
     {
-      "id": "K1",
-      "homeScore": 1,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-17T17:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021502"
-    },
-    {
-      "id": "K3",
-      "homeScore": 5,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-23T17:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021503"
-    },
-    {
-      "id": "A3",
-      "homeScore": 1,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-18T16:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021440"
-    },
-    {
-      "id": "A6",
-      "homeScore": 1,
-      "awayScore": 0,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-25T01:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021445"
-    },
-    {
-      "id": "J4",
-      "homeScore": 1,
-      "awayScore": 2,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-23T03:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021499"
-    },
-    {
-      "id": "B6",
+      "id": "I4",
       "homeScore": 3,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-24T19:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021448"
-    },
-    {
-      "id": "K6",
-      "homeScore": 3,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-27T23:30:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021500"
-    },
-    {
-      "id": "E4",
-      "homeScore": 0,
       "awayScore": 0,
       "status": "finished",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-21T00:00:00Z",
+      "kickoffIso": "2026-06-22T21:00:00Z",
       "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021465"
+      "fifaMatchPath": "17/285023/289273/400021492"
     },
     {
-      "id": "L1",
+      "id": "I5",
       "homeScore": 1,
-      "awayScore": 0,
+      "awayScore": 4,
       "status": "finished",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-17T23:00:00Z",
+      "kickoffIso": "2026-06-26T19:00:00Z",
       "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021510"
-    },
-    {
-      "id": "G1",
-      "homeScore": 2,
-      "awayScore": 2,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-16T01:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021476"
-    },
-    {
-      "id": "A2",
-      "homeScore": 2,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-12T02:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021441"
-    },
-    {
-      "id": "D3",
-      "homeScore": 0,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-20T03:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021460"
-    },
-    {
-      "id": "C1",
-      "homeScore": 0,
-      "awayScore": 1,
-      "status": "finished",
-      "kickoffTime": null,
-      "kickoffIso": "2026-06-14T01:00:00Z",
-      "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021453"
+      "fifaMatchPath": "17/285023/289273/400021489"
     },
     {
       "id": "I6",
@@ -704,24 +544,184 @@
       "fifaMatchPath": "17/285023/289273/400021493"
     },
     {
-      "id": "F2",
-      "homeScore": 5,
+      "id": "J1",
+      "homeScore": 3,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-17T01:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021496"
+    },
+    {
+      "id": "J2",
+      "homeScore": 3,
       "awayScore": 1,
       "status": "finished",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-15T02:00:00Z",
+      "kickoffIso": "2026-06-17T04:00:00Z",
       "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021474"
+      "fifaMatchPath": "17/285023/289273/400021498"
     },
     {
-      "id": "H1",
+      "id": "J3",
+      "homeScore": 2,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-22T17:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021494"
+    },
+    {
+      "id": "J4",
+      "homeScore": 1,
+      "awayScore": 2,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-23T03:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021499"
+    },
+    {
+      "id": "J5",
+      "homeScore": 3,
+      "awayScore": 3,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-28T02:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021497"
+    },
+    {
+      "id": "J6",
+      "homeScore": 1,
+      "awayScore": 3,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-28T02:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021495"
+    },
+    {
+      "id": "K1",
       "homeScore": 1,
       "awayScore": 1,
       "status": "finished",
       "kickoffTime": null,
-      "kickoffIso": "2026-06-15T22:00:00Z",
+      "kickoffIso": "2026-06-17T17:00:00Z",
       "liveMinute": null,
-      "fifaMatchPath": "17/285023/289273/400021486"
+      "fifaMatchPath": "17/285023/289273/400021502"
+    },
+    {
+      "id": "K2",
+      "homeScore": 1,
+      "awayScore": 3,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-18T02:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021504"
+    },
+    {
+      "id": "K3",
+      "homeScore": 5,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-23T17:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021503"
+    },
+    {
+      "id": "K4",
+      "homeScore": 1,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-24T02:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021501"
+    },
+    {
+      "id": "K5",
+      "homeScore": 0,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T23:30:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021505"
+    },
+    {
+      "id": "K6",
+      "homeScore": 3,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T23:30:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021500"
+    },
+    {
+      "id": "L1",
+      "homeScore": 1,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-17T23:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021510"
+    },
+    {
+      "id": "L2",
+      "homeScore": 4,
+      "awayScore": 2,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-17T20:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021507"
+    },
+    {
+      "id": "L3",
+      "homeScore": 0,
+      "awayScore": 0,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-23T20:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021506"
+    },
+    {
+      "id": "L4",
+      "homeScore": 0,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-23T23:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021511"
+    },
+    {
+      "id": "L5",
+      "homeScore": 0,
+      "awayScore": 2,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T21:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021508"
+    },
+    {
+      "id": "L6",
+      "homeScore": 2,
+      "awayScore": 1,
+      "status": "finished",
+      "kickoffTime": null,
+      "kickoffIso": "2026-06-27T21:00:00Z",
+      "liveMinute": null,
+      "fifaMatchPath": "17/285023/289273/400021509"
     },
     {
       "id": "M73",
@@ -736,10 +736,10 @@
     },
     {
       "id": "M74",
-      "homeScore": null,
-      "awayScore": null,
-      "winnerTeamCode": null,
-      "status": "scheduled",
+      "homeScore": 1,
+      "awayScore": 1,
+      "winnerTeamCode": "PAR",
+      "status": "finished",
       "kickoffTime": null,
       "kickoffIso": "2026-06-29T20:30:00Z",
       "liveMinute": null,
@@ -747,10 +747,10 @@
     },
     {
       "id": "M75",
-      "homeScore": null,
-      "awayScore": null,
-      "winnerTeamCode": null,
-      "status": "scheduled",
+      "homeScore": 1,
+      "awayScore": 1,
+      "winnerTeamCode": "MAR",
+      "status": "finished",
       "kickoffTime": null,
       "kickoffIso": "2026-06-30T01:00:00Z",
       "liveMinute": null,
@@ -758,10 +758,10 @@
     },
     {
       "id": "M76",
-      "homeScore": null,
-      "awayScore": null,
-      "winnerTeamCode": null,
-      "status": "scheduled",
+      "homeScore": 2,
+      "awayScore": 1,
+      "winnerTeamCode": "BRA",
+      "status": "finished",
       "kickoffTime": null,
       "kickoffIso": "2026-06-29T17:00:00Z",
       "liveMinute": null,
@@ -769,10 +769,10 @@
     },
     {
       "id": "M77",
-      "homeScore": null,
-      "awayScore": null,
-      "winnerTeamCode": null,
-      "status": "scheduled",
+      "homeScore": 3,
+      "awayScore": 0,
+      "winnerTeamCode": "FRA",
+      "status": "finished",
       "kickoffTime": null,
       "kickoffIso": "2026-06-30T21:00:00Z",
       "liveMinute": null,
@@ -780,10 +780,10 @@
     },
     {
       "id": "M78",
-      "homeScore": null,
-      "awayScore": null,
-      "winnerTeamCode": null,
-      "status": "scheduled",
+      "homeScore": 1,
+      "awayScore": 2,
+      "winnerTeamCode": "NOR",
+      "status": "finished",
       "kickoffTime": null,
       "kickoffIso": "2026-06-30T17:00:00Z",
       "liveMinute": null,
@@ -791,12 +791,12 @@
     },
     {
       "id": "M79",
-      "homeScore": null,
-      "awayScore": null,
-      "winnerTeamCode": null,
-      "status": "scheduled",
+      "homeScore": 2,
+      "awayScore": 0,
+      "winnerTeamCode": "MEX",
+      "status": "finished",
       "kickoffTime": null,
-      "kickoffIso": "2026-07-01T01:00:00Z",
+      "kickoffIso": "2026-07-01T02:00:00Z",
       "liveMinute": null,
       "fifaMatchPath": "17/285023/289287/400021520"
     },
@@ -1078,635 +1078,645 @@
   ],
   "standings": [
     {
-      "groupId": "J",
-      "teamId": "ARG",
-      "rank": 1,
-      "played": 3,
-      "wins": 3,
-      "draws": 0,
-      "losses": 0,
-      "points": 9,
-      "goalDifference": 7,
-      "goalsFor": 8,
-      "goalsAgainst": 1
-    },
-    {
-      "groupId": "G",
-      "teamId": "BEL",
-      "rank": 1,
-      "played": 3,
-      "wins": 1,
-      "draws": 2,
-      "losses": 0,
-      "points": 5,
-      "goalDifference": 4,
-      "goalsFor": 6,
-      "goalsAgainst": 2
-    },
-    {
-      "groupId": "C",
-      "teamId": "BRA",
-      "rank": 1,
-      "played": 3,
-      "wins": 2,
-      "draws": 1,
-      "losses": 0,
-      "points": 7,
-      "goalDifference": 6,
-      "goalsFor": 7,
-      "goalsAgainst": 1
-    },
-    {
-      "groupId": "K",
-      "teamId": "COL",
-      "rank": 1,
-      "played": 3,
-      "wins": 2,
-      "draws": 1,
-      "losses": 0,
-      "points": 7,
-      "goalDifference": 3,
-      "goalsFor": 4,
-      "goalsAgainst": 1
-    },
-    {
-      "groupId": "L",
-      "teamId": "ENG",
-      "rank": 1,
-      "played": 3,
-      "wins": 2,
-      "draws": 1,
-      "losses": 0,
-      "points": 7,
-      "goalDifference": 4,
-      "goalsFor": 6,
-      "goalsAgainst": 2
-    },
-    {
-      "groupId": "I",
-      "teamId": "FRA",
-      "rank": 1,
-      "played": 3,
-      "wins": 3,
-      "draws": 0,
-      "losses": 0,
-      "points": 9,
-      "goalDifference": 8,
-      "goalsFor": 10,
-      "goalsAgainst": 2
-    },
-    {
-      "groupId": "E",
-      "teamId": "GER",
-      "rank": 1,
-      "played": 3,
-      "wins": 2,
-      "draws": 0,
-      "losses": 1,
-      "points": 6,
-      "goalDifference": 6,
-      "goalsFor": 10,
-      "goalsAgainst": 4
-    },
-    {
       "groupId": "A",
       "teamId": "MEX",
-      "rank": 1,
       "played": 3,
       "wins": 3,
       "draws": 0,
       "losses": 0,
+      "goalsFor": 6,
+      "goalsAgainst": 0,
+      "goalDifference": 6,
       "points": 9,
-      "goalDifference": 6,
-      "goalsFor": 6,
-      "goalsAgainst": 0
-    },
-    {
-      "groupId": "F",
-      "teamId": "NED",
-      "rank": 1,
-      "played": 3,
-      "wins": 2,
-      "draws": 1,
-      "losses": 0,
-      "points": 7,
-      "goalDifference": 6,
-      "goalsFor": 10,
-      "goalsAgainst": 4
-    },
-    {
-      "groupId": "H",
-      "teamId": "ESP",
-      "rank": 1,
-      "played": 3,
-      "wins": 2,
-      "draws": 1,
-      "losses": 0,
-      "points": 7,
-      "goalDifference": 5,
-      "goalsFor": 5,
-      "goalsAgainst": 0
-    },
-    {
-      "groupId": "B",
-      "teamId": "SUI",
-      "rank": 1,
-      "played": 3,
-      "wins": 2,
-      "draws": 1,
-      "losses": 0,
-      "points": 7,
-      "goalDifference": 4,
-      "goalsFor": 7,
-      "goalsAgainst": 3
-    },
-    {
-      "groupId": "D",
-      "teamId": "USA",
-      "rank": 1,
-      "played": 3,
-      "wins": 2,
-      "draws": 0,
-      "losses": 1,
-      "points": 6,
-      "goalDifference": 4,
-      "goalsFor": 8,
-      "goalsAgainst": 4
-    },
-    {
-      "groupId": "D",
-      "teamId": "AUS",
-      "rank": 2,
-      "played": 3,
-      "wins": 1,
-      "draws": 1,
-      "losses": 1,
-      "points": 4,
-      "goalDifference": 0,
-      "goalsFor": 2,
-      "goalsAgainst": 2
-    },
-    {
-      "groupId": "J",
-      "teamId": "AUT",
-      "rank": 2,
-      "played": 3,
-      "wins": 1,
-      "draws": 1,
-      "losses": 1,
-      "points": 4,
-      "goalDifference": 0,
-      "goalsFor": 6,
-      "goalsAgainst": 6
-    },
-    {
-      "groupId": "H",
-      "teamId": "CPV",
-      "rank": 2,
-      "played": 3,
-      "wins": 0,
-      "draws": 3,
-      "losses": 0,
-      "points": 3,
-      "goalDifference": 0,
-      "goalsFor": 2,
-      "goalsAgainst": 2
-    },
-    {
-      "groupId": "B",
-      "teamId": "CAN",
-      "rank": 2,
-      "played": 3,
-      "wins": 1,
-      "draws": 1,
-      "losses": 1,
-      "points": 4,
-      "goalDifference": 5,
-      "goalsFor": 8,
-      "goalsAgainst": 3
-    },
-    {
-      "groupId": "E",
-      "teamId": "CIV",
-      "rank": 2,
-      "played": 3,
-      "wins": 2,
-      "draws": 0,
-      "losses": 1,
-      "points": 6,
-      "goalDifference": 2,
-      "goalsFor": 4,
-      "goalsAgainst": 2
-    },
-    {
-      "groupId": "L",
-      "teamId": "CRO",
-      "rank": 2,
-      "played": 3,
-      "wins": 2,
-      "draws": 0,
-      "losses": 1,
-      "points": 6,
-      "goalDifference": 0,
-      "goalsFor": 5,
-      "goalsAgainst": 5
-    },
-    {
-      "groupId": "G",
-      "teamId": "EGY",
-      "rank": 2,
-      "played": 3,
-      "wins": 1,
-      "draws": 2,
-      "losses": 0,
-      "points": 5,
-      "goalDifference": 2,
-      "goalsFor": 5,
-      "goalsAgainst": 3
-    },
-    {
-      "groupId": "F",
-      "teamId": "JPN",
-      "rank": 2,
-      "played": 3,
-      "wins": 1,
-      "draws": 2,
-      "losses": 0,
-      "points": 5,
-      "goalDifference": 4,
-      "goalsFor": 7,
-      "goalsAgainst": 3
-    },
-    {
-      "groupId": "C",
-      "teamId": "MAR",
-      "rank": 2,
-      "played": 3,
-      "wins": 2,
-      "draws": 1,
-      "losses": 0,
-      "points": 7,
-      "goalDifference": 3,
-      "goalsFor": 6,
-      "goalsAgainst": 3
-    },
-    {
-      "groupId": "I",
-      "teamId": "NOR",
-      "rank": 2,
-      "played": 3,
-      "wins": 2,
-      "draws": 0,
-      "losses": 1,
-      "points": 6,
-      "goalDifference": 1,
-      "goalsFor": 8,
-      "goalsAgainst": 7
-    },
-    {
-      "groupId": "K",
-      "teamId": "POR",
-      "rank": 2,
-      "played": 3,
-      "wins": 1,
-      "draws": 2,
-      "losses": 0,
-      "points": 5,
-      "goalDifference": 5,
-      "goalsFor": 6,
-      "goalsAgainst": 1
+      "rank": 1
     },
     {
       "groupId": "A",
       "teamId": "RSA",
-      "rank": 2,
       "played": 3,
       "wins": 1,
       "draws": 1,
       "losses": 1,
-      "points": 4,
+      "goalsFor": 2,
+      "goalsAgainst": 3,
       "goalDifference": -1,
-      "goalsFor": 2,
-      "goalsAgainst": 3
-    },
-    {
-      "groupId": "J",
-      "teamId": "ALG",
-      "rank": 3,
-      "played": 3,
-      "wins": 1,
-      "draws": 1,
-      "losses": 1,
       "points": 4,
-      "goalDifference": -2,
-      "goalsFor": 5,
-      "goalsAgainst": 7
-    },
-    {
-      "groupId": "B",
-      "teamId": "BIH",
-      "rank": 3,
-      "played": 3,
-      "wins": 1,
-      "draws": 1,
-      "losses": 1,
-      "points": 4,
-      "goalDifference": -1,
-      "goalsFor": 5,
-      "goalsAgainst": 6
-    },
-    {
-      "groupId": "K",
-      "teamId": "COD",
-      "rank": 3,
-      "played": 3,
-      "wins": 1,
-      "draws": 1,
-      "losses": 1,
-      "points": 4,
-      "goalDifference": 1,
-      "goalsFor": 4,
-      "goalsAgainst": 3
-    },
-    {
-      "groupId": "E",
-      "teamId": "ECU",
-      "rank": 3,
-      "played": 3,
-      "wins": 1,
-      "draws": 1,
-      "losses": 1,
-      "points": 4,
-      "goalDifference": 0,
-      "goalsFor": 2,
-      "goalsAgainst": 2
-    },
-    {
-      "groupId": "L",
-      "teamId": "GHA",
-      "rank": 3,
-      "played": 3,
-      "wins": 1,
-      "draws": 1,
-      "losses": 1,
-      "points": 4,
-      "goalDifference": 0,
-      "goalsFor": 2,
-      "goalsAgainst": 2
-    },
-    {
-      "groupId": "G",
-      "teamId": "IRN",
-      "rank": 3,
-      "played": 3,
-      "wins": 0,
-      "draws": 3,
-      "losses": 0,
-      "points": 3,
-      "goalDifference": 0,
-      "goalsFor": 3,
-      "goalsAgainst": 3
+      "rank": 2
     },
     {
       "groupId": "A",
       "teamId": "KOR",
-      "rank": 3,
       "played": 3,
       "wins": 1,
       "draws": 0,
       "losses": 2,
-      "points": 3,
-      "goalDifference": -1,
       "goalsFor": 2,
-      "goalsAgainst": 3
-    },
-    {
-      "groupId": "D",
-      "teamId": "PAR",
-      "rank": 3,
-      "played": 3,
-      "wins": 1,
-      "draws": 1,
-      "losses": 1,
-      "points": 4,
-      "goalDifference": -2,
-      "goalsFor": 2,
-      "goalsAgainst": 4
-    },
-    {
-      "groupId": "C",
-      "teamId": "SCO",
-      "rank": 3,
-      "played": 3,
-      "wins": 1,
-      "draws": 0,
-      "losses": 2,
-      "points": 3,
-      "goalDifference": -3,
-      "goalsFor": 1,
-      "goalsAgainst": 4
-    },
-    {
-      "groupId": "I",
-      "teamId": "SEN",
-      "rank": 3,
-      "played": 3,
-      "wins": 1,
-      "draws": 0,
-      "losses": 2,
-      "points": 3,
-      "goalDifference": 2,
-      "goalsFor": 8,
-      "goalsAgainst": 6
-    },
-    {
-      "groupId": "F",
-      "teamId": "SWE",
-      "rank": 3,
-      "played": 3,
-      "wins": 1,
-      "draws": 1,
-      "losses": 1,
-      "points": 4,
-      "goalDifference": 0,
-      "goalsFor": 7,
-      "goalsAgainst": 7
-    },
-    {
-      "groupId": "H",
-      "teamId": "URU",
-      "rank": 3,
-      "played": 3,
-      "wins": 0,
-      "draws": 2,
-      "losses": 1,
-      "points": 2,
+      "goalsAgainst": 3,
       "goalDifference": -1,
-      "goalsFor": 3,
-      "goalsAgainst": 4
-    },
-    {
-      "groupId": "E",
-      "teamId": "CUW",
-      "rank": 4,
-      "played": 3,
-      "wins": 0,
-      "draws": 1,
-      "losses": 2,
-      "points": 1,
-      "goalDifference": -8,
-      "goalsFor": 1,
-      "goalsAgainst": 9
+      "points": 3,
+      "rank": 3
     },
     {
       "groupId": "A",
       "teamId": "CZE",
-      "rank": 4,
       "played": 3,
       "wins": 0,
       "draws": 1,
       "losses": 2,
-      "points": 1,
+      "goalsFor": 2,
+      "goalsAgainst": 6,
       "goalDifference": -4,
-      "goalsFor": 2,
-      "goalsAgainst": 6
+      "points": 1,
+      "rank": 4
     },
     {
-      "groupId": "C",
-      "teamId": "HAI",
-      "rank": 4,
+      "groupId": "B",
+      "teamId": "SUI",
       "played": 3,
-      "wins": 0,
-      "draws": 0,
-      "losses": 3,
-      "points": 0,
-      "goalDifference": -6,
-      "goalsFor": 2,
-      "goalsAgainst": 8
-    },
-    {
-      "groupId": "I",
-      "teamId": "IRQ",
-      "rank": 4,
-      "played": 3,
-      "wins": 0,
-      "draws": 0,
-      "losses": 3,
-      "points": 0,
-      "goalDifference": -11,
-      "goalsFor": 1,
-      "goalsAgainst": 12
-    },
-    {
-      "groupId": "J",
-      "teamId": "JOR",
-      "rank": 4,
-      "played": 3,
-      "wins": 0,
-      "draws": 0,
-      "losses": 3,
-      "points": 0,
-      "goalDifference": -5,
-      "goalsFor": 3,
-      "goalsAgainst": 8
-    },
-    {
-      "groupId": "G",
-      "teamId": "NZL",
-      "rank": 4,
-      "played": 3,
-      "wins": 0,
+      "wins": 2,
       "draws": 1,
-      "losses": 2,
-      "points": 1,
-      "goalDifference": -6,
-      "goalsFor": 4,
-      "goalsAgainst": 10
+      "losses": 0,
+      "goalsFor": 7,
+      "goalsAgainst": 3,
+      "goalDifference": 4,
+      "points": 7,
+      "rank": 1
     },
     {
-      "groupId": "L",
-      "teamId": "PAN",
-      "rank": 4,
+      "groupId": "B",
+      "teamId": "CAN",
       "played": 3,
-      "wins": 0,
-      "draws": 0,
-      "losses": 3,
-      "points": 0,
-      "goalDifference": -4,
-      "goalsFor": 0,
-      "goalsAgainst": 4
+      "wins": 1,
+      "draws": 1,
+      "losses": 1,
+      "goalsFor": 8,
+      "goalsAgainst": 3,
+      "goalDifference": 5,
+      "points": 4,
+      "rank": 2
+    },
+    {
+      "groupId": "B",
+      "teamId": "BIH",
+      "played": 3,
+      "wins": 1,
+      "draws": 1,
+      "losses": 1,
+      "goalsFor": 5,
+      "goalsAgainst": 6,
+      "goalDifference": -1,
+      "points": 4,
+      "rank": 3
     },
     {
       "groupId": "B",
       "teamId": "QAT",
-      "rank": 4,
       "played": 3,
       "wins": 0,
       "draws": 1,
       "losses": 2,
-      "points": 1,
+      "goalsFor": 2,
+      "goalsAgainst": 10,
       "goalDifference": -8,
-      "goalsFor": 2,
-      "goalsAgainst": 10
+      "points": 1,
+      "rank": 4
     },
     {
-      "groupId": "H",
-      "teamId": "KSA",
-      "rank": 4,
+      "groupId": "C",
+      "teamId": "BRA",
       "played": 3,
-      "wins": 0,
-      "draws": 2,
-      "losses": 1,
-      "points": 2,
-      "goalDifference": -4,
-      "goalsFor": 1,
-      "goalsAgainst": 5
+      "wins": 2,
+      "draws": 1,
+      "losses": 0,
+      "goalsFor": 7,
+      "goalsAgainst": 1,
+      "goalDifference": 6,
+      "points": 7,
+      "rank": 1
     },
     {
-      "groupId": "F",
-      "teamId": "TUN",
-      "rank": 4,
+      "groupId": "C",
+      "teamId": "MAR",
       "played": 3,
-      "wins": 0,
-      "draws": 0,
-      "losses": 3,
-      "points": 0,
-      "goalDifference": -10,
-      "goalsFor": 2,
-      "goalsAgainst": 12
+      "wins": 2,
+      "draws": 1,
+      "losses": 0,
+      "goalsFor": 6,
+      "goalsAgainst": 3,
+      "goalDifference": 3,
+      "points": 7,
+      "rank": 2
     },
     {
-      "groupId": "D",
-      "teamId": "TUR",
-      "rank": 4,
+      "groupId": "C",
+      "teamId": "SCO",
       "played": 3,
       "wins": 1,
       "draws": 0,
       "losses": 2,
+      "goalsFor": 1,
+      "goalsAgainst": 4,
+      "goalDifference": -3,
       "points": 3,
-      "goalDifference": -2,
-      "goalsFor": 3,
-      "goalsAgainst": 5
+      "rank": 3
     },
     {
-      "groupId": "K",
-      "teamId": "UZB",
-      "rank": 4,
+      "groupId": "C",
+      "teamId": "HAI",
       "played": 3,
       "wins": 0,
       "draws": 0,
       "losses": 3,
-      "points": 0,
-      "goalDifference": -9,
       "goalsFor": 2,
-      "goalsAgainst": 11
+      "goalsAgainst": 8,
+      "goalDifference": -6,
+      "points": 0,
+      "rank": 4
+    },
+    {
+      "groupId": "D",
+      "teamId": "USA",
+      "played": 3,
+      "wins": 2,
+      "draws": 0,
+      "losses": 1,
+      "goalsFor": 8,
+      "goalsAgainst": 4,
+      "goalDifference": 4,
+      "points": 6,
+      "rank": 1
+    },
+    {
+      "groupId": "D",
+      "teamId": "AUS",
+      "played": 3,
+      "wins": 1,
+      "draws": 1,
+      "losses": 1,
+      "goalsFor": 2,
+      "goalsAgainst": 2,
+      "goalDifference": 0,
+      "points": 4,
+      "rank": 2
+    },
+    {
+      "groupId": "D",
+      "teamId": "PAR",
+      "played": 3,
+      "wins": 1,
+      "draws": 1,
+      "losses": 1,
+      "goalsFor": 2,
+      "goalsAgainst": 4,
+      "goalDifference": -2,
+      "points": 4,
+      "rank": 3
+    },
+    {
+      "groupId": "D",
+      "teamId": "TUR",
+      "played": 3,
+      "wins": 1,
+      "draws": 0,
+      "losses": 2,
+      "goalsFor": 3,
+      "goalsAgainst": 5,
+      "goalDifference": -2,
+      "points": 3,
+      "rank": 4
+    },
+    {
+      "groupId": "E",
+      "teamId": "GER",
+      "played": 3,
+      "wins": 2,
+      "draws": 0,
+      "losses": 1,
+      "goalsFor": 10,
+      "goalsAgainst": 4,
+      "goalDifference": 6,
+      "points": 6,
+      "rank": 1
+    },
+    {
+      "groupId": "E",
+      "teamId": "CIV",
+      "played": 3,
+      "wins": 2,
+      "draws": 0,
+      "losses": 1,
+      "goalsFor": 4,
+      "goalsAgainst": 2,
+      "goalDifference": 2,
+      "points": 6,
+      "rank": 2
+    },
+    {
+      "groupId": "E",
+      "teamId": "ECU",
+      "played": 3,
+      "wins": 1,
+      "draws": 1,
+      "losses": 1,
+      "goalsFor": 2,
+      "goalsAgainst": 2,
+      "goalDifference": 0,
+      "points": 4,
+      "rank": 3
+    },
+    {
+      "groupId": "E",
+      "teamId": "CUW",
+      "played": 3,
+      "wins": 0,
+      "draws": 1,
+      "losses": 2,
+      "goalsFor": 1,
+      "goalsAgainst": 9,
+      "goalDifference": -8,
+      "points": 1,
+      "rank": 4
+    },
+    {
+      "groupId": "F",
+      "teamId": "NED",
+      "played": 3,
+      "wins": 2,
+      "draws": 1,
+      "losses": 0,
+      "goalsFor": 10,
+      "goalsAgainst": 4,
+      "goalDifference": 6,
+      "points": 7,
+      "rank": 1
+    },
+    {
+      "groupId": "F",
+      "teamId": "JPN",
+      "played": 3,
+      "wins": 1,
+      "draws": 2,
+      "losses": 0,
+      "goalsFor": 7,
+      "goalsAgainst": 3,
+      "goalDifference": 4,
+      "points": 5,
+      "rank": 2
+    },
+    {
+      "groupId": "F",
+      "teamId": "SWE",
+      "played": 3,
+      "wins": 1,
+      "draws": 1,
+      "losses": 1,
+      "goalsFor": 7,
+      "goalsAgainst": 7,
+      "goalDifference": 0,
+      "points": 4,
+      "rank": 3
+    },
+    {
+      "groupId": "F",
+      "teamId": "TUN",
+      "played": 3,
+      "wins": 0,
+      "draws": 0,
+      "losses": 3,
+      "goalsFor": 2,
+      "goalsAgainst": 12,
+      "goalDifference": -10,
+      "points": 0,
+      "rank": 4
+    },
+    {
+      "groupId": "G",
+      "teamId": "BEL",
+      "played": 3,
+      "wins": 1,
+      "draws": 2,
+      "losses": 0,
+      "goalsFor": 6,
+      "goalsAgainst": 2,
+      "goalDifference": 4,
+      "points": 5,
+      "rank": 1
+    },
+    {
+      "groupId": "G",
+      "teamId": "EGY",
+      "played": 3,
+      "wins": 1,
+      "draws": 2,
+      "losses": 0,
+      "goalsFor": 5,
+      "goalsAgainst": 3,
+      "goalDifference": 2,
+      "points": 5,
+      "rank": 2
+    },
+    {
+      "groupId": "G",
+      "teamId": "IRN",
+      "played": 3,
+      "wins": 0,
+      "draws": 3,
+      "losses": 0,
+      "goalsFor": 3,
+      "goalsAgainst": 3,
+      "goalDifference": 0,
+      "points": 3,
+      "rank": 3
+    },
+    {
+      "groupId": "G",
+      "teamId": "NZL",
+      "played": 3,
+      "wins": 0,
+      "draws": 1,
+      "losses": 2,
+      "goalsFor": 4,
+      "goalsAgainst": 10,
+      "goalDifference": -6,
+      "points": 1,
+      "rank": 4
+    },
+    {
+      "groupId": "H",
+      "teamId": "ESP",
+      "played": 3,
+      "wins": 2,
+      "draws": 1,
+      "losses": 0,
+      "goalsFor": 5,
+      "goalsAgainst": 0,
+      "goalDifference": 5,
+      "points": 7,
+      "rank": 1
+    },
+    {
+      "groupId": "H",
+      "teamId": "CPV",
+      "played": 3,
+      "wins": 0,
+      "draws": 3,
+      "losses": 0,
+      "goalsFor": 2,
+      "goalsAgainst": 2,
+      "goalDifference": 0,
+      "points": 3,
+      "rank": 2
+    },
+    {
+      "groupId": "H",
+      "teamId": "URU",
+      "played": 3,
+      "wins": 0,
+      "draws": 2,
+      "losses": 1,
+      "goalsFor": 3,
+      "goalsAgainst": 4,
+      "goalDifference": -1,
+      "points": 2,
+      "rank": 3
+    },
+    {
+      "groupId": "H",
+      "teamId": "KSA",
+      "played": 3,
+      "wins": 0,
+      "draws": 2,
+      "losses": 1,
+      "goalsFor": 1,
+      "goalsAgainst": 5,
+      "goalDifference": -4,
+      "points": 2,
+      "rank": 4
+    },
+    {
+      "groupId": "I",
+      "teamId": "FRA",
+      "played": 3,
+      "wins": 3,
+      "draws": 0,
+      "losses": 0,
+      "goalsFor": 10,
+      "goalsAgainst": 2,
+      "goalDifference": 8,
+      "points": 9,
+      "rank": 1
+    },
+    {
+      "groupId": "I",
+      "teamId": "NOR",
+      "played": 3,
+      "wins": 2,
+      "draws": 0,
+      "losses": 1,
+      "goalsFor": 8,
+      "goalsAgainst": 7,
+      "goalDifference": 1,
+      "points": 6,
+      "rank": 2
+    },
+    {
+      "groupId": "I",
+      "teamId": "SEN",
+      "played": 3,
+      "wins": 1,
+      "draws": 0,
+      "losses": 2,
+      "goalsFor": 8,
+      "goalsAgainst": 6,
+      "goalDifference": 2,
+      "points": 3,
+      "rank": 3
+    },
+    {
+      "groupId": "I",
+      "teamId": "IRQ",
+      "played": 3,
+      "wins": 0,
+      "draws": 0,
+      "losses": 3,
+      "goalsFor": 1,
+      "goalsAgainst": 12,
+      "goalDifference": -11,
+      "points": 0,
+      "rank": 4
+    },
+    {
+      "groupId": "J",
+      "teamId": "ARG",
+      "played": 3,
+      "wins": 3,
+      "draws": 0,
+      "losses": 0,
+      "goalsFor": 8,
+      "goalsAgainst": 1,
+      "goalDifference": 7,
+      "points": 9,
+      "rank": 1
+    },
+    {
+      "groupId": "J",
+      "teamId": "AUT",
+      "played": 3,
+      "wins": 1,
+      "draws": 1,
+      "losses": 1,
+      "goalsFor": 6,
+      "goalsAgainst": 6,
+      "goalDifference": 0,
+      "points": 4,
+      "rank": 2
+    },
+    {
+      "groupId": "J",
+      "teamId": "ALG",
+      "played": 3,
+      "wins": 1,
+      "draws": 1,
+      "losses": 1,
+      "goalsFor": 5,
+      "goalsAgainst": 7,
+      "goalDifference": -2,
+      "points": 4,
+      "rank": 3
+    },
+    {
+      "groupId": "J",
+      "teamId": "JOR",
+      "played": 3,
+      "wins": 0,
+      "draws": 0,
+      "losses": 3,
+      "goalsFor": 3,
+      "goalsAgainst": 8,
+      "goalDifference": -5,
+      "points": 0,
+      "rank": 4
+    },
+    {
+      "groupId": "K",
+      "teamId": "COL",
+      "played": 3,
+      "wins": 2,
+      "draws": 1,
+      "losses": 0,
+      "goalsFor": 4,
+      "goalsAgainst": 1,
+      "goalDifference": 3,
+      "points": 7,
+      "rank": 1
+    },
+    {
+      "groupId": "K",
+      "teamId": "POR",
+      "played": 3,
+      "wins": 1,
+      "draws": 2,
+      "losses": 0,
+      "goalsFor": 6,
+      "goalsAgainst": 1,
+      "goalDifference": 5,
+      "points": 5,
+      "rank": 2
+    },
+    {
+      "groupId": "K",
+      "teamId": "COD",
+      "played": 3,
+      "wins": 1,
+      "draws": 1,
+      "losses": 1,
+      "goalsFor": 4,
+      "goalsAgainst": 3,
+      "goalDifference": 1,
+      "points": 4,
+      "rank": 3
+    },
+    {
+      "groupId": "K",
+      "teamId": "UZB",
+      "played": 3,
+      "wins": 0,
+      "draws": 0,
+      "losses": 3,
+      "goalsFor": 2,
+      "goalsAgainst": 11,
+      "goalDifference": -9,
+      "points": 0,
+      "rank": 4
+    },
+    {
+      "groupId": "L",
+      "teamId": "ENG",
+      "played": 3,
+      "wins": 2,
+      "draws": 1,
+      "losses": 0,
+      "goalsFor": 6,
+      "goalsAgainst": 2,
+      "goalDifference": 4,
+      "points": 7,
+      "rank": 1
+    },
+    {
+      "groupId": "L",
+      "teamId": "CRO",
+      "played": 3,
+      "wins": 2,
+      "draws": 0,
+      "losses": 1,
+      "goalsFor": 5,
+      "goalsAgainst": 5,
+      "goalDifference": 0,
+      "points": 6,
+      "rank": 2
+    },
+    {
+      "groupId": "L",
+      "teamId": "GHA",
+      "played": 3,
+      "wins": 1,
+      "draws": 1,
+      "losses": 1,
+      "goalsFor": 2,
+      "goalsAgainst": 2,
+      "goalDifference": 0,
+      "points": 4,
+      "rank": 3
+    },
+    {
+      "groupId": "L",
+      "teamId": "PAN",
+      "played": 3,
+      "wins": 0,
+      "draws": 0,
+      "losses": 3,
+      "goalsFor": 0,
+      "goalsAgainst": 4,
+      "goalDifference": -4,
+      "points": 0,
+      "rank": 4
     }
   ],
   "topScorers": [
     {
+      "name": "Kylian MBAPPE",
+      "teamCode": "FRA",
+      "goals": 6
+    },
+    {
       "name": "Lionel MESSI",
       "teamCode": "ARG",
       "goals": 6
+    },
+    {
+      "name": "Erling HAALAND",
+      "teamCode": "NOR",
+      "goals": 5
     },
     {
       "name": "VINICIUS JUNIOR",
@@ -1714,8 +1724,8 @@
       "goals": 4
     },
     {
-      "name": "Kylian MBAPPE",
-      "teamCode": "FRA",
+      "name": "Ismael SAIBARI",
+      "teamCode": "MAR",
       "goals": 4
     },
     {
@@ -1724,38 +1734,8 @@
       "goals": 4
     },
     {
-      "name": "Erling HAALAND",
-      "teamCode": "NOR",
-      "goals": 4
-    },
-    {
-      "name": "Elijah JUST",
-      "teamCode": "NZL",
-      "goals": 3
-    },
-    {
-      "name": "Ismael SAIBARI",
-      "teamCode": "MAR",
-      "goals": 3
-    },
-    {
-      "name": "MATHEUS CUNHA",
-      "teamCode": "BRA",
-      "goals": 3
-    },
-    {
-      "name": "Harry KANE",
-      "teamCode": "ENG",
-      "goals": 3
-    },
-    {
-      "name": "Deniz UNDAV",
-      "teamCode": "GER",
-      "goals": 3
-    },
-    {
-      "name": "Brian BROBBEY",
-      "teamCode": "NED",
+      "name": "Julian QUINONES",
+      "teamCode": "MEX",
       "goals": 3
     },
     {
@@ -1769,6 +1749,36 @@
       "goals": 3
     },
     {
+      "name": "MATHEUS CUNHA",
+      "teamCode": "BRA",
+      "goals": 3
+    },
+    {
+      "name": "Kai HAVERTZ",
+      "teamCode": "GER",
+      "goals": 3
+    },
+    {
+      "name": "Deniz UNDAV",
+      "teamCode": "GER",
+      "goals": 3
+    },
+    {
+      "name": "Brian BROBBEY",
+      "teamCode": "NED",
+      "goals": 3
+    },
+    {
+      "name": "Cody GAKPO",
+      "teamCode": "NED",
+      "goals": 3
+    },
+    {
+      "name": "Elijah JUST",
+      "teamCode": "NZL",
+      "goals": 3
+    },
+    {
       "name": "Ismaila SARR",
       "teamCode": "SEN",
       "goals": 3
@@ -1779,53 +1789,18 @@
       "goals": 3
     },
     {
-      "name": "Leandro TROSSARD",
-      "teamCode": "BEL",
-      "goals": 2
-    },
-    {
-      "name": "Daniel MUNOZ",
-      "teamCode": "COL",
-      "goals": 2
-    },
-    {
-      "name": "Jude BELLINGHAM",
+      "name": "Harry KANE",
       "teamCode": "ENG",
-      "goals": 2
+      "goals": 3
     },
     {
-      "name": "Kai HAVERTZ",
-      "teamCode": "GER",
-      "goals": 2
-    },
-    {
-      "name": "Julian QUINONES",
+      "name": "Raul JIMENEZ",
       "teamCode": "MEX",
       "goals": 2
     },
     {
-      "name": "Crysencio SUMMERVILLE",
-      "teamCode": "NED",
-      "goals": 2
-    },
-    {
-      "name": "Daichi KAMADA",
-      "teamCode": "JPN",
-      "goals": 2
-    },
-    {
-      "name": "Cody GAKPO",
-      "teamCode": "NED",
-      "goals": 2
-    },
-    {
-      "name": "Anthony ELANGA",
-      "teamCode": "SWE",
-      "goals": 2
-    },
-    {
-      "name": "Mikel OYARZABAL",
-      "teamCode": "ESP",
+      "name": "Cyle LARIN",
+      "teamCode": "CAN",
       "goals": 2
     },
     {
@@ -1839,8 +1814,98 @@
       "goals": 2
     },
     {
+      "name": "Soufiane RAHIMI",
+      "teamCode": "MAR",
+      "goals": 2
+    },
+    {
       "name": "Folarin BALOGUN",
       "teamCode": "USA",
+      "goals": 2
+    },
+    {
+      "name": "MAURICIO",
+      "teamCode": "PAR",
+      "goals": 2
+    },
+    {
+      "name": "Matias GALARZA",
+      "teamCode": "PAR",
+      "goals": 2
+    },
+    {
+      "name": "Amad DIALLO",
+      "teamCode": "CIV",
+      "goals": 2
+    },
+    {
+      "name": "Jamal MUSIALA",
+      "teamCode": "GER",
+      "goals": 2
+    },
+    {
+      "name": "Nicolas PEPE",
+      "teamCode": "CIV",
+      "goals": 2
+    },
+    {
+      "name": "Crysencio SUMMERVILLE",
+      "teamCode": "NED",
+      "goals": 2
+    },
+    {
+      "name": "Daichi KAMADA",
+      "teamCode": "JPN",
+      "goals": 2
+    },
+    {
+      "name": "Yasin AYARI",
+      "teamCode": "SWE",
+      "goals": 2
+    },
+    {
+      "name": "Anthony ELANGA",
+      "teamCode": "SWE",
+      "goals": 2
+    },
+    {
+      "name": "Ayase UEDA",
+      "teamCode": "JPN",
+      "goals": 2
+    },
+    {
+      "name": "Ramin REZAEIAN",
+      "teamCode": "IRN",
+      "goals": 2
+    },
+    {
+      "name": "Leandro TROSSARD",
+      "teamCode": "BEL",
+      "goals": 2
+    },
+    {
+      "name": "Maxi ARAUJO",
+      "teamCode": "URU",
+      "goals": 2
+    },
+    {
+      "name": "Mikel OYARZABAL",
+      "teamCode": "ESP",
+      "goals": 2
+    },
+    {
+      "name": "Bradley BARCOLA",
+      "teamCode": "FRA",
+      "goals": 2
+    },
+    {
+      "name": "AYMEN HUSSEIN",
+      "teamCode": "IRQ",
+      "goals": 2
+    },
+    {
+      "name": "Pape GUEYE",
+      "teamCode": "SEN",
       "goals": 2
     },
     {
@@ -1854,33 +1919,8 @@
       "goals": 2
     },
     {
-      "name": "Maxi ARAUJO",
-      "teamCode": "URU",
-      "goals": 2
-    },
-    {
-      "name": "Cyle LARIN",
-      "teamCode": "CAN",
-      "goals": 2
-    },
-    {
-      "name": "Nicolas PEPE",
-      "teamCode": "CIV",
-      "goals": 2
-    },
-    {
-      "name": "Ramin REZAEIAN",
-      "teamCode": "IRN",
-      "goals": 2
-    },
-    {
-      "name": "Ayase UEDA",
-      "teamCode": "JPN",
-      "goals": 2
-    },
-    {
-      "name": "AYMEN HUSSEIN",
-      "teamCode": "IRQ",
+      "name": "Daniel MUNOZ",
+      "teamCode": "COL",
       "goals": 2
     },
     {
@@ -1889,153 +1929,33 @@
       "goals": 2
     },
     {
-      "name": "Pape GUEYE",
-      "teamCode": "SEN",
-      "goals": 2
-    },
-    {
-      "name": "Yasin AYARI",
-      "teamCode": "SWE",
-      "goals": 2
-    },
-    {
-      "name": "MOUSA ALTAMARI",
-      "teamCode": "JOR",
-      "goals": 1
-    },
-    {
-      "name": "Giovani Lo Celso",
-      "teamCode": "ARG",
-      "goals": 1
-    },
-    {
-      "name": "Lautaro MARTINEZ",
-      "teamCode": "ARG",
-      "goals": 1
-    },
-    {
-      "name": "MOHAMED HANY",
-      "teamCode": "EGY",
-      "goals": 1
-    },
-    {
-      "name": "EMAM ASHOUR",
-      "teamCode": "EGY",
-      "goals": 1
-    },
-    {
-      "name": "Kevin DE BRUYNE",
-      "teamCode": "BEL",
-      "goals": 1
-    },
-    {
-      "name": "Romelu LUKAKU",
-      "teamCode": "BEL",
-      "goals": 1
-    },
-    {
-      "name": "Alexis SAELEMAEKERS",
-      "teamCode": "BEL",
-      "goals": 1
-    },
-    {
-      "name": "Abbosbek FAYZULLAEV",
-      "teamCode": "UZB",
-      "goals": 1
-    },
-    {
-      "name": "Luis DIAZ",
-      "teamCode": "COL",
-      "goals": 1
-    },
-    {
-      "name": "Jaminton CAMPAZ",
-      "teamCode": "COL",
-      "goals": 1
-    },
-    {
-      "name": "Marcus RASHFORD",
+      "name": "Jude BELLINGHAM",
       "teamCode": "ENG",
+      "goals": 2
+    },
+    {
+      "name": "HWANG Inbeom",
+      "teamCode": "KOR",
       "goals": 1
     },
     {
-      "name": "Martin BATURINA",
-      "teamCode": "CRO",
+      "name": "OH Hyeongyu",
+      "teamCode": "KOR",
       "goals": 1
     },
     {
-      "name": "Petar Musa",
-      "teamCode": "CRO",
+      "name": "Ladislav KREJCI",
+      "teamCode": "CZE",
       "goals": 1
     },
     {
-      "name": "Bradley BARCOLA",
-      "teamCode": "FRA",
+      "name": "Michal SADILEK",
+      "teamCode": "CZE",
       "goals": 1
     },
     {
-      "name": "Ibrahim MBAYE",
-      "teamCode": "SEN",
-      "goals": 1
-    },
-    {
-      "name": "Thelo AASGAARD",
-      "teamCode": "NOR",
-      "goals": 1
-    },
-    {
-      "name": "Desire DOUE",
-      "teamCode": "FRA",
-      "goals": 1
-    },
-    {
-      "name": "Felix NMECHA",
-      "teamCode": "GER",
-      "goals": 1
-    },
-    {
-      "name": "Nico SCHLOTTERBECK",
-      "teamCode": "GER",
-      "goals": 1
-    },
-    {
-      "name": "Jamal MUSIALA",
-      "teamCode": "GER",
-      "goals": 1
-    },
-    {
-      "name": "Nathaniel BROWN",
-      "teamCode": "GER",
-      "goals": 1
-    },
-    {
-      "name": "Livano COMENENCIA",
-      "teamCode": "CUW",
-      "goals": 1
-    },
-    {
-      "name": "Franck KESSIE",
-      "teamCode": "CIV",
-      "goals": 1
-    },
-    {
-      "name": "Nilson ANGULO",
-      "teamCode": "ECU",
-      "goals": 1
-    },
-    {
-      "name": "Gonzalo PLATA",
-      "teamCode": "ECU",
-      "goals": 1
-    },
-    {
-      "name": "Leroy SANE",
-      "teamCode": "GER",
-      "goals": 1
-    },
-    {
-      "name": "Raul JIMENEZ",
-      "teamCode": "MEX",
+      "name": "Teboho MOKOENA",
+      "teamCode": "RSA",
       "goals": 1
     },
     {
@@ -2054,43 +1974,13 @@
       "goals": 1
     },
     {
-      "name": "Virgil VAN DIJK",
-      "teamCode": "NED",
+      "name": "Thapelo MASEKO",
+      "teamCode": "RSA",
       "goals": 1
     },
     {
-      "name": "Keito Nakamura",
-      "teamCode": "JPN",
-      "goals": 1
-    },
-    {
-      "name": "Hazem MASTOURI",
-      "teamCode": "TUN",
-      "goals": 1
-    },
-    {
-      "name": "Ellyes SKHIRI",
-      "teamCode": "TUN",
-      "goals": 1
-    },
-    {
-      "name": "Jan Paul VAN HECKE",
-      "teamCode": "NED",
-      "goals": 1
-    },
-    {
-      "name": "Lamine YAMAL",
-      "teamCode": "ESP",
-      "goals": 1
-    },
-    {
-      "name": "HASSAN ALTAMBAKTI",
-      "teamCode": "KSA",
-      "goals": 1
-    },
-    {
-      "name": "Alex BAENA",
-      "teamCode": "ESP",
+      "name": "Jovo LUKIC",
+      "teamCode": "BIH",
       "goals": 1
     },
     {
@@ -2109,8 +1999,58 @@
       "goals": 1
     },
     {
+      "name": "Nathan SALIBA",
+      "teamCode": "CAN",
+      "goals": 1
+    },
+    {
+      "name": "MOHAMED MANAI",
+      "teamCode": "QAT",
+      "goals": 1
+    },
+    {
       "name": "Promise DAVID",
       "teamCode": "CAN",
+      "goals": 1
+    },
+    {
+      "name": "Kerim ALAJBEGOVIC",
+      "teamCode": "BIH",
+      "goals": 1
+    },
+    {
+      "name": "MAHMOUD ABUNADA",
+      "teamCode": "QAT",
+      "goals": 1
+    },
+    {
+      "name": "HASSAN ALHAYDOS",
+      "teamCode": "QAT",
+      "goals": 1
+    },
+    {
+      "name": "John McGinn",
+      "teamCode": "SCO",
+      "goals": 1
+    },
+    {
+      "name": "Achraf HAKIMI",
+      "teamCode": "MAR",
+      "goals": 1
+    },
+    {
+      "name": "Gessime YASSINE",
+      "teamCode": "MAR",
+      "goals": 1
+    },
+    {
+      "name": "Yassine BOUNOU",
+      "teamCode": "MAR",
+      "goals": 1
+    },
+    {
+      "name": "Wilson Isidor",
+      "teamCode": "HAI",
       "goals": 1
     },
     {
@@ -2124,8 +2064,13 @@
       "goals": 1
     },
     {
-      "name": "MAURICIO",
-      "teamCode": "PAR",
+      "name": "Nestory IRANKUNDA",
+      "teamCode": "AUS",
+      "goals": 1
+    },
+    {
+      "name": "Connor METCALFE",
+      "teamCode": "AUS",
       "goals": 1
     },
     {
@@ -2164,98 +2109,113 @@
       "goals": 1
     },
     {
-      "name": "Nestory IRANKUNDA",
-      "teamCode": "AUS",
+      "name": "Felix NMECHA",
+      "teamCode": "GER",
       "goals": 1
     },
     {
-      "name": "Connor METCALFE",
-      "teamCode": "AUS",
+      "name": "Nico SCHLOTTERBECK",
+      "teamCode": "GER",
       "goals": 1
     },
     {
-      "name": "Romano SCHMID",
-      "teamCode": "AUT",
+      "name": "Nathaniel BROWN",
+      "teamCode": "GER",
       "goals": 1
     },
     {
-      "name": "YAZAN ALARAB",
-      "teamCode": "JOR",
+      "name": "Livano COMENENCIA",
+      "teamCode": "CUW",
       "goals": 1
     },
     {
-      "name": "ALI OLWAN",
-      "teamCode": "JOR",
-      "goals": 1
-    },
-    {
-      "name": "Rafik BELGHALI",
-      "teamCode": "ALG",
-      "goals": 1
-    },
-    {
-      "name": "Marcel SABITZER",
-      "teamCode": "AUT",
-      "goals": 1
-    },
-    {
-      "name": "Sasa KALAJDZIC",
-      "teamCode": "AUT",
-      "goals": 1
-    },
-    {
-      "name": "Agustin CANOBBIO",
-      "teamCode": "URU",
-      "goals": 1
-    },
-    {
-      "name": "KEVIN PINA",
-      "teamCode": "CPV",
-      "goals": 1
-    },
-    {
-      "name": "HELIO VARELA",
-      "teamCode": "CPV",
-      "goals": 1
-    },
-    {
-      "name": "Jovo LUKIC",
-      "teamCode": "BIH",
-      "goals": 1
-    },
-    {
-      "name": "Nathan SALIBA",
-      "teamCode": "CAN",
-      "goals": 1
-    },
-    {
-      "name": "MOHAMED MANAI",
-      "teamCode": "QAT",
-      "goals": 1
-    },
-    {
-      "name": "Amad DIALLO",
+      "name": "Franck KESSIE",
       "teamCode": "CIV",
       "goals": 1
     },
     {
-      "name": "Ante BUDIMIR",
-      "teamCode": "CRO",
+      "name": "Nilson ANGULO",
+      "teamCode": "ECU",
       "goals": 1
     },
     {
-      "name": "Petar SUCIC",
-      "teamCode": "CRO",
+      "name": "Gonzalo PLATA",
+      "teamCode": "ECU",
       "goals": 1
     },
     {
-      "name": "Nikola VLASIC",
-      "teamCode": "CRO",
+      "name": "Leroy SANE",
+      "teamCode": "GER",
       "goals": 1
     },
     {
-      "name": "Derrick LUCKASSEN",
-      "teamCode": "GHA",
+      "name": "Virgil VAN DIJK",
+      "teamCode": "NED",
+      "goals": 1
+    },
+    {
+      "name": "Keito Nakamura",
+      "teamCode": "JPN",
+      "goals": 1
+    },
+    {
+      "name": "Alexander Isak",
+      "teamCode": "SWE",
+      "goals": 1
+    },
+    {
+      "name": "Viktor GYOKERES",
+      "teamCode": "SWE",
+      "goals": 1
+    },
+    {
+      "name": "Mattias SVANBERG",
+      "teamCode": "SWE",
+      "goals": 1
+    },
+    {
+      "name": "Omar Rekik",
+      "teamCode": "TUN",
+      "goals": 1
+    },
+    {
+      "name": "Junya ITO",
+      "teamCode": "JPN",
+      "goals": 1
+    },
+    {
+      "name": "Daizen MAEDA",
+      "teamCode": "JPN",
+      "goals": 1
+    },
+    {
+      "name": "Hazem MASTOURI",
+      "teamCode": "TUN",
+      "goals": 1
+    },
+    {
+      "name": "Ellyes SKHIRI",
+      "teamCode": "TUN",
+      "goals": 1
+    },
+    {
+      "name": "Jan Paul VAN HECKE",
+      "teamCode": "NED",
+      "goals": 1
+    },
+    {
+      "name": "Mohammad MOHEBBI",
+      "teamCode": "IRN",
+      "goals": 1
+    },
+    {
+      "name": "MOHAMED HANY",
+      "teamCode": "EGY",
+      "goals": 1
+    },
+    {
+      "name": "EMAM ASHOUR",
+      "teamCode": "EGY",
       "goals": 1
     },
     {
@@ -2284,38 +2244,58 @@
       "goals": 1
     },
     {
-      "name": "Junya ITO",
-      "teamCode": "JPN",
+      "name": "Kevin DE BRUYNE",
+      "teamCode": "BEL",
       "goals": 1
     },
     {
-      "name": "Daizen MAEDA",
-      "teamCode": "JPN",
+      "name": "Romelu LUKAKU",
+      "teamCode": "BEL",
       "goals": 1
     },
     {
-      "name": "Achraf HAKIMI",
-      "teamCode": "MAR",
+      "name": "Alexis SAELEMAEKERS",
+      "teamCode": "BEL",
       "goals": 1
     },
     {
-      "name": "Soufiane RAHIMI",
-      "teamCode": "MAR",
+      "name": "Abdulelah ALAMRI",
+      "teamCode": "KSA",
       "goals": 1
     },
     {
-      "name": "Gessime YASSINE",
-      "teamCode": "MAR",
+      "name": "Agustin CANOBBIO",
+      "teamCode": "URU",
       "goals": 1
     },
     {
-      "name": "Yassine BOUNOU",
-      "teamCode": "MAR",
+      "name": "KEVIN PINA",
+      "teamCode": "CPV",
       "goals": 1
     },
     {
-      "name": "Wilson Isidor",
-      "teamCode": "HAI",
+      "name": "HELIO VARELA",
+      "teamCode": "CPV",
+      "goals": 1
+    },
+    {
+      "name": "Lamine YAMAL",
+      "teamCode": "ESP",
+      "goals": 1
+    },
+    {
+      "name": "HASSAN ALTAMBAKTI",
+      "teamCode": "KSA",
+      "goals": 1
+    },
+    {
+      "name": "Alex BAENA",
+      "teamCode": "ESP",
+      "goals": 1
+    },
+    {
+      "name": "Ibrahim MBAYE",
+      "teamCode": "SEN",
       "goals": 1
     },
     {
@@ -2329,38 +2309,38 @@
       "goals": 1
     },
     {
-      "name": "JOAO NEVES",
-      "teamCode": "POR",
+      "name": "Thelo AASGAARD",
+      "teamCode": "NOR",
       "goals": 1
     },
     {
-      "name": "NUNO MENDES",
-      "teamCode": "POR",
+      "name": "Desire DOUE",
+      "teamCode": "FRA",
       "goals": 1
     },
     {
-      "name": "Abduvohid NEMATOV",
-      "teamCode": "UZB",
+      "name": "Habib DIARRA",
+      "teamCode": "SEN",
       "goals": 1
     },
     {
-      "name": "RAFAEL LEAO",
-      "teamCode": "POR",
+      "name": "Iliman NDIAYE",
+      "teamCode": "SEN",
       "goals": 1
     },
     {
-      "name": "Michal SADILEK",
-      "teamCode": "CZE",
+      "name": "Romano SCHMID",
+      "teamCode": "AUT",
       "goals": 1
     },
     {
-      "name": "Teboho MOKOENA",
-      "teamCode": "RSA",
+      "name": "YAZAN ALARAB",
+      "teamCode": "JOR",
       "goals": 1
     },
     {
-      "name": "Thapelo MASEKO",
-      "teamCode": "RSA",
+      "name": "ALI OLWAN",
+      "teamCode": "JOR",
       "goals": 1
     },
     {
@@ -2379,18 +2359,68 @@
       "goals": 1
     },
     {
-      "name": "Kerim ALAJBEGOVIC",
-      "teamCode": "BIH",
+      "name": "Rafik BELGHALI",
+      "teamCode": "ALG",
       "goals": 1
     },
     {
-      "name": "MAHMOUD ABUNADA",
-      "teamCode": "QAT",
+      "name": "Marcel SABITZER",
+      "teamCode": "AUT",
       "goals": 1
     },
     {
-      "name": "HASSAN ALHAYDOS",
-      "teamCode": "QAT",
+      "name": "Sasa KALAJDZIC",
+      "teamCode": "AUT",
+      "goals": 1
+    },
+    {
+      "name": "MOUSA ALTAMARI",
+      "teamCode": "JOR",
+      "goals": 1
+    },
+    {
+      "name": "Giovani Lo Celso",
+      "teamCode": "ARG",
+      "goals": 1
+    },
+    {
+      "name": "Lautaro MARTINEZ",
+      "teamCode": "ARG",
+      "goals": 1
+    },
+    {
+      "name": "JOAO NEVES",
+      "teamCode": "POR",
+      "goals": 1
+    },
+    {
+      "name": "Abbosbek FAYZULLAEV",
+      "teamCode": "UZB",
+      "goals": 1
+    },
+    {
+      "name": "Luis DIAZ",
+      "teamCode": "COL",
+      "goals": 1
+    },
+    {
+      "name": "Jaminton CAMPAZ",
+      "teamCode": "COL",
+      "goals": 1
+    },
+    {
+      "name": "NUNO MENDES",
+      "teamCode": "POR",
+      "goals": 1
+    },
+    {
+      "name": "Abduvohid NEMATOV",
+      "teamCode": "UZB",
+      "goals": 1
+    },
+    {
+      "name": "RAFAEL LEAO",
+      "teamCode": "POR",
       "goals": 1
     },
     {
@@ -2409,73 +2439,108 @@
       "goals": 1
     },
     {
-      "name": "Mohammad MOHEBBI",
-      "teamCode": "IRN",
+      "name": "Marcus RASHFORD",
+      "teamCode": "ENG",
       "goals": 1
     },
     {
-      "name": "HWANG Inbeom",
-      "teamCode": "KOR",
+      "name": "Martin BATURINA",
+      "teamCode": "CRO",
       "goals": 1
     },
     {
-      "name": "OH Hyeongyu",
-      "teamCode": "KOR",
+      "name": "Petar Musa",
+      "teamCode": "CRO",
       "goals": 1
     },
     {
-      "name": "Ladislav KREJCI",
-      "teamCode": "CZE",
+      "name": "Ante BUDIMIR",
+      "teamCode": "CRO",
       "goals": 1
     },
     {
-      "name": "Matias GALARZA",
-      "teamCode": "PAR",
+      "name": "Petar SUCIC",
+      "teamCode": "CRO",
       "goals": 1
     },
     {
-      "name": "John McGinn",
-      "teamCode": "SCO",
+      "name": "Nikola VLASIC",
+      "teamCode": "CRO",
       "goals": 1
     },
     {
-      "name": "Habib DIARRA",
-      "teamCode": "SEN",
-      "goals": 1
-    },
-    {
-      "name": "Iliman NDIAYE",
-      "teamCode": "SEN",
-      "goals": 1
-    },
-    {
-      "name": "Alexander Isak",
-      "teamCode": "SWE",
-      "goals": 1
-    },
-    {
-      "name": "Viktor GYOKERES",
-      "teamCode": "SWE",
-      "goals": 1
-    },
-    {
-      "name": "Mattias SVANBERG",
-      "teamCode": "SWE",
-      "goals": 1
-    },
-    {
-      "name": "Omar Rekik",
-      "teamCode": "TUN",
-      "goals": 1
-    },
-    {
-      "name": "Abdulelah ALAMRI",
-      "teamCode": "KSA",
+      "name": "Derrick LUCKASSEN",
+      "teamCode": "GHA",
       "goals": 1
     },
     {
       "name": "Stephen EUSTAQUIO",
       "teamCode": "CAN",
+      "goals": 1
+    },
+    {
+      "name": "Joshua KIMMICH",
+      "teamCode": "GER",
+      "goals": 1
+    },
+    {
+      "name": "Nadiem Amiri",
+      "teamCode": "GER",
+      "goals": 1
+    },
+    {
+      "name": "Julio ENCISO",
+      "teamCode": "PAR",
+      "goals": 1
+    },
+    {
+      "name": "Gustavo GOMEZ",
+      "teamCode": "PAR",
+      "goals": 1
+    },
+    {
+      "name": "Jose CANALE",
+      "teamCode": "PAR",
+      "goals": 1
+    },
+    {
+      "name": "Teun KOOPMEINERS",
+      "teamCode": "NED",
+      "goals": 1
+    },
+    {
+      "name": "Wout WEGHORST",
+      "teamCode": "NED",
+      "goals": 1
+    },
+    {
+      "name": "Issa Diop",
+      "teamCode": "MAR",
+      "goals": 1
+    },
+    {
+      "name": "Chemsdine TALBI",
+      "teamCode": "MAR",
+      "goals": 1
+    },
+    {
+      "name": "CASEMIRO",
+      "teamCode": "BRA",
+      "goals": 1
+    },
+    {
+      "name": "GABRIEL MARTINELLI",
+      "teamCode": "BRA",
+      "goals": 1
+    },
+    {
+      "name": "Kaishu SANO",
+      "teamCode": "JPN",
+      "goals": 1
+    },
+    {
+      "name": "Antonio NUSA",
+      "teamCode": "NOR",
       "goals": 1
     }
   ]

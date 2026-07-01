@@ -452,6 +452,58 @@ function buildKnockoutMatchesFromCalendarRows(rows) {
   return fixtures.sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)))
 }
 
+function localizedDescription(values = []) {
+  return values.find((item) => item?.Locale?.startsWith('fr'))?.Description
+    ?? values[0]?.Description
+    ?? ''
+}
+
+function parseGroupIdFromCalendarRow(row) {
+  const description = localizedDescription(row?.GroupName)
+  const match = description.match(/Groupe\s+([A-L])/i)
+  return match ? match[1].toUpperCase() : null
+}
+
+function buildGroupMatchesFromCalendarRows(seed, rows, warnings) {
+  const matchLookup = buildMatchLookup(seed)
+  const fixtures = []
+
+  for (const row of rows) {
+    const matchNumber = Number(row?.MatchNumber)
+    if (!Number.isFinite(matchNumber) || matchNumber < 1 || matchNumber > 72) {
+      continue
+    }
+
+    const groupId = parseGroupIdFromCalendarRow(row)
+    const homeCode = row?.Home?.Abbreviation ?? null
+    const awayCode = row?.Away?.Abbreviation ?? null
+    if (!groupId || !homeCode || !awayCode) {
+      continue
+    }
+
+    const match = matchLookup.get(`${groupId}:${homeCode}:${awayCode}`)
+    if (!match) {
+      warnings.push(`Match FIFA calendrier non mappe: ${groupId} ${homeCode}-${awayCode}.`)
+      continue
+    }
+
+    const homeScore = row.HomeTeamScore ?? row.Home?.Score ?? null
+    const awayScore = row.AwayTeamScore ?? row.Away?.Score ?? null
+    fixtures.push({
+      id: match.id,
+      homeScore,
+      awayScore,
+      status: normalizeMatchStatus(row.MatchStatus, homeScore, awayScore),
+      kickoffTime: null,
+      kickoffIso: row.Date ?? null,
+      liveMinute: inferLiveMinute(row),
+      fifaMatchPath: row.IdMatch && row.IdStage ? `${FIFA_COMPETITION_ID}/${FIFA_SEASON_ID}/${row.IdStage}/${row.IdMatch}` : null,
+    })
+  }
+
+  return fixtures.sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true }))
+}
+
 export async function buildFifaLiveSnapshot(seed) {
   const warnings = []
   const stageId = await fetchGroupStageId()
@@ -465,14 +517,18 @@ export async function buildFifaLiveSnapshot(seed) {
     numericTeamIdToCode,
   } = buildStandingsFromApiRows(seed, standingRows, warnings)
 
-  const groupMatches = buildMatchesFromApiRows(seed, standingRows, numericTeamIdToCode, stageId, warnings)
+  const calendarGroupMatches = buildGroupMatchesFromCalendarRows(seed, calendarRows, warnings)
+  const standingGroupMatches = buildMatchesFromApiRows(seed, standingRows, numericTeamIdToCode, stageId, warnings)
+  const groupMatches = calendarGroupMatches.length > 0 ? calendarGroupMatches : standingGroupMatches
   const knockoutMatches = buildKnockoutMatchesFromCalendarRows(calendarRows)
   const matches = [...groupMatches, ...knockoutMatches]
 
   let standings = officialStandings
   if (officialStandings.length !== seed.teams.length) {
-    warnings.push('Classements FIFA incomplets, classement recalcule depuis les resultats de match.')
     standings = buildFallbackStandings(seed, matches)
+    if (groupMatches.length === 0 || standings.length !== seed.teams.length) {
+      warnings.push('Classements FIFA incomplets, classement recalcule depuis les resultats de match.')
+    }
   }
 
   if (groupMatches.length === 0) {

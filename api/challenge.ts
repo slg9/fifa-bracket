@@ -456,6 +456,34 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return
     }
 
+    if (action === 'getSeenOutcomes') {
+      const token = bearerToken(req) ?? String(body.token ?? '')
+      const payload = token ? await verifyToken(token) : null
+      if (!payload) {
+        res.status(401).json({ error: 'Lien expiré ou invalide.' })
+        return
+      }
+      const keys = await readJson<string[]>(`challenge/${payload.emailHash}/seen-outcomes.json`, [])
+      res.status(200).json({ data: { keys: Array.isArray(keys) ? keys.filter((key) => typeof key === 'string') : [] } })
+      return
+    }
+
+    if (action === 'markSeenOutcomes') {
+      const token = bearerToken(req) ?? String(body.token ?? '')
+      const payload = token ? await verifyToken(token) : null
+      if (!payload) {
+        res.status(401).json({ error: 'Lien expiré ou invalide.' })
+        return
+      }
+      const incoming = Array.isArray(body.keys) ? body.keys.filter((key): key is string => typeof key === 'string') : []
+      const pathname = `challenge/${payload.emailHash}/seen-outcomes.json`
+      const current = await readJson<string[]>(pathname, [])
+      const merged = [...new Set([...(Array.isArray(current) ? current : []), ...incoming])].slice(-500)
+      await writeJson(pathname, merged)
+      res.status(200).json({ data: { keys: merged } })
+      return
+    }
+
     if (action === 'simulatorBoard') {
       if (!process.env.BLOB_READ_WRITE_TOKEN) {
         res.status(500).json({ error: 'Service Brakup indisponible.' })

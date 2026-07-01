@@ -218,6 +218,37 @@ export function getProfileStatus(token: string): Promise<{
   return request('profileStatus', {}, token)
 }
 
+export async function getSeenOutcomeKeys(token: string): Promise<string[]> {
+  try {
+    const result = await request<{ keys: string[] }>('getSeenOutcomes', {}, token)
+    return Array.isArray(result.keys) ? result.keys.filter((key): key is string => typeof key === 'string') : []
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    return []
+  }
+}
+
+export async function markSeenOutcomeKeys(token: string, keys: string[]): Promise<string[]> {
+  try {
+    const result = await request<{ keys: string[] }>('markSeenOutcomes', { keys }, token)
+    return Array.isArray(result.keys) ? result.keys.filter((key): key is string => typeof key === 'string') : []
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    const current = new Set<string>()
+    try {
+      const parsed = JSON.parse(localStorage.getItem('brakup:seen-outcomes') ?? '[]') as unknown
+      if (Array.isArray(parsed)) {
+        for (const key of parsed) if (typeof key === 'string') current.add(key)
+      }
+    } catch {
+      // local fallback only
+    }
+    keys.forEach((key) => current.add(key))
+    localStorage.setItem('brakup:seen-outcomes', JSON.stringify([...current]))
+    return [...current]
+  }
+}
+
 export async function getSimulatorBracket(token: string): Promise<SimulatorBracketEntry | null> {
   if (import.meta.env.DEV && token === LOCAL_TOKEN) return localSimulatorEntry()
   try {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { setGameAudioVolume, setGameMuted, useGameAudio, useGameAudioVolume, useGameMuted } from '../lib/useGameAudio'
-import { checkEmailExists, getBrackets, getProfileStatus, publishResultShare, requestOTP, resendMagicLink, submitBracket, updateProfile, verifyLoginOTP, verifyOTP } from '../lib/challengeData'
+import { checkEmailExists, getBrackets, getProfileStatus, getSeenOutcomeKeys, markSeenOutcomeKeys, publishResultShare, requestOTP, resendMagicLink, submitBracket, updateProfile, verifyLoginOTP, verifyOTP } from '../lib/challengeData'
 import { alternateLanguageHref, localizedRootPath, type Locale } from '../lib/i18n'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
 import type { BattleResult, BattleScorer, ChallengeBreakdown, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
@@ -251,6 +251,7 @@ export function BrakupHub({
   const [isOutcomeCapturingShare, setIsOutcomeCapturingShare] = useState(false)
   const [outcomeNoticeKey, setOutcomeNoticeKey] = useState<string | null>(null)
   const [seenOutcomeVersion, setSeenOutcomeVersion] = useState(0)
+  const [remoteSeenOutcomeKeys, setRemoteSeenOutcomeKeys] = useState<string[]>([])
 
   // Initialiser email/pseudo depuis URL si mode OTP
   useEffect(() => {
@@ -297,7 +298,7 @@ export function BrakupHub({
     return team ? [{ name: scorer.name, teamId: team.id, teamCode: scorer.teamCode, goals: scorer.goals }] : []
   }), [teamsByFifaCode, topScorers])
   const pendingOutcomeNotices = useMemo<OutcomeNotice[]>(() => {
-    const seen = new Set(readSeenOutcomeKeys())
+    const seen = new Set([...readSeenOutcomeKeys(), ...remoteSeenOutcomeKeys])
     return matches
       .map((match) => {
         const progress = evaluateMatchProgress(match, picks, battleScores, realResults, officialScoreMap, scorers, realScorers)
@@ -308,7 +309,7 @@ export function BrakupHub({
         const hasFinalOfficialResult = officialFinishedSet.has(item.match.id) || Boolean(storedRealResults[item.match.id])
         return hasFinalOfficialResult && item.progress.played && !seen.has(item.key)
       })
-  }, [battleScores, matches, officialFinishedSet, officialScoreMap, picks, realResults, realScorers, scorers, seenOutcomeVersion, storedRealResults])
+  }, [battleScores, matches, officialFinishedSet, officialScoreMap, picks, realResults, realScorers, remoteSeenOutcomeKeys, scorers, seenOutcomeVersion, storedRealResults])
   const outcomeNotice = pendingOutcomeNotices.find((item) => item.key === outcomeNoticeKey) ?? pendingOutcomeNotices[0] ?? null
   const outcomeNoticeIndex = outcomeNotice ? pendingOutcomeNotices.findIndex((item) => item.key === outcomeNotice.key) : -1
   const hubAudioSrc = outcomeNotice?.progress.correct ? '/audio/cup-victory-parade.mp3' : view !== 'battle' ? '/audio/kickoff-carnival.mp3' : null
@@ -420,6 +421,19 @@ export function BrakupHub({
       })
     }).catch(() => undefined).finally(() => setLoadingBrackets(false))
   }, [accessToken, activeBracketId])
+
+  useEffect(() => {
+    if (!accessToken) {
+      setRemoteSeenOutcomeKeys([])
+      return
+    }
+    getSeenOutcomeKeys(accessToken).then((keys) => {
+      setRemoteSeenOutcomeKeys(keys)
+      const merged = [...new Set([...readSeenOutcomeKeys(), ...keys])]
+      localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify(merged))
+      setSeenOutcomeVersion((version) => version + 1)
+    }).catch(() => undefined)
+  }, [accessToken])
 
   useEffect(() => {
     if (!accessToken || !showProfileSettings) return
@@ -806,7 +820,15 @@ export function BrakupHub({
     if (outcomeNotice) {
       const seen = new Set(readSeenOutcomeKeys())
       seen.add(outcomeNotice.key)
-      localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify([...seen]))
+      const nextSeen = [...new Set([...remoteSeenOutcomeKeys, ...seen])]
+      localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify(nextSeen))
+      setRemoteSeenOutcomeKeys(nextSeen)
+      if (accessToken) {
+        void markSeenOutcomeKeys(accessToken, nextSeen).then((keys) => {
+          setRemoteSeenOutcomeKeys(keys)
+          localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify(keys))
+        }).catch(() => undefined)
+      }
       setSeenOutcomeVersion((version) => version + 1)
     }
     setOutcomeNoticeKey(null)

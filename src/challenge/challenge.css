@@ -1523,7 +1523,7 @@
   left: 50%;
   top: -24px;
   transform: translateX(-50%);
-  min-width: 104px;
+  min-width: 82px;
   height: 30px;
   border-radius: 14px;
   background: rgba(5, 12, 24, 0.86);
@@ -1538,13 +1538,6 @@
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(10px);
   z-index: 3;
-}
-
-.wcmap__match-number {
-  color: #ffd65a;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
 }
 
 .wcmap__flags-vs {
@@ -1563,14 +1556,14 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: rgba(48, 227, 255, 0.10);
-  border: 1px solid rgba(48, 227, 255, 0.34);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
   color: #ffffff;
   font: 900 13px 'JetBrains Mono', monospace;
   line-height: 1;
-  box-shadow: 0 0 14px rgba(48, 227, 255, 0.18);
+  box-shadow: none;
 }
 
 .wcmap__score-flag {
@@ -1586,39 +1579,14 @@
 }
 
 .wcmap__score-badge.is-official {
-  background: rgba(255, 184, 0, 0.13);
-  border-color: rgba(255, 184, 0, 0.48);
+  background: transparent;
+  border-color: transparent;
   color: #fff4c4;
-  box-shadow: 0 0 16px rgba(255, 184, 0, 0.18);
+  box-shadow: none;
 }
 
 .wcmap__field-node.is-completed .wcmap__field-panel {
   min-width: 86px;
-}
-
-.wcmap__score-compare {
-  position: absolute;
-  left: 50%;
-  top: 7px;
-  transform: translateX(-50%);
-  z-index: 6;
-  max-width: 112px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: rgba(5, 12, 24, .82);
-  border: 1px solid rgba(255, 255, 255, .14);
-  color: rgba(238, 245, 255, .78);
-  font: 900 8px/1 'Barlow Condensed', sans-serif;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.wcmap__score-compare.is-pending {
-  color: #67f7d5;
-  border-color: rgba(103,247,213,.34);
 }
 
 .wcmap__locked-label {
@@ -1931,7 +1899,6 @@
     font-size: 12px;
   }
 
-  .wcmap__match-number,
   .wcmap__locked-label,
   .wcmap__round-chip,
   .wcmap__marker span {

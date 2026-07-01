@@ -4311,46 +4311,37 @@
     letter-spacing: 0;
   }
 
-  .bracket-mobile-round {
-    position: relative;
-    display: block;
-  }
-
-  .bracket-mobile-round__list {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-around;
-    min-width: 0;
-    min-height: calc(100dvh - 132px);
-    padding: 14px 86px 18px 0;
-  }
-
-
-
   .bracket-mobile-tabs {
-    position: fixed;
+    position: sticky;
     z-index: 60;
-    top: 50%;
-    right: max(52px, calc(env(safe-area-inset-right) + 52px));
+    top: 0;
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 10px;
-    width: 72px;
-    max-height: calc(100dvh - 88px);
-    padding: 18px 6px 14px;
+    justify-content: flex-start;
+    gap: 8px;
+    width: auto;
+    max-width: 100%;
+    margin: 0 -10px 8px;
+    padding: max(8px, env(safe-area-inset-top)) 10px 8px;
+    overflow-x: auto;
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 18px;
-    background: rgba(5, 11, 22, 0.84);
+    border-width: 0 0 1px;
+    border-radius: 0;
+    background: rgba(5, 11, 22, 0.9);
     box-shadow: 0 18px 42px rgba(0, 0, 0, 0.38), 0 0 24px rgba(43, 255, 154, 0.12);
     backdrop-filter: blur(14px);
-    transform: translateY(-50%);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .bracket-mobile-tabs::-webkit-scrollbar {
+    display: none;
   }
 
   .bracket-mobile-tab {
-    width: 100%;
-    min-height: 38px;
-    padding: 8px 6px;
+    flex: 0 0 auto;
+    min-width: 68px;
+    min-height: 34px;
+    padding: 8px 10px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.04);
@@ -4363,7 +4354,7 @@
   }
 
   .app-shell.is-shared-bracket .bracket-mobile-tabs {
-    right: max(8px, env(safe-area-inset-right));
+    margin-top: 0;
   }
 
   .bracket-mobile-tab.is-active {
@@ -4388,21 +4379,113 @@
   }
 
   .bracket-fit {
-    position: absolute;
-    left: -99999px;
-    top: 0;
-    width: max-content;
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
     min-width: 0;
-    height: 1px;
+    min-height: calc(100dvh - 130px);
+    height: auto;
     padding: 0;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    opacity: 1;
+    pointer-events: auto;
+    border-radius: 0;
+    border-width: 1px 0;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    touch-action: pan-x pan-y;
+  }
+
+  .bracket-fit::-webkit-scrollbar {
+    display: none;
   }
 
   .bracket-fit__stage {
-    min-height: 0;
+    justify-content: flex-start;
+    align-items: flex-start;
+    width: max-content;
+    min-width: max-content;
+    min-height: calc(100dvh - 130px);
     padding: 0;
+    overflow: visible;
+  }
+
+  .bracket-fit__transform {
+    transform: none !important;
+    transform-origin: top left;
+  }
+
+  .bracket-export-wrapper {
+    min-width: 0;
+  }
+
+  .bracket-board {
+    grid-template-columns: repeat(9, 100vw);
+    gap: 0;
+    min-height: calc(100dvh - 132px);
+  }
+
+  .bcol {
+    min-width: 0;
+    width: 100vw;
+    padding: 10px 15vw 24px;
+    box-sizing: border-box;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .bcol--center {
+    min-width: 0;
+  }
+
+  .bcol__label {
+    margin-bottom: 10px;
+    padding: 0 0 9px;
+    font-size: 10px;
+    letter-spacing: 0.13em;
+  }
+
+  .bcol__matches {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    height: auto;
+    min-height: calc(100dvh - 190px);
+    gap: 14px;
+  }
+
+  .bracket__links .link {
+    stroke-width: 3;
+  }
+
+  .bracket__links .link--lit {
+    stroke-width: 3.6;
+  }
+
+  .bm {
+    border-radius: 14px;
+  }
+
+  .bm__team {
+    min-height: 42px;
+    padding: 8px 10px;
+  }
+
+  .bm__name {
+    font-size: 12px;
+  }
+
+  .bm__meta {
+    padding: 7px 10px 6px;
+    font-size: 9px;
+  }
+
+  .finalwrap {
+    gap: 14px;
   }
 }
 
