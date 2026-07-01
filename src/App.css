@@ -5622,6 +5622,8 @@
 }
 
 .simulator-outcome__actions {
+  position: relative;
+  z-index: 2;
   display: flex;
   justify-content: center;
   gap: 10px;
@@ -5655,7 +5657,7 @@
 .bracket-share-sheet {
   position: fixed;
   inset: 0;
-  z-index: 95;
+  z-index: 180;
   display: grid;
   place-items: center;
   padding: 18px;

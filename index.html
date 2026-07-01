@@ -25,9 +25,13 @@
     <title>Brakup — Coupe du Monde 2026 Challenge | Prédictions, bracket &amp; mini-jeu foot</title>
     <meta name="description" content="Brakup est le jeu de prédiction de la Coupe du Monde 2026 : crée ton bracket, joue les matchs en mini-jeu arcade, trouve les scores exacts, les buteurs et grimpe dans le classement." />
     <meta name="keywords" content="Brakup, Coupe du Monde 2026, World Cup 2026, bracket predictor, jeu de prédiction football, pronostics Coupe du Monde, scores exacts, buteurs, classement live, mini-jeu foot" />
-    <meta name="robots" content="index,follow" />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="googlebot" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="format-detection" content="telephone=no" />
     <meta name="application-name" content="Brakup" />
     <meta name="author" content="Brakup" />
+    <meta name="publisher" content="Brakup" />
     <link rel="canonical" href="https://brakup.app/" />
     <link rel="alternate" hreflang="fr" href="https://brakup.app/" />
     <link rel="alternate" hreflang="en" href="https://brakup.app/en" />
@@ -59,29 +63,73 @@
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "Brakup",
-        "url": "https://brakup.app/",
-        "description": "Brakup est le jeu de prédiction de la Coupe du Monde 2026 : crée ton bracket, joue les matchs en mini-jeu arcade, trouve les scores exacts et les buteurs, puis affronte les autres fans au classement.",
-        "applicationCategory": "GameApplication",
-        "operatingSystem": "Web",
-        "inLanguage": ["fr", "en"],
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "EUR"
-        },
-        "screenshot": "https://brakup.app/og-image.png",
-        "about": {
-          "@type": "SportsEvent",
-          "name": "FIFA World Cup 2026",
-          "startDate": "2026-06-11",
-          "endDate": "2026-07-19",
-          "location": {
-            "@type": "Place",
-            "name": "USA / Canada / Mexique"
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://brakup.app/#organization",
+            "name": "Brakup",
+            "url": "https://brakup.app/",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://brakup.app/favicon-512.png",
+              "width": 512,
+              "height": 512
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://brakup.app/#website",
+            "name": "Brakup",
+            "url": "https://brakup.app/",
+            "inLanguage": ["fr", "en"],
+            "publisher": {
+              "@id": "https://brakup.app/#organization"
+            }
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://brakup.app/#webapp",
+            "name": "Brakup",
+            "url": "https://brakup.app/",
+            "description": "Brakup est le jeu de prédiction de la Coupe du Monde 2026 : crée ton bracket, joue les matchs en mini-jeu arcade, trouve les scores exacts et les buteurs, puis affronte les autres fans au classement.",
+            "applicationCategory": "GameApplication",
+            "operatingSystem": "Web",
+            "browserRequirements": "Requires JavaScript. Works on modern mobile and desktop browsers.",
+            "inLanguage": ["fr", "en"],
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "EUR",
+              "availability": "https://schema.org/InStock"
+            },
+            "image": "https://brakup.app/og-image.png",
+            "screenshot": "https://brakup.app/og-image.png",
+            "publisher": {
+              "@id": "https://brakup.app/#organization"
+            },
+            "about": {
+              "@type": "Thing",
+              "name": "Coupe du Monde 2026",
+              "sameAs": "https://www.fifa.com/fr/tournaments/mens/worldcup/canadamexicousa2026"
+            }
+          },
+          {
+            "@type": "VideoGame",
+            "@id": "https://brakup.app/#game",
+            "name": "Brakup Challenge",
+            "url": "https://brakup.app/?challenge",
+            "description": "Un challenge football mobile-first pour prédire les vainqueurs, scores exacts et buteurs de la Coupe du Monde 2026.",
+            "gamePlatform": "Web browser",
+            "genre": ["Sports", "Prediction game", "Arcade"],
+            "inLanguage": ["fr", "en"],
+            "isAccessibleForFree": true,
+            "image": "https://brakup.app/og-image.png",
+            "publisher": {
+              "@id": "https://brakup.app/#organization"
+            }
           }
-        }
+        ]
       }
     </script>
     <script>

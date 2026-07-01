@@ -1735,6 +1735,7 @@ function App() {
   const [challengeLoginEmail, setChallengeLoginEmail] = useState<string | null>(null)
   const [challengeMenuOpen, setChallengeMenuOpen] = useState(false)
   const [completeBonusNoticeOpen, setCompleteBonusNoticeOpen] = useState(false)
+  const [simulatorOutcomeSeenVersion, setSimulatorOutcomeSeenVersion] = useState(0)
   const [publicBrackets, setPublicBrackets] = useState<SimulatorBracketEntry[]>([])
   const [publicBracketsLoading, setPublicBracketsLoading] = useState(false)
   const [publicBracketsLoaded, setPublicBracketsLoaded] = useState(false)
@@ -2132,6 +2133,7 @@ function App() {
       seen.add(item.key)
     }
     window.localStorage.setItem(simulatorOutcomeSeenStorageKey, JSON.stringify([...seen]))
+    setSimulatorOutcomeSeenVersion((version) => version + 1)
   }
 
   function handleChallengeLogout() {
@@ -2329,7 +2331,10 @@ function App() {
   const createFromShareHref = shouldReturnToOwnBracket ? '/?simulator' : '/?simulator&new=1'
   const createFromShareLabel = shouldReturnToOwnBracket ? 'RETOUR A MON BRACKET' : 'CREER MON BRACKET'
   const currentShareUrl = publicPseudo && publicSimulatorBracket ? window.location.origin + '/@' + encodeURIComponent(publicSimulatorBracket.pseudo) : isSharedBracketView && sharedBracket ? window.location.origin + '/share/bracket/' + sharedBracket.id : challengeProfile.pseudo ? window.location.origin + '/@' + encodeURIComponent(challengeProfile.pseudo) : null
-  const seenSimulatorOutcomeKeys = new Set(readSeenSimulatorOutcomeKeys())
+  const seenSimulatorOutcomeKeys = useMemo(
+    () => new Set(readSeenSimulatorOutcomeKeys()),
+    [simulatorOutcomeSeenVersion],
+  )
   const simulatorOutcomeNotices: SimulatorOutcomeNotice[] = displayBracket
     .filter((match) => Boolean(match.pickedWinnerId && match.realWinnerId && match.predictionState))
     .map((match) => ({
