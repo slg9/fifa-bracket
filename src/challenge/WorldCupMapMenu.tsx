@@ -333,6 +333,7 @@ function MatchNode({
   const displayScore = scoreForNode(node, score)
   const officialScore = node.progress.realScore
   const panelScore = isClosed && officialScore ? officialScore : displayScore
+  const pickedTeam = node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.pickedTeamId === node.awayTeam?.id ? node.awayTeam : undefined
   const resultTeams = node.homeTeam && node.awayTeam && (((isCompleted || isPicked) && node.pickedTeamId) || (isClosed && node.realWinnerTeamId))
     ? [node.homeTeam, node.awayTeam] as const
     : null
@@ -361,6 +362,11 @@ function MatchNode({
               <em>-</em>
               <strong>{panelScore.away}</strong>
               <span className="wcmap__score-flag">{teamFlagEmoji(node.awayTeam)}</span>
+            </span>
+          ) : isPicked && pickedTeam ? (
+            <span className="wcmap__picked-winner-pill" aria-label={`Vainqueur choisi ${pickedTeam.name}`}>
+              <TeamFlag team={pickedTeam} />
+              <strong>{pickedTeam.shortName || pickedTeam.name}</strong>
             </span>
           ) : (
             <span className="wcmap__flags-vs">
@@ -406,7 +412,6 @@ function MatchNode({
 
       {(isLocked || isClosed) && <span className="wcmap__status-badge wcmap__status-badge--lock">{'\uD83D\uDD12'}</span>}
       {isCompleted && <span className="wcmap__status-badge">{'\u2713'}</span>}
-      {isPicked && <span className="wcmap__status-badge wcmap__status-badge--pick">PICK</span>}
       {node.progress.played ? (
         <span className={`wcmap__outcome-badge${node.progress.correct ? ' is-correct' : ' is-wrong'}`} title={node.progress.correct ? `Prono reussi +${node.progress.points}` : 'Prono rate'}>
           {node.progress.correct ? `★ +${node.progress.points}` : '!'}

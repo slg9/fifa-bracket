@@ -737,14 +737,13 @@ export function BrakupHub({
       return
     }
 
+    const winnerIsHome = winnerId === match.home.teamId
+    const simulatedScore = score ?? (winnerIsHome ? { home: 1, away: 0 } : { home: 0, away: 1 })
+    const nextMatchScore = winnerIsHome
+      ? { p: simulatedScore.home, o: simulatedScore.away }
+      : { p: simulatedScore.away, o: simulatedScore.home }
     handlePick(match.id, winnerId)
-    if (score) {
-      setBattleScores((current) => {
-        const next = { ...current }
-        delete next[match.id]
-        return next
-      })
-    }
+    setBattleScores((current) => ({ ...current, [match.id]: nextMatchScore }))
     setScorers((current) => {
       const next = { ...current }
       delete next[match.id]
