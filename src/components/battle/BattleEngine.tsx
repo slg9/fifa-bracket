@@ -305,7 +305,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   }, [existingResult, selectedDifficulty])
 
   useEffect(() => {
-    setGameMusicVolumeMultiplier(state.phase === 'intro' || state.phase === 'match_result' ? 1 : 0.14)
+    setGameMusicVolumeMultiplier(state.phase === 'intro' || state.phase === 'match_result' ? 1 : 0.42)
     return () => setGameMusicVolumeMultiplier(1)
   }, [state.phase])
 

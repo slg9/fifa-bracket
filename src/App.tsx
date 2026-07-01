@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { toBlob } from 'html-to-image'
 import './App.css'
+import AdminDashboard from './AdminDashboard'
 import BootLoaderMark from './components/BootLoaderMark'
 import BrakupHub from './challenge/BrakupHub'
 import BracketChallenge from './challenge/BracketChallenge'
@@ -15,6 +16,7 @@ import { checkEmailExists, getSimulatorLeaderboard, getProfileStatus, getPublicB
 import { CHAMPION_BONUS, STAGE_POINTS } from './lib/scoring'
 import { formatStageLongLabel, formatStageShortLabel } from './lib/stageLabels'
 import { clearChallengeProfile, readChallengeProfile, subscribeChallengeProfile, writeChallengeProfile } from './lib/challengeProfile'
+import { identifyAnalyticsProfile, initAnalytics, trackAnalytics } from './lib/analytics'
 import {
   buildGroupOrderOverrides,
   buildKnockoutBracket,
@@ -24,6 +26,7 @@ import {
   mergeScores,
 } from './lib/tournament'
 import type {
+  ChallengeEntry,
   GroupMatch,
   LiveSnapshot,
   KnockoutEntrant,
@@ -1378,9 +1381,7 @@ function getShareText(url: string) {
         <div className="bracket-shell__copy">
           <div className="bracket-shell__title">Tableau final</div>
           <div className="bracket-shell__hint">
-            {focusTeamId
-              ? `Parcours mis en avant: ${teamsById.get(focusTeamId)?.name ?? 'Equipe'}`
-              : 'Le centre souligne naturellement la route vers la finale.'}
+            {focusTeamId ? `Parcours mis en avant: ${teamsById.get(focusTeamId)?.name ?? 'Equipe'}` : null}
           </div>
         </div>
 
@@ -1754,6 +1755,7 @@ function App() {
   const simulatorMode = useMemo(() => new URLSearchParams(window.location.search).has('simulator'), [])
   const challengeMode = useMemo(() => isChallengeRoute(), [])
   const challengeBoardMode = useMemo(() => new URLSearchParams(window.location.search).has('board'), [])
+  const adminMode = useMemo(() => window.location.pathname === '/admin', [])
   const sharedBracketId = useMemo(() => readShareIdFromLocation(), [])
   const cloneShareId = useMemo(() => new URLSearchParams(window.location.search).get('cloneShare'), [])
   const publicPseudo = useMemo(() => readPublicPseudoFromLocation(), [])
@@ -1810,6 +1812,7 @@ function App() {
   const [publicBracketsLoaded, setPublicBracketsLoaded] = useState(false)
   const [publicBracketsError, setPublicBracketsError] = useState<string | null>(null)
   const [viewedPublicBracket, setViewedPublicBracket] = useState<SimulatorBracketEntry | null>(null)
+  const [classicViewedChallengeEntry, setClassicViewedChallengeEntry] = useState<ChallengeEntry | null>(null)
   const simulatorRemoteHydratedRef = useRef(false)
   const simulatorSaveTimerRef = useRef<number | null>(null)
 
@@ -1822,6 +1825,18 @@ function App() {
       })
     })
   }, [])
+
+  useEffect(() => {
+    initAnalytics(adminMode ? 'admin' : challengeMode ? 'challenge' : challengeBoardMode ? 'challenge-board' : 'main')
+    trackAnalytics('route_ready', {
+      challengeMode,
+      challengeBoardMode,
+      simulatorMode,
+      adminMode,
+      publicPseudo: Boolean(publicPseudo),
+      sharedBracket: Boolean(sharedBracketId),
+    })
+  }, [adminMode, challengeBoardMode, challengeMode, publicPseudo, sharedBracketId, simulatorMode])
   const initialSyncBaselineRef = useRef<string | null>(null)
   const previousCompleteBonusRef = useRef(0)
   const completeBonusArmedRef = useRef(false)
@@ -2259,6 +2274,7 @@ function App() {
           bracketName: current.bracketName || result.entries[0]?.bracketName || 'Mon bracket',
         }
         rememberChallengeProfile(next)
+        identifyAnalyticsProfile({ pseudo: result.profile.pseudo, hasAccount: true })
         return next
       })
       setClassicProfileStatus({
@@ -2375,6 +2391,10 @@ function App() {
     }
   }
 
+  if (adminMode) {
+    return <AdminDashboard />
+  }
+
   if (loading) {
     return (
       <main className="app-shell loading">
@@ -2409,6 +2429,7 @@ function App() {
   const challengeStandings = liveSource.standings.length > 0
     ? officialStandings
     : computeStandings(seed.teams, challengeMergedMatches)
+  const challengeMatches = buildKnockoutBracket(challengeStandings, challengeMergedMatches)
   const predMap = new Map(liveSource.predictions.map((p) => [p.matchId, p]))
   const bestThirds = getBestThirdPlacedTeams(standings)
   const groupBracket = buildKnockoutBracket(standings, mergedMatches)
@@ -2597,6 +2618,7 @@ function App() {
 
   function handlePickWinner(matchId: string, teamId: string) {
     if (lockedMatchIds.has(matchId)) return
+    trackAnalytics('simulator_pick_winner', { matchId, teamId }, 'main')
     const completesBracketNow = !isBracketComplete(knockoutPicks) && isBracketComplete({ ...knockoutPicks, [matchId]: teamId })
     completeBonusArmedRef.current = true
 
@@ -2736,8 +2758,34 @@ function App() {
           </a>
         </header>
         <div className="classic-board-page">
-          <Leaderboard />
+          <Leaderboard onViewBracket={(entry) => setClassicViewedChallengeEntry(entry)} />
         </div>
+        {classicViewedChallengeEntry ? (
+          <div className="brakup-bracket-overlay">
+            <div className="brakup-bracket-overlay__bar">
+              <span>Bracket de {classicViewedChallengeEntry.pseudo} · lecture seule</span>
+              <button type="button" className="brakup-bracket-overlay__close" onClick={() => setClassicViewedChallengeEntry(null)}>
+                Retour classement
+              </button>
+            </div>
+            <div className="brakup-bracket-overlay__body">
+              <BracketChallenge
+                matches={challengeMatches}
+                teamsById={teamsById}
+                picks={classicViewedChallengeEntry.picks ?? {}}
+                scores={classicViewedChallengeEntry.battleScores}
+                realResults={challengeOfficialResults}
+                officialScores={challengeOfficialScores}
+                onPick={() => undefined}
+                onPlay={() => undefined}
+                readOnly
+                ownerPseudo={classicViewedChallengeEntry.pseudo}
+                showScorePanel={false}
+                locale={locale}
+              />
+            </div>
+          </div>
+        ) : null}
       </main>
     )
   }

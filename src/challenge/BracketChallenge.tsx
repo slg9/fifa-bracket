@@ -7,8 +7,16 @@ import { formatKnockoutDateTime } from '../lib/knockoutSchedule'
 import { KNOCKOUT_ROUND_ORDER, formatBracketPathLabel, formatStageShortLabel } from '../lib/stageLabels'
 import { evaluateMatchProgress, formatScore, type BattleScore, type OfficialScore } from './progress'
 
+type BracketDisplayMatch = KnockoutMatch & {
+  winnerId?: string | null
+  pickedWinnerId?: string | null
+  realWinnerId?: string | null
+  predictionState?: 'correct' | 'wrong'
+  hasOfficialResult?: boolean
+}
+
 export interface BracketChallengeProps {
-  matches: KnockoutMatch[]
+  matches: BracketDisplayMatch[]
   teamsById: Map<string, Team>
   picks: Record<string, string>
   onPick: (matchId: string, teamId: string) => void
@@ -78,7 +86,7 @@ interface PathInfo {
   glow: boolean
 }
 
-function orderedStageMatches(matches: KnockoutMatch[], stage: string) {
+function orderedStageMatches(matches: BracketDisplayMatch[], stage: string) {
   const stageMatches = matches.filter((match) => match.stage === stage)
   const order = BRACKET_DISPLAY_ORDER[stage]
   if (!order) return stageMatches
@@ -249,13 +257,28 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
           {ROUND_ORDER.map((stage) => <div className={`brakup-bracket__round${LATE_STAGES.has(stage) ? ' is-late' : ''}`} key={stage}>
             <h2>{formatStageShortLabel(stage, locale)}</h2>
             {orderedStageMatches(matches, stage).map((match) => {
-              const isPicked = picks[match.id] != null
+              const selectedWinnerId = picks[match.id] ?? match.pickedWinnerId ?? match.winnerId ?? null
+              const userPickId = picks[match.id] ?? match.pickedWinnerId ?? null
+              const officialWinnerId = realResults[match.id] ?? match.realWinnerId ?? null
+              const predictionState = userPickId && officialWinnerId
+                ? userPickId === officialWinnerId ? 'correct' : 'wrong'
+                : match.predictionState
+              const isPicked = selectedWinnerId != null
               const bothTeamsKnown = match.home.kind === 'team' && match.away.kind === 'team'
               const isReady = bothTeamsKnown && !isPicked
-              const isPlayed = isPicked && scores[match.id] !== undefined
-              const realWinnerId = realResults[match.id]
+              const isPlayed = userPickId != null && scores[match.id] !== undefined
+              const isPendingOfficial = userPickId != null && !officialWinnerId && !isPlayed
               const progress = evaluateMatchProgress(match, picks, scores, realResults, officialScores)
-              return <article className={`brakup-bracket__match${isPicked ? ' is-done' : isReady ? ' is-ready' : ''}${isPlayed ? ' is-played' : ''}${progress.correct ? ' is-prono-correct' : progress.wrong ? ' is-prono-wrong' : ''}`} key={match.id} data-match-id={match.id}>
+              const statusClass = progress.correct || predictionState === 'correct'
+                ? 'is-prono-correct'
+                : progress.wrong || predictionState === 'wrong'
+                  ? 'is-prono-wrong'
+                  : isPendingOfficial
+                    ? 'is-prono-pending'
+                    : !userPickId
+                      ? 'is-prono-empty'
+                      : ''
+              return <article className={`brakup-bracket__match${isPicked ? ' is-done' : isReady ? ' is-ready' : ''}${isPlayed ? ' is-played' : ''}${statusClass ? ` ${statusClass}` : ''}`} key={match.id} data-match-id={match.id}>
                 <header className="bkm-meta">
                   <span>{match.label}</span>
                   <time>{formatKnockoutDateTime(match.id, match.dateLabel)}</time>
@@ -264,9 +287,9 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   const entrant = match[side]
                   const team = entrant.kind === 'team' ? teamsById.get(entrant.teamId) : undefined
                   if (!team) return <div key={side} className="is-pending"><span>◌</span><strong>{entrant.kind === 'placeholder' ? entrant.label : '?'}</strong></div>
-                  const isWinner = isPicked && picks[match.id] === team.id
-                  const isLoser = isPicked && picks[match.id] !== team.id
-                  const isRealWinnerVisible = isPicked && realWinnerId === team.id
+                  const isWinner = selectedWinnerId === team.id
+                  const isLoser = Boolean(selectedWinnerId) && selectedWinnerId !== team.id
+                  const isRealWinnerVisible = officialWinnerId === team.id
                   const handleClick = readOnly ? undefined
                     : isPlayed ? () => { sfx.battle(); onPlay(match.id, team.id) }
                     : !isLoser ? () => { sfx.pick(); onPick(match.id, team.id) }
@@ -283,15 +306,27 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                       onClick={(e) => { e.stopPropagation(); sfx.battle(); onPlay(match.id, team.id) }}>⚔</button>}
                   </div>
                 })}
-                {progress.played ? (
-                  <footer className="bkm-progress">
-                    <span className={`bkm-progress__badge${progress.correct ? ' is-correct' : ' is-wrong'}`}>
-                      {progress.correct ? `★ +${progress.points}` : '! rate'}
-                    </span>
-                    {progress.exact ? <span className="bkm-progress__exact">◎ exact +{progress.exactPoints}</span> : null}
-                    <span>R {formatScore(progress.realScore)} · J {formatScore(progress.playedScore)}</span>
-                  </footer>
-                ) : null}
+                <footer className="bkm-progress">
+                  {progress.played ? (
+                    <>
+                      <span className={`bkm-progress__badge${progress.correct ? ' is-correct' : ' is-wrong'}`}>
+                        {progress.correct ? `★ +${progress.points}` : '! rate'}
+                      </span>
+                      {progress.exact ? <span className="bkm-progress__exact">◎ exact +{progress.exactPoints}</span> : null}
+                      <span>R {formatScore(progress.realScore)} · J {formatScore(progress.playedScore)}</span>
+                    </>
+                  ) : predictionState === 'correct' ? (
+                    <span className="bkm-progress__badge is-correct">Prono reussi</span>
+                  ) : predictionState === 'wrong' ? (
+                    <span className="bkm-progress__badge is-wrong">Prono rate</span>
+                  ) : userPickId ? (
+                    <span className="bkm-progress__badge is-pending">Prono en attente</span>
+                  ) : selectedWinnerId ? (
+                    <span className="bkm-progress__badge is-official">Vainqueur affiche</span>
+                  ) : (
+                    <span className="bkm-progress__badge is-empty">Non joue</span>
+                  )}
+                </footer>
               </article>
             })}
           </div>)}

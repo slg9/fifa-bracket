@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { setGameAudioVolume, setGameMuted, useGameAudio, useGameAudioVolume, useGameMuted } from '../lib/useGameAudio'
 import { checkEmailExists, getBrackets, getProfileStatus, getSeenOutcomeKeys, markSeenOutcomeKeys, publishResultShare, requestOTP, resendMagicLink, submitBracket, updateProfile, verifyLoginOTP, verifyOTP } from '../lib/challengeData'
 import { alternateLanguageHref, localizedChallengeHref, type Locale } from '../lib/i18n'
@@ -22,6 +22,7 @@ import { renderResultShareCanvas } from './shareCanvas'
 import { sfx } from '../lib/sfx'
 import { evaluateMatchProgress, formatScore, summarizeProgress, teamLabel, type OfficialScore, type RealScorer } from './progress'
 import { clearChallengeProfile, readChallengeProfile, subscribeChallengeProfile, writeChallengeProfile, type StoredChallengeProfile } from '../lib/challengeProfile'
+import { identifyAnalyticsProfile, trackAnalytics } from '../lib/analytics'
 import './challenge.css'
 
 export type ChallengeMenuMatch = GroupMatch & {
@@ -57,6 +58,14 @@ const HAD_ACCOUNT_KEY = 'brakup:hadAccount'
 const SCORERS_STORAGE_KEY = 'brakup:scorers'
 const CLASSIC_SIMULATION_STORAGE_KEY = 'fifabracket:simulation'
 const DIFFICULTY_STORAGE_KEY = 'brakup:difficulty'
+const SHARE_BUILD_TIMEOUT_MS = 14000
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => reject(new Error(message)), ms)
+    promise.then(resolve, reject).finally(() => window.clearTimeout(timeoutId))
+  })
+}
 
 function readSavedProfile(): SavedProfile {
   return readChallengeProfile()
@@ -374,6 +383,7 @@ export function BrakupHub({
   const [outcomeNoticeKey, setOutcomeNoticeKey] = useState<string | null>(null)
   const [seenOutcomeVersion, setSeenOutcomeVersion] = useState(0)
   const [remoteSeenOutcomeKeys, setRemoteSeenOutcomeKeys] = useState<string[]>([])
+  const outcomeShareRunRef = useRef(0)
 
   // Initialiser email/pseudo depuis URL si mode OTP
   useEffect(() => {
@@ -591,6 +601,7 @@ export function BrakupHub({
     setShowGameMenu(false)
     setView(next)
     setActiveMatchId(matchId ?? null)
+    trackAnalytics('challenge_navigation', { view: next, matchId }, 'challenge')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -616,8 +627,12 @@ export function BrakupHub({
     setView('board')
   }
 
-  const handlePick = (matchId: string, teamId: string) => setPicks((current) => ({ ...current, [matchId]: teamId }))
+  const handlePick = (matchId: string, teamId: string) => {
+    trackAnalytics('challenge_pick_team', { matchId, teamId }, 'challenge')
+    setPicks((current) => ({ ...current, [matchId]: teamId }))
+  }
   const handlePlay = (matchId: string, teamId?: string) => {
+    trackAnalytics('challenge_play_match', { matchId, teamId, alreadyPlayed: battleScores[matchId] !== undefined }, 'challenge')
     if (realResults[matchId] || officialResults[matchId]) {
       if (battleScores[matchId] === undefined) {
         sfx.error()
@@ -636,6 +651,7 @@ export function BrakupHub({
     navigate('battle', matchId)
   }
   const handleSimulate = (matchId: string) => {
+    trackAnalytics('challenge_simulate_match', { matchId }, 'challenge')
     setSimulatedMatchId(matchId)
   }
 
@@ -659,6 +675,7 @@ export function BrakupHub({
       }
       // Sauvegarder le profil
       rememberProfile({ email: pendingEmail, pseudo: pendingPseudo, bracketName: pendingPseudo })
+      identifyAnalyticsProfile({ pseudo: pendingPseudo, hasAccount: true })
       setPendingEmail(null)
       setPendingPseudo(null)
       setShowOTPEntry(false)
@@ -728,6 +745,14 @@ export function BrakupHub({
     const nextBattleBonuses = Math.min(40, battleBonuses + Math.max(1, Math.round(result.playerScore / 20)))
     const nextProgressStats = summarizeProgress(matches, nextPicks, nextBattleScores, realResults, officialScoreMap, nextBattleBonuses, nextScorers, realScorers)
     const nextBreakdown = buildProgressBreakdown(matches, nextPicks, nextBattleScores, realResults, officialScoreMap, nextScorers, realScorers)
+    trackAnalytics('challenge_battle_complete', {
+      matchId: mid,
+      winnerId: result.winnerId,
+      playerScore: result.playerScore,
+      homeScore: result.homeScore,
+      awayScore: result.awayScore,
+      scorers: result.scorers?.length ?? 0,
+    }, 'challenge')
     setPicks(nextPicks)
     if (mid) setBattleScores(nextBattleScores)
     if (mid) setScorers(nextScorers)
@@ -776,6 +801,7 @@ export function BrakupHub({
     })
     setSimulatedMatchId(null)
     setMapResetKey((key) => key + 1)
+    trackAnalytics('challenge_simulation_complete', { matchId: match.id, winnerId, score: simulatedScore }, 'challenge')
     navigate('challenge')
   }
 
@@ -791,6 +817,7 @@ export function BrakupHub({
         setPendingEmail(null)
         setShowEmailEntry(false)
         rememberProfile({ email, pseudo, bracketName })
+        identifyAnalyticsProfile({ pseudo, hasAccount: true })
       } catch (caught) {
         setSaveError(caught instanceof Error ? caught.message : 'Mise a jour impossible.')
       } finally {
@@ -801,6 +828,7 @@ export function BrakupHub({
     
     // Flow normal : sauvegarder le bracket
     rememberProfile({ email, pseudo, bracketName })
+    identifyAnalyticsProfile({ pseudo, hasAccount: true })
     try {
       await syncBracketSnapshot({
         email,
@@ -842,6 +870,7 @@ export function BrakupHub({
     setShowProfileSettings(false)
     setShowGameMenu(false)
     setMapResetKey((key) => key + 1)
+    trackAnalytics('challenge_logout', {}, 'challenge')
   }
 
   const handleLogin = async (email: string) => {
@@ -871,6 +900,7 @@ export function BrakupHub({
           setScorers(entries[0].scorers ?? {})
           setBattleBonuses(entries[0].battleBonuses ?? 0)
           rememberProfile({ email, pseudo: entries[0].pseudo, bracketName: entries[0].bracketName })
+          identifyAnalyticsProfile({ pseudo: entries[0].pseudo, hasAccount: true })
           setShowLoginEntry(false)
         }
       }
@@ -893,6 +923,7 @@ export function BrakupHub({
       setScorers(entries[0].scorers ?? {})
       setBattleBonuses(entries[0].battleBonuses ?? 0)
       rememberProfile({ email, pseudo: entries[0].pseudo, bracketName: entries[0].bracketName })
+      identifyAnalyticsProfile({ pseudo: entries[0].pseudo, hasAccount: true })
     }
   }
 
@@ -1018,11 +1049,15 @@ export function BrakupHub({
     if (outcomeShareUrl) {
       setOutcomeShareStatus('working')
       try {
-        await shareLink({
-          title: 'Brakup Challenge',
-          text: buildOutcomeShareText(),
-          url: outcomeShareUrl,
-        })
+        await withTimeout(
+          shareLink({
+            title: 'Brakup Challenge',
+            text: buildOutcomeShareText(),
+            url: outcomeShareUrl,
+          }),
+          SHARE_BUILD_TIMEOUT_MS,
+          'Partage trop long. Retente dans quelques secondes.',
+        )
         setOutcomeSharePreviewOpen(false)
         setOutcomeShareStatus('done')
       } catch (error) {
@@ -1035,37 +1070,49 @@ export function BrakupHub({
       }
       return
     }
+    const runId = outcomeShareRunRef.current + 1
+    outcomeShareRunRef.current = runId
     setOutcomeShareStatus('working')
     setIsOutcomeCapturingShare(true)
     try {
       await new Promise(resolve => requestAnimationFrame(resolve))
-      const blob = await renderResultShareCanvas({
-        backgroundSrc: '/brakup-share-bg-brakup.png',
-        logoSrc: '/brakup-logo.png',
-        ownerPseudo: savedProfile.pseudo || undefined,
-        matchup: {
-          homeFlag: outcomeHomeTeam?.flagEmoji,
-          awayFlag: outcomeAwayTeam?.flagEmoji,
-          homeLabel: outcomeHomeLabel,
-          awayLabel: outcomeAwayLabel,
-        },
-        boomLabel: outcomeBoomLabel,
-        headline: outcomeHeadline,
-        subline: `${outcomeNotice.match.label} - reel ${formatScore(outcomeNotice.progress.realScore)} - ton pari ${formatScore(outcomeNotice.progress.playedScore)}`,
-        messageLines: outcomeShareMessageLines,
-        pointsLabel: `+${outcomeBreakdownTotal} points gagnes`,
-        rows: outcomeShareRows,
-        cta: 'Tente ta chance avec ton prono.',
-      })
+      const blob = await withTimeout(
+        renderResultShareCanvas({
+          backgroundSrc: '/brakup-share-bg-brakup.png',
+          logoSrc: '/brakup-logo.png',
+          ownerPseudo: savedProfile.pseudo || undefined,
+          matchup: {
+            homeFlag: outcomeHomeTeam?.flagEmoji,
+            awayFlag: outcomeAwayTeam?.flagEmoji,
+            homeLabel: outcomeHomeLabel,
+            awayLabel: outcomeAwayLabel,
+          },
+          boomLabel: outcomeBoomLabel,
+          headline: outcomeHeadline,
+          subline: `${outcomeNotice.match.label} - reel ${formatScore(outcomeNotice.progress.realScore)} - ton pari ${formatScore(outcomeNotice.progress.playedScore)}`,
+          messageLines: outcomeShareMessageLines,
+          pointsLabel: `+${outcomeBreakdownTotal} points gagnes`,
+          rows: outcomeShareRows,
+          cta: 'Tente ta chance avec ton prono.',
+        }),
+        SHARE_BUILD_TIMEOUT_MS,
+        'Construction du visuel trop longue. Retente dans quelques secondes.',
+      )
       const shareTitle = `${outcomeHeadline} - ${outcomeMatchLabel}`
       const shareDescription = buildOutcomeShareText()
-      const published = await publishResultShare({
-        title: shareTitle,
-        description: shareDescription,
-        redirectUrl: buildChallengeShareUrl(),
-        imageDataUrl: await blobToDataUrl(blob),
-        pseudo: savedProfile.pseudo || 'Brakup',
-      })
+      const imageDataUrl = await withTimeout(blobToDataUrl(blob), 5000, 'Conversion du visuel trop longue.')
+      const published = await withTimeout(
+        publishResultShare({
+          title: shareTitle,
+          description: shareDescription,
+          redirectUrl: buildChallengeShareUrl(),
+          imageDataUrl,
+          pseudo: savedProfile.pseudo || 'Brakup',
+        }),
+        SHARE_BUILD_TIMEOUT_MS,
+        'Publication du visuel trop longue. Retente dans quelques secondes.',
+      )
+      if (outcomeShareRunRef.current !== runId) return
       if (outcomeSharePreviewUrl) URL.revokeObjectURL(outcomeSharePreviewUrl)
       setOutcomeSharePreviewUrl(URL.createObjectURL(blob))
       setOutcomeSharePreviewOpen(true)
@@ -1079,8 +1126,17 @@ export function BrakupHub({
       console.error('Outcome share failed:', error)
       setOutcomeShareStatus('error')
     } finally {
-      setIsOutcomeCapturingShare(false)
+      if (outcomeShareRunRef.current === runId) {
+        setIsOutcomeCapturingShare(false)
+      }
     }
+  }
+
+  const closeOutcomeSharePreview = () => {
+    outcomeShareRunRef.current += 1
+    setIsOutcomeCapturingShare(false)
+    setOutcomeSharePreviewOpen(false)
+    setOutcomeShareStatus((status) => status === 'working' ? 'idle' : status)
   }
 
   const outcomeScorerNames = outcomeNotice?.progress.scorerHits.map((scorer) => scorer.name) ?? []
@@ -1149,6 +1205,7 @@ export function BrakupHub({
         pseudo: result.profile.pseudo,
         bracketName: savedProfile.bracketName || result.entries[0]?.bracketName || 'Mon bracket',
       })
+      identifyAnalyticsProfile({ pseudo: result.profile.pseudo, hasAccount: true })
       setProfileStatus({
         blobConfigured: result.profile.blobConfigured,
         bracketCount: result.profile.bracketCount,
@@ -1342,7 +1399,7 @@ export function BrakupHub({
       {view === 'viewBracket' && viewedBracketEntry ? (
         <div className="brakup-bracket-overlay">
           <div className="brakup-bracket-overlay__bar">
-            <span>Carte de {viewedBracketEntry.pseudo}</span>
+            <span>Carte de {viewedBracketEntry.pseudo} · lecture seule</span>
             <button type="button" className="brakup-bracket-overlay__close" onClick={() => { sfx.click(); closeViewBracket() }}>Retour au jeu</button>
           </div>
           <div className="brakup-bracket-overlay__body">
@@ -1413,11 +1470,21 @@ export function BrakupHub({
                   {outcomeSharePreviewUrl ? (
                     <img src={outcomeSharePreviewUrl} alt="Apercu du partage Brakup" />
                   ) : (
-                    <span>Construction du visuel...</span>
+                    <div className="brakup-share-loader">
+                      <div className="boot-loader__mark boot-loader__mark--sm">
+                        <span className="boot-loader__orbit boot-loader__orbit--outer" />
+                        <span className="boot-loader__orbit boot-loader__orbit--inner" />
+                        <img className="boot-loader__logo" src="/brakup-loader.svg" alt="" />
+                      </div>
+                      <strong>Construction du visuel</strong>
+                      <span>On compose ton action...</span>
+                      <span>On peaufine tout ca...</span>
+                      <span>On prépare le partage...</span>
+                    </div>
                   )}
                 </div>
                 <div className="brakup-share-preview__actions">
-                  <button type="button" className="brakup-share-preview__ghost" onClick={() => { sfx.click(); setOutcomeSharePreviewOpen(false) }}>Retour</button>
+                  <button type="button" className="brakup-share-preview__ghost" onClick={() => { sfx.click(); closeOutcomeSharePreview() }}>Retour</button>
                   <button type="button" className="brakup-share-preview__primary" onClick={() => { sfx.click(); void handleOutcomeShare() }} disabled={!outcomeShareUrl || outcomeShareStatus === 'working'}>
                     {outcomeShareStatus === 'working' ? 'Preparation...' : 'Partager'}
                   </button>
