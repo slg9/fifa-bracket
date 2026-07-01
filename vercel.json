@@ -24,12 +24,28 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/",
+      "has": [{ "type": "query", "key": "challenge" }],
+      "destination": "/challenge",
+      "permanent": true
+    },
+    {
+      "source": "/en",
+      "has": [{ "type": "query", "key": "challenge" }],
+      "destination": "/en/challenge",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/share/bracket/:id", "destination": "/api/bracket-share?id=:id" },
     { "source": "/share/result/:id", "destination": "/api/bracket-share?id=:id" },
     { "source": "/@:pseudo", "destination": "/" },
+    { "source": "/challenge", "destination": "/" },
     { "source": "/en", "destination": "/" },
+    { "source": "/en/challenge", "destination": "/" },
     { "source": "/en/(.*)", "destination": "/" }
   ]
 }

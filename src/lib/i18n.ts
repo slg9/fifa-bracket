@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 export type Locale = 'fr' | 'en'
+type SeoPage = 'home' | 'challenge'
 
 export const PROD_ORIGIN = 'https://brakup.app'
 
@@ -18,7 +19,31 @@ export function localizedRootPath(locale: Locale) {
   return locale === 'en' ? '/en' : '/'
 }
 
+export function isChallengePath(pathname: string) {
+  const normalized = pathname.replace(/\/+$/, '') || '/'
+  return normalized === '/challenge' || normalized === '/en/challenge'
+}
+
+export function isChallengeRoute() {
+  if (typeof window === 'undefined') return false
+  return isChallengePath(window.location.pathname) || new URLSearchParams(window.location.search).has('challenge')
+}
+
+export function localizedChallengeHref(locale: Locale) {
+  return locale === 'en' ? '/en/challenge' : '/challenge'
+}
+
+function cleanSearch(search: string) {
+  const params = new URLSearchParams(search)
+  params.delete('challenge')
+  const query = params.toString()
+  return query ? `?${query}` : ''
+}
+
 export function localizedPath(locale: Locale, search = typeof window !== 'undefined' ? window.location.search : '', hash = typeof window !== 'undefined' ? window.location.hash : '') {
+  if (typeof window !== 'undefined' && isChallengeRoute()) {
+    return `${localizedChallengeHref(locale)}${cleanSearch(search)}${hash}`
+  }
   const pathname = typeof window !== 'undefined' ? stripLocalePrefix(window.location.pathname) : '/'
   const basePath = locale === 'en' ? `/en${pathname === '/' ? '' : pathname}` : pathname
   return `${basePath || '/'}${search}${hash}`
@@ -28,42 +53,104 @@ export function alternateLanguageHref(locale: Locale) {
   return localizedPath(locale === 'en' ? 'fr' : 'en')
 }
 
-export function localizedChallengeHref(locale: Locale) {
-  return `${localizedRootPath(locale)}?challenge`
-}
-
 const SEO = {
   fr: {
-    lang: 'fr',
-    locale: 'fr_FR',
-    canonical: `${PROD_ORIGIN}/`,
-    title: 'Brakup — Coupe du Monde 2026 Challenge | Prédictions, bracket & mini-jeu foot',
-    description: 'Brakup est le jeu de prédiction de la Coupe du Monde 2026 : crée ton bracket, joue les matchs en mini-jeu arcade, trouve les scores exacts, les buteurs et grimpe dans le classement.',
-    imageAlt: 'Brakup — Coupe du Monde 2026 Challenge',
+    home: {
+      lang: 'fr',
+      locale: 'fr_FR',
+      canonical: `${PROD_ORIGIN}/`,
+      title: 'Brakup – Jeu Coupe du Monde 2026, bracket et mini-jeux foot',
+      description: 'Crée ton bracket Coupe du Monde 2026, prédis les scores, joue des mini-jeux foot arcade et partage ton challenge avec tes amis.',
+      imageAlt: 'Brakup - jeu Coupe du Monde 2026',
+    },
+    challenge: {
+      lang: 'fr',
+      locale: 'fr_FR',
+      canonical: `${PROD_ORIGIN}/challenge`,
+      title: 'Brakup Challenge – Crée ton bracket Coupe du Monde 2026',
+      description: 'Lance ton Brakup Challenge : crée ton bracket Coupe du Monde 2026, défie tes amis, prédis les matchs et tente de finir premier.',
+      imageAlt: 'Brakup Challenge - Coupe du Monde 2026',
+    },
   },
   en: {
-    lang: 'en',
-    locale: 'en_US',
-    canonical: `${PROD_ORIGIN}/en`,
-    title: 'Brakup — World Cup 2026 Challenge | Predictions, bracket & football mini-game',
-    description: 'Brakup is the World Cup 2026 prediction game: build your bracket, play arcade football matches, hit exact scores and scorers, then climb the live leaderboard.',
-    imageAlt: 'Brakup — World Cup 2026 Challenge',
+    home: {
+      lang: 'en',
+      locale: 'en_US',
+      canonical: `${PROD_ORIGIN}/en`,
+      title: 'Brakup – World Cup 2026 game, bracket and football mini-games',
+      description: 'Build your World Cup 2026 bracket, predict scores, play arcade football mini-games and share your challenge with friends.',
+      imageAlt: 'Brakup - World Cup 2026 game',
+    },
+    challenge: {
+      lang: 'en',
+      locale: 'en_US',
+      canonical: `${PROD_ORIGIN}/en/challenge`,
+      title: 'Brakup Challenge – Build your World Cup 2026 bracket',
+      description: 'Start your Brakup Challenge: build your World Cup 2026 bracket, challenge friends, predict matches and try to finish first.',
+      imageAlt: 'Brakup Challenge - World Cup 2026',
+    },
   },
-} satisfies Record<Locale, {
+} satisfies Record<Locale, Record<SeoPage, {
   lang: string
   locale: string
   canonical: string
   title: string
   description: string
   imageAlt: string
-}>
+}>>
+
+const FAQ = {
+  fr: [
+    ['Qu’est-ce que le Brakup Challenge ?', 'Le Brakup Challenge est un jeu de prédiction Coupe du Monde 2026 où tu construis ton bracket, choisis les vainqueurs et joues des matchs arcade pour valider tes pronostics.'],
+    ['Comment créer un bracket Coupe du Monde 2026 ?', 'Ouvre la carte des matchs, choisis une équipe pour chaque affiche, confirme tes vainqueurs et sauvegarde ton bracket pour suivre ton score.'],
+    ['Est-ce gratuit ?', 'Oui, Brakup est accessible gratuitement depuis un navigateur mobile ou desktop.'],
+    ['Peut-on partager son challenge avec ses amis ?', 'Oui, tu peux partager ton bracket, tes résultats et comparer ton classement avec les autres joueurs.'],
+    ['Quelle est la différence entre Brakup et un simple bracket ?', 'Brakup ajoute des mini-jeux foot, des scores, des buteurs et un classement à la logique classique du bracket predictor.'],
+  ],
+  en: [
+    ['What is the Brakup Challenge?', 'Brakup Challenge is a World Cup 2026 prediction game where you build a bracket, pick winners and play arcade football matches to confirm your predictions.'],
+    ['How do I create a World Cup 2026 bracket?', 'Open the match map, choose a team for each fixture, confirm your winners and save your bracket to track your score.'],
+    ['Is it free?', 'Yes, Brakup is free to use from a modern mobile or desktop browser.'],
+    ['Can I share my challenge with friends?', 'Yes, you can share your bracket, results and leaderboard position with friends.'],
+    ['How is Brakup different from a simple bracket?', 'Brakup combines a bracket predictor with football mini-games, scores, scorers and a public leaderboard.'],
+  ],
+} satisfies Record<Locale, Array<[string, string]>>
 
 function setHeadAttr(selector: string, attr: string, value: string) {
   document.head.querySelector(selector)?.setAttribute(attr, value)
 }
 
+function upsertJsonLd(id: string, payload: unknown) {
+  let node = document.getElementById(id) as HTMLScriptElement | null
+  if (!node) {
+    node = document.createElement('script')
+    node.id = id
+    node.type = 'application/ld+json'
+    document.head.appendChild(node)
+  }
+  node.textContent = JSON.stringify(payload)
+}
+
+function removeJsonLd(id: string) {
+  document.getElementById(id)?.remove()
+}
+
+function setAlternates(page: SeoPage) {
+  const frHref = `${PROD_ORIGIN}${page === 'challenge' ? localizedChallengeHref('fr') : localizedRootPath('fr')}`
+  const enHref = `${PROD_ORIGIN}${page === 'challenge' ? localizedChallengeHref('en') : localizedRootPath('en')}`
+  const defaultHref = frHref
+  setHeadAttr('link[rel="alternate"][hreflang="fr"]', 'href', frHref)
+  setHeadAttr('link[rel="alternate"][hreflang="en"]', 'href', enHref)
+  setHeadAttr('link[rel="alternate"][hreflang="x-default"]', 'href', defaultHref)
+}
+
+function getCurrentSeoPage(): SeoPage {
+  return isChallengeRoute() ? 'challenge' : 'home'
+}
+
 function applySeo(locale: Locale) {
-  const seo = SEO[locale]
+  const page = getCurrentSeoPage()
+  const seo = SEO[locale][page]
   document.documentElement.lang = seo.lang
   document.title = seo.title
   setHeadAttr('meta[name="description"]', 'content', seo.description)
@@ -76,6 +163,24 @@ function applySeo(locale: Locale) {
   setHeadAttr('meta[name="twitter:title"]', 'content', seo.title)
   setHeadAttr('meta[name="twitter:description"]', 'content', seo.description)
   setHeadAttr('meta[name="twitter:image:alt"]', 'content', seo.imageAlt)
+  setAlternates(page)
+
+  if (page === 'challenge') {
+    upsertJsonLd('brakup-faq-jsonld', {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: FAQ[locale].map(([name, text]) => ({
+        '@type': 'Question',
+        name,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text,
+        },
+      })),
+    })
+  } else {
+    removeJsonLd('brakup-faq-jsonld')
+  }
 }
 
 const EXACT_TRANSLATIONS = new Map<string, string>([

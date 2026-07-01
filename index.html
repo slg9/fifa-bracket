@@ -22,8 +22,8 @@
     <meta name="apple-mobile-web-app-title" content="Brakup" />
 
     <!-- ── SEO ──────────────────────────────────────────── -->
-    <title>Brakup — Coupe du Monde 2026 Challenge | Prédictions, bracket &amp; mini-jeu foot</title>
-    <meta name="description" content="Brakup est le jeu de prédiction de la Coupe du Monde 2026 : crée ton bracket, joue les matchs en mini-jeu arcade, trouve les scores exacts, les buteurs et grimpe dans le classement." />
+    <title>Brakup – Jeu Coupe du Monde 2026, bracket et mini-jeux foot</title>
+    <meta name="description" content="Crée ton bracket Coupe du Monde 2026, prédis les scores, joue des mini-jeux foot arcade et partage ton challenge avec tes amis." />
     <meta name="keywords" content="Brakup, Coupe du Monde 2026, World Cup 2026, bracket predictor, jeu de prédiction football, pronostics Coupe du Monde, scores exacts, buteurs, classement live, mini-jeu foot" />
     <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
     <meta name="googlebot" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
@@ -43,21 +43,21 @@
     <meta property="og:locale:alternate" content="en_US" />
     <meta property="og:site_name" content="Brakup" />
     <meta property="og:url" content="https://brakup.app/" />
-    <meta property="og:title" content="Brakup — Coupe du Monde 2026 Challenge" />
-    <meta property="og:description" content="Crée ton bracket, joue les matchs en mini-jeu arcade, trouve les scores exacts et les buteurs, puis grimpe dans le classement Brakup." />
+    <meta property="og:title" content="Brakup – Jeu Coupe du Monde 2026, bracket et mini-jeux foot" />
+    <meta property="og:description" content="Crée ton bracket Coupe du Monde 2026, prédis les scores, joue des mini-jeux foot arcade et partage ton challenge avec tes amis." />
     <meta property="og:image" content="https://brakup.app/og-image.png" />
     <meta property="og:image:secure_url" content="https://brakup.app/og-image.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1905" />
     <meta property="og:image:height" content="826" />
-    <meta property="og:image:alt" content="Brakup — Coupe du Monde 2026 Challenge" />
+    <meta property="og:image:alt" content="Brakup - jeu Coupe du Monde 2026" />
 
     <!-- ── Twitter / X Card ─────────────────────────────── -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Brakup — Coupe du Monde 2026 Challenge" />
-    <meta name="twitter:description" content="Crée ton bracket, joue les matchs en mini-jeu arcade, trouve les scores exacts et les buteurs, puis grimpe dans le classement Brakup." />
+    <meta name="twitter:title" content="Brakup – Jeu Coupe du Monde 2026, bracket et mini-jeux foot" />
+    <meta name="twitter:description" content="Crée ton bracket Coupe du Monde 2026, prédis les scores, joue des mini-jeux foot arcade et partage ton challenge avec tes amis." />
     <meta name="twitter:image" content="https://brakup.app/og-image.png" />
-    <meta name="twitter:image:alt" content="Brakup — Coupe du Monde 2026 Challenge" />
+    <meta name="twitter:image:alt" content="Brakup - jeu Coupe du Monde 2026" />
 
     <!-- ── Structured Data ───────────────────────────────── -->
     <script type="application/ld+json">
@@ -118,7 +118,7 @@
             "@type": "VideoGame",
             "@id": "https://brakup.app/#game",
             "name": "Brakup Challenge",
-            "url": "https://brakup.app/?challenge",
+            "url": "https://brakup.app/challenge",
             "description": "Un challenge football mobile-first pour prédire les vainqueurs, scores exacts et buteurs de la Coupe du Monde 2026.",
             "gamePlatform": "Web browser",
             "genre": ["Sports", "Prediction game", "Arcade"],
@@ -136,21 +136,50 @@
       (() => {
         const origin = 'https://brakup.app'
         const isEn = location.pathname === '/en' || location.pathname.startsWith('/en/')
-        const meta = isEn ? {
+        const isChallenge = location.pathname === '/challenge'
+          || location.pathname === '/en/challenge'
+          || new URLSearchParams(location.search).has('challenge')
+        const meta = isEn ? (isChallenge ? {
+          lang: 'en',
+          locale: 'en_US',
+          canonical: `${origin}/en/challenge`,
+          title: 'Brakup Challenge – Build your World Cup 2026 bracket',
+          description: 'Start your Brakup Challenge: build your World Cup 2026 bracket, challenge friends, predict matches and try to finish first.',
+          imageAlt: 'Brakup Challenge - World Cup 2026',
+          alternateFr: `${origin}/challenge`,
+          alternateEn: `${origin}/en/challenge`,
+          alternateDefault: `${origin}/challenge`,
+        } : {
           lang: 'en',
           locale: 'en_US',
           canonical: `${origin}/en`,
-          title: 'Brakup — World Cup 2026 Challenge | Predictions, bracket & football mini-game',
-          description: 'Brakup is the World Cup 2026 prediction game: build your bracket, play arcade football matches, hit exact scores and scorers, then climb the live leaderboard.',
-          imageAlt: 'Brakup — World Cup 2026 Challenge',
+          title: 'Brakup – World Cup 2026 game, bracket and football mini-games',
+          description: 'Build your World Cup 2026 bracket, predict scores, play arcade football mini-games and share your challenge with friends.',
+          imageAlt: 'Brakup - World Cup 2026 game',
+          alternateFr: `${origin}/`,
+          alternateEn: `${origin}/en`,
+          alternateDefault: `${origin}/`,
+        }) : (isChallenge ? {
+          lang: 'fr',
+          locale: 'fr_FR',
+          canonical: `${origin}/challenge`,
+          title: 'Brakup Challenge – Crée ton bracket Coupe du Monde 2026',
+          description: 'Lance ton Brakup Challenge : crée ton bracket Coupe du Monde 2026, défie tes amis, prédis les matchs et tente de finir premier.',
+          imageAlt: 'Brakup Challenge - Coupe du Monde 2026',
+          alternateFr: `${origin}/challenge`,
+          alternateEn: `${origin}/en/challenge`,
+          alternateDefault: `${origin}/challenge`,
         } : {
           lang: 'fr',
           locale: 'fr_FR',
           canonical: `${origin}/`,
-          title: 'Brakup — Coupe du Monde 2026 Challenge | Prédictions, bracket & mini-jeu foot',
-          description: 'Brakup est le jeu de prédiction de la Coupe du Monde 2026 : crée ton bracket, joue les matchs en mini-jeu arcade, trouve les scores exacts, les buteurs et grimpe dans le classement.',
-          imageAlt: 'Brakup — Coupe du Monde 2026 Challenge',
-        }
+          title: 'Brakup – Jeu Coupe du Monde 2026, bracket et mini-jeux foot',
+          description: 'Crée ton bracket Coupe du Monde 2026, prédis les scores, joue des mini-jeux foot arcade et partage ton challenge avec tes amis.',
+          imageAlt: 'Brakup - jeu Coupe du Monde 2026',
+          alternateFr: `${origin}/`,
+          alternateEn: `${origin}/en`,
+          alternateDefault: `${origin}/`,
+        })
         const setAttr = (selector, attr, value) => {
           const node = document.head.querySelector(selector)
           if (node) node.setAttribute(attr, value)
@@ -167,6 +196,9 @@
         setAttr('meta[name="twitter:title"]', 'content', meta.title)
         setAttr('meta[name="twitter:description"]', 'content', meta.description)
         setAttr('meta[name="twitter:image:alt"]', 'content', meta.imageAlt)
+        setAttr('link[rel="alternate"][hreflang="fr"]', 'href', meta.alternateFr)
+        setAttr('link[rel="alternate"][hreflang="en"]', 'href', meta.alternateEn)
+        setAttr('link[rel="alternate"][hreflang="x-default"]', 'href', meta.alternateDefault)
       })()
     </script>
 

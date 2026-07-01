@@ -100,7 +100,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
       const published = await publishResultShare({
         title: playerWon ? `Victoire Brakup - ${matchLabel}` : `Resultat Brakup - ${matchLabel}`,
         description: shareText,
-        redirectUrl: `${window.location.origin}/?challenge`,
+        redirectUrl: `${window.location.origin}/challenge`,
         imageDataUrl: await blobToDataUrl(blob),
         pseudo: ownerPseudo || 'Brakup',
       })

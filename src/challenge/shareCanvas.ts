@@ -376,7 +376,7 @@ export async function renderResultShareCanvas(input: ResultShareCanvasInput): Pr
   const qrSize = 132
   const qrX = (width - qrSize) / 2
   const qrY = height - 248
-  drawQrCode(ctx, 'https://brakup.app?challenge', qrX, qrY, qrSize)
+  drawQrCode(ctx, 'https://brakup.app/challenge', qrX, qrY, qrSize)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = 'rgba(255,255,255,.86)'

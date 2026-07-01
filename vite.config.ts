@@ -19,6 +19,8 @@ type IncomingMessage = {
   url?: string
 }
 
+type NextFunction = () => void
+
 type FifaPlayer = {
   IdPlayer?: string
   ShirtNumber?: number
@@ -64,6 +66,34 @@ type FifaTimeline = {
 }
 
 const EV_YELLOW = 2, EV_RED = 3, EV_SHOT = 12, EV_CORNER = 16, EV_FOUL = 18
+
+function seoRedirects() {
+  const handler = (req: IncomingMessage, res: ApiResponse, next: NextFunction) => {
+    const url = new URL(req.url ?? '/', 'http://localhost')
+    if (!url.searchParams.has('challenge')) {
+      next()
+      return
+    }
+
+    url.searchParams.delete('challenge')
+    const isEnglish = url.pathname === '/en' || url.pathname.startsWith('/en/')
+    const targetPath = isEnglish ? '/en/challenge' : '/challenge'
+    const query = url.searchParams.toString()
+    res.statusCode = 301
+    res.setHeader('Location', `${targetPath}${query ? `?${query}` : ''}`)
+    res.end('')
+  }
+
+  return {
+    name: 'seo-clean-route-redirects',
+    configureServer(server: { middlewares: { use: (callback: (req: IncomingMessage, res: ApiResponse, next: NextFunction) => void) => void } }) {
+      server.middlewares.use(handler)
+    },
+    configurePreviewServer(server: { middlewares: { use: (callback: (req: IncomingMessage, res: ApiResponse, next: NextFunction) => void) => void } }) {
+      server.middlewares.use(handler)
+    },
+  }
+}
 
 function extractStatsFromTimeline(timelineData: FifaTimeline | null, homeTeamId: string | undefined, awayTeamId: string | undefined) {
   if (!homeTeamId || !awayTeamId) return null
@@ -383,5 +413,5 @@ function oddsApi() {
 }
 
 export default defineConfig({
-  plugins: [react(), fifaSyncApi(), matchStatsApi(), oddsApi(), bracketShareApi()],
+  plugins: [seoRedirects(), react(), fifaSyncApi(), matchStatsApi(), oddsApi(), bracketShareApi()],
 })

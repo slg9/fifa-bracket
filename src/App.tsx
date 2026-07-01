@@ -8,7 +8,7 @@ import LoginEntry from './challenge/LoginEntry'
 import ProfileSettings from './challenge/ProfileSettings'
 import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
 import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
-import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
+import { alternateLanguageHref, getCurrentLocale, isChallengeRoute, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
 import { checkEmailExists, getSimulatorLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, requestOTP, resendMagicLink, saveSimulatorBracket, updateProfile, verifyLoginOTP, verifyOTP } from './lib/challengeData'
 import { CHAMPION_BONUS, STAGE_POINTS } from './lib/scoring'
@@ -1751,7 +1751,7 @@ function App() {
   })
   const [mode, setMode] = useState<Mode>('simulation')
   const simulatorMode = useMemo(() => new URLSearchParams(window.location.search).has('simulator'), [])
-  const challengeMode = useMemo(() => new URLSearchParams(window.location.search).has('challenge'), [])
+  const challengeMode = useMemo(() => isChallengeRoute(), [])
   const challengeBoardMode = useMemo(() => new URLSearchParams(window.location.search).has('board'), [])
   const sharedBracketId = useMemo(() => readShareIdFromLocation(), [])
   const cloneShareId = useMemo(() => new URLSearchParams(window.location.search).get('cloneShare'), [])
@@ -1759,6 +1759,15 @@ function App() {
   const forceNewSimulator = useMemo(() => new URLSearchParams(window.location.search).has('new'), [])
   const sharedBracketLoadId = sharedBracketId ?? cloneShareId
   const view = 'bracket' as View
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has('challenge')) return
+    params.delete('challenge')
+    const query = params.toString()
+    window.history.replaceState({}, '', `${localizedChallengeHref(locale)}${query ? `?${query}` : ''}${window.location.hash}`)
+  }, [locale])
+
   const [overrides, setOverrides] = useState<Record<string, MatchOverride>>({})
   const [knockoutPicks, setKnockoutPicks] = useState<Record<string, string>>({})
   const [focusId, setFocusId] = useState<string | null>(null)

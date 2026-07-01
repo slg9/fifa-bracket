@@ -3261,11 +3261,13 @@
 
 .brakup-shell--map-only {
   width: 100vw;
-  height: 100dvh;
+  height: auto;
   min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+  overflow-y: auto;
   background:
     radial-gradient(circle at 50% 15%, rgba(43,255,154,.09), transparent 30%),
     #02060d;
@@ -3301,6 +3303,96 @@
 .brakup-shell--map-only .game-menu-button {
   top: calc((100dvh - min(100dvh, calc(100vw * 16 / 9))) / 2 + max(14px, env(safe-area-inset-top)));
   right: calc((100vw - min(100vw, calc(100dvh * 9 / 16))) / 2 + max(14px, env(safe-area-inset-right)));
+}
+
+.brakup-seo-content {
+  width: min(100%, 980px);
+  margin: 0 auto;
+  padding: clamp(34px, 7vw, 72px) clamp(20px, 5vw, 44px) clamp(48px, 9vw, 88px);
+  color: rgba(244, 250, 255, .88);
+  background:
+    linear-gradient(180deg, rgba(2, 6, 13, .96), rgba(4, 10, 19, 1));
+  border-top: 1px solid rgba(255, 255, 255, .08);
+}
+
+.brakup-seo-content__eyebrow {
+  margin: 0 0 10px;
+  color: #2bff9a;
+  font-size: .78rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.brakup-seo-content h1,
+.brakup-seo-content h2 {
+  margin: 0;
+  color: #fff;
+  line-height: .98;
+}
+
+.brakup-seo-content h1 {
+  max-width: 780px;
+  font-family: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+  font-size: clamp(2.35rem, 6vw, 4.8rem);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.brakup-seo-content > p:not(.brakup-seo-content__eyebrow) {
+  max-width: 720px;
+  margin: 18px 0 0;
+  color: rgba(244, 250, 255, .76);
+  font-size: clamp(1rem, 2vw, 1.16rem);
+  line-height: 1.6;
+}
+
+.brakup-seo-content__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 28px;
+  margin-top: clamp(30px, 6vw, 52px);
+}
+
+.brakup-seo-content article {
+  min-width: 0;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+}
+
+.brakup-seo-content h2 {
+  font-family: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+  font-size: clamp(1.35rem, 2.7vw, 2rem);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.brakup-seo-content article p,
+.brakup-seo-content details p {
+  margin: 10px 0 0;
+  color: rgba(244, 250, 255, .7);
+  line-height: 1.55;
+}
+
+.brakup-seo-content__faq {
+  margin-top: clamp(34px, 7vw, 62px);
+}
+
+.brakup-seo-content__faq details {
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .1);
+}
+
+.brakup-seo-content__faq summary {
+  cursor: pointer;
+  color: #fff;
+  font-weight: 850;
+}
+
+@media (max-width: 720px) {
+  .brakup-seo-content__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .brakup-share-preview {

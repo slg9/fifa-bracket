@@ -298,7 +298,7 @@ async function sendMagicLink(email: string, token: string, otp?: string): Promis
     return false
   }
   const origin = PUBLIC_SITE_URL
-  const linkUrl = `${origin}/?challenge&token=${encodeURIComponent(token)}`
+  const linkUrl = `${origin}/challenge?token=${encodeURIComponent(token)}`
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -331,7 +331,7 @@ async function sendOTPEmail(email: string, pseudo: string, otp: string, origin: 
     console.warn('[brakup] RESEND_API_KEY absent, email OTP non envoyé.')
     return false
   }
-  const otpUrl = `${origin}/?challenge&otp=1&pseudo=${encodeURIComponent(pseudo)}&email=${encodeURIComponent(email)}`
+  const otpUrl = `${origin}/challenge?otp=1&pseudo=${encodeURIComponent(pseudo)}&email=${encodeURIComponent(email)}`
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
