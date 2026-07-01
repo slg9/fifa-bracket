@@ -148,14 +148,15 @@ function makeGoalSaveBalls(ballCount: number, difficulty: BattleDifficulty, mode
   const isSpotKick = isPenalty || isSuddenDeath
   const danger = clamp(ballCount, 1, 3)
   const balls: Ball[] = []
-  const count = isSpotKick ? 1 : danger
+  const count = isSpotKick ? 1 : clamp(Math.round(ballCount), 1, 6)
   const penaltyDurationBase = isSuddenDeath
     ? difficulty === 'hard' ? 1120 : difficulty === 'medium' ? 1260 : 1400
     : difficulty === 'hard' ? 1460 : difficulty === 'medium' ? 1640 : 1820
 
   for (let i = 0; i < count; i += 1) {
     const type: BallType = isSpotKick ? (isSuddenDeath && Math.random() < 0.42 ? 'fast' : Math.random() < 0.34 ? 'curveLeft' : Math.random() < 0.52 ? 'curveRight' : 'normal') : difficulty === 'hard' && i === 0 ? 'fast' : i % 2 ? 'curveLeft' : 'normal'
-    const endX = clamp((isSpotKick ? randomBetween(24, 76) : [34, 50, 66][i]) + randomBetween(-6, 6), 18, 82)
+    const laneX = isSpotKick ? randomBetween(24, 76) : 22 + ((i + 1) / (count + 1)) * 56
+    const endX = clamp(laneX + randomBetween(-6, 6), 18, 82)
     const startX = clamp(endX + randomBetween(-24, 24), 8, 92)
     const startY = isSpotKick ? randomBetween(5, 11) : randomBetween(10, 18)
     const endY = randomBetween(94, 97)
