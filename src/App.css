@@ -4394,10 +4394,11 @@
     border-radius: 0;
     border-width: 1px 0;
     scroll-snap-type: x mandatory;
+    scroll-padding-inline: 0;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    touch-action: pan-x pan-y;
+    touch-action: pan-x;
   }
 
   .bracket-fit::-webkit-scrollbar {
@@ -4426,6 +4427,7 @@
   .bracket-board {
     grid-template-columns: repeat(9, 100vw);
     gap: 0;
+    width: 900vw;
     min-height: calc(100dvh - 132px);
   }
 
@@ -5411,6 +5413,19 @@
   position: relative;
 }
 
+.topbar__account-chip {
+  gap: 7px;
+  max-width: 150px;
+}
+
+.topbar__account-chip span {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .challenge-auth-drop {
   right: 0;
   left: auto;
@@ -5424,6 +5439,41 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.topmenu__label--editable {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.topmenu__label--editable span {
+  min-width: 0;
+  overflow: hidden;
+  color: #dfffee;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topmenu__label--editable i {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid rgba(43, 255, 154, 0.36);
+  border-radius: 999px;
+  color: var(--neon);
+  font-style: normal;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.topmenu__label--editable:hover span {
+  color: #fff;
 }
 
 
@@ -5957,12 +6007,12 @@
 
 @media (max-width: 680px) {
   .float-sidebar {
-    top: auto;
     right: 0;
-    bottom: max(14px, env(safe-area-inset-bottom));
+    top: 50%;
+    bottom: auto;
     z-index: 110;
-    transform: none;
-    align-items: flex-end;
+    transform: translateY(-50%);
+    align-items: center;
   }
 
   .float-sidebar__scrim {
@@ -6014,7 +6064,9 @@
   .float-sidebar.has-panel .float-tabs {
     position: absolute;
     right: 0;
-    bottom: max(14px, env(safe-area-inset-bottom));
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
     flex-direction: column;
     gap: 4px;
   }

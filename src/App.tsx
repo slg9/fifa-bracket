@@ -4,11 +4,12 @@ import './App.css'
 import BootLoaderMark from './components/BootLoaderMark'
 import BrakupHub from './challenge/BrakupHub'
 import LoginEntry from './challenge/LoginEntry'
+import ProfileSettings from './challenge/ProfileSettings'
 import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
 import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import { alternateLanguageHref, getCurrentLocale, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
-import { checkEmailExists, getSimulatorLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, requestOTP, resendMagicLink, saveSimulatorBracket, verifyLoginOTP, verifyOTP } from './lib/challengeData'
+import { checkEmailExists, getSimulatorLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, requestOTP, resendMagicLink, saveSimulatorBracket, updateProfile, verifyLoginOTP, verifyOTP } from './lib/challengeData'
 import { CHAMPION_BONUS, STAGE_POINTS } from './lib/scoring'
 import {
   buildGroupOrderOverrides,
@@ -477,6 +478,12 @@ function mobileRoundForColumnIndex(index: number): (typeof mobileRoundTabs)[numb
   if (index === 2 || index === 6) return 'QF'
   if (index === 3 || index === 5) return 'SF'
   return 'F'
+}
+
+function getMobileBracketColumnWidth(viewport: HTMLDivElement) {
+  const firstColumn = viewport.querySelector<HTMLElement>('.bcol')
+  const width = firstColumn?.getBoundingClientRect().width ?? viewport.clientWidth
+  return width > 0 ? width : viewport.clientWidth
 }
 
 const stageLabels: Record<string, string> = {
@@ -1144,7 +1151,8 @@ function BracketBoard({
       if (!window.matchMedia('(max-width: 860px)').matches || !viewport.clientWidth) return
       if (tid) window.clearTimeout(tid)
       tid = window.setTimeout(() => {
-        const index = Math.max(0, Math.min(roundColumns.length - 1, Math.round(viewport.scrollLeft / viewport.clientWidth)))
+        const columnWidth = getMobileBracketColumnWidth(viewport)
+        const index = Math.max(0, Math.min(roundColumns.length - 1, Math.round(viewport.scrollLeft / columnWidth)))
         const round = mobileRoundForColumnIndex(index)
         if (round !== activeMobileRoundRef.current) {
           activeMobileRoundRef.current = round
@@ -1173,7 +1181,7 @@ function BracketBoard({
     activeMobileRoundRef.current = round
     const viewport = viewportRef.current
     if (viewport && window.matchMedia('(max-width: 860px)').matches) {
-      viewport.scrollTo({ left: mobileRoundColumnIndex[round] * viewport.clientWidth, behavior: 'smooth' })
+      viewport.scrollTo({ left: mobileRoundColumnIndex[round] * getMobileBracketColumnWidth(viewport), behavior: 'smooth' })
       return
     }
     requestAnimationFrame(() => {
@@ -1734,6 +1742,10 @@ function App() {
   const [challengeLoginSent, setChallengeLoginSent] = useState(false)
   const [challengeLoginEmail, setChallengeLoginEmail] = useState<string | null>(null)
   const [challengeMenuOpen, setChallengeMenuOpen] = useState(false)
+  const [classicProfileSettingsOpen, setClassicProfileSettingsOpen] = useState(false)
+  const [classicProfileStatus, setClassicProfileStatus] = useState<Awaited<ReturnType<typeof getProfileStatus>> | null>(null)
+  const [classicProfileBusy, setClassicProfileBusy] = useState(false)
+  const [classicProfileError, setClassicProfileError] = useState<string | null>(null)
   const [completeBonusNoticeOpen, setCompleteBonusNoticeOpen] = useState(false)
   const [simulatorOutcomeSeenVersion, setSimulatorOutcomeSeenVersion] = useState(0)
   const [publicBrackets, setPublicBrackets] = useState<SimulatorBracketEntry[]>([])
@@ -2122,6 +2134,16 @@ function App() {
     }
   }, [isBracketFullscreen])
 
+  useEffect(() => {
+    if (!classicProfileSettingsOpen || !challengeToken) return
+    getProfileStatus(challengeToken).then((status) => {
+      setClassicProfileStatus(status)
+      setClassicProfileError(null)
+    }).catch((caught) => {
+      setClassicProfileError(caught instanceof Error ? caught.message : 'Statut indisponible.')
+    })
+  }, [challengeToken, classicProfileSettingsOpen])
+
   function dispatchBracketAction(action: 'bracket:toggle-fullscreen' | 'bracket:share' | 'bracket:download') {
     window.dispatchEvent(new Event(action))
   }
@@ -2142,6 +2164,45 @@ function App() {
     setChallengeToken(null)
     setChallengeProfile({ email: '', pseudo: '', bracketName: 'Mon bracket' })
     setChallengeMenuOpen(false)
+    setClassicProfileSettingsOpen(false)
+  }
+
+  async function handleClassicProfileUpdate(values: { email: string; pseudo: string }) {
+    if (!challengeToken) {
+      setClassicProfileError('Connecte-toi pour modifier ton pseudo.')
+      return
+    }
+    setClassicProfileBusy(true)
+    setClassicProfileError(null)
+    try {
+      const result = await updateProfile(challengeToken, values)
+      window.localStorage.setItem(challengeTokenStorageKey, result.token)
+      setChallengeToken(result.token)
+      setChallengeProfile((current) => {
+        const next = {
+          ...current,
+          email: result.profile.email,
+          pseudo: result.profile.pseudo,
+          bracketName: current.bracketName || result.entries[0]?.bracketName || 'Mon bracket',
+        }
+        rememberChallengeProfile(next)
+        return next
+      })
+      setClassicProfileStatus({
+        blobConfigured: result.profile.blobConfigured,
+        bracketCount: result.profile.bracketCount,
+        hasEntries: result.profile.bracketCount > 0,
+        emailHash: result.entries[0]?.emailHash ?? classicProfileStatus?.emailHash ?? '',
+        pseudo: result.profile.pseudo,
+        lastSavedAt: result.entries[0]?.createdAt ?? classicProfileStatus?.lastSavedAt ?? null,
+      })
+      setClassicProfileSettingsOpen(false)
+      setChallengeMenuOpen(false)
+    } catch (caught) {
+      setClassicProfileError(caught instanceof Error ? caught.message : 'Mise a jour impossible.')
+    } finally {
+      setClassicProfileBusy(false)
+    }
   }
 
   async function handleChallengeLogin(email: string) {
@@ -2633,19 +2694,31 @@ function App() {
               <div className="challenge-auth-wrap">
                 <button
                   type="button"
-                  className={`chip-btn chip-btn--sm chip-btn--icon${isChallengeConnected ? ' is-connected' : ''}`}
+                  className={`chip-btn chip-btn--sm chip-btn--icon topbar__account-chip${isChallengeConnected ? ' is-connected' : ''}`}
                   aria-expanded={challengeMenuOpen}
                   aria-label={isChallengeConnected ? `Compte : ${challengeProfile.pseudo || 'Connecté'}` : 'Connexion'}
                   title={isChallengeConnected ? challengeProfile.pseudo || 'Connecté' : 'Connexion'}
                   onClick={() => setChallengeMenuOpen((open) => !open)}
                 >
                   <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"><circle cx="8.5" cy="6" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M2 15c0-3.59 2.91-6.5 6.5-6.5S15 11.41 15 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  {isChallengeConnected ? <span>{challengeProfile.pseudo}</span> : null}
                 </button>
                 {challengeMenuOpen ? (
                   <div className="topmenu challenge-auth-drop" role="menu">
                     {isChallengeConnected ? (
                       <>
-                        <div className="topmenu__label">{challengeProfile.pseudo}</div>
+                        <button
+                          type="button"
+                          className="topmenu__label topmenu__label--editable"
+                          onClick={() => {
+                            setClassicProfileError(null)
+                            setClassicProfileSettingsOpen(true)
+                            setChallengeMenuOpen(false)
+                          }}
+                        >
+                          <span>{challengeProfile.pseudo}</span>
+                          <i aria-hidden="true">Editer</i>
+                        </button>
                         <button type="button" className="topmenu__item" onClick={handleChallengeLogout}>
                           Se déconnecter
                         </button>
@@ -3500,6 +3573,17 @@ function App() {
         )
       })() : null}
       {showChallengeLoginEntry ? <LoginEntry initialEmail={challengeProfile.email} busy={challengeLoginBusy} error={challengeLoginError} sent={challengeLoginSent} onSubmit={handleChallengeLogin} onVerify={handleChallengeLoginOTP} onResend={handleChallengeResend} onCancel={() => setShowChallengeLoginEntry(false)} /> : null}
+      {classicProfileSettingsOpen ? (
+        <ProfileSettings
+          initialEmail={challengeProfile.email}
+          initialPseudo={challengeProfile.pseudo}
+          busy={classicProfileBusy}
+          error={classicProfileError}
+          status={classicProfileStatus}
+          onSubmit={handleClassicProfileUpdate}
+          onClose={() => setClassicProfileSettingsOpen(false)}
+        />
+      ) : null}
       {matchStatsModal ? (() => {
         const { match, homeTeam, awayTeam } = matchStatsModal
         const effectiveStatus = inferStatus(match)

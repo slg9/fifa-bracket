@@ -338,8 +338,11 @@
 .mbf__save:hover { border-color:rgba(43,255,154,.4);color:#2bff9a }
 /* Bracket fullscreen overlay */
 .brakup-bracket-overlay { position:fixed;inset:0;z-index:40;background:#050b16;display:flex;flex-direction:column;overflow:hidden }
-.brakup-bracket-overlay__bar { display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid rgba(255,255,255,.09);background:rgba(5,11,22,.95);backdrop-filter:blur(16px);flex-shrink:0 }
+.brakup-bracket-overlay__bar { display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 24px;border-bottom:1px solid rgba(255,255,255,.09);background:rgba(5,11,22,.95);backdrop-filter:blur(16px);flex-shrink:0 }
 .brakup-bracket-overlay__bar span { font:800 14px 'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.8) }
+.brakup-bracket-overlay__profile { min-width:0;display:inline-flex;align-items:center;gap:8px;margin-left:auto;padding:7px 10px;border:1px solid rgba(43,255,154,.28);border-radius:999px;background:rgba(43,255,154,.08);color:#fff;font:900 12px 'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;cursor:pointer }
+.brakup-bracket-overlay__profile strong { min-width:0;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+.brakup-bracket-overlay__profile i { flex:0 0 auto;padding:3px 6px;border-radius:999px;background:rgba(43,255,154,.16);color:#2bff9a;font-style:normal;font-size:9px }
 .brakup-bracket-overlay__close { padding:8px 14px;border:1px solid rgba(255,255,255,.15);border-radius:9px;background:rgba(255,255,255,.06);color:#EEF3FF;font:700 12px Barlow,sans-serif;cursor:pointer;transition:.15s }
 .brakup-bracket-overlay__close:hover { border-color:rgba(255,68,85,.6);color:#FF4455 }
 .brakup-bracket-overlay__rotate { display:none;padding:8px 12px;border:1px solid rgba(43,255,154,.42);border-radius:9px;background:rgba(43,255,154,.1);color:#2bff9a;font:800 11px Barlow,sans-serif;letter-spacing:.08em;text-transform:uppercase;cursor:pointer }
@@ -2460,7 +2463,36 @@
   white-space: nowrap;
 }
 
-.game-menu-modal__profile button {
+.game-menu-modal__pseudo-edit {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.game-menu-modal__pseudo-edit i {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 1px solid rgba(43, 255, 154, 0.42);
+  border-radius: 999px;
+  background: rgba(43, 255, 154, 0.12);
+  color: #2bff9a;
+  font: 900 9px 'Barlow Condensed', sans-serif;
+  font-style: normal;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.game-menu-modal__pseudo-edit:hover strong {
+  color: #2bff9a;
+}
+
+.game-menu-modal__profile-main > button:not(.game-menu-modal__pseudo-edit) {
   flex: 0 0 auto;
   min-height: 28px;
   padding: 0 9px;

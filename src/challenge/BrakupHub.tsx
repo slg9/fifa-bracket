@@ -1061,7 +1061,19 @@ export function BrakupHub({
             </div>
             <div className="game-menu-modal__profile">
               <div className="game-menu-modal__profile-main">
-                <strong>{menuPseudo}</strong>
+                <button
+                  type="button"
+                  className="game-menu-modal__pseudo-edit"
+                  onClick={() => {
+                    setProfileError(null)
+                    setShowProfileSettings(true)
+                    setShowGameMenu(false)
+                  }}
+                  aria-label="Modifier le pseudo"
+                >
+                  <strong>{menuPseudo}</strong>
+                  <i aria-hidden="true">Editer</i>
+                </button>
                 {hasSyncedProfile ? (
                   <button type="button" onClick={handleLogout}>
                     Se déconnecter
@@ -1148,6 +1160,18 @@ export function BrakupHub({
         <div className="brakup-bracket-overlay">
           <div className="brakup-bracket-overlay__bar">
             <span>Bracket — Coupe du Monde 2026</span>
+            <button
+              type="button"
+              className="brakup-bracket-overlay__profile"
+              onClick={() => {
+                setProfileError(null)
+                setShowProfileSettings(true)
+              }}
+              aria-label="Modifier le pseudo"
+            >
+              <strong>{menuPseudo}</strong>
+              <i aria-hidden="true">Editer</i>
+            </button>
             <button type="button" className="brakup-bracket-overlay__close" onClick={() => { sfx.click(); closeBracketOverlay() }}>Retour au jeu</button>
           </div>
           <div className="brakup-bracket-overlay__body">
