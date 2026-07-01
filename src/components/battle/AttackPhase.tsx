@@ -565,6 +565,7 @@ export function AttackPhase({
   const dashUntilRef     = useRef(0)
   const dashCooldownUntilRef = useRef(0)
   const dashDirectionRef = useRef<1 | -1>(1)
+  const gdPointerRef = useRef<{ id: number | null; x: number; y: number; dragging: boolean }>({ id: null, x: 0, y: 0, dragging: false })
   const rouletteUntilRef = useRef(0)
   const rouletteCooldownUntilRef = useRef(0)
   const rouletteStartedAtRef = useRef<number | null>(null)
@@ -910,7 +911,7 @@ export function AttackPhase({
     gdPlayerXRef.current = Math.max(3, Math.min(97, gdPlayerXRef.current + inferredDirection * DASH_DISTANCE))
     if (playerElRef.current) {
       const width = gameWidthRef.current || containerRectRef.current.width
-      const x = (gdPlayerXRef.current / 100) * width - 58
+      const x = (gdPlayerXRef.current / 100) * width - 29
       playerElRef.current.style.transform = `translateX(${x}px)`
       playerElRef.current.style.setProperty('--atk-player-x', `${x}px`)
     }
@@ -1012,7 +1013,7 @@ export function AttackPhase({
       }
       if (playerElRef.current) {
         // transform: compositor thread only  no layout, no paint
-        const x = (gdPlayerXRef.current / 100) * gameWidthRef.current - 58
+        const x = (gdPlayerXRef.current / 100) * gameWidthRef.current - 29
         playerElRef.current.style.transform = `translateX(${x}px)`
         playerElRef.current.style.setProperty('--atk-player-x', `${x}px`)
       }
@@ -1124,14 +1125,43 @@ export function AttackPhase({
   //  Pointer move for GD (drag ball left/right)  direct DOM, no re-render, no getBCR 
   const handleGdPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     if (phaseRef.current !== 'gd' || endedRef.current) return
+    const pointer = gdPointerRef.current
+    if (pointer.id !== e.pointerId) return
+    const moved = Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y)
+    if (!pointer.dragging && moved < 8) return
+    pointer.dragging = true
     const { left, width } = containerRectRef.current
     if (!width) return
     gdPlayerXRef.current = Math.max(3, Math.min(97, ((e.clientX - left) / width) * 100))
     if (playerElRef.current) {
-      const x = (gdPlayerXRef.current / 100) * (gameWidthRef.current || width) - 58
+      const x = (gdPlayerXRef.current / 100) * (gameWidthRef.current || width) - 29
       playerElRef.current.style.transform = `translateX(${x}px)`
       playerElRef.current.style.setProperty('--atk-player-x', `${x}px`)
     }
+  }
+
+  const handleGdPointerDown = (e: React.PointerEvent<HTMLElement>) => {
+    if (phaseRef.current !== 'gd' || endedRef.current) return
+    gdPointerRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dragging: false }
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
+  }
+
+  const handleGdPointerUp = (e: React.PointerEvent<HTMLElement>) => {
+    const pointer = gdPointerRef.current
+    if (pointer.id !== e.pointerId) return
+    const wasTap = !pointer.dragging && Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y) < 10
+    gdPointerRef.current = { id: null, x: 0, y: 0, dragging: false }
+    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+    if (!wasTap || phaseRef.current !== 'gd' || endedRef.current) return
+    const nextWave = gdWallsRef.current.find((wave) => !wave.checked)
+    if (nextWave?.requiresRoulette || nextWave?.requiresJump) handleEvade()
+  }
+
+  const handleGdPointerCancel = (e?: React.PointerEvent<HTMLElement>) => {
+    if (e && gdPointerRef.current.id === e.pointerId) {
+      try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+    }
+    gdPointerRef.current = { id: null, x: 0, y: 0, dragging: false }
   }
 
   //  Shot RAF  keeper + aim cursor + gauge all oscillate simultaneously 
@@ -1406,17 +1436,17 @@ export function AttackPhase({
       }}
       onPointerDown={(e) => {
         if (phase === 'gd') {
-          handleGdPointerMove(e)
-          const rect = containerRectRef.current
-          if (rect.width && e.clientY > window.innerHeight * 0.58) handleEvade()
+          handleGdPointerDown(e)
         }
         else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerDown(e)
       }}
       onPointerUp={(e) => {
-        if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerUp(e)
+        if (phase === 'gd') handleGdPointerUp(e)
+        else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerUp(e)
       }}
-      onPointerCancel={() => {
-        if (phase === 'shot') handleShotPointerCancel()
+      onPointerCancel={(e) => {
+        if (phase === 'gd') handleGdPointerCancel(e)
+        else if (phase === 'shot') handleShotPointerCancel()
       }}
     >
       <style>{`
@@ -1563,14 +1593,14 @@ export function AttackPhase({
         .atk-gd-player {
           position: absolute;
           left: 0;
-          top: calc(${GD_PLAYER_Y}% - 68px);
-          width: 116px;
-          height: 152px;
+          top: calc(${GD_PLAYER_Y}% - 34px);
+          width: 58px;
+          height: 76px;
           pointer-events: none; z-index: 10;
           will-change: transform;
         }
-        .atk-player-inner { position:relative;width:100%;height:100%;transform-origin:50% 70%;transition:transform .12s ease-out,filter .12s ease-out;filter:drop-shadow(0 0 14px rgba(43,255,154,.52)); }
-        .atk-gd-player .atk-kawaii { width:116px;height:140px; }
+        .atk-player-inner { position:relative;width:100%;height:100%;transform-origin:50% 70%;transition:transform .12s ease-out,filter .12s ease-out;filter:drop-shadow(0 0 14px rgba(43,255,154,.52));transform-style:preserve-3d; }
+        .atk-gd-player .atk-kawaii { width:58px;height:70px; }
         .atk-player-shadow { position:absolute;left:50%;bottom:2px;width:42px;height:14px;border-radius:999px;background:rgba(0,0,0,.38);transform:translateX(-50%);transition:transform .12s ease-out,opacity .12s ease-out;z-index:-1; }
         .atk-gd-player--flash .atk-player-inner { filter: drop-shadow(0 0 14px rgba(255,68,85,1)); }
         .atk-gd-player--pass .atk-player-inner { transform:scale(1.28);filter:drop-shadow(0 0 18px rgba(43,255,154,.65)); }
@@ -1668,7 +1698,7 @@ export function AttackPhase({
         @keyframes atkFeverPulse { from{ filter:brightness(1); } to{ filter:brightness(1.32); } }
         @keyframes atkFeverPlayer { from{ transform:scale(1.02) rotate(-1deg); } to{ transform:scale(1.1) rotate(1deg); } }
         @keyframes atkGhostBlink { from{ opacity:.36; } to{ opacity:.72; } }
-        @keyframes atkRouletteSpin { 0%{ transform:rotate(0deg) scale(1); } 30%{ transform:rotate(270deg) scale(1.18) skewX(-10deg); } 62%{ transform:rotate(620deg) scale(1.26) skewX(8deg); } 100%{ transform:rotate(900deg) scale(1); } }
+        @keyframes atkRouletteSpin { 0%{ transform:perspective(420px) rotateY(0deg) scale(1); } 20%{ transform:perspective(420px) rotateY(82deg) scale(1.12); } 44%{ transform:perspective(420px) rotateY(180deg) scale(1.2); filter:brightness(.55) drop-shadow(0 0 30px rgba(255,184,0,.95)); } 68%{ transform:perspective(420px) rotateY(278deg) scale(1.12); } 100%{ transform:perspective(420px) rotateY(360deg) scale(1); } }
         @keyframes atkRouletteRing { 0%{ opacity:0;transform:translate(-50%,-50%) scale(.35) rotate(0deg); } 22%{ opacity:.95; } 100%{ opacity:0;transform:translate(-50%,-50%) scale(1.45) rotate(420deg); } }
         @keyframes atkBonusOrb { from{ transform:translateX(-50%) translateY(0) scale(.95); } to{ transform:translateX(-50%) translateY(-4px) scale(1.08); } }
         @keyframes atkPowerupPop { from{ opacity:0; transform:translateY(6px) scale(.92); } to{ opacity:1; transform:none; } }
@@ -2180,9 +2210,6 @@ export function AttackPhase({
               style={{ position: 'absolute', inset: 0, willChange: 'transform', transform: 'translateY(0%)' }}
             >
               {gdWallsDisplay.map((wave, wi) => {
-                const screenY = wave.worldY + gdFallPctRef.current
-                if (screenY < -24 || screenY > 118) return null
-
                 const gatePxWidth = `${wave.gateWidth}%`
                 const bonusGatePxWidth = wave.bonusGateWidth ? `${wave.bonusGateWidth}%` : '0%' 
                 const isSlideWave = wave.type === 'slide_wall' || wave.type === 'double_slide_wall'
@@ -2268,8 +2295,8 @@ export function AttackPhase({
                 flow >= 100 ? 'is-max-flow' : '',
               ].join(' ')}
               style={{
-                transform: `translateX(${(gdPlayerXRef.current / 100) * gameWidthRef.current - 58}px)`,
-                '--atk-player-x': `${(gdPlayerXRef.current / 100) * gameWidthRef.current - 58}px`,
+                transform: `translateX(${(gdPlayerXRef.current / 100) * gameWidthRef.current - 29}px)`,
+                '--atk-player-x': `${(gdPlayerXRef.current / 100) * gameWidthRef.current - 29}px`,
                 '--atk-dash-dir': dashDirectionRef.current,
               } as CSSProperties}
             >
