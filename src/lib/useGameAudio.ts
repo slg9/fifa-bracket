@@ -29,6 +29,8 @@ const overlayAudios = new Set<HTMLAudioElement>()
 const audioBuffers = new Map<string, Promise<AudioBuffer>>()
 let _ctx: AudioContext | null = null
 let _masterGain: GainNode | null = null
+let _musicSource: MediaElementAudioSourceNode | null = null
+let _musicGain: GainNode | null = null
 let unlockListenersInstalled = false
 
 const DEDICATED_TRACKS = new Set<string>([
@@ -52,6 +54,10 @@ function stopInterval() {
 
 function targetMusicVolume() {
   return MUSIC_VOLUME * _musicVolumeMultiplier * _volume
+}
+
+function targetMusicGain() {
+  return MUSIC_VOLUME * _musicVolumeMultiplier
 }
 
 function targetOverlayVolume(volume: number, kind: 'sfx' | 'ambience') {
@@ -88,6 +94,38 @@ export function getSharedAudioDestination(): AudioNode | null {
   }
   _masterGain.gain.value = _muted ? 0 : _volume
   return _masterGain
+}
+
+function applyMusicVolume() {
+  if (_musicGain && _ctx) {
+    const value = _muted ? 0 : targetMusicGain()
+    try {
+      _musicGain.gain.setTargetAtTime(value, _ctx.currentTime, 0.025)
+    } catch {
+      _musicGain.gain.value = value
+    }
+  }
+  if (_audio) {
+    _audio.muted = _muted
+    _audio.volume = _musicGain ? (_muted ? 0 : 1) : targetMusicVolume()
+  }
+}
+
+function ensureMusicGraph(audio: HTMLAudioElement) {
+  const c = getSharedAudioContext()
+  const destination = getSharedAudioDestination()
+  if (!c || !destination || _musicSource || _musicGain) return
+  try {
+    _musicSource = c.createMediaElementSource(audio)
+    _musicGain = c.createGain()
+    _musicGain.gain.value = _muted ? 0 : targetMusicGain()
+    _musicSource.connect(_musicGain)
+    _musicGain.connect(destination)
+    audio.volume = _muted ? 0 : 1
+  } catch {
+    _musicSource = null
+    _musicGain = null
+  }
 }
 
 export function unlockGameAudio() {
@@ -143,10 +181,11 @@ function startTrack(src: string) {
   installGestureUnlockListeners()
   const audio = _audio ?? new Audio()
   audio.pause()
+  ensureMusicGraph(audio)
   audio.src = src
   audio.loop = true
   audio.muted = _muted
-  audio.volume = 0
+  audio.volume = _musicGain ? (_muted ? 0 : 1) : 0
   const resumeAt = shouldResume(src) ? resumePositions.get(src) ?? 0 : 0
   if (resumeAt > 0) {
     audio.addEventListener('loadedmetadata', () => {
@@ -163,7 +202,12 @@ function startTrack(src: string) {
   _interval = window.setInterval(() => {
     v = Math.min(1, v + step)
     audio.muted = _muted
-    audio.volume = v * targetMusicVolume()
+    if (_musicGain && _ctx) {
+      _musicGain.gain.value = v * (_muted ? 0 : targetMusicGain())
+      audio.volume = _muted ? 0 : 1
+    } else {
+      audio.volume = v * targetMusicVolume()
+    }
     if (v >= 1) stopInterval()
   }, FADE_IN_MS / FADE_STEPS)
 }
@@ -177,12 +221,18 @@ function switchTo(newSrc: string | null) {
   _src = newSrc
 
   if (prev && !prev.paused) {
-    const startVol = prev.volume
+    const startVol = _musicGain ? _musicGain.gain.value : prev.volume
     const step = Math.max(startVol / FADE_STEPS, 0.001)
     _interval = window.setInterval(() => {
-      const next = Math.max(0, prev.volume - step)
+      const current = _musicGain ? _musicGain.gain.value : prev.volume
+      const next = Math.max(0, current - step)
       prev.muted = _muted
-      prev.volume = next
+      if (_musicGain) {
+        _musicGain.gain.value = next
+        prev.volume = _muted ? 0 : 1
+      } else {
+        prev.volume = next
+      }
       if (next <= 0) {
         stopInterval()
         rememberPosition(prev, prevSrc)
@@ -192,14 +242,14 @@ function switchTo(newSrc: string | null) {
           startTrack(newSrc)
         } else {
           prev.removeAttribute('src')
-          _audio = null
+          _audio = prev
         }
       }
     }, FADE_OUT_MS / FADE_STEPS)
   } else {
     if (prev) { rememberPosition(prev, prevSrc); prev.pause(); _audio = prev }
     if (newSrc) startTrack(newSrc)
-    else if (prev) { prev.removeAttribute('src'); _audio = null }
+    else if (prev) { prev.removeAttribute('src'); _audio = prev }
   }
 }
 
@@ -223,6 +273,10 @@ export function stopGameAudio() {
   stopInterval()
   rememberPosition(_audio, _src)
   if (_audio) { _audio.pause(); _audio.src = ''; _audio = null }
+  _musicSource?.disconnect()
+  _musicGain?.disconnect()
+  _musicSource = null
+  _musicGain = null
   _src = null
 }
 
@@ -249,7 +303,7 @@ export function setGameMuted(muted: boolean) {
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(MUTE_STORAGE_KEY, muted ? '1' : '0')
   }
-  if (_audio) _audio.muted = muted
+  applyMusicVolume()
   overlayAudios.forEach((audio) => { audio.muted = muted })
   if (_masterGain) _masterGain.gain.value = muted ? 0 : _volume
   muteListeners.forEach((listener) => listener(muted))
@@ -264,7 +318,7 @@ export function setGameAudioVolume(volume: number) {
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(VOLUME_STORAGE_KEY, String(_volume))
   }
-  if (_audio && !_audio.paused) _audio.volume = targetMusicVolume()
+  applyMusicVolume()
   overlayAudios.forEach((audio) => {
     const rawVolume = Number(audio.dataset.rawVolume ?? '1')
     const kind = audio.dataset.kind === 'ambience' ? 'ambience' : 'sfx'
@@ -276,7 +330,7 @@ export function setGameAudioVolume(volume: number) {
 
 export function setGameMusicVolumeMultiplier(multiplier: number) {
   _musicVolumeMultiplier = Math.max(0, Math.min(1, multiplier))
-  if (_audio && !_audio.paused) _audio.volume = targetMusicVolume()
+  applyMusicVolume()
 }
 
 export function toggleGameMuted() {
@@ -327,18 +381,23 @@ export function playGameSound(
     unlockGameAudio()
     loadAudioBuffer(src).then((buffer) => {
       if (stopped || _muted) return
-      source = c.createBufferSource()
-      gain = c.createGain()
-      source.buffer = buffer
-      source.loop = options.loop ?? false
-      gain.gain.value = Math.min(1, Math.max(0, rawVolume * (kind === 'ambience' ? AMBIENCE_SOUND_VOLUME_MULTIPLIER : GAME_SOUND_VOLUME_MULTIPLIER)))
-      source.connect(gain)
-      gain.connect(destination)
-      source.addEventListener('ended', () => {
-        source?.disconnect()
-        gain?.disconnect()
-      }, { once: true })
-      source.start(0)
+      const start = () => {
+        if (stopped || _muted) return
+        source = c.createBufferSource()
+        gain = c.createGain()
+        source.buffer = buffer
+        source.loop = options.loop ?? false
+        gain.gain.value = Math.min(1, Math.max(0, rawVolume * (kind === 'ambience' ? AMBIENCE_SOUND_VOLUME_MULTIPLIER : GAME_SOUND_VOLUME_MULTIPLIER)))
+        source.connect(gain)
+        gain.connect(destination)
+        source.addEventListener('ended', () => {
+          source?.disconnect()
+          gain?.disconnect()
+        }, { once: true })
+        source.start(0)
+      }
+      if (c.state === 'running') start()
+      else c.resume().then(start).catch(() => undefined)
     }).catch(() => undefined)
 
     return {

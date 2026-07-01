@@ -6,54 +6,68 @@ import { getSharedAudioContext, getSharedAudioDestination, isGameMuted, unlockGa
 
 const SFX_GAIN_MULTIPLIER = 1.35
 
-function tone(
-  freq: number,
-  duration: number,
-  opts: { type?: OscillatorType; gain?: number; freqEnd?: number; delay?: number } = {},
-) {
+function withRunningAudioContext(run: (context: AudioContext, destination: AudioNode) => void) {
   if (isGameMuted()) return
   unlockGameAudio()
   const c = getSharedAudioContext()
   const destination = getSharedAudioDestination()
   if (!c || !destination) return
-  const t = c.currentTime + (opts.delay ?? 0)
-  const osc = c.createOscillator()
-  const g = c.createGain()
-  osc.connect(g); g.connect(destination)
-  osc.type = opts.type ?? 'sine'
-  osc.frequency.setValueAtTime(freq, t)
-  if (opts.freqEnd) osc.frequency.exponentialRampToValueAtTime(opts.freqEnd, t + duration)
-  const vol = Math.min(0.95, (opts.gain ?? 0.22) * SFX_GAIN_MULTIPLIER)
-  g.gain.setValueAtTime(vol, t)
-  g.gain.exponentialRampToValueAtTime(0.0001, t + duration)
-  osc.start(t); osc.stop(t + duration + 0.02)
+
+  const start = () => {
+    if (isGameMuted()) return
+    run(c, destination)
+  }
+
+  if (c.state === 'running') {
+    start()
+    return
+  }
+
+  c.resume().then(start).catch(() => undefined)
+}
+
+function tone(
+  freq: number,
+  duration: number,
+  opts: { type?: OscillatorType; gain?: number; freqEnd?: number; delay?: number } = {},
+) {
+  withRunningAudioContext((c, destination) => {
+    const t = c.currentTime + (opts.delay ?? 0)
+    const osc = c.createOscillator()
+    const g = c.createGain()
+    osc.connect(g); g.connect(destination)
+    osc.type = opts.type ?? 'sine'
+    osc.frequency.setValueAtTime(freq, t)
+    if (opts.freqEnd) osc.frequency.exponentialRampToValueAtTime(opts.freqEnd, t + duration)
+    const vol = Math.min(0.95, (opts.gain ?? 0.22) * SFX_GAIN_MULTIPLIER)
+    g.gain.setValueAtTime(vol, t)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + duration)
+    osc.start(t); osc.stop(t + duration + 0.02)
+  })
 }
 
 function noise(
   duration: number,
   opts: { filterFreq?: number; filterFreqEnd?: number; gain?: number; delay?: number } = {},
 ) {
-  if (isGameMuted()) return
-  unlockGameAudio()
-  const c = getSharedAudioContext()
-  const destination = getSharedAudioDestination()
-  if (!c || !destination) return
-  const t = c.currentTime + (opts.delay ?? 0)
-  const bufSize = Math.ceil(c.sampleRate * duration)
-  const buf = c.createBuffer(1, bufSize, c.sampleRate)
-  const data = buf.getChannelData(0)
-  for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1
-  const src = c.createBufferSource()
-  src.buffer = buf
-  const filter = c.createBiquadFilter()
-  filter.type = 'bandpass'
-  filter.frequency.setValueAtTime(opts.filterFreq ?? 1200, t)
-  if (opts.filterFreqEnd) filter.frequency.exponentialRampToValueAtTime(opts.filterFreqEnd, t + duration)
-  const g = c.createGain()
-  g.gain.setValueAtTime(Math.min(0.95, (opts.gain ?? 0.14) * SFX_GAIN_MULTIPLIER), t)
-  g.gain.exponentialRampToValueAtTime(0.0001, t + duration)
-  src.connect(filter); filter.connect(g); g.connect(destination)
-  src.start(t)
+  withRunningAudioContext((c, destination) => {
+    const t = c.currentTime + (opts.delay ?? 0)
+    const bufSize = Math.ceil(c.sampleRate * duration)
+    const buf = c.createBuffer(1, bufSize, c.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1
+    const src = c.createBufferSource()
+    src.buffer = buf
+    const filter = c.createBiquadFilter()
+    filter.type = 'bandpass'
+    filter.frequency.setValueAtTime(opts.filterFreq ?? 1200, t)
+    if (opts.filterFreqEnd) filter.frequency.exponentialRampToValueAtTime(opts.filterFreqEnd, t + duration)
+    const g = c.createGain()
+    g.gain.setValueAtTime(Math.min(0.95, (opts.gain ?? 0.14) * SFX_GAIN_MULTIPLIER), t)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + duration)
+    src.connect(filter); filter.connect(g); g.connect(destination)
+    src.start(t)
+  })
 }
 
 export interface SFX {
