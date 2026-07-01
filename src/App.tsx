@@ -604,6 +604,8 @@ function KnockoutTeamBadge({
   onStandingsHover?: (teamId: string | null, event: React.MouseEvent | React.FocusEvent) => void
   onOpenDetails?: () => void
 }) {
+  const touchIntentRef = useRef({ x: 0, y: 0, swiping: false })
+
   if (entrant.kind === 'placeholder') {
     return (
       <div className="bm__team bm__team--placeholder">
@@ -640,8 +642,30 @@ function KnockoutTeamBadge({
         isActivePath ? 'is-active-path' : '',
       ].filter(Boolean).join(' ')}
       aria-disabled={!isInteractive}
+      onPointerDown={(event) => {
+        touchIntentRef.current = { x: event.clientX, y: event.clientY, swiping: false }
+      }}
+      onPointerMove={(event) => {
+        const dx = Math.abs(event.clientX - touchIntentRef.current.x)
+        const dy = Math.abs(event.clientY - touchIntentRef.current.y)
+        if (dx > 10 && dx > dy * 1.25) {
+          touchIntentRef.current.swiping = true
+        }
+      }}
+      onPointerUp={() => {
+        window.setTimeout(() => {
+          touchIntentRef.current.swiping = false
+        }, 0)
+      }}
+      onPointerCancel={() => {
+        touchIntentRef.current.swiping = false
+      }}
       onClick={(event) => {
         event.stopPropagation()
+        if (touchIntentRef.current.swiping) {
+          event.preventDefault()
+          return
+        }
         if (!isInteractive) return
         onPick?.(team.id)
       }}
