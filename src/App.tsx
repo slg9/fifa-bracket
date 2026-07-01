@@ -3,6 +3,7 @@ import { toBlob } from 'html-to-image'
 import './App.css'
 import BootLoaderMark from './components/BootLoaderMark'
 import BrakupHub from './challenge/BrakupHub'
+import Leaderboard from './challenge/Leaderboard'
 import LoginEntry from './challenge/LoginEntry'
 import ProfileSettings from './challenge/ProfileSettings'
 import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
@@ -1730,6 +1731,7 @@ function App() {
   const [mode, setMode] = useState<Mode>('simulation')
   const simulatorMode = useMemo(() => new URLSearchParams(window.location.search).has('simulator'), [])
   const challengeMode = useMemo(() => new URLSearchParams(window.location.search).has('challenge'), [])
+  const challengeBoardMode = useMemo(() => new URLSearchParams(window.location.search).has('board'), [])
   const sharedBracketId = useMemo(() => readShareIdFromLocation(), [])
   const cloneShareId = useMemo(() => new URLSearchParams(window.location.search).get('cloneShare'), [])
   const publicPseudo = useMemo(() => readPublicPseudoFromLocation(), [])
@@ -2674,6 +2676,23 @@ function App() {
     )
   }
 
+  if (challengeBoardMode) {
+    return (
+      <main className="brakup-shell brakup-shell--classic-board">
+        <header className="classic-board-topbar">
+          <a href="/?simulator" className="classic-board-topbar__back">Retour bracket</a>
+          <a href={localizedChallengeHref(locale)} className="classic-board-topbar__challenge">
+            <img src="/brakup-challenge-logo.png" alt="" />
+            Challenge
+          </a>
+        </header>
+        <div className="classic-board-page">
+          <Leaderboard />
+        </div>
+      </main>
+    )
+  }
+
   const isHomeBracketFocus = view === 'bracket' && mode === 'simulation'
 
   return (
@@ -2804,7 +2823,7 @@ function App() {
                       Brakup Challenge
                     </a>
                     <a
-                      href={`${localizedChallengeHref(locale)}&board`}
+                      href="/?board"
                       className="topmenu__item"
                       onClick={() => setHeaderBracketMenuOpen(false)}
                     >

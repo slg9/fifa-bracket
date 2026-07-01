@@ -5019,6 +5019,60 @@
   padding: 4px 8px 2px;
 }
 
+.classic-board-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 58px;
+  padding: 8px clamp(14px, 4vw, 56px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(5, 11, 22, 0.92);
+  backdrop-filter: blur(16px);
+}
+
+.classic-board-topbar a {
+  text-decoration: none;
+}
+
+.classic-board-topbar__back,
+.classic-board-topbar__challenge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #eef3ff;
+  font: 900 12px var(--ui);
+}
+
+.classic-board-topbar__challenge {
+  gap: 8px;
+  border-color: rgba(43, 255, 154, 0.35);
+  color: #2bff9a;
+}
+
+.classic-board-topbar__challenge img {
+  width: 25px;
+  height: 25px;
+  object-fit: contain;
+}
+
+.classic-board-page {
+  width: min(100%, 760px);
+  margin: 0 auto;
+}
+
+.brakup-shell--classic-board {
+  min-height: 100dvh;
+}
+
 /* --- Docked bracket header controls --- */
 .topbar__center {
   position: absolute;
@@ -5197,42 +5251,122 @@
 
   .app-shell.is-home-bracket .bracket-fit {
     border-radius: 18px;
+    width: 100%;
+    height: 100%;
   }
 
   .app-shell.is-home-bracket .bracket-fit__stage {
     height: 100%;
-    padding: 3px 6px 2px;
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .app-shell.is-home-bracket .bracket-fit__transform,
+  .app-shell.is-home-bracket .bracket-export-wrapper {
+    width: 100%;
+    height: 100%;
   }
 
   .app-shell.is-home-bracket .bracket-board {
     grid-template-columns:
-      repeat(4, clamp(142px, 9.2vw, 232px))
-      clamp(218px, 13vw, 340px)
-      repeat(4, clamp(142px, 9.2vw, 232px));
-    gap: clamp(8px, 0.95vw, 24px);
-    min-height: calc(100dvh - 78px);
+      repeat(4, minmax(0, 1fr))
+      minmax(0, 1.38fr)
+      repeat(4, minmax(0, 1fr));
+    gap: clamp(4px, 0.72vw, 14px);
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: clamp(4px, 0.7vh, 8px) clamp(4px, 0.55vw, 9px) clamp(3px, 0.55vh, 7px);
+    box-sizing: border-box;
+  }
+
+  .app-shell.is-home-bracket .bcol {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
   }
 
   .app-shell.is-home-bracket .bcol__matches {
-    gap: clamp(8px, 1vh, 18px);
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    gap: clamp(4px, 0.72vh, 10px);
   }
 
   .app-shell.is-home-bracket .bm__meta {
-    padding: 7px 10px 5px;
-    font-size: 9px;
+    padding: clamp(4px, 0.7vh, 7px) clamp(6px, 0.6vw, 10px) clamp(3px, 0.5vh, 5px);
+    font-size: clamp(7px, 0.55vw, 9px);
   }
 
   .app-shell.is-home-bracket .bm__team {
-    padding: 7px 10px;
+    min-height: 0;
+    padding: clamp(5px, 0.62vh, 7px) clamp(6px, 0.62vw, 10px);
+    gap: clamp(5px, 0.55vw, 8px);
   }
 
   .app-shell.is-home-bracket .bm__name {
-    font-size: 12px;
+    font-size: clamp(10px, 0.72vw, 12px);
   }
 
   .app-shell.is-home-bracket .bcol__label {
-    margin-bottom: 8px;
-    padding-bottom: 7px;
+    margin-bottom: clamp(4px, 0.7vh, 8px);
+    padding-bottom: clamp(4px, 0.55vh, 7px);
+    font-size: clamp(7px, 0.55vw, 9px);
+  }
+
+  .app-shell.is-home-bracket .finalwrap {
+    flex: 1;
+    min-height: 0;
+    gap: clamp(5px, 0.85vh, 12px);
+  }
+
+  .app-shell.is-home-bracket .bracket-final {
+    gap: clamp(4px, 0.55vh, 7px);
+  }
+
+  .app-shell.is-home-bracket .finale__challenge-mark {
+    margin: clamp(2px, 1vh, 10px) 0 2px;
+  }
+
+  .app-shell.is-home-bracket .finale__challenge-logo {
+    width: clamp(120px, 10.8vw, 190px);
+  }
+
+  .app-shell.is-home-bracket .finale__challenge-play {
+    min-width: 0;
+    padding: 6px 12px;
+    font-size: clamp(10px, 0.78vw, 13px);
+  }
+
+  .app-shell.is-home-bracket .champ {
+    padding: clamp(8px, 1.2vh, 13px) clamp(8px, 0.85vw, 12px);
+  }
+
+  .app-shell.is-home-bracket .champ__trophy {
+    margin-top: 4px;
+    font-size: clamp(16px, 1.4vw, 20px);
+  }
+
+  .app-shell.is-home-bracket .champ__name {
+    margin-top: 5px;
+    font-size: clamp(14px, 1.18vw, 18px);
+  }
+
+  .app-shell.is-home-bracket .champ__cap {
+    margin-top: 4px;
+    font-size: clamp(9px, 0.72vw, 11px);
+  }
+
+  .app-shell.is-home-bracket .link {
+    stroke-width: clamp(1.1px, 0.11vw, 1.7px);
+  }
+
+  .app-shell.is-home-bracket .link--lit {
+    stroke-width: clamp(1.8px, 0.16vw, 2.4px);
+  }
+
+  .app-shell.is-home-bracket .link--gold {
+    stroke-width: clamp(1.9px, 0.17vw, 2.5px);
   }
 }
 
