@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type WheelEvent } from 'react'
 import { sfx } from '../lib/sfx'
 import { formatKnockoutDateTime, knockoutKickoffById } from '../lib/knockoutSchedule'
 import type { BattleScorer, KnockoutMatch, Team } from '../types'
@@ -163,8 +163,8 @@ function teamFlagEmoji(team?: Team) {
 }
 
 function teamFlagImageUrl(team?: Team) {
-  if (!team?.iso2 || team.iso2.includes('-')) return null
-  return `https://flagcdn.com/w80/${team.iso2}.png`
+  if (!team?.iso2) return null
+  return `https://flagcdn.com/w80/${team.iso2.toLowerCase()}.png`
 }
 
 function TeamFlag({ team, className }: { team?: Team; className?: string }) {
@@ -373,11 +373,11 @@ function MatchNode({
         {!isLocked ? (
           panelScore ? (
             <span className={`wcmap__score-badge${isClosed ? ' is-official' : ''}`} aria-label={`Score ${panelScore.home} a ${panelScore.away}`}>
-              <span className="wcmap__score-flag">{teamFlagEmoji(node.homeTeam)}</span>
+              <TeamFlag team={node.homeTeam} className="wcmap__score-flag" />
               <strong>{panelScore.home}</strong>
               <em>-</em>
               <strong>{panelScore.away}</strong>
-              <span className="wcmap__score-flag">{teamFlagEmoji(node.awayTeam)}</span>
+              <TeamFlag team={node.awayTeam} className="wcmap__score-flag" />
             </span>
           ) : isPicked && pickedTeam ? (
             <span className="wcmap__picked-winner-pill" aria-label={`Vainqueur choisi ${pickedTeam.name}`}>
@@ -386,9 +386,9 @@ function MatchNode({
             </span>
           ) : (
             <span className="wcmap__flags-vs">
-              <span>{teamFlagEmoji(node.homeTeam)}</span>
+              <TeamFlag team={node.homeTeam} />
               <strong>VS</strong>
-              <span>{teamFlagEmoji(node.awayTeam)}</span>
+              <TeamFlag team={node.awayTeam} />
             </span>
           )
         ) : (
@@ -501,7 +501,7 @@ function LevelEntryScreen({
       : hasPreselectedWinner
         ? 'Le flag selectionne lance le match avec ton vainqueur choisi.'
         : "Le match demarre avec l'equipe que tu touches."
-  const showStatusHint = node.status === 'locked' || node.status === 'live' || node.status === 'available'
+  const showStatusHint = node.status === 'locked'
 
   return (
     <div className="wcmap-entry" role="dialog" aria-modal="true">
@@ -642,7 +642,7 @@ export function WorldCupMapMenu({
   onPlay,
   onSimulate,
   onShowBracket,
-  ownerPseudo = 'Invite',
+  ownerPseudo = '',
   readOnly = false,
 }: WorldCupMapMenuProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -814,6 +814,20 @@ export function WorldCupMapMenu({
     startMomentum(velocityY)
   }
 
+  const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
+    if (!viewportRef.current) return
+    event.preventDefault()
+    stopPanMotion()
+    const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX
+    setPanOffset({ x: 0, y: clampPanY(offsetRef.current.y - delta) })
+  }
+
+  const handleFocusPlayableMatch = () => {
+    if (!focusNode) return
+    sfx.tab()
+    focusMapImmediately(focusNode)
+  }
+
   useEffect(() => () => stopPanMotion(), [])
 
   useEffect(() => {
@@ -865,14 +879,16 @@ export function WorldCupMapMenu({
     sfx.click()
     onPlay(selectedNode.id, selectedNode.pickedTeamId)
   }
-  const displayedPseudo = ownerPseudo.trim() || 'Invite'
+  const displayedPseudo = ownerPseudo.trim()
 
   return (
     <section className={`wcmap${readOnly ? ' is-readonly' : ''}`}>
-      <div className="wcmap__autosave" aria-live="polite">
-        <span>{displayedPseudo}</span>
-        {onShowBracket ? <button type="button" onClick={onShowBracket} aria-label="Ouvrir le tableau">⊞</button> : null}
-      </div>
+      <button type="button" className="wcmap__focus-button" onClick={handleFocusPlayableMatch} aria-label="Aller au match a jouer" disabled={!focusNode}>MATCH</button>
+      {readOnly && displayedPseudo ? (
+        <div className="wcmap__autosave" aria-live="polite">
+          <span>{displayedPseudo}</span>
+        </div>
+      ) : null}
       <div
         className="wcmap__viewport"
         ref={viewportRef}
@@ -880,6 +896,7 @@ export function WorldCupMapMenu({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onWheel={handleWheel}
       >
         <div
           className="wcmap__canvas"

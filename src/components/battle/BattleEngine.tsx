@@ -193,7 +193,7 @@ function SuddenDeathShootout({ history, currentIndex, currentRound, phase, sudde
 }
 
 function teamFlagImgUrl(iso2?: string) {
-  if (!iso2 || iso2.includes('-')) return null
+  if (!iso2) return null
   return `https://flagcdn.com/w40/${iso2.toLowerCase()}.png`
 }
 

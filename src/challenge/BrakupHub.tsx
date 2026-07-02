@@ -1330,7 +1330,7 @@ export function BrakupHub({
       ) : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
-        <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} scorers={scorers} realScorers={realScorers} realResults={realResults} officialScores={officialScoreMap} autosavedAt={autosavedAt} ownerPseudo={menuPseudo} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); openBracketOverlay() }} />
+        <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} scorers={scorers} realScorers={realScorers} realResults={realResults} officialScores={officialScoreMap} autosavedAt={autosavedAt} ownerPseudo={hasSyncedProfile ? menuPseudo : ''} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} />
         {!showBracket ? <button type="button" className="game-menu-button" onClick={() => { sfx.click(); setShowGameMenu(true) }} aria-label="Ouvrir le menu jeu">
           <span />
           <span />
@@ -1349,22 +1349,28 @@ export function BrakupHub({
             </div>
             <div className="game-menu-modal__profile">
               <div className="game-menu-modal__profile-main">
-                <button
-                  type="button"
-                  className="game-menu-modal__pseudo-edit"
-                  onClick={() => {
-                    setProfileError(null)
-                    setShowProfileSettings(true)
-                    setShowGameMenu(false)
-                  }}
-                  aria-label="Modifier le pseudo"
-                >
-                  <strong>{menuPseudo}</strong>
-                  <i aria-hidden="true">Editer</i>
-                </button>
+                {hasSyncedProfile ? (
+                  <button
+                    type="button"
+                    className="game-menu-modal__pseudo-edit"
+                    onClick={() => {
+                      setProfileError(null)
+                      setShowProfileSettings(true)
+                      setShowGameMenu(false)
+                    }}
+                    aria-label="Modifier le pseudo"
+                  >
+                    <strong>{menuPseudo}</strong>
+                    <i aria-hidden="true">Editer</i>
+                  </button>
+                ) : (
+                  <div className="game-menu-modal__guest-label" aria-label="Profil invite">
+                    <strong>Invite</strong>
+                  </div>
+                )}
                 {hasSyncedProfile ? (
                   <button type="button" onClick={handleLogout}>
-                    Se déconnecter
+                    Se deconnecter
                   </button>
                 ) : (
                   <button type="button" onClick={() => { setLoginError(null); setLoginSent(false); setLoginEmail(null); setShowLoginEntry(true); setShowGameMenu(false) }}>
@@ -1372,7 +1378,7 @@ export function BrakupHub({
                   </button>
                 )}
               </div>
-              <small>{savedProfile.email || 'Profil local sur cet appareil'}</small>
+              <small>{hasSyncedProfile ? savedProfile.email || 'Compte synchronise' : 'Progression invite sur cet appareil'}</small>
               {hasSyncedProfile && saveError ? <small>{saveError}</small> : null}
             </div>
             <div className="game-menu-modal__score">
@@ -1388,7 +1394,7 @@ export function BrakupHub({
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); navigate('challenge') }}>Carte des matchs</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigateGuide() }}>Comment jouer / FAQ</button>
-            <button type="button" className="game-menu-modal__item" onClick={() => { setProfileError(null); setShowProfileSettings(true); setShowGameMenu(false) }}>Parametres du compte</button>
+            {hasSyncedProfile ? <button type="button" className="game-menu-modal__item" onClick={() => { setProfileError(null); setShowProfileSettings(true); setShowGameMenu(false) }}>Parametres du compte</button> : null}
             <div className="game-menu-modal__section">
               <h3>Matchs du jour</h3>
               {todayMatches.length > 0 ? todayMatches.map((match) => (
@@ -1452,20 +1458,7 @@ export function BrakupHub({
       {/* Bracket overlay — fullscreen, opens from the ⊞ button */}
       {view === 'challenge' && showBracket ? (
         <div className="brakup-bracket-overlay">
-          <div className="brakup-bracket-overlay__bar">
-            <span>Bracket — Coupe du Monde 2026</span>
-            <button
-              type="button"
-              className="brakup-bracket-overlay__profile"
-              onClick={() => {
-                setProfileError(null)
-                setShowProfileSettings(true)
-              }}
-              aria-label="Modifier le pseudo"
-            >
-              <strong>{menuPseudo}</strong>
-              <i aria-hidden="true">Editer</i>
-            </button>
+          <div className="brakup-bracket-overlay__bar brakup-bracket-overlay__bar--return-only">
             <button type="button" className="brakup-bracket-overlay__close" onClick={() => { sfx.click(); closeBracketOverlay() }}>Retour au jeu</button>
           </div>
           <div className="brakup-bracket-overlay__body">

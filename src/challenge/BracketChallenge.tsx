@@ -111,6 +111,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
   const [paths, setPaths] = useState<PathInfo[]>([])
   const [activeRound, setActiveRound] = useState(0)
   const [cancelWarning, setCancelWarning] = useState<{ matchId: string; teamLabel: string } | null>(null)
+  const [teamAction, setTeamAction] = useState<{ matchId: string; teamId: string; teamLabel: string; flag: string } | null>(null)
   const activeRoundRef = useRef(0)
 
   const scrollParentToTop = useCallback((from: HTMLElement) => {
@@ -293,10 +294,10 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   const isLoser = Boolean(selectedWinnerId) && selectedWinnerId !== team.id
                   const isRealWinnerVisible = officialWinnerId === team.id
                   const showPointsStar = isWinner && progress.correct && progress.points > 0
-                  const handleClick = readOnly ? undefined
-                    : isPlayed ? () => { sfx.battle(); onPlay(match.id, team.id) }
-                    : !isLoser ? () => { sfx.pick(); onPick(match.id, team.id) }
-                    : undefined
+                  const handleClick = readOnly || isLoser ? undefined : () => {
+                    sfx.pick()
+                    setTeamAction({ matchId: match.id, teamId: team.id, teamLabel: team.shortName || team.name, flag: team.flagEmoji })
+                  }
                   return <div key={side}
                     className={`${isWinner ? 'is-picked' : isLoser && !isPlayed ? 'is-lost' : ''}${isRealWinnerVisible ? ' is-real-winner' : ''}${canCancelPick && isWinner ? ' is-cancelable' : ''}${readOnly ? ' is-readonly' : ''}`}
                     onClick={handleClick}
@@ -325,8 +326,6 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                         ×
                       </button>
                     ) : null}
-                    {isReady && !readOnly && <button type="button" className="bkm-play" title="Jouer ce match"
-                      onClick={(e) => { e.stopPropagation(); sfx.battle(); onPlay(match.id, team.id) }}>⚔</button>}
                   </div>
                 })}
                 <footer className="bkm-progress">
@@ -361,6 +360,46 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
         </section>
       </div>
       {!readOnly && showScorePanel ? <ScorePanel brackets={brackets} activeBracketId={activeBracketId} onSelect={onSelectBracket} realResults={realResults} /> : null}
+      {teamAction ? (
+        <div className="brakup-dialog" role="dialog" aria-modal="true" aria-labelledby="brakup-team-action-title">
+          <button type="button" className="brakup-dialog__scrim" onClick={() => setTeamAction(null)} aria-label="Fermer" />
+          <div className="brakup-email brakup-confirm brakup-team-action">
+            <span className="brakup-team-action__flag" aria-hidden="true">{teamAction.flag}</span>
+            <h2 id="brakup-team-action-title">{teamAction.teamLabel}</h2>
+            <p>Choisis ton move.</p>
+            <div className="brakup-team-action__actions">
+              <button
+                type="button"
+                className="brakup-team-action__choice"
+                onClick={() => {
+                  const action = teamAction
+                  setTeamAction(null)
+                  sfx.pick()
+                  onPick(action.matchId, action.teamId)
+                }}
+              >
+                <i aria-hidden="true">?</i>
+                <strong>PICK</strong>
+                <span>Valide le prono</span>
+              </button>
+              <button
+                type="button"
+                className="brakup-team-action__choice is-duel"
+                onClick={() => {
+                  const action = teamAction
+                  setTeamAction(null)
+                  sfx.battle()
+                  onPlay(action.matchId, action.teamId)
+                }}
+              >
+                <i aria-hidden="true">?</i>
+                <strong>DUEL</strong>
+                <span>Joue ce camp</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {cancelWarning ? (
         <div className="brakup-dialog" role="dialog" aria-modal="true" aria-labelledby="brakup-cancel-pick-title">
           <button type="button" className="brakup-dialog__scrim" onClick={() => setCancelWarning(null)} aria-label="Fermer" />
