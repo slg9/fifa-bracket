@@ -54,6 +54,7 @@ const AUTOSAVE_STORAGE_KEY = 'brakup:autosave-at'
 const OFFICIAL_RESULTS_STORAGE_KEY = 'brakup:official-results'
 const OFFICIAL_SCORES_STORAGE_KEY = 'brakup:official-scores'
 const SEEN_OUTCOMES_STORAGE_KEY = 'brakup:seen-outcomes'
+const SKIP_SPLASH_STORAGE_KEY = 'brakup:skip-splash-once'
 const HAD_ACCOUNT_KEY = 'brakup:hadAccount'
 const SCORERS_STORAGE_KEY = 'brakup:scorers'
 const CLASSIC_SIMULATION_STORAGE_KEY = 'fifabracket:simulation'
@@ -216,13 +217,35 @@ function readInitialView(): HubView {
   return 'challenge'
 }
 
+function readInitialShowSplash() {
+  const params = new URLSearchParams(window.location.search)
+  if (params.has('skipSplash')) return false
+  try {
+    if (window.sessionStorage.getItem(SKIP_SPLASH_STORAGE_KEY) === 'true') {
+      window.sessionStorage.removeItem(SKIP_SPLASH_STORAGE_KEY)
+      return false
+    }
+  } catch {
+    return true
+  }
+  return true
+}
+
+function skipSplashOnNextChallengeOpen() {
+  try {
+    window.sessionStorage.setItem(SKIP_SPLASH_STORAGE_KEY, 'true')
+  } catch {
+    // Ignore storage failures; the link still opens the game.
+  }
+}
+
 function ChallengeGuidePage({ locale }: { locale: Locale }) {
   const challengeHref = localizedChallengeHref(locale)
 
   if (locale === 'en') {
     return (
       <main className="brakup-phone-shell brakup-guide-page">
-        <div className="brakup-guide-page__top"><a className="brakup-guide-page__back" href={challengeHref}>Back to game</a></div>
+        <div className="brakup-guide-page__top"><a className="brakup-guide-page__back" href={challengeHref} onClick={skipSplashOnNextChallengeOpen}>Back to game</a></div>
         <section className="brakup-seo-content" aria-labelledby="challenge-guide-title">
           <p className="brakup-seo-content__eyebrow">World Cup 2026 bracket challenge</p>
           <h1 id="challenge-guide-title">How to play Brakup Challenge</h1>
@@ -270,7 +293,7 @@ function ChallengeGuidePage({ locale }: { locale: Locale }) {
 
   return (
     <main className="brakup-phone-shell brakup-guide-page">
-      <div className="brakup-guide-page__top"><a className="brakup-guide-page__back" href={challengeHref}>Retour au jeu</a></div>
+      <div className="brakup-guide-page__top"><a className="brakup-guide-page__back" href={challengeHref} onClick={skipSplashOnNextChallengeOpen}>Retour au jeu</a></div>
       <section className="brakup-seo-content" aria-labelledby="challenge-guide-title">
         <p className="brakup-seo-content__eyebrow">Challenge Coupe du Monde 2026</p>
         <h1 id="challenge-guide-title">Comment jouer au Brakup Challenge</h1>
@@ -331,7 +354,7 @@ export function BrakupHub({
   locale = 'fr',
 }: BrakupHubProps) {
   const [view, setView] = useState<HubView>(readInitialView)
-  const [showSplash, setShowSplash] = useState(true)
+  const [showSplash, setShowSplash] = useState(readInitialShowSplash)
   const [showBracket, setShowBracket] = useState(false)
   const [activeMatchId, setActiveMatchId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('match'))
   const [simulatedMatchId, setSimulatedMatchId] = useState<string | null>(null)
