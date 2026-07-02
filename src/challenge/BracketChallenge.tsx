@@ -19,7 +19,7 @@ export interface BracketChallengeProps {
   matches: BracketDisplayMatch[]
   teamsById: Map<string, Team>
   picks: Record<string, string>
-  onPick: (matchId: string, teamId: string) => void
+  onPick: (matchId: string, teamId: string | null) => void
   onPlay: (matchId: string, teamId: string) => void
   brackets?: ChallengeEntry[]
   activeBracketId?: string | null
@@ -110,6 +110,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [paths, setPaths] = useState<PathInfo[]>([])
   const [activeRound, setActiveRound] = useState(0)
+  const [cancelWarning, setCancelWarning] = useState<{ matchId: string; teamLabel: string } | null>(null)
   const activeRoundRef = useRef(0)
 
   const scrollParentToTop = useCallback((from: HTMLElement) => {
@@ -268,6 +269,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
               const isReady = bothTeamsKnown && !isPicked
               const isPlayed = userPickId != null && scores[match.id] !== undefined
               const isPendingOfficial = userPickId != null && !officialWinnerId && !isPlayed
+              const canCancelPick = !readOnly && userPickId != null && !officialWinnerId
               const progress = evaluateMatchProgress(match, picks, scores, realResults, officialScores)
               const statusClass = progress.correct || predictionState === 'correct'
                 ? 'is-prono-correct'
@@ -290,18 +292,39 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   const isWinner = selectedWinnerId === team.id
                   const isLoser = Boolean(selectedWinnerId) && selectedWinnerId !== team.id
                   const isRealWinnerVisible = officialWinnerId === team.id
+                  const showPointsStar = isWinner && progress.correct && progress.points > 0
                   const handleClick = readOnly ? undefined
                     : isPlayed ? () => { sfx.battle(); onPlay(match.id, team.id) }
                     : !isLoser ? () => { sfx.pick(); onPick(match.id, team.id) }
                     : undefined
                   return <div key={side}
-                    className={`${isWinner ? 'is-picked' : isLoser && !isPlayed ? 'is-lost' : ''}${isRealWinnerVisible ? ' is-real-winner' : ''}${readOnly ? ' is-readonly' : ''}`}
+                    className={`${isWinner ? 'is-picked' : isLoser && !isPlayed ? 'is-lost' : ''}${isRealWinnerVisible ? ' is-real-winner' : ''}${canCancelPick && isWinner ? ' is-cancelable' : ''}${readOnly ? ' is-readonly' : ''}`}
                     onClick={handleClick}
                     role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}
                     title={isPlayed ? `Rejouer avec ${team.shortName}` : readOnly ? undefined : `Choisir ${team.shortName}`}>
                     <span>{team.flagEmoji}</span>
                     <strong>{team.shortName}</strong>
                     {isRealWinnerVisible ? <small className="bkm-official">OFF</small> : null}
+                    {showPointsStar ? <small className="bkm-points-star">★ +{progress.points}</small> : null}
+                    {canCancelPick && isWinner ? (
+                      <button
+                        type="button"
+                        className="bkm-cancel"
+                        title="Annuler ce choix"
+                        aria-label={`Annuler le choix ${team.shortName}`}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          sfx.error()
+                          if (isPlayed) {
+                            setCancelWarning({ matchId: match.id, teamLabel: team.shortName || team.name })
+                            return
+                          }
+                          onPick(match.id, null)
+                        }}
+                      >
+                        ×
+                      </button>
+                    ) : null}
                     {isReady && !readOnly && <button type="button" className="bkm-play" title="Jouer ce match"
                       onClick={(e) => { e.stopPropagation(); sfx.battle(); onPlay(match.id, team.id) }}>⚔</button>}
                   </div>
@@ -333,6 +356,31 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
         </section>
       </div>
       {!readOnly && showScorePanel ? <ScorePanel brackets={brackets} activeBracketId={activeBracketId} onSelect={onSelectBracket} realResults={realResults} /> : null}
+      {cancelWarning ? (
+        <div className="brakup-dialog" role="dialog" aria-modal="true" aria-labelledby="brakup-cancel-pick-title">
+          <button type="button" className="brakup-dialog__scrim" onClick={() => setCancelWarning(null)} aria-label="Fermer" />
+          <div className="brakup-email brakup-confirm">
+            <h2 id="brakup-cancel-pick-title">Annuler ce choix ?</h2>
+            <p>
+              Tu as deja joue ce match avec {cancelWarning.teamLabel}. Annuler ce choix supprimera aussi le score Brakup et les donnees de jeu liees a ce match.
+            </p>
+            <div className="brakup-email__actions">
+              <button type="button" className="brakup-button brakup-button--ghost" onClick={() => setCancelWarning(null)}>Garder</button>
+              <button
+                type="button"
+                className="brakup-button"
+                onClick={() => {
+                  const matchId = cancelWarning.matchId
+                  setCancelWarning(null)
+                  onPick(matchId, null)
+                }}
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

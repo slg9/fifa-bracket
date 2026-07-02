@@ -224,8 +224,10 @@ function pickWaveType(rng: () => number, difficulty: BattleDifficulty, previous:
     const type = pickWeighted(rng, waveWeights(difficulty))
     const last = previous[previous.length - 1]
     const before = previous[previous.length - 2]
+    const recentEvade = [last, before].some((item) => item === 'slide_wall' || item === 'double_slide_wall' || item === 'combo_gate_slide' || item === 'roulette_wall')
     if (last === type && before === type) continue
     if ((type === 'combo_gate_slide' || type === 'double_slide_wall') && last === type) continue
+    if ((type === 'slide_wall' || type === 'double_slide_wall' || type === 'combo_gate_slide' || type === 'roulette_wall') && recentEvade) continue
     if (difficulty === 'easy' && (type === 'double_slide_wall' || type === 'combo_gate_slide')) continue
     if (difficulty === 'easy' && type === 'combo_gate_slide') continue
     if (difficulty === 'medium' && type === 'combo_gate_slide' && rng() < 0.35) continue
@@ -312,6 +314,7 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
   const waves: SlalomWave[] = []
   const centers: number[] = []
   const types: SlalomWaveType[] = []
+  let nextWorldY = WALL_FIRST_Y
 
   for (let i = 0; i < cfg.waveCount; i += 1) {
     const progress = i / Math.max(1, cfg.waveCount - 1)
@@ -320,7 +323,13 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
     const forceRoulette = i === 4 || (params.difficulty !== 'easy' && i > 7 && i % 7 === 4)
     const forceDiagonal = i > 3 && params.difficulty !== 'easy' && i % 6 === 3
     const rawType = forceRoulette ? 'roulette_wall' : forceBonus ? 'bonus_choice' : forceDiagonal ? 'diagonal_press' : pickWaveType(rng, params.difficulty, types, i)
-    const type = i < 2 && rawType !== 'gate' && rawType !== 'narrow_gate' ? 'gate' : rawType
+    const recentEvade = types.slice(-2).some((item) => item === 'slide_wall' || item === 'double_slide_wall' || item === 'combo_gate_slide' || item === 'roulette_wall')
+    const rawNeedsEvade = rawType === 'slide_wall' || rawType === 'double_slide_wall' || rawType === 'combo_gate_slide' || rawType === 'roulette_wall'
+    const type = i < 2 && rawType !== 'gate' && rawType !== 'narrow_gate'
+      ? 'gate'
+      : rawNeedsEvade && recentEvade
+        ? (forceBonus ? 'bonus_choice' : rng() < 0.45 ? 'narrow_gate' : 'gate')
+        : rawType
     const center = pickGateCenter(rng, centers, params.difficulty)
     centers.push(center)
     types.push(type)
@@ -331,8 +340,9 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
     const isBonus = type === 'bonus_choice'
     const isMoving = type === 'moving_gate'
     const gateWidth = isBonus ? cfg.gateWidth + 2 : isNarrow ? cfg.narrowGateWidth : cfg.gateWidth + (progress < 0.25 ? 2 : 0)
-    const spacing = cfg.spacing + (type === 'double_slide_wall' ? 7 : type === 'slide_wall' ? 4 : type === 'combo_gate_slide' ? 5 : 0)
-    const worldY = WALL_FIRST_Y - i * spacing
+    const spacing = cfg.spacing + (type === 'double_slide_wall' ? 16 : type === 'slide_wall' ? 12 : type === 'combo_gate_slide' ? 18 : type === 'roulette_wall' ? 18 : 0) + (recentEvade ? 10 : 0)
+    const worldY = nextWorldY
+    nextWorldY -= spacing
     const moveAmplitude = isMoving ? (params.difficulty === 'hard' ? 11 + rng() * 5 : params.difficulty === 'medium' ? 8 + rng() * 5 : 5 + rng() * 4) : 0
     const safeCenter = Math.max(16 + moveAmplitude, Math.min(84 - moveAmplitude, center))
     const bonusDirection = safeCenter < 50 ? 1 : -1
@@ -588,9 +598,11 @@ export function AttackPhase({
   const feverUntilRef  = useRef(0)
   const flowRef        = useRef(0)
   const shotBonusRef   = useRef({ widerGreen: 0, slowKeeper: 0, powerShot: false })
+  const bonusAuraTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const [comboDisplay, setComboDisplay] = useState(0)
   const [flow, setFlow] = useState(0)
   const [bonusFlash, setBonusFlash] = useState(false)
+  const [bonusAuraActive, setBonusAuraActive] = useState(false)
   const [dashActive, setDashActive] = useState(false)
   const [rouletteActive, setRouletteActive] = useState(false)
   const [attackLives, setAttackLives] = useState(ATTACK_MAX_LIVES)
@@ -616,6 +628,10 @@ export function AttackPhase({
       window.clearTimeout(t3)
       window.clearTimeout(t4)
     }
+  }, [])
+
+  useEffect(() => () => {
+    if (bonusAuraTimeoutRef.current) window.clearTimeout(bonusAuraTimeoutRef.current)
   }, [])
 
   // Shot phase: aim cursor follows hold/drag; release fires.
@@ -775,6 +791,15 @@ export function AttackPhase({
     return Math.min(110, cfg.gaugeGreenPx + shotBonusRef.current.widerGreen * 4 + (flowRef.current >= 70 ? 4 : 0) + (shotBonusRef.current.powerShot ? 4 : 0))
   }, [cfg.gaugeGreenPx])
 
+  const activateBonusAura = useCallback((durationMs: number) => {
+    setBonusAuraActive(true)
+    if (bonusAuraTimeoutRef.current) window.clearTimeout(bonusAuraTimeoutRef.current)
+    bonusAuraTimeoutRef.current = window.setTimeout(() => {
+      setBonusAuraActive(false)
+      bonusAuraTimeoutRef.current = null
+    }, durationMs)
+  }, [])
+
   const registerDribbleSuccess = useCallback((wave: SlalomWave, outcome: { bonus?: boolean; label: string; quality?: DribbleQuality }) => {
     const comboIncrement = outcome.bonus ? 2 : 1
     comboRef.current += comboIncrement
@@ -809,6 +834,7 @@ export function AttackPhase({
     if (outcome.bonus) {
       wave.bonusCollected = true
       const bonusKind = wave.bonusKind ?? 'coin'
+      let auraDuration = 1400
       if (bonusKind === 'coin') {
         shotBonusRef.current.widerGreen += 1
         setPowerupLabel('PIECE + ZONE VERTE')
@@ -816,22 +842,28 @@ export function AttackPhase({
         dribbleBoostUntilRef.current = performance.now() + 3200
         shotBonusRef.current.widerGreen += 0.5
         setPowerupLabel('CRAMPONS TURBO')
+        auraDuration = 3200
       } else if (bonusKind === 'whistle') {
         shotBonusRef.current.slowKeeper += 1
         setPowerupLabel('SIFFLET - GARDIEN RALENTI')
+        auraDuration = 2600
       } else if (bonusKind === 'slowmo') {
         slowmoUntilRef.current = performance.now() + 3600
         shotBonusRef.current.slowKeeper += 0.5
         setPowerupLabel('SLOWMO - JEU RALENTI')
+        auraDuration = 3600
       } else if (bonusKind === 'wide') {
         wideGateUntilRef.current = performance.now() + 4200
         shotBonusRef.current.widerGreen += 0.75
         setPowerupLabel('PORTE LARGE')
+        auraDuration = 4200
       } else {
         blastNextWaveRef.current = true
         shotBonusRef.current.widerGreen += 0.35
         setPowerupLabel('BOMBE CLEAN - NEXT WAVE')
+        auraDuration = 2400
       }
+      activateBonusAura(auraDuration)
       setBonusFlash(true)
       window.setTimeout(() => setBonusFlash(false), 420)
       window.setTimeout(() => setPowerupLabel(null), 1150)
@@ -844,7 +876,7 @@ export function AttackPhase({
     if ((nextFlow >= 100 && wasBelowMax) || comboRef.current >= cfg.waveCount) {
       shotBonusRef.current.powerShot = true
     }
-  }, [cfg.waveCount])
+  }, [activateBonusAura, cfg.waveCount])
 
   function getJumpState(now: number) {
     const startedAt = jumpStartedAtRef.current
@@ -1608,6 +1640,8 @@ export function AttackPhase({
         .atk-gd-player.is-dashing .atk-player-inner { transform:scale(1.18) skewX(-8deg); filter:drop-shadow(0 0 20px rgba(25,211,255,.82)); }
         .atk-gd-player.is-dashing::before { content:''; position:absolute; right:38px; top:22px; width:58px; height:18px; border-radius:999px; background:linear-gradient(90deg, transparent, rgba(25,211,255,.55)); transform:scaleX(calc(var(--atk-dash-dir, 1))); opacity:.86; animation:atkDashTrail .2s ease-out both; }
         .atk-gd-player.is-ghost .atk-player-inner { opacity:.48;filter:drop-shadow(0 0 24px rgba(189,252,255,.95));animation:atkGhostBlink .18s linear infinite alternate; }
+        .atk-gd-player.is-bonus-aura::before { content:''; position:absolute; left:50%; top:44%; width:104px; height:124px; border-radius:999px; transform:translate(-50%,-50%); z-index:-1; pointer-events:none; background:radial-gradient(ellipse, rgba(255,216,74,.42), rgba(255,184,0,.2) 42%, transparent 72%); box-shadow:0 0 34px rgba(255,184,0,.74), inset 0 0 32px rgba(255,255,255,.22); animation:atkBonusAura .58s ease-in-out infinite alternate; }
+        .atk-gd-player.is-bonus-aura .atk-player-inner { filter:drop-shadow(0 0 22px rgba(255,216,74,.95)) drop-shadow(0 0 14px rgba(255,184,0,.72)); }
         .atk-gd-player.is-roulette .atk-player-inner { animation:atkRouletteSpin .82s cubic-bezier(.16,.92,.22,1) both;filter:drop-shadow(0 0 30px rgba(255,184,0,.95)) drop-shadow(0 0 18px rgba(43,255,154,.72)); }
         .atk-player-whoosh { position:absolute;left:50%;top:46%;width:62px;height:62px;border-radius:50%;border:2px solid rgba(43,255,154,.34);transform:translate(-50%,-50%) scale(.7);opacity:0;pointer-events:none; }
         .atk-gd-player--pass .atk-player-whoosh { animation:atkJumpWhoosh .34s ease-out both; }
@@ -1616,6 +1650,7 @@ export function AttackPhase({
         .atk-gd-player.is-flowing .atk-player-inner { filter:drop-shadow(0 0 18px rgba(43,255,154,.82)); }
         .atk-gd-player.is-max-flow .atk-player-inner { filter:drop-shadow(0 0 22px rgba(255,184,0,.9)) drop-shadow(0 0 16px rgba(43,255,154,.62)); }
         .atk-gd-player.is-max-flow::after { content:'TIR BOOSTE'; position:absolute; left:50%; top:-22px; transform:translateX(-50%); color:#ffdd73; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; white-space:nowrap; text-shadow:0 0 12px rgba(255,184,0,.8); }
+        @keyframes atkBonusAura { from{ opacity:.62; transform:translate(-50%,-50%) scale(.92); filter:blur(.2px); } to{ opacity:1; transform:translate(-50%,-50%) scale(1.08); filter:blur(1px); } }
         .atk-gd-player.is-fever .atk-player-inner { filter:drop-shadow(0 0 26px rgba(255,184,0,.9)) drop-shadow(0 0 20px rgba(25,211,255,.62)); animation:atkFeverPlayer .32s ease-in-out infinite alternate; }
         .atk-control-ghost { position:absolute; left:50%; bottom:max(28px,calc(env(safe-area-inset-bottom) + 18px)); z-index:18; display:grid; justify-items:center; gap:8px; width:148px; transform:translateX(-50%); pointer-events:none; opacity:.44; filter:drop-shadow(0 0 16px rgba(43,255,154,.28)); }
         .atk-control-ghost__player { width:44px; height:54px; border-radius:999px 999px 18px 18px; background:linear-gradient(180deg,rgba(43,255,154,.38),rgba(43,255,154,.12)); border:1px solid rgba(43,255,154,.42); box-shadow:inset 0 0 18px rgba(255,255,255,.12); animation:atkGhostPlayer 1.75s ease-in-out infinite; }
@@ -2289,6 +2324,7 @@ export function AttackPhase({
                 dashActive ? 'is-dashing' : '',
                 gdFlash   ? 'atk-gd-player--flash' : '',
                 ghostActive ? 'is-ghost' : '',
+                bonusAuraActive ? 'is-bonus-aura' : '',
                 rouletteActive ? 'is-roulette' : '',
                 flow >= 40 ? 'is-flowing' : '',
                 feverActive ? 'is-fever' : '',

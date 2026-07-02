@@ -361,6 +361,7 @@ export function BrakupHub({
   const [otpError, setOtpError] = useState<string | null>(null)
   const [otpBusy, setOtpBusy] = useState(false)
   const [showGameMenu, setShowGameMenu] = useState(false)
+  const [showSeoReturn, setShowSeoReturn] = useState(false)
   const [showProfileSettings, setShowProfileSettings] = useState(false)
   const [profileStatus, setProfileStatus] = useState<Awaited<ReturnType<typeof getProfileStatus>> | null>(null)
   const [profileBusy, setProfileBusy] = useState(false)
@@ -599,6 +600,7 @@ export function BrakupHub({
     const query = nextParams.toString().replace(/=$/, '')
     window.history.pushState({}, '', `${localizedChallengeHref(locale)}${query ? `?${query}` : ''}`)
     setShowGameMenu(false)
+    setShowSeoReturn(false)
     setView(next)
     setActiveMatchId(matchId ?? null)
     trackAnalytics('challenge_navigation', { view: next, matchId }, 'challenge')
@@ -607,14 +609,22 @@ export function BrakupHub({
 
   const scrollToMapSection = (sectionId: 'brakup-map-info' | 'brakup-map-faq') => {
     setShowGameMenu(false)
+    setShowSeoReturn(true)
     if (view !== 'challenge') {
       navigate('challenge')
       window.setTimeout(() => {
         document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        setShowSeoReturn(true)
       }, 80)
       return
     }
     document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const returnToGameTop = () => {
+    sfx.tab()
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+    setShowSeoReturn(false)
   }
 
   const viewBracket = async (entry: ChallengeEntry) => {
@@ -627,7 +637,26 @@ export function BrakupHub({
     setView('board')
   }
 
-  const handlePick = (matchId: string, teamId: string) => {
+  const handlePick = (matchId: string, teamId: string | null) => {
+    if (teamId === null) {
+      trackAnalytics('challenge_cancel_pick', { matchId }, 'challenge')
+      setPicks((current) => {
+        const next = { ...current }
+        delete next[matchId]
+        return next
+      })
+      setBattleScores((current) => {
+        const next = { ...current }
+        delete next[matchId]
+        return next
+      })
+      setScorers((current) => {
+        const next = { ...current }
+        delete next[matchId]
+        return next
+      })
+      return
+    }
     trackAnalytics('challenge_pick_team', { matchId, teamId }, 'challenge')
     setPicks((current) => ({ ...current, [matchId]: teamId }))
   }
@@ -1253,6 +1282,11 @@ export function BrakupHub({
       {view === 'challenge' ? <>
         <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} scorers={scorers} realScorers={realScorers} realResults={realResults} officialScores={officialScoreMap} autosavedAt={autosavedAt} ownerPseudo={menuPseudo} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); openBracketOverlay() }} />
         <ChallengeSeoContent locale={locale} />
+        {showSeoReturn ? (
+          <button type="button" className="brakup-seo-return" onClick={returnToGameTop}>
+            Retour au jeu
+          </button>
+        ) : null}
         {!showBracket ? <button type="button" className="game-menu-button" onClick={() => { sfx.click(); setShowGameMenu(true) }} aria-label="Ouvrir le menu jeu">
           <span />
           <span />
@@ -1397,7 +1431,7 @@ export function BrakupHub({
       {view === 'brackets' ? <div className="brakup-phone-shell"><MyBrackets brackets={brackets} loading={loadingBrackets} onOpen={openBracket} onCreate={() => { writeClassicKnockoutPicks({}); setPicks({}); setActiveBracketId(null); navigate('challenge') }} /></div> : null}
       {view === 'board' ? <div className="brakup-phone-shell"><Leaderboard currentEntry={currentLeaderboardEntry} currentStats={progressStats} onBackToGame={() => { sfx.tab(); navigate('challenge') }} onViewBracket={viewBracket} /></div> : null}
       {view === 'viewBracket' && viewedBracketEntry ? (
-        <div className="brakup-bracket-overlay">
+        <div className="brakup-bracket-overlay brakup-bracket-overlay--map">
           <div className="brakup-bracket-overlay__bar">
             <span>Carte de {viewedBracketEntry.pseudo} · lecture seule</span>
             <button type="button" className="brakup-bracket-overlay__close" onClick={() => { sfx.click(); closeViewBracket() }}>Retour au jeu</button>
@@ -1416,6 +1450,7 @@ export function BrakupHub({
               onPlay={() => { sfx.error() }}  // Bloquer le jeu
               autosavedAt={null}
               ownerPseudo={viewedBracketEntry.pseudo}
+              readOnly
             />
           </div>
         </div>

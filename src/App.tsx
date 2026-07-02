@@ -1477,7 +1477,7 @@ function getShareText(url: string) {
           matches={matches}
           teamsById={teamsById}
           picks={picks}
-          onPick={onPick}
+          onPick={(matchId, teamId) => teamId ? onPick(matchId, teamId) : onClear(matchId)}
           onPlay={onPick}
           readOnly={readOnlyShare || !simulationEnabled}
           ownerPseudo={ownerName || undefined}

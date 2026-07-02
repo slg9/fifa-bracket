@@ -19,6 +19,7 @@ export interface WorldCupMapMenuProps {
   onShowBracket?: () => void
   autosavedAt?: string | null
   ownerPseudo?: string
+  readOnly?: boolean
 }
 
 type NodeStatus = 'locked' | 'available' | 'picked' | 'completed' | 'live' | 'closed'
@@ -313,11 +314,13 @@ function MatchNode({
   node,
   selecting,
   score,
+  readOnly,
   onClick,
 }: {
   node: DisplayNode
   selecting: boolean
   score?: BattleScore
+  readOnly?: boolean
   onClick: () => void
 }) {
   const isLocked = node.status === 'locked'
@@ -334,6 +337,17 @@ function MatchNode({
     ? [node.homeTeam, node.awayTeam] as const
     : null
   const officialPending = isCompleted && Boolean(node.pickedTeamId) && !node.progress.played
+  const borderState = node.progress.played
+    ? node.progress.correct ? 'correct' : 'wrong'
+    : isClosed
+      ? node.pickedTeamId ? 'pending' : 'official-only'
+      : isCompleted
+        ? 'brakup-played'
+        : isPicked
+          ? 'winner-picked'
+          : isLive || isAvailable
+            ? 'playable'
+            : 'locked'
 
   return (
     <button
@@ -342,12 +356,15 @@ function MatchNode({
       className={[
         'wcmap__field-node',
         `is-${node.status}`,
+        `is-border-${borderState}`,
+        readOnly ? 'is-readonly' : '',
         node.isFinalBoss ? 'is-final' : '',
         node.isThirdPlace ? 'is-third' : '',
         selecting ? 'is-selecting' : '',
       ].filter(Boolean).join(' ')}
       style={{ left: `${node.x}%`, top: `${node.y}px` }}
-      onClick={onClick}
+      onClick={readOnly ? undefined : onClick}
+      aria-disabled={readOnly ? 'true' : undefined}
     >
       <div className="wcmap__field-panel">
         {!isLocked ? (
@@ -616,6 +633,7 @@ export function WorldCupMapMenu({
   onSimulate,
   onShowBracket,
   ownerPseudo = 'Invite',
+  readOnly = false,
 }: WorldCupMapMenuProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const panFocusRef = useRef<string | null>(null)
@@ -804,6 +822,7 @@ export function WorldCupMapMenu({
   }, [notice])
 
   const handleSelectNode = (node: DisplayNode) => {
+    if (readOnly) return
     if (dragDistRef.current > 8) {
       dragDistRef.current = 0
       return
@@ -821,6 +840,7 @@ export function WorldCupMapMenu({
   }
 
   const handlePickTeam = (teamId: string) => {
+    if (readOnly) return
     if (!selectedNode) return
     if (selectedNode.status === 'closed') {
       setNotice('Match déjà joué. Impossible de rejouer.')
@@ -838,6 +858,7 @@ export function WorldCupMapMenu({
   }
 
   const handleSimulate = () => {
+    if (readOnly) return
     if (!selectedNode) return
     sfx.click()
     onSimulate?.(selectedNode.id)
@@ -851,7 +872,7 @@ export function WorldCupMapMenu({
   const displayedPseudo = ownerPseudo.trim() || 'Invite'
 
   return (
-    <section className="wcmap">
+    <section className={`wcmap${readOnly ? ' is-readonly' : ''}`}>
       <div className="wcmap__autosave" aria-live="polite">
         <span>{displayedPseudo}</span>
         {onShowBracket ? <button type="button" onClick={onShowBracket} aria-label="Ouvrir le tableau">⊞</button> : null}
@@ -882,6 +903,7 @@ export function WorldCupMapMenu({
               node={node}
               selecting={selectingId === node.id}
               score={scores[node.id]}
+              readOnly={readOnly}
               onClick={() => handleSelectNode(node)}
             />
           ))}
