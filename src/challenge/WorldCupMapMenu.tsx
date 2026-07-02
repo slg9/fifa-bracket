@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { sfx } from '../lib/sfx'
 import { formatKnockoutDateTime, knockoutKickoffById } from '../lib/knockoutSchedule'
 import type { BattleScorer, KnockoutMatch, Team } from '../types'
@@ -654,11 +654,11 @@ export function WorldCupMapMenu({
   const [notice, setNotice] = useState<string | null>(null)
 
   const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks, scores, realResults, officialScores, scorers, realScorers), [matches, teamsById, picks, scores, realResults, officialScores, scorers, realScorers])
-  const recommendedNode = nodes.find((node) => node.status === 'closed' && !node.progress.played && node.homeTeam && node.awayTeam)
+  const recommendedNode = nodes.find((node) => node.status === 'live')
     ?? nodes.find((node) => node.isNextPlayable)
-    ?? nodes.find((node) => node.status === 'live')
     ?? nodes.find((node) => node.status === 'picked')
     ?? nodes.find((node) => node.status === 'available')
+    ?? nodes.find((node) => node.status === 'closed' && !node.progress.played && node.homeTeam && node.awayTeam)
     ?? null
   const focusNode = recommendedNode
   const selectedNode = nodes.find((node) => node.id === selectedMatchId) ?? null
@@ -737,39 +737,43 @@ export function WorldCupMapMenu({
     setSelectedTeamId(selectedNode.status === 'completed' ? null : selectedNode.pickedTeamId ?? null)
   }, [selectedNode])
 
-  useEffect(() => {
+  const focusMapImmediately = (node: DisplayNode) => {
+    if (!viewportRef.current) return false
+    const viewportHeight = viewportRef.current.clientHeight
+    if (!viewportHeight) return false
+    const maxPan = Math.max(0, MAP_HEIGHT - viewportHeight)
+    const targetOffset = -(node.y - viewportHeight * 0.52)
+    panFocusRef.current = node.id
+    setPanOffset({ x: 0, y: Math.max(-maxPan, Math.min(0, targetOffset)) })
+    return true
+  }
+
+  useLayoutEffect(() => {
     if (!focusNode || panFocusRef.current === focusNode.id) return
+    if (focusMapImmediately(focusNode)) return
 
-    let frameId: number | null = null
+    const frameId = window.requestAnimationFrame(() => {
+      if (panFocusRef.current !== focusNode.id) focusMapImmediately(focusNode)
+    })
+    return () => window.cancelAnimationFrame(frameId)
+  }, [focusNode])
+
+  useEffect(() => {
+    if (!focusNode) return
+
     const viewport = viewportRef.current
-
-    const focusMap = () => {
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId)
-      }
-      frameId = window.requestAnimationFrame(() => {
-        frameId = null
-        if (panFocusRef.current === focusNode.id) return
-        if (!viewportRef.current) return
-        const viewportHeight = viewportRef.current?.clientHeight ?? 0
-        if (!viewportHeight) return
-        const maxPan = Math.max(0, MAP_HEIGHT - viewportHeight)
-        const targetOffset = -(focusNode.y - viewportHeight * 0.52)
-        panFocusRef.current = focusNode.id
-        animatePanTo(Math.max(-maxPan, Math.min(0, targetOffset)), 520)
-      })
-    }
-
     const observer = viewport && typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(focusMap)
+      ? new ResizeObserver(() => {
+        if (panFocusRef.current === focusNode.id) focusMapImmediately(focusNode)
+      })
       : null
     if (viewport && observer) observer.observe(viewport)
 
-    focusMap()
-    const timeoutId = window.setTimeout(focusMap, 160)
+    const timeoutId = window.setTimeout(() => {
+      if (panFocusRef.current !== focusNode.id) focusMapImmediately(focusNode)
+    }, 80)
 
     return () => {
-      if (frameId !== null) window.cancelAnimationFrame(frameId)
       window.clearTimeout(timeoutId)
       observer?.disconnect()
     }
