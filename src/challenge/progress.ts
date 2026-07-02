@@ -42,6 +42,7 @@ export function scoreForPick(match: KnockoutMatch, pickedTeamId?: string, score?
   const homeTeamId = entrantTeamId(match, 'home')
   const awayTeamId = entrantTeamId(match, 'away')
   if (!score || !pickedTeamId || !homeTeamId || !awayTeamId) return null
+  if (pickedTeamId !== homeTeamId && pickedTeamId !== awayTeamId) return null
   const normalizedScore = score.p < score.o ? { p: score.o, o: score.p } : score
   const pickedHome = pickedTeamId === homeTeamId
   return pickedHome
@@ -97,7 +98,10 @@ export function evaluateMatchProgress(
   scorers: Record<string, BattleScorer[]> = {},
   realScorers: RealScorer[] = [],
 ): MatchProgress {
-  const pickedTeamId = picks[match.id]
+  const homeTeamId = entrantTeamId(match, 'home')
+  const awayTeamId = entrantTeamId(match, 'away')
+  const rawPickedTeamId = picks[match.id]
+  const pickedTeamId = rawPickedTeamId && (rawPickedTeamId === homeTeamId || rawPickedTeamId === awayTeamId) ? rawPickedTeamId : undefined
   const realWinnerTeamId = realResults[match.id]
   const realScore = officialScores[match.id]
   const played = Boolean(pickedTeamId && realWinnerTeamId)

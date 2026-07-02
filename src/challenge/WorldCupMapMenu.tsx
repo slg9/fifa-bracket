@@ -140,6 +140,9 @@ function entrantTeam(match: KnockoutMatch, side: 'home' | 'away', teamsById: Map
   return entrant.kind === 'team' ? teamsById.get(entrant.teamId) : undefined
 }
 
+function pickBelongsToResolvedMatch(pickedTeamId: string | undefined, homeTeam?: Team, awayTeam?: Team) {
+  return Boolean(pickedTeamId && (pickedTeamId === homeTeam?.id || pickedTeamId === awayTeam?.id))
+}
 function displayTeamName(team?: Team, fallback?: string) {
   if (team) return team.shortName || team.name
   return fallback ?? 'À déterminer'
@@ -208,12 +211,12 @@ function buildDisplayNodes(
   scorers: Record<string, BattleScorer[]>,
   realScorers: RealScorer[],
 ): DisplayNode[] {
-  const resolved = matches.map((match) => ({
-    match,
-    homeTeam: entrantTeam(match, 'home', teamsById),
-    awayTeam: entrantTeam(match, 'away', teamsById),
-    pickedTeamId: picks[match.id],
-  }))
+  const resolved = matches.map((match) => {
+    const homeTeam = entrantTeam(match, 'home', teamsById)
+    const awayTeam = entrantTeam(match, 'away', teamsById)
+    const pickedTeamId = pickBelongsToResolvedMatch(picks[match.id], homeTeam, awayTeam) ? picks[match.id] : undefined
+    return { match, homeTeam, awayTeam, pickedTeamId }
+  })
   const byId = new Map(resolved.map((entry) => [entry.match.id, entry]))
   const orderedResolved = MATCH_SEQUENCE
     .map((id) => byId.get(id))
@@ -226,15 +229,17 @@ function buildDisplayNodes(
     entry.awayTeam,
   )?.match.id
 
+  let lockFollowing = false
+
   return orderedResolved.map(({ match, homeTeam, awayTeam, pickedTeamId }) => {
     const pos = NODE_POS[match.id]
     const realWinnerTeamId = realResults[match.id]
     const progress = evaluateMatchProgress(match, picks, scores, realResults, officialScores, scorers, realScorers)
-    const isNextPlayable = match.id === firstPlayable
+    const isNextPlayable = !lockFollowing && match.id === firstPlayable
     const isUnlockedByDate = homeTeam && awayTeam && isMatchDayOrPast(match)
     const hasOfficialResult = realWinnerTeamId
     const hasPlayedScore = Boolean(scores[match.id])
-    const status: NodeStatus = hasOfficialResult
+    const rawStatus: NodeStatus = hasOfficialResult
       ? 'closed'
       : hasPlayedScore
         ? 'completed'
@@ -245,6 +250,13 @@ function buildDisplayNodes(
           : homeTeam && awayTeam && isUnlockedByDate
             ? 'available'
             : 'locked'
+    const status: NodeStatus = lockFollowing && rawStatus !== 'closed' && rawStatus !== 'completed'
+      ? 'locked'
+      : rawStatus
+
+    if (rawStatus === 'locked') {
+      lockFollowing = true
+    }
 
     return {
       id: match.id,
@@ -472,7 +484,7 @@ function LevelEntryScreen({
   const officialWinnerTeam = node.realWinnerTeamId
     ? node.realWinnerTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
     : undefined
-  const predictedWinnerTeam = node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.awayTeam
+  const predictedWinnerTeam = node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.pickedTeamId === node.awayTeam?.id ? node.awayTeam : undefined
   const resultWinnerTeam = isClosed ? officialWinnerTeam : predictedWinnerTeam
   const officialPending = node.status === 'completed' && Boolean(node.pickedTeamId) && !node.progress.played
   const canReplayPlayedMatch = node.status === 'completed' && !isClosed

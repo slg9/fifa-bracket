@@ -4396,3 +4396,26 @@
     animation: none;
   }
 }
+/* Pick-only matchup: keep both flags visible, but highlight the predicted winner. */
+.wcmap__result-matchup.is-pick-only .wcmap__result-flag--winner {
+  width: 42px;
+  height: 32px;
+  border-color: rgba(255, 216, 74, 0.95);
+  background: rgba(18, 14, 4, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.38),
+    0 0 18px rgba(255, 216, 74, 0.72),
+    0 8px 16px rgba(0, 0, 0, 0.38);
+  transform: translateY(-1px) scale(1.06);
+}
+
+.wcmap__result-matchup.is-pick-only .wcmap__result-flag--winner img {
+  width: 32px;
+  height: 23px;
+}
+
+.wcmap__result-matchup.is-pick-only .wcmap__result-flag--loser {
+  opacity: 0.78;
+  filter: saturate(0.8);
+  transform: scale(0.92);
+}

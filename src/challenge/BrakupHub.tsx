@@ -709,7 +709,14 @@ export function BrakupHub({
     const m = matches.find((mx) => mx.id === matchId)
     const selectedTeamId = teamId ?? picks[matchId]
     if (selectedTeamId && m?.home.kind === 'team' && m.away.kind === 'team') {
-      setActiveSide(m.home.teamId === selectedTeamId ? 'home' : 'away')
+      if (m.home.teamId === selectedTeamId) {
+        setActiveSide('home')
+      } else if (m.away.teamId === selectedTeamId) {
+        setActiveSide('away')
+      } else {
+        handlePick(matchId, null)
+        return
+      }
     }
     if (battleScores[matchId] !== undefined) {
       setBattleScores((cur) => { const n = { ...cur }; delete n[matchId]; return n })

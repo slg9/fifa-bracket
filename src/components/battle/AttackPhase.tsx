@@ -462,6 +462,54 @@ function flowGainForWave(wave: SlalomWave, bonus?: boolean) {
   return 8
 }
 
+function DribbleDefenderSprite({
+  label,
+  jerseyColor,
+  accentColor,
+  shortsColor,
+  textColor,
+  withBall = false,
+}: {
+  label: string
+  jerseyColor: string
+  accentColor: string
+  shortsColor: string
+  textColor: string
+  withBall?: boolean
+}) {
+  return (
+    <svg viewBox="0 0 80 98" width="58" height="70" className="atk-kawaii atk-kawaii--defender" aria-hidden="true">
+      <ellipse cx="40" cy="91" rx="24" ry="6" fill="rgba(0,0,0,.28)" />
+      {withBall ? (
+        <>
+          <circle cx="57" cy="82" r="10" fill="#f7f9fc" stroke="#101827" strokeWidth="2" />
+          <path d="M57 74 l6 4 -2 7 h-8 l-2-7z" fill="none" stroke="#101827" strokeWidth="1.4" />
+        </>
+      ) : null}
+      <rect className="atk-kawaii__leg atk-kawaii__leg--l" x="27" y="58" width="9" height="23" rx="4.5" fill={shortsColor} />
+      <rect className="atk-kawaii__leg atk-kawaii__leg--r" x="44" y="58" width="9" height="23" rx="4.5" fill={shortsColor} />
+      <ellipse cx="31" cy="82" rx="8" ry="5" fill="#121826" />
+      <ellipse cx="48" cy="82" rx="8" ry="5" fill="#121826" />
+      <path d="M16 31 q24 -10 48 0 l-4 30 q-20 6 -40 0z" fill={jerseyColor} stroke="rgba(255,255,255,.55)" strokeWidth="1.2" />
+      <path d="M30 27 v31 M50 27 v31" stroke={accentColor} strokeWidth="3" opacity=".48" />
+      <rect x="7" y="34" width="10" height="22" rx="5" fill={jerseyColor} />
+      <rect x="63" y="34" width="10" height="22" rx="5" fill={jerseyColor} />
+      <circle cx="12" cy="57" r="4" fill="#f3c9a0" />
+      <circle cx="68" cy="57" r="4" fill="#f3c9a0" />
+      <circle cx="40" cy="19" r="18" fill="#f3c9a0" stroke="rgba(255,255,255,.5)" strokeWidth="1" />
+      <path d="M23 16 q17 -20 34 0 q-4 -14 -17 -16 q-13 2 -17 16z" fill="#322012" />
+      <circle cx="33" cy="19" r="3.2" fill="#111" />
+      <circle cx="47" cy="19" r="3.2" fill="#111" />
+      <circle cx="34" cy="18" r="1" fill="#fff" />
+      <circle cx="48" cy="18" r="1" fill="#fff" />
+      <circle cx="28" cy="25" r="2.8" fill="#ff8a8a" opacity=".5" />
+      <circle cx="52" cy="25" r="2.8" fill="#ff8a8a" opacity=".5" />
+      <path d="M35 27 q5 3 10 0" stroke="#111" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      <text x="40" y="49" fontFamily="Barlow Condensed" fontWeight="900" fontSize={label.length > 6 ? '7' : '9'} fill={textColor} textAnchor="middle">{label}</text>
+    </svg>
+  )
+}
+
 function KawaiiFootballer({
   label,
   jerseyColor,
@@ -481,6 +529,10 @@ function KawaiiFootballer({
   isPlayer?: boolean
   motion?: 'run' | 'idle' | 'ready'
 }) {
+  if (!isPlayer) {
+    return <DribbleDefenderSprite label={label} jerseyColor={jerseyColor} accentColor={accentColor} shortsColor={shortsColor} textColor={textColor} withBall={withBall} />
+  }
+
   return (
     <KawaiiSprite
       label={label}
@@ -489,10 +541,10 @@ function KawaiiFootballer({
       shortsColor={shortsColor}
       textColor={textColor}
       withBall={withBall}
-      role={isPlayer ? 'player' : 'enemy'}
+      role="player"
       motion={motion}
       seed={label}
-      className={`atk-kawaii${isPlayer ? ' is-player' : ''}`}
+      className="atk-kawaii is-player"
     />
   )
 }
@@ -1732,8 +1784,9 @@ export function AttackPhase({
         .atk-kawaii { display:block; overflow:visible; }
         ${KAWAII_SPRITE_CSS}
         .atk-gd-player .kw-sprite { --kw-step: .26s; }
-        .atk-slalom-defender .kw-sprite { --kw-step: .4s; }
         .atk-shooter-select__avatar .kw-sprite { --kw-step: .5s; }
+        .atk-kawaii--defender .atk-kawaii__leg--l { animation: atkLegL .34s ease-in-out infinite alternate; transform-origin:31px 60px; }
+        .atk-kawaii--defender .atk-kawaii__leg--r { animation: atkLegR .34s ease-in-out infinite alternate; transform-origin:48px 60px; }
         .atk-pass-pop { position:absolute; left:50%; top:-48px; transform:translateX(-50%); color:#2bff9a; font:900 15px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-shadow:0 0 12px rgba(43,255,154,.8); animation: atkPassPop .55s ease-out both; white-space:nowrap; }
         @keyframes atkGatePulse { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.9} 50%{transform:translate(-50%,-50%) scale(1.06);opacity:1} }
         @keyframes atkGatePass { from{transform:translate(-50%,-50%) scale(1);opacity:1} to{transform:translate(-50%,-50%) scale(1.35);opacity:.2} }
@@ -1743,6 +1796,8 @@ export function AttackPhase({
         @keyframes atkSlideSkid { from{translate:-1px -1px} to{translate:2px 2px} }
         @keyframes atkJumpWhoosh { 0%{opacity:.75;transform:translate(-50%,-50%) scale(.55)} 100%{opacity:0;transform:translate(-50%,-50%) scale(1.35)} }
         @keyframes atkTackle { from{rotate:-7deg; translate:0 -1px} to{rotate:7deg; translate:0 4px} }
+        @keyframes atkLegL { from{transform:rotate(-6deg)} to{transform:rotate(8deg)} }
+        @keyframes atkLegR { from{transform:rotate(8deg)} to{transform:rotate(-6deg)} }
         @keyframes atkPassPop { from{opacity:0;transform:translate(-50%,8px) scale(.8)} 20%{opacity:1} to{opacity:0;transform:translate(-50%,-18px) scale(1.1)} }
         @keyframes atkBonusFlash { from{opacity:1; transform:scale(.92)} to{opacity:0; transform:scale(1.08)} }
         @keyframes atkFeverPulse { from{ filter:brightness(1); } to{ filter:brightness(1.32); } }
@@ -1762,6 +1817,93 @@ export function AttackPhase({
         @keyframes atkGhostPlayer { 0%,100%{ transform:translateX(-42px); } 50%{ transform:translateX(42px); } }
         @keyframes atkGhostFinger { 0%,100%{ transform:translate(-62px,-50%); opacity:.35; } 50%{ transform:translate(44px,-50%); opacity:.9; } }
 
+
+        /* Low-FX dribble mode: keep gameplay movement, remove the heavy visual effects added around bonus/super states. */
+        .atk-root.is-gd .atk-bonus-flash,
+        .atk-root.is-gd .atk-player-whoosh,
+        .atk-root.is-gd .atk-gd-player.is-bonus-aura::before,
+        .atk-root.is-gd.is-super-attacker .atk-gd::after,
+        .atk-root.is-gd.is-super-attacker .atk-gd-player::before,
+        .atk-root.is-gd .atk-slalom-wave.is-super-blasted::after,
+        .atk-root.is-gd .atk-bonus-orb::before {
+          display: none !important;
+        }
+        .atk-root.is-gd.is-super-attacker .atk-gd {
+          filter: none !important;
+          background: linear-gradient(180deg,#020306,#06110c 55%,#0c1510) !important;
+        }
+        .atk-root.is-gd .atk-player-inner,
+        .atk-root.is-gd .atk-gd-player--flash .atk-player-inner,
+        .atk-root.is-gd .atk-gd-player--pass .atk-player-inner,
+        .atk-root.is-gd .atk-gd-player.is-dashing .atk-player-inner,
+        .atk-root.is-gd .atk-gd-player.is-ghost .atk-player-inner,
+        .atk-root.is-gd .atk-gd-player.is-bonus-aura .atk-player-inner,
+        .atk-root.is-gd .atk-gd-player.is-roulette .atk-player-inner,
+        .atk-root.is-gd .atk-gd-player.is-flowing .atk-player-inner,
+        .atk-root.is-gd .atk-gd-player.is-max-flow .atk-player-inner,
+        .atk-root.is-gd .atk-gd-player.is-fever .atk-player-inner,
+        .atk-root.is-gd.is-super-attacker .atk-player-inner,
+        .atk-root.is-gd .atk-slalom-defender,
+        .atk-root.is-gd .atk-slalom-defender.is-sliding,
+        .atk-root.is-gd .atk-slalom-defender.is-press,
+        .atk-root.is-gd .atk-slalom-defender.is-diagonal,
+        .atk-root.is-gd .atk-slalom-defender.is-bonus_guard,
+        .atk-root.is-gd .atk-slalom-wave.is-super-blasted .atk-slalom-defender,
+        .atk-root.is-gd .atk-flow-bar.is-fever .atk-flow-bar__fill,
+        .atk-root.is-gd .atk-ctrl-btn--evade.is-danger {
+          filter: none !important;
+        }
+        .atk-root.is-gd .atk-gd-player.is-roulette .atk-player-inner,
+        .atk-root.is-gd .atk-flow-bar.is-fever .atk-flow-bar__fill,
+        .atk-root.is-gd .atk-perfect-badge.is-fever,
+        .atk-root.is-gd .atk-powerup-label,
+        .atk-root.is-gd .atk-slalom-gate,
+        .atk-root.is-gd .atk-slalom-gate.is-passed,
+        .atk-root.is-gd .atk-slalom-wave.is-super-blasted .atk-slalom-gate,
+        .atk-root.is-gd .atk-slalom-wave.is-super-blasted .atk-slide-wall,
+        .atk-root.is-gd .atk-bonus-orb,
+        .atk-root.is-gd .atk-slide-danger,
+        .atk-root.is-gd .atk-pass-pop,
+        .atk-root.is-gd .atk-ctrl-btn--evade.is-danger {
+          animation: none !important;
+        }
+        .atk-root.is-gd .atk-flow-bar,
+        .atk-root.is-gd .atk-flow-bar__fill,
+        .atk-root.is-gd .atk-powerup-label,
+        .atk-root.is-gd .atk-combo-badge,
+        .atk-root.is-gd .atk-combo-badge.is-hot,
+        .atk-root.is-gd .atk-perfect-badge,
+        .atk-root.is-gd .atk-perfect-badge.is-fever,
+        .atk-root.is-gd .atk-life-badge i,
+        .atk-root.is-gd .atk-life-badge i.is-on,
+        .atk-root.is-gd .atk-slalom-gate,
+        .atk-root.is-gd .atk-slalom-gate::before,
+        .atk-root.is-gd .atk-slalom-gate.is-failed,
+        .atk-root.is-gd .atk-slalom-gate.is-combo,
+        .atk-root.is-gd .atk-slalom-gate.is-moving,
+        .atk-root.is-gd .atk-slalom-gate.is-bonus,
+        .atk-root.is-gd .atk-slalom-gate.is-bonus::before,
+        .atk-root.is-gd .atk-bonus-orb,
+        .atk-root.is-gd .atk-bonus-orb.is-boots,
+        .atk-root.is-gd .atk-bonus-orb.is-whistle,
+        .atk-root.is-gd .atk-bonus-orb.is-slowmo,
+        .atk-root.is-gd .atk-bonus-orb.is-wide,
+        .atk-root.is-gd .atk-bonus-orb.is-blast,
+        .atk-root.is-gd .atk-slide-danger,
+        .atk-root.is-gd .atk-slide-wall.is-failed .atk-slide-danger,
+        .atk-root.is-gd .atk-slide-wall.is-roulette .atk-slide-danger,
+        .atk-root.is-gd .atk-ctrl-btn,
+        .atk-root.is-gd .atk-ctrl-btn--evade.is-danger {
+          box-shadow: none !important;
+        }
+        .atk-root.is-gd .atk-pass-pop,
+        .atk-root.is-gd .atk-bonus-choice-label,
+        .atk-root.is-gd .atk-slalom-gate__label,
+        .atk-root.is-gd .atk-slide-label,
+        .atk-root.is-gd .atk-slalom-defender__name,
+        .atk-root.is-gd .atk-controls__phase.is-roulette {
+          text-shadow: none !important;
+        }
         .atk-controls { display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"stat phase" "buttons buttons"; align-items:center; gap:9px 12px; padding:10px 14px max(18px, calc(env(safe-area-inset-bottom) + 12px)); background:linear-gradient(180deg,rgba(7,23,15,.94),#030b08); border-top:1px solid rgba(255,255,255,.1); box-shadow:0 -18px 34px rgba(0,0,0,.34); }
         .atk-controls__stat { grid-area:stat; color:#dffef0; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.1em; text-transform:uppercase; }
         .atk-controls__stat small { display:inline; color:rgba(255,255,255,.5); font:800 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; margin-left:7px; }

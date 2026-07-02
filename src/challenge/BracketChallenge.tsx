@@ -14,6 +14,15 @@ function BracketFlag({ team }: { team: Team }) {
   return <span>{team.flagEmoji}</span>
 }
 
+function pickBelongsToMatch(match: KnockoutMatch, teamId: string | null | undefined) {
+  if (!teamId) return false
+  return (match.home.kind === 'team' && match.home.teamId === teamId)
+    || (match.away.kind === 'team' && match.away.teamId === teamId)
+}
+
+function validPickForMatch(match: KnockoutMatch, teamId: string | null | undefined) {
+  return pickBelongsToMatch(match, teamId) ? teamId ?? null : null
+}
 type BracketDisplayMatch = KnockoutMatch & {
   winnerId?: string | null
   pickedWinnerId?: string | null
@@ -266,8 +275,8 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
           {ROUND_ORDER.map((stage) => <div className={`brakup-bracket__round${LATE_STAGES.has(stage) ? ' is-late' : ''}`} key={stage}>
             <h2>{formatStageShortLabel(stage, locale)}</h2>
             {orderedStageMatches(matches, stage).map((match) => {
-              const selectedWinnerId = picks[match.id] ?? match.pickedWinnerId ?? match.winnerId ?? null
-              const userPickId = picks[match.id] ?? match.pickedWinnerId ?? null
+              const userPickId = validPickForMatch(match, picks[match.id] ?? match.pickedWinnerId ?? null)
+              const selectedWinnerId = userPickId ?? validPickForMatch(match, match.winnerId ?? null)
               const officialWinnerId = realResults[match.id] ?? match.realWinnerId ?? null
               const predictionState = userPickId && officialWinnerId
                 ? userPickId === officialWinnerId ? 'correct' : 'wrong'
