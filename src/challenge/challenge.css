@@ -652,18 +652,17 @@
   top: 10px;
   left: 10px;
   z-index: 13;
-  min-width: 42px;
+  width: 42px;
   height: 36px;
-  padding: 0 9px;
+  padding: 0;
+  display: grid;
+  place-items: center;
   border: 1px solid rgba(43, 255, 154, .42);
   border-radius: 10px;
   background: rgba(5, 13, 24, .86);
   color: #2bff9a;
   box-shadow: 0 12px 30px rgba(0, 0, 0, .3);
   backdrop-filter: blur(12px);
-  font: 900 10px/1 'Barlow Condensed', sans-serif;
-  letter-spacing: .08em;
-  text-transform: uppercase;
   cursor: pointer;
   pointer-events: auto;
 }
@@ -671,6 +670,53 @@
 .wcmap__focus-button:disabled {
   opacity: .45;
   cursor: default;
+}
+
+.wcmap__stadium-icon {
+  position: relative;
+  width: 25px;
+  height: 20px;
+  display: block;
+  animation: wcmapStadiumPulse 1.15s ease-in-out infinite;
+}
+
+.wcmap__stadium-icon::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 3px;
+  height: 13px;
+  border: 3px solid currentColor;
+  border-radius: 50%;
+  box-shadow: 0 0 14px rgba(43, 255, 154, .45);
+}
+
+.wcmap__stadium-icon::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 7px;
+  height: 6px;
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 50%;
+}
+
+.wcmap__stadium-icon i {
+  position: absolute;
+  left: 11px;
+  top: 4px;
+  width: 3px;
+  height: 12px;
+  border-radius: 999px;
+  background: #ffb800;
+  box-shadow: -8px 1px 0 rgba(255,184,0,.62), 8px 1px 0 rgba(255,184,0,.62);
+}
+
+@keyframes wcmapStadiumPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(43,255,154,.35)); }
+  50% { transform: scale(1.09); filter: drop-shadow(0 0 10px rgba(43,255,154,.72)); }
 }
 
 .wcmap__autosave {
@@ -3762,6 +3808,22 @@
   object-fit: cover;
 }
 
+.brakup-share-preview__frame.is-loading {
+  width: min(100%, 360px);
+  min-height: 330px;
+  aspect-ratio: auto;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.brakup-share-preview__frame.is-loading .boot-loader__mark {
+  transform: scale(1.35);
+  margin-bottom: 18px;
+}
+
 .brakup-share-preview__frame span {
   color: rgba(255, 255, 255, .86);
   font: 900 13px 'Barlow Condensed', 'Arial Narrow', sans-serif;
@@ -3771,6 +3833,7 @@
 
 .brakup-share-loader {
   display: grid;
+  grid-template-rows: auto auto 24px;
   justify-items: center;
   gap: 10px;
   padding: 24px;
@@ -3778,23 +3841,28 @@
 }
 
 .brakup-share-loader strong {
-  color: #fff;
-  font: 900 18px 'Barlow Condensed', 'Arial Narrow', sans-serif;
-  letter-spacing: .1em;
+  color: #2bff9a;
+  font: 900 16px 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: .14em;
+  text-shadow: 0 0 18px rgba(43, 255, 154, .42);
   text-transform: uppercase;
 }
 
-.brakup-share-loader span {
+.brakup-share-loader > span {
   grid-area: 3 / 1;
   opacity: 0;
+  color: rgba(255, 255, 255, .9);
+  font: 900 13px 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
   animation: shareLoaderMessage 4.8s linear infinite;
 }
 
-.brakup-share-loader span:nth-of-type(2) {
+.brakup-share-loader > span:nth-of-type(2) {
   animation-delay: 1.6s;
 }
 
-.brakup-share-loader span:nth-of-type(3) {
+.brakup-share-loader > span:nth-of-type(3) {
   animation-delay: 3.2s;
 }
 

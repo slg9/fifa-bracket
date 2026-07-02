@@ -407,6 +407,7 @@ export function BrakupHub({
   const [loginEmail, setLoginEmail] = useState<string | null>(null)
   const [loginFlow, setLoginFlow] = useState<'existing' | 'new'>('existing')
   const [loginPseudo, setLoginPseudo] = useState('')
+  const [pendingPostAuthAction, setPendingPostAuthAction] = useState<'share' | 'continue' | null>(null)
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
   const [outcomeShareStatus, setOutcomeShareStatus] = useState<'idle' | 'working' | 'ready' | 'done' | 'error'>('idle')
   const [outcomeShareUrl, setOutcomeShareUrl] = useState<string | null>(null)
@@ -445,7 +446,7 @@ export function BrakupHub({
   const baseRealResults = useMemo<Record<string, string>>(() => ({ ...storedRealResults, ...officialResults }), [officialResults, storedRealResults])
   const matches = useMemo(() => resolveMatches(baseMatches, picks, baseRealResults), [baseMatches, picks, baseRealResults])
   const activeMatch = matches.find((match) => match.id === activeMatchId)
-  const hasSyncedProfile = Boolean(savedProfile.email && savedProfile.pseudo)
+  const hasSyncedProfile = Boolean(accessToken && savedProfile.email && savedProfile.pseudo)
   const officialScoreMap = useMemo(
     () => ({ ...storedRealScores, ...officialScores }),
     [officialScores, storedRealScores],
@@ -887,9 +888,23 @@ export function BrakupHub({
       return
     }
     
-    // Flow normal : sauvegarder le bracket
     rememberProfile({ email, pseudo, bracketName })
-    identifyAnalyticsProfile({ pseudo, hasAccount: true })
+    identifyAnalyticsProfile({ pseudo, hasAccount: Boolean(accessToken) })
+    if (!accessToken) {
+      try {
+        await requestOTP(email, pseudo)
+        setPendingEmail(email)
+        setPendingPseudo(pseudo)
+        setShowEmailEntry(false)
+        setShowOTPEntry(true)
+      } catch (caught) {
+        setSaveError(caught instanceof Error ? caught.message : 'Envoi du code impossible.')
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
+
     try {
       await syncBracketSnapshot({
         email,
@@ -1073,6 +1088,12 @@ export function BrakupHub({
   }, [challengePreload.ready, outcomeNoticeKey, pendingOutcomeNotices, showSplash])
 
   const closeOutcomeNotice = () => {
+    if (!hasSyncedProfile) {
+      setPendingPostAuthAction('continue')
+      setSaveError(null)
+      setShowEmailEntry(true)
+      return
+    }
     if (outcomeNotice && !forcedOutcomeNotice) {
       const seen = new Set(readSeenOutcomeKeys())
       seen.add(outcomeNotice.key)
@@ -1124,6 +1145,12 @@ export function BrakupHub({
 
   const handleOutcomeShare = async () => {
     if (!outcomeNotice) return
+    if (!hasSyncedProfile) {
+      setPendingPostAuthAction('share')
+      setSaveError(null)
+      setShowEmailEntry(true)
+      return
+    }
     if (outcomeShareUrl) {
       setOutcomeShareStatus('working')
       try {
@@ -1216,6 +1243,14 @@ export function BrakupHub({
     setOutcomeSharePreviewOpen(false)
     setOutcomeShareStatus((status) => status === 'working' ? 'idle' : status)
   }
+
+  useEffect(() => {
+    if (!hasSyncedProfile || !pendingPostAuthAction) return
+    const action = pendingPostAuthAction
+    setPendingPostAuthAction(null)
+    if (action === 'share') void handleOutcomeShare()
+    if (action === 'continue') closeOutcomeNotice()
+  }, [hasSyncedProfile, pendingPostAuthAction])
 
   const outcomeScorerNames = outcomeNotice?.progress.scorerHits.map((scorer) => scorer.name) ?? []
   const outcomeExactLabel = outcomeNotice?.progress.exact ? `Score exact +${outcomeNotice.progress.exactPoints}` : null
@@ -1540,20 +1575,20 @@ export function BrakupHub({
           {(outcomeShareStatus === 'working' || (outcomeSharePreviewUrl && outcomeSharePreviewOpen)) ? (
             <div className="brakup-share-preview" role="dialog" aria-modal="true">
               <div className="brakup-share-preview__panel">
-                <div className="brakup-share-preview__frame">
+                <div className={`brakup-share-preview__frame${outcomeSharePreviewUrl ? '' : ' is-loading'}`}>
                   {outcomeSharePreviewUrl ? (
                     <img src={outcomeSharePreviewUrl} alt="Apercu du partage Brakup" />
                   ) : (
                     <div className="brakup-share-loader">
-                      <div className="boot-loader__mark boot-loader__mark--sm">
+                      <div className="boot-loader__mark boot-loader__mark--sm" aria-hidden="true">
                         <span className="boot-loader__orbit boot-loader__orbit--outer" />
                         <span className="boot-loader__orbit boot-loader__orbit--inner" />
                         <img className="boot-loader__logo" src="/brakup-loader.svg" alt="" />
                       </div>
-                      <strong>Construction du visuel</strong>
-                      <span>On compose ton action...</span>
-                      <span>On peaufine tout ca...</span>
-                      <span>On prépare le partage...</span>
+                      <strong>Brakup loading</strong>
+                      <span>Construction du visuel</span>
+                      <span>On prepare tout</span>
+                      <span>Derniere passe</span>
                     </div>
                   )}
                 </div>

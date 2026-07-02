@@ -171,11 +171,21 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
       {(shareStatus === 'working' || (sharePreviewUrl && sharePreviewOpen)) ? (
         <div className="brakup-share-preview" role="dialog" aria-modal="true">
           <div className="brakup-share-preview__panel">
-            <div className="brakup-share-preview__frame">
+            <div className={`brakup-share-preview__frame${sharePreviewUrl ? '' : ' is-loading'}`}>
               {sharePreviewUrl ? (
                 <img src={sharePreviewUrl} alt="Apercu du partage Brakup" />
               ) : (
-                <span>Construction du visuel...</span>
+                <div className="brakup-share-loader">
+                  <div className="boot-loader__mark boot-loader__mark--sm" aria-hidden="true">
+                    <span className="boot-loader__orbit boot-loader__orbit--outer" />
+                    <span className="boot-loader__orbit boot-loader__orbit--inner" />
+                    <img className="boot-loader__logo" src="/brakup-loader.svg" alt="" />
+                  </div>
+                  <strong>Brakup loading</strong>
+                  <span>Construction du visuel</span>
+                  <span>On prepare tout</span>
+                  <span>Derniere passe</span>
+                </div>
               )}
             </div>
             <div className="brakup-share-preview__actions">

@@ -883,7 +883,7 @@ export function WorldCupMapMenu({
 
   return (
     <section className={`wcmap${readOnly ? ' is-readonly' : ''}`}>
-      <button type="button" className="wcmap__focus-button" onClick={handleFocusPlayableMatch} aria-label="Aller au match a jouer" disabled={!focusNode}>MATCH</button>
+      <button type="button" className="wcmap__focus-button" onClick={handleFocusPlayableMatch} aria-label="Aller au match a jouer" disabled={!focusNode}><span className="wcmap__stadium-icon" aria-hidden="true"><i /></span></button>
       {readOnly && displayedPseudo ? (
         <div className="wcmap__autosave" aria-live="polite">
           <span>{displayedPseudo}</span>

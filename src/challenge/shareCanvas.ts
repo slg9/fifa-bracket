@@ -52,38 +52,18 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, 
   return size
 }
 
-function drawMatchupBadge(
+function drawMatchupFlag(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   flag: string | undefined,
   label: string,
 ) {
-  const badgeW = 128
-  const badgeH = 86
-  roundRect(ctx, x - badgeW / 2, y - badgeH / 2, badgeW, badgeH, 24)
-  ctx.fillStyle = 'rgba(255,255,255,.09)'
-  ctx.fill()
-  ctx.strokeStyle = 'rgba(255,216,74,.34)'
-  ctx.lineWidth = 2
-  ctx.stroke()
-
-  roundRect(ctx, x - 42, y - 34, 84, 48, 14)
-  ctx.fillStyle = 'rgba(5,12,26,.78)'
-  ctx.fill()
-  ctx.strokeStyle = 'rgba(255,255,255,.24)'
-  ctx.lineWidth = 2
-  ctx.stroke()
-
   ctx.fillStyle = '#ffffff'
-  ctx.font = "900 34px 'Apple Color Emoji', 'Segoe UI Emoji', Arial, sans-serif"
-  ctx.fillText(flag || label.slice(0, 3).toUpperCase(), x, y - 10)
-
-  ctx.fillStyle = 'rgba(255,255,255,.88)'
-  const size = fitText(ctx, label, 104, 18, 13, (fontSize) => `900 ${fontSize}px 'Barlow Condensed', Arial, sans-serif`)
-  ctx.font = `900 ${size}px 'Barlow Condensed', Arial, sans-serif`
-  ctx.fillText(label, x, y + 31)
+  ctx.font = "900 72px 'Apple Color Emoji', 'Segoe UI Emoji', Arial, sans-serif"
+  ctx.fillText(flag || label.slice(0, 3).toUpperCase(), x, y)
 }
+
 
 function gfMultiply(a: number, b: number) {
   let result = 0
@@ -312,24 +292,22 @@ export async function renderResultShareCanvas(input: ResultShareCanvasInput): Pr
   }
 
   if (input.matchup) {
-    const boxW = 430
-    const boxH = 138
-    const boxX = width - boxW - 36
-    const boxY = 42
-    roundRect(ctx, boxX, boxY, boxW, boxH, 30)
-    ctx.fillStyle = 'rgba(5, 12, 26, .74)'
-    ctx.fill()
-    ctx.strokeStyle = 'rgba(255,255,255,.18)'
-    ctx.lineWidth = 3
-    ctx.stroke()
-    ctx.shadowBlur = 0
+    const groupX = width - 248
+    const groupY = 100
+    ctx.save()
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    drawMatchupBadge(ctx, boxX + 98, boxY + 72, input.matchup.homeFlag, input.matchup.homeLabel)
-    ctx.fillStyle = 'rgba(255,255,255,.72)'
-    ctx.font = "900 32px 'Barlow Condensed', Arial, sans-serif"
-    ctx.fillText('VS', boxX + boxW / 2, boxY + 56)
-    drawMatchupBadge(ctx, boxX + boxW - 98, boxY + 72, input.matchup.awayFlag, input.matchup.awayLabel)
+    ctx.shadowColor = 'rgba(0,0,0,.62)'
+    ctx.shadowBlur = 18
+    drawMatchupFlag(ctx, groupX - 106, groupY, input.matchup.homeFlag, input.matchup.homeLabel)
+    ctx.shadowBlur = 0
+    ctx.fillStyle = '#ffb800'
+    ctx.font = "900 34px 'Barlow Condensed', Arial, sans-serif"
+    ctx.fillText('VS', groupX, groupY + 1)
+    ctx.shadowColor = 'rgba(0,0,0,.62)'
+    ctx.shadowBlur = 18
+    drawMatchupFlag(ctx, groupX + 106, groupY, input.matchup.awayFlag, input.matchup.awayLabel)
+    ctx.restore()
   }
 
   ctx.textAlign = 'center'
