@@ -427,7 +427,7 @@ function MatchNode({
       <span className="wcmap__round-chip">{node.roundShort}</span>
 
       {isLocked && <span className="wcmap__status-badge wcmap__status-badge--lock">{'\uD83D\uDD12'}</span>}
-      {isClosed && <span className="wcmap__status-badge">OFF</span>}
+      {isClosed && <span className="wcmap__status-badge wcmap__status-badge--certified" aria-label="Resultat officiel">{'\u2713'}</span>}
       {isCompleted && <span className="wcmap__status-badge">{'\u2713'}</span>}
       {node.progress.played ? (
         <span className={`wcmap__outcome-badge${node.progress.correct ? ' is-correct' : ' is-wrong'}`} title={node.progress.correct ? `Prono reussi +${node.progress.points}` : 'Prono rate'}>
