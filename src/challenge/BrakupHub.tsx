@@ -239,13 +239,12 @@ function skipSplashOnNextChallengeOpen() {
   }
 }
 
-function ChallengeGuidePage({ locale }: { locale: Locale }) {
-  const challengeHref = localizedChallengeHref(locale)
+function ChallengeGuidePage({ locale, onBackToGame }: { locale: Locale; onBackToGame: () => void }) {
 
   if (locale === 'en') {
     return (
       <main className="brakup-phone-shell brakup-guide-page">
-        <div className="brakup-guide-page__top"><a className="brakup-guide-page__back" href={challengeHref} onClick={skipSplashOnNextChallengeOpen}>Back to game</a></div>
+        <div className="brakup-guide-page__top"><button type="button" className="brakup-guide-page__back" onClick={onBackToGame}>Back to game</button></div>
         <section className="brakup-seo-content" aria-labelledby="challenge-guide-title">
           <p className="brakup-seo-content__eyebrow">World Cup 2026 bracket challenge</p>
           <h1 id="challenge-guide-title">How to play Brakup Challenge</h1>
@@ -293,7 +292,7 @@ function ChallengeGuidePage({ locale }: { locale: Locale }) {
 
   return (
     <main className="brakup-phone-shell brakup-guide-page">
-      <div className="brakup-guide-page__top"><a className="brakup-guide-page__back" href={challengeHref} onClick={skipSplashOnNextChallengeOpen}>Retour au jeu</a></div>
+      <div className="brakup-guide-page__top"><button type="button" className="brakup-guide-page__back" onClick={onBackToGame}>Retour au jeu</button></div>
       <section className="brakup-seo-content" aria-labelledby="challenge-guide-title">
         <p className="brakup-seo-content__eyebrow">Challenge Coupe du Monde 2026</p>
         <h1 id="challenge-guide-title">Comment jouer au Brakup Challenge</h1>
@@ -638,6 +637,21 @@ export function BrakupHub({
     setActiveMatchId(matchId ?? null)
     trackAnalytics('challenge_navigation', { view: next, matchId }, 'challenge')
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const navigateGuide = () => {
+    window.history.pushState({}, '', localizedChallengeGuideHref(locale))
+    setShowGameMenu(false)
+    setView('guide')
+    setActiveMatchId(null)
+    trackAnalytics('challenge_navigation', { view: 'guide' }, 'challenge')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const returnFromGuideToGame = () => {
+    skipSplashOnNextChallengeOpen()
+    setShowSplash(false)
+    navigate('challenge')
   }
 
 
@@ -1048,7 +1062,7 @@ export function BrakupHub({
       fullscreenExit?.catch(() => undefined)
     }
   }
-  const introActive = view === 'challenge' && (!challengePreload.ready || showSplash)
+  const introActive = view === 'challenge' && showSplash
   const simulatedMatch = simulatedMatchId ? matches.find((match) => match.id === simulatedMatchId) : null
 
   useEffect(() => {
@@ -1288,14 +1302,14 @@ export function BrakupHub({
 
   return (
     <div className={`brakup-shell${view === 'challenge' ? ' brakup-shell--map-only' : ''}${view === 'board' ? ' brakup-shell--board-page' : ''}${view === 'guide' ? ' brakup-shell--guide-page' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
-      {view === 'challenge' && !challengePreload.ready ? <ChallengeLoading progress={challengePreload.progress} /> : null}
+      {view === 'challenge' && showSplash && !challengePreload.ready ? <ChallengeLoading progress={challengePreload.progress} /> : null}
       {view === 'challenge' && showSplash && challengePreload.ready ? <ChallengeSplash onPlay={() => setShowSplash(false)} /> : null}
       {view !== 'guide' ? <header className="brakup-topbar">
         <button type="button" className="brakup-brand" onClick={() => { sfx.tab(); navigate('challenge') }}><img src="/favicon-512.png" alt="" className="brakup-brand__ico" /><div><strong>BRAKUP</strong><small>World Cup Challenge</small></div></button>
         <nav>
           <button type="button" className={view === 'challenge' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('challenge') }}>Challenge</button>
           <button type="button" className={view === 'board' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
-          <a className="brakup-lang-switch" href={localizedChallengeGuideHref(locale)}>FAQ</a>
+          <button type="button" className="brakup-lang-switch" onClick={() => { sfx.tab(); navigateGuide() }}>FAQ</button>
           <a className="brakup-lang-switch" href={alternateLanguageHref(locale)} hrefLang={locale === 'en' ? 'fr' : 'en'}>{locale === 'en' ? 'FR' : 'EN'}</a>
         </nav>
       </header> : null}
@@ -1324,7 +1338,7 @@ export function BrakupHub({
         </button> : null}
       </> : null}
 
-      {view === 'guide' ? <ChallengeGuidePage locale={locale} /> : null}
+      {view === 'guide' ? <ChallengeGuidePage locale={locale} onBackToGame={returnFromGuideToGame} /> : null}
 
       {view === 'challenge' && showGameMenu ? (
         <div className="game-menu-modal" role="dialog" aria-modal="true" aria-label="Menu jeu">
@@ -1373,7 +1387,7 @@ export function BrakupHub({
             <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay() }}>Tableau</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); navigate('challenge') }}>Carte des matchs</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
-            <a className="game-menu-modal__item" href={localizedChallengeGuideHref(locale)} onClick={() => { sfx.tab(); setShowGameMenu(false) }}>Comment jouer / FAQ</a>
+            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigateGuide() }}>Comment jouer / FAQ</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { setProfileError(null); setShowProfileSettings(true); setShowGameMenu(false) }}>Parametres du compte</button>
             <div className="game-menu-modal__section">
               <h3>Matchs du jour</h3>
