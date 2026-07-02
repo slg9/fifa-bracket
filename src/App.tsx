@@ -15,7 +15,7 @@ import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSched
 import { checkEmailExists, getSimulatorLeaderboard, getProfileStatus, getPublicBracketShare, getSimulatorBracket, getSimulatorBracketByPseudo, requestOTP, resendMagicLink, saveSimulatorBracket, updateProfile, verifyLoginOTP, verifyOTP } from './lib/challengeData'
 import { CHAMPION_BONUS, STAGE_POINTS } from './lib/scoring'
 import { formatStageLongLabel, formatStageShortLabel } from './lib/stageLabels'
-import { clearChallengeProfile, readChallengeProfile, subscribeChallengeProfile, writeChallengeProfile } from './lib/challengeProfile'
+import { clearBrakupLocalSession, readChallengeProfile, subscribeChallengeProfile, writeChallengeProfile } from './lib/challengeProfile'
 import { identifyAnalyticsProfile, initAnalytics, trackAnalytics } from './lib/analytics'
 import {
   buildGroupOrderOverrides,
@@ -2247,12 +2247,16 @@ function App() {
   }
 
   function handleChallengeLogout() {
-    window.localStorage.removeItem(challengeTokenStorageKey)
-    clearChallengeProfile()
+    clearBrakupLocalSession()
     setChallengeToken(null)
     setChallengeProfile({ email: '', pseudo: '', bracketName: 'Mon bracket' })
     setChallengeMenuOpen(false)
     setClassicProfileSettingsOpen(false)
+    setShowChallengeLoginEntry(false)
+    setChallengeLoginBusy(false)
+    setChallengeLoginError(null)
+    setChallengeLoginSent(false)
+    setChallengeLoginEmail(null)
   }
 
   async function handleClassicProfileUpdate(values: { email: string; pseudo: string }) {

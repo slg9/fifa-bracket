@@ -42,6 +42,13 @@ export function clearChallengeProfile() {
   window.dispatchEvent(new CustomEvent<StoredChallengeProfile>(CHALLENGE_PROFILE_EVENT, { detail: emptyChallengeProfile }))
 }
 
+export function clearBrakupLocalSession() {
+  if (typeof window === 'undefined') return
+  window.localStorage.clear()
+  window.sessionStorage.clear()
+  window.dispatchEvent(new CustomEvent<StoredChallengeProfile>(CHALLENGE_PROFILE_EVENT, { detail: emptyChallengeProfile }))
+}
+
 export function subscribeChallengeProfile(callback: (profile: StoredChallengeProfile) => void) {
   if (typeof window === 'undefined') return () => undefined
 

@@ -21,7 +21,7 @@ import { blobToDataUrl, shareLink } from './shareImage'
 import { renderResultShareCanvas } from './shareCanvas'
 import { sfx } from '../lib/sfx'
 import { evaluateMatchProgress, formatScore, summarizeProgress, teamLabel, type OfficialScore, type RealScorer } from './progress'
-import { clearChallengeProfile, readChallengeProfile, subscribeChallengeProfile, writeChallengeProfile, type StoredChallengeProfile } from '../lib/challengeProfile'
+import { clearBrakupLocalSession, readChallengeProfile, subscribeChallengeProfile, writeChallengeProfile, type StoredChallengeProfile } from '../lib/challengeProfile'
 import { identifyAnalyticsProfile, trackAnalytics } from '../lib/analytics'
 import './challenge.css'
 
@@ -881,9 +881,7 @@ export function BrakupHub({
   }
 
   const handleLogout = () => {
-    localStorage.clear()
-    sessionStorage.clear()
-    clearChallengeProfile()
+    clearBrakupLocalSession()
     setAccessToken(null)
     setSavedProfile({ email: '', pseudo: '', bracketName: 'Mon bracket' })
     setHadAccount(false)
@@ -895,8 +893,26 @@ export function BrakupHub({
     setActiveBracketId(null)
     setViewedBracketEntry(null)
     setAutosavedAt(null)
+    setPendingEmail(null)
+    setPendingPseudo(null)
+    setLoginToken(null)
+    setLoginEmail(null)
+    setLoginError(null)
+    setLoginSent(false)
+    setLoginBusy(false)
+    setOtpError(null)
+    setOtpBusy(false)
+    setProfileError(null)
+    setProfileStatus(null)
+    setRemoteSeenOutcomeKeys([])
+    setSeenOutcomeVersion((version) => version + 1)
     setOutcomeNoticeKey(null)
+    setForcedOutcomeNotice(null)
     setOutcomeShareStatus('idle')
+    setOutcomeShareUrl(null)
+    if (outcomeSharePreviewUrl) URL.revokeObjectURL(outcomeSharePreviewUrl)
+    setOutcomeSharePreviewUrl(null)
+    setOutcomeSharePreviewOpen(false)
     setIsOutcomeCapturingShare(false)
     setShowEmailEntry(false)
     setShowLoginEntry(false)
