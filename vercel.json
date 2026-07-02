@@ -44,8 +44,10 @@
     { "source": "/share/result/:id", "destination": "/api/bracket-share?id=:id" },
     { "source": "/@:pseudo", "destination": "/" },
     { "source": "/challenge", "destination": "/" },
+    { "source": "/challenge/faq", "destination": "/" },
     { "source": "/en", "destination": "/" },
     { "source": "/en/challenge", "destination": "/" },
+    { "source": "/en/challenge/faq", "destination": "/" },
     { "source": "/en/(.*)", "destination": "/" }
   ]
 }
