@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { setGameAudioVolume, setGameMuted, useGameAudio, useGameAudioVolume, useGameMuted } from '../lib/useGameAudio'
 import { checkEmailExists, getBrackets, getProfileStatus, getSeenOutcomeKeys, markSeenOutcomeKeys, publishResultShare, requestOTP, resendMagicLink, submitBracket, updateProfile, verifyLoginOTP, verifyOTP } from '../lib/challengeData'
-import { alternateLanguageHref, localizedChallengeHref, type Locale } from '../lib/i18n'
+import { alternateLanguageHref, localizedChallengeGuideHref, localizedChallengeHref, type Locale } from '../lib/i18n'
 import { buildKnockoutBracket, knockoutTemplates } from '../lib/tournament'
 import type { BattleDifficultySetting, BattleResult, BattleScorer, ChallengeBreakdown, ChallengeEntry, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team, TournamentSeed } from '../types'
 import BattleEngine from '../components/battle/BattleEngine'
@@ -47,7 +47,7 @@ export interface BrakupHubProps {
   locale?: Locale
 }
 
-type HubView = 'challenge' | 'battle' | 'brackets' | 'board' | 'viewBracket'
+type HubView = 'challenge' | 'battle' | 'brackets' | 'board' | 'viewBracket' | 'guide'
 type SavedProfile = StoredChallengeProfile
 
 const AUTOSAVE_STORAGE_KEY = 'brakup:autosave-at'
@@ -207,6 +207,8 @@ function resolveMatches(baseMatches: KnockoutMatch[], picks: Record<string, stri
 }
 
 function readInitialView(): HubView {
+  const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/'
+  if (normalizedPath === '/challenge/faq' || normalizedPath === '/en/challenge/faq') return 'guide'
   const params = new URLSearchParams(window.location.search)
   if (params.has('board')) return 'board'
   if (params.has('brackets')) return 'brackets'
@@ -214,96 +216,105 @@ function readInitialView(): HubView {
   return 'challenge'
 }
 
-function ChallengeSeoContent({ locale }: { locale: Locale }) {
+function ChallengeGuidePage({ locale }: { locale: Locale }) {
+  const challengeHref = localizedChallengeHref(locale)
+
   if (locale === 'en') {
     return (
-      <section className="brakup-seo-content" aria-labelledby="challenge-seo-title">
-        <p className="brakup-seo-content__eyebrow">World Cup 2026 bracket challenge</p>
-        <h1 id="challenge-seo-title">Build your Brakup Challenge World Cup 2026 bracket</h1>
-        <p>
-          Brakup is a World Cup 2026 prediction game built for friends: choose knockout winners,
-          predict scores, play football mini-games and follow your points on the leaderboard.
-        </p>
-        <div id="brakup-map-info" className="brakup-seo-content__grid">
-          <article>
-            <h2>How does the Brakup Challenge work?</h2>
-            <p>Start from the match map, pick a side for each fixture and confirm your prediction by playing the arcade match.</p>
-          </article>
-          <article>
-            <h2>How do I create a World Cup 2026 bracket?</h2>
-            <p>Resolve every knockout fixture, save your bracket with a pseudo and come back when real results update your score.</p>
-          </article>
-          <article>
-            <h2>How are points calculated?</h2>
-            <p>You score points for correct winners, exact scores, scorers and bonus streaks earned through the Brakup game mode.</p>
-          </article>
-          <article>
-            <h2>Can I play without an account?</h2>
-            <p>Yes. You can build a local bracket first, then sync it later to publish your score and compare with friends.</p>
-          </article>
-        </div>
-        <div id="brakup-map-faq" className="brakup-seo-content__faq" aria-label="World Cup 2026 Challenge FAQ">
-          <h2>World Cup 2026 Challenge FAQ</h2>
-          <details open>
-            <summary>What is the Brakup Challenge?</summary>
-            <p>A football prediction challenge mixing a World Cup bracket predictor, arcade mini-games and leaderboard scoring.</p>
-          </details>
-          <details>
-            <summary>Can I share my challenge with friends?</summary>
-            <p>Yes. Brakup can share your bracket, match results and leaderboard position.</p>
-          </details>
-          <details>
-            <summary>How is Brakup different from a simple bracket?</summary>
-            <p>Brakup makes each pick playable: a selected winner is only confirmed on the map after a real mini-game result.</p>
-          </details>
-        </div>
-      </section>
+      <main className="brakup-phone-shell brakup-guide-page">
+        <section className="brakup-seo-content" aria-labelledby="challenge-guide-title">
+          <p className="brakup-seo-content__eyebrow">World Cup 2026 bracket challenge</p>
+          <h1 id="challenge-guide-title">How to play Brakup Challenge</h1>
+          <p>
+            Brakup is a World Cup 2026 prediction game built for friends: choose knockout winners,
+            predict scores, play football mini-games and follow your points on the leaderboard.
+          </p>
+          <div className="brakup-seo-content__grid">
+            <article>
+              <h2>Start from the match map</h2>
+              <p>Open the map, select the live fixture, pick a side and launch the arcade match to confirm your prediction.</p>
+            </article>
+            <article>
+              <h2>Create your World Cup bracket</h2>
+              <p>Resolve every knockout fixture, save your bracket with a pseudo and come back when real results update your score.</p>
+            </article>
+            <article>
+              <h2>Score points</h2>
+              <p>You score points for correct winners, exact scores, scorers and bonus streaks earned through Brakup game mode.</p>
+            </article>
+            <article>
+              <h2>Play without an account</h2>
+              <p>You can build a local bracket first, then sync it later to publish your score and compare with friends.</p>
+            </article>
+          </div>
+          <div className="brakup-seo-content__faq" aria-label="World Cup 2026 Challenge FAQ">
+            <h2>World Cup 2026 Challenge FAQ</h2>
+            <details open>
+              <summary>What is the Brakup Challenge?</summary>
+              <p>A football prediction challenge mixing a World Cup bracket predictor, arcade mini-games and leaderboard scoring.</p>
+            </details>
+            <details>
+              <summary>Can I share my challenge with friends?</summary>
+              <p>Yes. Brakup can share your bracket, match results and leaderboard position.</p>
+            </details>
+            <details>
+              <summary>How is Brakup different from a simple bracket?</summary>
+              <p>Brakup makes each pick playable: a selected winner is confirmed on the map after a mini-game result.</p>
+            </details>
+          </div>
+          <a className="brakup-button brakup-guide-page__cta" href={challengeHref}>Play Brakup Challenge</a>
+        </section>
+      </main>
     )
   }
 
   return (
-    <section className="brakup-seo-content" aria-labelledby="challenge-seo-title">
-      <p className="brakup-seo-content__eyebrow">Challenge Coupe du Monde 2026</p>
-      <h1 id="challenge-seo-title">Crée ton Brakup Challenge Coupe du Monde 2026</h1>
-      <p>
-        Brakup est un jeu de prédiction Coupe du Monde 2026 pensé pour jouer entre amis :
-        crée ton bracket, prédis les scores, lance des mini-jeux foot arcade et grimpe au classement.
-      </p>
-      <div id="brakup-map-info" className="brakup-seo-content__grid">
-        <article>
-          <h2>Comment fonctionne le Brakup Challenge ?</h2>
-          <p>Tu pars de la carte des matchs, tu choisis ton camp sur chaque affiche puis tu confirmes ton prono en jouant le match.</p>
-        </article>
-        <article>
-          <h2>Comment créer un bracket Coupe du Monde 2026 ?</h2>
-          <p>Résous chaque phase finale, sauvegarde ton bracket avec un pseudo et reviens quand les vrais résultats mettent ton score à jour.</p>
-        </article>
-        <article>
-          <h2>Comment sont calculés les points ?</h2>
-          <p>Tu marques des points avec les bons vainqueurs, les scores exacts, les buteurs et les bonus de série gagnés dans le mode Brakup.</p>
-        </article>
-        <article>
-          <h2>Peut-on jouer sans compte ?</h2>
-          <p>Oui. Tu peux préparer un bracket local, puis le synchroniser ensuite pour publier ton score et te comparer aux autres joueurs.</p>
-        </article>
-      </div>
-      <div id="brakup-map-faq" className="brakup-seo-content__faq" aria-label="FAQ Coupe du Monde 2026 Challenge">
-        <h2>FAQ Coupe du Monde 2026 Challenge</h2>
-        <details open>
-          <summary>Qu’est-ce que le Brakup Challenge ?</summary>
-          <p>Un challenge de pronostic foot qui mélange bracket Coupe du Monde, mini-jeux arcade et classement entre joueurs.</p>
-        </details>
-        <details>
-          <summary>Peut-on partager son challenge avec ses amis ?</summary>
-          <p>Oui. Brakup permet de partager ton bracket, tes résultats de match et ta place au classement.</p>
-        </details>
-        <details>
-          <summary>Quelle est la différence avec un simple bracket ?</summary>
-          <p>Brakup rend chaque choix jouable : un vainqueur sélectionné est confirmé sur la carte seulement après un vrai résultat de mini-jeu.</p>
-        </details>
-      </div>
-    </section>
+    <main className="brakup-phone-shell brakup-guide-page">
+      <section className="brakup-seo-content" aria-labelledby="challenge-guide-title">
+        <p className="brakup-seo-content__eyebrow">Challenge Coupe du Monde 2026</p>
+        <h1 id="challenge-guide-title">Comment jouer au Brakup Challenge</h1>
+        <p>
+          Brakup est un jeu de prediction Coupe du Monde 2026 pense pour jouer entre amis :
+          cree ton bracket, predis les scores, lance des mini-jeux foot arcade et grimpe au classement.
+        </p>
+        <div className="brakup-seo-content__grid">
+          <article>
+            <h2>Pars de la carte des matchs</h2>
+            <p>Ouvre la carte, selectionne le match disponible, choisis ton camp puis lance le mini-jeu pour confirmer ton prono.</p>
+          </article>
+          <article>
+            <h2>Cree ton bracket Coupe du Monde</h2>
+            <p>Resous chaque phase finale, sauvegarde ton bracket avec un pseudo et reviens quand les vrais resultats mettent ton score a jour.</p>
+          </article>
+          <article>
+            <h2>Marque des points</h2>
+            <p>Tu marques des points avec les bons vainqueurs, les scores exacts, les buteurs et les bonus de serie gagnes dans le mode Brakup.</p>
+          </article>
+          <article>
+            <h2>Joue sans compte</h2>
+            <p>Tu peux preparer un bracket local, puis le synchroniser ensuite pour publier ton score et te comparer aux autres joueurs.</p>
+          </article>
+        </div>
+        <div className="brakup-seo-content__faq" aria-label="FAQ Coupe du Monde 2026 Challenge">
+          <h2>FAQ Coupe du Monde 2026 Challenge</h2>
+          <details open>
+            <summary>Qu'est-ce que le Brakup Challenge ?</summary>
+            <p>Un challenge de pronostic foot qui melange bracket Coupe du Monde, mini-jeux arcade et classement entre joueurs.</p>
+          </details>
+          <details>
+            <summary>Peut-on partager son challenge avec ses amis ?</summary>
+            <p>Oui. Brakup permet de partager ton bracket, tes resultats de match et ta place au classement.</p>
+          </details>
+          <details>
+            <summary>Quelle est la difference avec un simple bracket ?</summary>
+            <p>Brakup rend chaque choix jouable : un vainqueur selectionne est confirme sur la carte apres un vrai resultat de mini-jeu.</p>
+          </details>
+        </div>
+        <a className="brakup-button brakup-guide-page__cta" href={challengeHref}>Jouer au Brakup Challenge</a>
+      </section>
+    </main>
   )
+
 }
 
 export function BrakupHub({
@@ -361,7 +372,6 @@ export function BrakupHub({
   const [otpError, setOtpError] = useState<string | null>(null)
   const [otpBusy, setOtpBusy] = useState(false)
   const [showGameMenu, setShowGameMenu] = useState(false)
-  const [showSeoReturn, setShowSeoReturn] = useState(false)
   const [showProfileSettings, setShowProfileSettings] = useState(false)
   const [profileStatus, setProfileStatus] = useState<Awaited<ReturnType<typeof getProfileStatus>> | null>(null)
   const [profileBusy, setProfileBusy] = useState(false)
@@ -601,32 +611,12 @@ export function BrakupHub({
     const query = nextParams.toString().replace(/=$/, '')
     window.history.pushState({}, '', `${localizedChallengeHref(locale)}${query ? `?${query}` : ''}`)
     setShowGameMenu(false)
-    setShowSeoReturn(false)
     setView(next)
     setActiveMatchId(matchId ?? null)
     trackAnalytics('challenge_navigation', { view: next, matchId }, 'challenge')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const scrollToMapSection = (sectionId: 'brakup-map-info' | 'brakup-map-faq') => {
-    setShowGameMenu(false)
-    setShowSeoReturn(true)
-    if (view !== 'challenge') {
-      navigate('challenge')
-      window.setTimeout(() => {
-        document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        setShowSeoReturn(true)
-      }, 80)
-      return
-    }
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
-  const returnToGameTop = () => {
-    sfx.tab()
-    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
-    setShowSeoReturn(false)
-  }
 
   const viewBracket = async (entry: ChallengeEntry) => {
     setViewedBracketEntry(entry)
@@ -1274,7 +1264,7 @@ export function BrakupHub({
   }
 
   return (
-    <div className={`brakup-shell${view === 'challenge' ? ' brakup-shell--map-only' : ''}${view === 'board' ? ' brakup-shell--board-page' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
+    <div className={`brakup-shell${view === 'challenge' ? ' brakup-shell--map-only' : ''}${view === 'board' ? ' brakup-shell--board-page' : ''}${view === 'guide' ? ' brakup-shell--guide-page' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
       {view === 'challenge' && !challengePreload.ready ? <ChallengeLoading progress={challengePreload.progress} /> : null}
       {showSplash && challengePreload.ready ? <ChallengeSplash onPlay={() => setShowSplash(false)} /> : null}
       <header className="brakup-topbar">
@@ -1282,6 +1272,7 @@ export function BrakupHub({
         <nav>
           <button type="button" className={view === 'challenge' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('challenge') }}>Challenge</button>
           <button type="button" className={view === 'board' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
+          <a className={`brakup-lang-switch${view === 'guide' ? ' is-active' : ''}`} href={localizedChallengeGuideHref(locale)}>FAQ</a>
           <a className="brakup-lang-switch" href={alternateLanguageHref(locale)} hrefLang={locale === 'en' ? 'fr' : 'en'}>{locale === 'en' ? 'FR' : 'EN'}</a>
         </nav>
       </header>
@@ -1303,18 +1294,14 @@ export function BrakupHub({
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={() => navigate('challenge')}>Retour au bracket</button></section> : null}
       {view === 'challenge' ? <>
         <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} scorers={scorers} realScorers={realScorers} realResults={realResults} officialScores={officialScoreMap} autosavedAt={autosavedAt} ownerPseudo={menuPseudo} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} onShowBracket={() => { sfx.bracket(); openBracketOverlay() }} />
-        <ChallengeSeoContent locale={locale} />
-        {showSeoReturn ? (
-          <button type="button" className="brakup-seo-return" onClick={returnToGameTop}>
-            Retour au jeu
-          </button>
-        ) : null}
         {!showBracket ? <button type="button" className="game-menu-button" onClick={() => { sfx.click(); setShowGameMenu(true) }} aria-label="Ouvrir le menu jeu">
           <span />
           <span />
           <span />
         </button> : null}
       </> : null}
+
+      {view === 'guide' ? <ChallengeGuidePage locale={locale} /> : null}
 
       {view === 'challenge' && showGameMenu ? (
         <div className="game-menu-modal" role="dialog" aria-modal="true" aria-label="Menu jeu">
@@ -1363,8 +1350,7 @@ export function BrakupHub({
             <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay() }}>Tableau</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); navigate('challenge') }}>Carte des matchs</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
-            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); scrollToMapSection('brakup-map-info') }}>Infos challenge</button>
-            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); scrollToMapSection('brakup-map-faq') }}>FAQ</button>
+            <a className="game-menu-modal__item" href={localizedChallengeGuideHref(locale)} onClick={() => { sfx.tab(); setShowGameMenu(false) }}>Comment jouer / FAQ</a>
             <button type="button" className="game-menu-modal__item" onClick={() => { setProfileError(null); setShowProfileSettings(true); setShowGameMenu(false) }}>Parametres du compte</button>
             <div className="game-menu-modal__section">
               <h3>Matchs du jour</h3>

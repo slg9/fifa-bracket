@@ -136,10 +136,23 @@
       (() => {
         const origin = 'https://brakup.app'
         const isEn = location.pathname === '/en' || location.pathname.startsWith('/en/')
-        const isChallenge = location.pathname === '/challenge'
+        const isChallengeGuide = location.pathname === '/challenge/faq'
+          || location.pathname === '/en/challenge/faq'
+        const isChallenge = isChallengeGuide
+          || location.pathname === '/challenge'
           || location.pathname === '/en/challenge'
           || new URLSearchParams(location.search).has('challenge')
-        const meta = isEn ? (isChallenge ? {
+        const meta = isEn ? (isChallengeGuide ? {
+          lang: 'en',
+          locale: 'en_US',
+          canonical: `${origin}/en/challenge/faq`,
+          title: 'How to play Brakup Challenge - World Cup 2026 FAQ',
+          description: 'Learn how to play Brakup Challenge, build your World Cup 2026 bracket, score points, save your prediction and challenge friends.',
+          imageAlt: 'Brakup Challenge - how to play and FAQ',
+          alternateFr: `${origin}/challenge/faq`,
+          alternateEn: `${origin}/en/challenge/faq`,
+          alternateDefault: `${origin}/challenge/faq`,
+        } : isChallenge ? {
           lang: 'en',
           locale: 'en_US',
           canonical: `${origin}/en/challenge`,
@@ -159,7 +172,17 @@
           alternateFr: `${origin}/`,
           alternateEn: `${origin}/en`,
           alternateDefault: `${origin}/`,
-        }) : (isChallenge ? {
+        }) : (isChallengeGuide ? {
+          lang: 'fr',
+          locale: 'fr_FR',
+          canonical: `${origin}/challenge/faq`,
+          title: 'Comment jouer au Brakup Challenge - FAQ Coupe du Monde 2026',
+          description: 'Decouvre comment jouer au Brakup Challenge, creer ton bracket Coupe du Monde 2026, marquer des points, sauvegarder ton prono et defier tes amis.',
+          imageAlt: 'Brakup Challenge - comment jouer et FAQ',
+          alternateFr: `${origin}/challenge/faq`,
+          alternateEn: `${origin}/en/challenge/faq`,
+          alternateDefault: `${origin}/challenge/faq`,
+        } : isChallenge ? {
           lang: 'fr',
           locale: 'fr_FR',
           canonical: `${origin}/challenge`,

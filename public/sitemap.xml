@@ -37,4 +37,22 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://brakup.app/en/challenge" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://brakup.app/challenge" />
   </url>
+  <url>
+    <loc>https://brakup.app/challenge/faq</loc>
+    <lastmod>2026-07-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://brakup.app/challenge/faq" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://brakup.app/en/challenge/faq" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://brakup.app/challenge/faq" />
+  </url>
+  <url>
+    <loc>https://brakup.app/en/challenge/faq</loc>
+    <lastmod>2026-07-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://brakup.app/challenge/faq" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://brakup.app/en/challenge/faq" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://brakup.app/challenge/faq" />
+  </url>
 </urlset>

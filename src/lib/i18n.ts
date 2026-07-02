@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 export type Locale = 'fr' | 'en'
-type SeoPage = 'home' | 'challenge'
+type SeoPage = 'home' | 'challenge' | 'challengeGuide'
 
 export const PROD_ORIGIN = 'https://brakup.app'
 
@@ -21,7 +21,7 @@ export function localizedRootPath(locale: Locale) {
 
 export function isChallengePath(pathname: string) {
   const normalized = pathname.replace(/\/+$/, '') || '/'
-  return normalized === '/challenge' || normalized === '/en/challenge'
+  return normalized === '/challenge' || normalized === '/en/challenge' || normalized === '/challenge/faq' || normalized === '/en/challenge/faq'
 }
 
 export function isChallengeRoute() {
@@ -33,6 +33,10 @@ export function localizedChallengeHref(locale: Locale) {
   return locale === 'en' ? '/en/challenge' : '/challenge'
 }
 
+export function localizedChallengeGuideHref(locale: Locale) {
+  return locale === 'en' ? '/en/challenge/faq' : '/challenge/faq'
+}
+
 function cleanSearch(search: string) {
   const params = new URLSearchParams(search)
   params.delete('challenge')
@@ -42,7 +46,10 @@ function cleanSearch(search: string) {
 
 export function localizedPath(locale: Locale, search = typeof window !== 'undefined' ? window.location.search : '', hash = typeof window !== 'undefined' ? window.location.hash : '') {
   if (typeof window !== 'undefined' && isChallengeRoute()) {
-    return `${localizedChallengeHref(locale)}${cleanSearch(search)}${hash}`
+    const path = isChallengeGuidePath(window.location.pathname)
+      ? localizedChallengeGuideHref(locale)
+      : localizedChallengeHref(locale)
+    return `${path}${cleanSearch(search)}${hash}`
   }
   const pathname = typeof window !== 'undefined' ? stripLocalePrefix(window.location.pathname) : '/'
   const basePath = locale === 'en' ? `/en${pathname === '/' ? '' : pathname}` : pathname
@@ -59,17 +66,25 @@ const SEO = {
       lang: 'fr',
       locale: 'fr_FR',
       canonical: `${PROD_ORIGIN}/`,
-      title: 'Brakup – Jeu Coupe du Monde 2026, bracket et mini-jeux foot',
-      description: 'Crée ton bracket Coupe du Monde 2026, prédis les scores, joue des mini-jeux foot arcade et partage ton challenge avec tes amis.',
+      title: 'Brakup - Jeu Coupe du Monde 2026, bracket et mini-jeux foot',
+      description: 'Cree ton bracket Coupe du Monde 2026, predis les scores, joue des mini-jeux foot arcade et partage ton challenge avec tes amis.',
       imageAlt: 'Brakup - jeu Coupe du Monde 2026',
     },
     challenge: {
       lang: 'fr',
       locale: 'fr_FR',
       canonical: `${PROD_ORIGIN}/challenge`,
-      title: 'Brakup Challenge – Crée ton bracket Coupe du Monde 2026',
-      description: 'Lance ton Brakup Challenge : crée ton bracket Coupe du Monde 2026, défie tes amis, prédis les matchs et tente de finir premier.',
+      title: 'Brakup Challenge - Cree ton bracket Coupe du Monde 2026',
+      description: 'Lance ton Brakup Challenge : cree ton bracket Coupe du Monde 2026, defie tes amis, predis les matchs et tente de finir premier.',
       imageAlt: 'Brakup Challenge - Coupe du Monde 2026',
+    },
+    challengeGuide: {
+      lang: 'fr',
+      locale: 'fr_FR',
+      canonical: `${PROD_ORIGIN}/challenge/faq`,
+      title: 'Comment jouer au Brakup Challenge - FAQ Coupe du Monde 2026',
+      description: 'Decouvre comment jouer au Brakup Challenge, creer ton bracket Coupe du Monde 2026, marquer des points, sauvegarder ton prono et defier tes amis.',
+      imageAlt: 'Brakup Challenge - comment jouer et FAQ',
     },
   },
   en: {
@@ -77,7 +92,7 @@ const SEO = {
       lang: 'en',
       locale: 'en_US',
       canonical: `${PROD_ORIGIN}/en`,
-      title: 'Brakup – World Cup 2026 game, bracket and football mini-games',
+      title: 'Brakup - World Cup 2026 game, bracket and football mini-games',
       description: 'Build your World Cup 2026 bracket, predict scores, play arcade football mini-games and share your challenge with friends.',
       imageAlt: 'Brakup - World Cup 2026 game',
     },
@@ -85,9 +100,17 @@ const SEO = {
       lang: 'en',
       locale: 'en_US',
       canonical: `${PROD_ORIGIN}/en/challenge`,
-      title: 'Brakup Challenge – Build your World Cup 2026 bracket',
+      title: 'Brakup Challenge - Build your World Cup 2026 bracket',
       description: 'Start your Brakup Challenge: build your World Cup 2026 bracket, challenge friends, predict matches and try to finish first.',
       imageAlt: 'Brakup Challenge - World Cup 2026',
+    },
+    challengeGuide: {
+      lang: 'en',
+      locale: 'en_US',
+      canonical: `${PROD_ORIGIN}/en/challenge/faq`,
+      title: 'How to play Brakup Challenge - World Cup 2026 FAQ',
+      description: 'Learn how to play Brakup Challenge, build your World Cup 2026 bracket, score points, save your prediction and challenge friends.',
+      imageAlt: 'Brakup Challenge - how to play and FAQ',
     },
   },
 } satisfies Record<Locale, Record<SeoPage, {
@@ -136,8 +159,8 @@ function removeJsonLd(id: string) {
 }
 
 function setAlternates(page: SeoPage) {
-  const frHref = `${PROD_ORIGIN}${page === 'challenge' ? localizedChallengeHref('fr') : localizedRootPath('fr')}`
-  const enHref = `${PROD_ORIGIN}${page === 'challenge' ? localizedChallengeHref('en') : localizedRootPath('en')}`
+  const frHref = `${PROD_ORIGIN}${page === 'challengeGuide' ? localizedChallengeGuideHref('fr') : page === 'challenge' ? localizedChallengeHref('fr') : localizedRootPath('fr')}`
+  const enHref = `${PROD_ORIGIN}${page === 'challengeGuide' ? localizedChallengeGuideHref('en') : page === 'challenge' ? localizedChallengeHref('en') : localizedRootPath('en')}`
   const defaultHref = frHref
   setHeadAttr('link[rel="alternate"][hreflang="fr"]', 'href', frHref)
   setHeadAttr('link[rel="alternate"][hreflang="en"]', 'href', enHref)
@@ -145,7 +168,13 @@ function setAlternates(page: SeoPage) {
 }
 
 function getCurrentSeoPage(): SeoPage {
+  if (typeof window !== 'undefined' && isChallengeGuidePath(window.location.pathname)) return 'challengeGuide'
   return isChallengeRoute() ? 'challenge' : 'home'
+}
+
+function isChallengeGuidePath(pathname: string) {
+  const normalized = pathname.replace(/\/+$/, '') || '/'
+  return normalized === '/challenge/faq' || normalized === '/en/challenge/faq'
 }
 
 function applySeo(locale: Locale) {
@@ -165,7 +194,7 @@ function applySeo(locale: Locale) {
   setHeadAttr('meta[name="twitter:image:alt"]', 'content', seo.imageAlt)
   setAlternates(page)
 
-  if (page === 'challenge') {
+  if (page === 'challengeGuide') {
     upsertJsonLd('brakup-faq-jsonld', {
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
