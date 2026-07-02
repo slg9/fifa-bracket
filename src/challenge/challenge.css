@@ -4270,36 +4270,19 @@
   box-shadow: 0 0 18px rgba(43, 255, 154, .18);
 }
 
+.brakup-team-action__icon svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .brakup-team-action__icon.is-duel {
   box-shadow: 0 0 18px rgba(255, 184, 0, .24);
-}
-
-.brakup-team-action__icon.is-pick::before {
-  content: '';
-  width: 15px;
-  height: 8px;
-  border-left: 4px solid currentColor;
-  border-bottom: 4px solid currentColor;
-  transform: translateY(-2px) rotate(-45deg);
-}
-
-.brakup-team-action__icon.is-duel::before,
-.brakup-team-action__icon.is-duel::after {
-  content: '';
-  position: absolute;
-  width: 4px;
-  height: 24px;
-  border-radius: 999px;
-  background: currentColor;
-  box-shadow: 0 0 10px currentColor;
-}
-
-.brakup-team-action__icon.is-duel::before {
-  transform: rotate(42deg);
-}
-
-.brakup-team-action__icon.is-duel::after {
-  transform: rotate(-42deg);
 }
 
 .brakup-team-action__choice strong {

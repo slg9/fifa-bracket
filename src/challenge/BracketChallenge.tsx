@@ -14,6 +14,25 @@ function BracketFlag({ team }: { team: Team }) {
   return <span>{team.flagEmoji}</span>
 }
 
+function TeamActionIcon({ type }: { type: 'pick' | 'duel' }) {
+  if (type === 'pick') {
+    return (
+      <svg viewBox="0 0 28 28" aria-hidden="true">
+        <path d="M6 14.4 11.2 20 22 8" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 28 28" aria-hidden="true">
+      <path d="M8 6 20 22" />
+      <path d="M20 6 8 22" />
+      <path d="M6.5 4.5 10 8" />
+      <path d="M21.5 4.5 18 8" />
+    </svg>
+  )
+}
+
 function pickBelongsToMatch(match: KnockoutMatch, teamId: string | null | undefined) {
   if (!teamId) return false
   return (match.home.kind === 'team' && match.home.teamId === teamId)
@@ -404,7 +423,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   onPick(action.matchId, action.teamId)
                 }}
               >
-                <i className="brakup-team-action__icon is-pick" aria-hidden="true" />
+                <i className="brakup-team-action__icon is-pick"><TeamActionIcon type="pick" /></i>
                 <strong>PICK</strong>
                 <span>Valide le prono</span>
               </button>
@@ -414,11 +433,12 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                 onClick={() => {
                   const action = teamAction
                   setTeamAction(null)
+                  onPick(action.matchId, action.teamId)
                   sfx.battle()
                   onPlay(action.matchId, action.teamId)
                 }}
               >
-                <i className="brakup-team-action__icon is-duel" aria-hidden="true" />
+                <i className="brakup-team-action__icon is-duel"><TeamActionIcon type="duel" /></i>
                 <strong>DUEL</strong>
                 <span>Joue ce camp</span>
               </button>
