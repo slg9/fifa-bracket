@@ -222,6 +222,7 @@ function ChallengeGuidePage({ locale }: { locale: Locale }) {
   if (locale === 'en') {
     return (
       <main className="brakup-phone-shell brakup-guide-page">
+        <div className="brakup-guide-page__top"><a className="brakup-guide-page__back" href={challengeHref}>Back to game</a></div>
         <section className="brakup-seo-content" aria-labelledby="challenge-guide-title">
           <p className="brakup-seo-content__eyebrow">World Cup 2026 bracket challenge</p>
           <h1 id="challenge-guide-title">How to play Brakup Challenge</h1>
@@ -262,7 +263,6 @@ function ChallengeGuidePage({ locale }: { locale: Locale }) {
               <p>Brakup makes each pick playable: a selected winner is confirmed on the map after a mini-game result.</p>
             </details>
           </div>
-          <a className="brakup-button brakup-guide-page__cta" href={challengeHref}>Play Brakup Challenge</a>
         </section>
       </main>
     )
@@ -270,6 +270,7 @@ function ChallengeGuidePage({ locale }: { locale: Locale }) {
 
   return (
     <main className="brakup-phone-shell brakup-guide-page">
+      <div className="brakup-guide-page__top"><a className="brakup-guide-page__back" href={challengeHref}>Retour au jeu</a></div>
       <section className="brakup-seo-content" aria-labelledby="challenge-guide-title">
         <p className="brakup-seo-content__eyebrow">Challenge Coupe du Monde 2026</p>
         <h1 id="challenge-guide-title">Comment jouer au Brakup Challenge</h1>
@@ -310,7 +311,6 @@ function ChallengeGuidePage({ locale }: { locale: Locale }) {
             <p>Brakup rend chaque choix jouable : un vainqueur selectionne est confirme sur la carte apres un vrai resultat de mini-jeu.</p>
           </details>
         </div>
-        <a className="brakup-button brakup-guide-page__cta" href={challengeHref}>Jouer au Brakup Challenge</a>
       </section>
     </main>
   )
@@ -1266,16 +1266,16 @@ export function BrakupHub({
   return (
     <div className={`brakup-shell${view === 'challenge' ? ' brakup-shell--map-only' : ''}${view === 'board' ? ' brakup-shell--board-page' : ''}${view === 'guide' ? ' brakup-shell--guide-page' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
       {view === 'challenge' && !challengePreload.ready ? <ChallengeLoading progress={challengePreload.progress} /> : null}
-      {showSplash && challengePreload.ready ? <ChallengeSplash onPlay={() => setShowSplash(false)} /> : null}
-      <header className="brakup-topbar">
+      {view === 'challenge' && showSplash && challengePreload.ready ? <ChallengeSplash onPlay={() => setShowSplash(false)} /> : null}
+      {view !== 'guide' ? <header className="brakup-topbar">
         <button type="button" className="brakup-brand" onClick={() => { sfx.tab(); navigate('challenge') }}><img src="/favicon-512.png" alt="" className="brakup-brand__ico" /><div><strong>BRAKUP</strong><small>World Cup Challenge</small></div></button>
         <nav>
           <button type="button" className={view === 'challenge' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('challenge') }}>Challenge</button>
           <button type="button" className={view === 'board' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
-          <a className={`brakup-lang-switch${view === 'guide' ? ' is-active' : ''}`} href={localizedChallengeGuideHref(locale)}>FAQ</a>
+          <a className="brakup-lang-switch" href={localizedChallengeGuideHref(locale)}>FAQ</a>
           <a className="brakup-lang-switch" href={alternateLanguageHref(locale)} hrefLang={locale === 'en' ? 'fr' : 'en'}>{locale === 'en' ? 'FR' : 'EN'}</a>
         </nav>
-      </header>
+      </header> : null}
       {view === 'battle' && activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team' ? (
         <BattleEngine 
           match={activeMatch} 
@@ -1548,3 +1548,4 @@ export function BrakupHub({
 }
 
 export default BrakupHub
+

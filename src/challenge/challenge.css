@@ -3781,10 +3781,6 @@
 }
 
 
-.brakup-shell--guide-page .brakup-topbar {
-  position: sticky;
-}
-
 .brakup-guide-page {
   max-width: 980px;
   padding-bottom: 48px;
@@ -3801,4 +3797,32 @@
   justify-content: center;
   margin-top: 28px;
   text-decoration: none;
+}
+
+.brakup-guide-page__top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: flex-start;
+  padding: max(12px, env(safe-area-inset-top)) 16px 10px;
+  background: rgba(5, 11, 22, .92);
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  backdrop-filter: blur(14px);
+}
+
+.brakup-guide-page__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(43, 255, 154, .42);
+  border-radius: 999px;
+  background: rgba(43, 255, 154, .12);
+  color: #eafff6;
+  font: 900 12px 'Barlow Condensed', sans-serif;
+  letter-spacing: .1em;
+  text-decoration: none;
+  text-transform: uppercase;
 }
