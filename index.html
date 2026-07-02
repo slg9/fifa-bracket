@@ -141,6 +141,7 @@
           || location.pathname === '/challenge'
           || location.pathname === '/en/challenge'
           || new URLSearchParams(location.search).has('challenge')
+        const localizedImage = `${origin}/${isEn ? 'og-image-en.png' : 'og-image.png'}`
         const meta = isEn ? (isChallengeGuide ? {
           lang: 'en',
           locale: 'en_US',
@@ -214,9 +215,12 @@
         setAttr('meta[property="og:url"]', 'content', meta.canonical)
         setAttr('meta[property="og:title"]', 'content', meta.title)
         setAttr('meta[property="og:description"]', 'content', meta.description)
+        setAttr('meta[property="og:image"]', 'content', localizedImage)
+        setAttr('meta[property="og:image:secure_url"]', 'content', localizedImage)
         setAttr('meta[property="og:image:alt"]', 'content', meta.imageAlt)
         setAttr('meta[name="twitter:title"]', 'content', meta.title)
         setAttr('meta[name="twitter:description"]', 'content', meta.description)
+        setAttr('meta[name="twitter:image"]', 'content', localizedImage)
         setAttr('meta[name="twitter:image:alt"]', 'content', meta.imageAlt)
         setAttr('link[rel="alternate"][hreflang="fr"]', 'href', meta.alternateFr)
         setAttr('link[rel="alternate"][hreflang="en"]', 'href', meta.alternateEn)

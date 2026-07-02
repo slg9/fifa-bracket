@@ -68,6 +68,7 @@ const SEO = {
       canonical: `${PROD_ORIGIN}/`,
       title: 'Brakup - Jeu Coupe du Monde 2026, bracket et mini-jeux foot',
       description: 'Cree ton bracket Coupe du Monde 2026, predis les scores, joue des mini-jeux foot arcade et partage ton challenge avec tes amis.',
+      image: `${PROD_ORIGIN}/og-image.png`,
       imageAlt: 'Brakup - jeu Coupe du Monde 2026',
     },
     challenge: {
@@ -76,6 +77,7 @@ const SEO = {
       canonical: `${PROD_ORIGIN}/challenge`,
       title: 'Brakup Challenge - Cree ton bracket Coupe du Monde 2026',
       description: 'Lance ton Brakup Challenge : cree ton bracket Coupe du Monde 2026, defie tes amis, predis les matchs et tente de finir premier.',
+      image: `${PROD_ORIGIN}/og-image.png`,
       imageAlt: 'Brakup Challenge - Coupe du Monde 2026',
     },
     challengeGuide: {
@@ -84,6 +86,7 @@ const SEO = {
       canonical: `${PROD_ORIGIN}/challenge/faq`,
       title: 'Comment jouer au Brakup Challenge - FAQ Coupe du Monde 2026',
       description: 'Decouvre comment jouer au Brakup Challenge, creer ton bracket Coupe du Monde 2026, marquer des points, sauvegarder ton prono et defier tes amis.',
+      image: `${PROD_ORIGIN}/og-image.png`,
       imageAlt: 'Brakup Challenge - comment jouer et FAQ',
     },
   },
@@ -94,6 +97,7 @@ const SEO = {
       canonical: `${PROD_ORIGIN}/en`,
       title: 'Brakup - World Cup 2026 game, bracket and football mini-games',
       description: 'Build your World Cup 2026 bracket, predict scores, play arcade football mini-games and share your challenge with friends.',
+      image: `${PROD_ORIGIN}/og-image-en.png`,
       imageAlt: 'Brakup - World Cup 2026 game',
     },
     challenge: {
@@ -102,6 +106,7 @@ const SEO = {
       canonical: `${PROD_ORIGIN}/en/challenge`,
       title: 'Brakup Challenge - Build your World Cup 2026 bracket',
       description: 'Start your Brakup Challenge: build your World Cup 2026 bracket, challenge friends, predict matches and try to finish first.',
+      image: `${PROD_ORIGIN}/og-image-en.png`,
       imageAlt: 'Brakup Challenge - World Cup 2026',
     },
     challengeGuide: {
@@ -110,6 +115,7 @@ const SEO = {
       canonical: `${PROD_ORIGIN}/en/challenge/faq`,
       title: 'How to play Brakup Challenge - World Cup 2026 FAQ',
       description: 'Learn how to play Brakup Challenge, build your World Cup 2026 bracket, score points, save your prediction and challenge friends.',
+      image: `${PROD_ORIGIN}/og-image-en.png`,
       imageAlt: 'Brakup Challenge - how to play and FAQ',
     },
   },
@@ -119,6 +125,7 @@ const SEO = {
   canonical: string
   title: string
   description: string
+  image: string
   imageAlt: string
 }>>
 
@@ -188,9 +195,12 @@ function applySeo(locale: Locale) {
   setHeadAttr('meta[property="og:url"]', 'content', seo.canonical)
   setHeadAttr('meta[property="og:title"]', 'content', seo.title)
   setHeadAttr('meta[property="og:description"]', 'content', seo.description)
+  setHeadAttr('meta[property="og:image"]', 'content', seo.image)
+  setHeadAttr('meta[property="og:image:secure_url"]', 'content', seo.image)
   setHeadAttr('meta[property="og:image:alt"]', 'content', seo.imageAlt)
   setHeadAttr('meta[name="twitter:title"]', 'content', seo.title)
   setHeadAttr('meta[name="twitter:description"]', 'content', seo.description)
+  setHeadAttr('meta[name="twitter:image"]', 'content', seo.image)
   setHeadAttr('meta[name="twitter:image:alt"]', 'content', seo.imageAlt)
   setAlternates(page)
 
