@@ -1380,9 +1380,6 @@ function getShareText(url: string) {
       <div className="bracket-shell__toolbar">
         <div className="bracket-shell__copy">
           <div className="bracket-shell__title">Tableau final</div>
-          <div className="bracket-shell__hint">
-            {focusTeamId ? `Parcours mis en avant: ${teamsById.get(focusTeamId)?.name ?? 'Equipe'}` : null}
-          </div>
         </div>
 
         <div className="bracket-toolbar">
