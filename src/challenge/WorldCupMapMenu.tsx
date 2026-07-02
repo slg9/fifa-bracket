@@ -487,6 +487,21 @@ function LevelEntryScreen({
   const canSharePlayedMatch = canShare && Boolean(node.pickedTeamId && displayScore) && node.status === 'completed'
   const hasPreselectedWinner = node.status === 'picked' && Boolean(node.pickedTeamId)
   const schedule = knockoutKickoffById[node.match.id]
+  const actionTitle = isClosed
+    ? 'Rejouer ce match'
+    : canReplayPlayedMatch
+      ? 'Rejouer ce match'
+      : hasPreselectedWinner
+        ? 'Confirme ton prono'
+        : 'Choisis une equipe'
+  const actionHint = isClosed
+    ? 'Choisis un camp pour rejouer le scenario officiel et tenter les points Brakup.'
+    : canReplayPlayedMatch
+      ? 'Touche une equipe pour relancer ce match avec elle.'
+      : hasPreselectedWinner
+        ? 'Le flag selectionne lance le match avec ton vainqueur choisi.'
+        : "Le match demarre avec l'equipe que tu touches."
+  const showStatusHint = node.status === 'locked' || node.status === 'live' || node.status === 'available'
 
   return (
     <div className="wcmap-entry" role="dialog" aria-modal="true">
@@ -505,7 +520,7 @@ function LevelEntryScreen({
           {schedule?.venue ? <strong>{schedule.venue}</strong> : <strong>Stade a confirmer</strong>}
         </div>
 
-        <p className="wcmap-entry__hint">{getStatusHint(node.status)}</p>
+        {showStatusHint ? <p className="wcmap-entry__hint">{getStatusHint(node.status)}</p> : null}
 
         {(((node.status === 'completed' || node.status === 'picked') && node.pickedTeamId) || (isClosed && resultWinnerTeam)) ? (
           <div className="wcmap-entry__result">
@@ -550,16 +565,6 @@ function LevelEntryScreen({
                 <strong>Score officiel en attente</strong>
                 <span>Ton jeu {formatScore(displayScore)} est sauvegarde. Des que FIFA synchronise ce match, la map affichera reussi ou rate.</span>
               </div>
-            ) : isClosed ? (
-              <div className="wcmap-entry__verdict is-pending">
-                <strong>Replay officiel</strong>
-                <span>Essaie de reproduire le scenario du match pour recevoir un max de points. Ton resultat Brakup ne modifiera pas le bracket officiel.</span>
-              </div>
-            ) : hasPreselectedWinner ? (
-              <div className="wcmap-entry__verdict is-pending">
-                <strong>A confirmer sur le terrain</strong>
-                <span>Ton vainqueur est pret. Lance le match avec ce camp pour enregistrer un vrai score et des buteurs.</span>
-              </div>
             ) : null}
             {scorers.length ? (
               <div className="wcmap-entry__scorers">
@@ -578,8 +583,8 @@ function LevelEntryScreen({
 
         {(node.status !== 'completed' && !isClosed) || canReplayPlayedMatch || canReplayOfficialMatch ? (
           <div className="wcmap-entry__choose">
-            <span>{isClosed ? 'Rejoue le scenario officiel' : hasPreselectedWinner ? 'Confirme ton prono' : 'Choisis une equipe'}</span>
-            <small>{isClosed ? "Choisis un camp: c'est pour le fun et le scoring, pas pour changer la route du bracket." : canReplayPlayedMatch ? "Touche une equipe pour rejouer ce match avec elle." : hasPreselectedWinner ? "Le flag selectionne lance le match avec ton vainqueur choisi." : "Le match demarre avec l'equipe que tu touches."}</small>
+            <span>{actionTitle}</span>
+            <small>{actionHint}</small>
           </div>
         ) : null}
 
