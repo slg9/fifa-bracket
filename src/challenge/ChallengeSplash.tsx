@@ -22,6 +22,9 @@ export function ChallengeSplash({ onPlay }: ChallengeSplashProps) {
     <div className={`splash${leaving ? ' is-leaving' : ''}`}>
       <div className="splash__frame">
         <div className="splash__bg" />
+        <a className="splash__close" href="/" aria-label="Retour a l'accueil">
+          ×
+        </a>
         <div className="splash__content">
           <button type="button" className={`splash__cta${leaving ? ' is-pressed' : ''}`} onClick={handlePlay}>
             <span className="splash__ring" />

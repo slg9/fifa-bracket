@@ -2805,6 +2805,10 @@ function App() {
           <img src="/brakup-challenge-logo-wc.png" alt="BRAKUP" className="brand__logo" />
         </div>
 
+        <a href={localizedChallengeHref(locale)} className="topbar__mobile-play" aria-label="Jouer au Brakup Challenge">
+          Jouer
+        </a>
+
         {shouldDockBracketHeader ? <div className="topbar__center">Tableau final</div> : null}
 
         <div className="topactions topactions--bracket-only">

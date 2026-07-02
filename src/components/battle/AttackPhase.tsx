@@ -65,6 +65,7 @@ const ROULETTE_ACTIVE_START = 90
 const ROULETTE_ACTIVE_END = 720
 const ROULETTE_COOLDOWN = 760
 const FEVER_DURATION = 3600
+const SUPER_ATTACKER_DURATION = 4300
 const ATTACK_MAX_LIVES = 3
 const ATTACK_GHOST_DURATION = 1550
 
@@ -120,6 +121,7 @@ type SlalomWave = {
   passed: boolean
   checked: boolean
   failed?: boolean
+  superBlasted?: boolean
   requiresJump?: boolean
   requiresRoulette?: boolean
   hasBonus?: boolean
@@ -583,6 +585,7 @@ export function AttackPhase({
   const slowmoUntilRef = useRef(0)
   const wideGateUntilRef = useRef(0)
   const blastNextWaveRef = useRef(false)
+  const superAttackerUntilRef = useRef(0)
   const attackLivesRef = useRef(ATTACK_MAX_LIVES)
   const ghostUntilRef = useRef(0)
   const keysRef         = useRef({ left: false, right: false })
@@ -603,6 +606,7 @@ export function AttackPhase({
   const [flow, setFlow] = useState(0)
   const [bonusFlash, setBonusFlash] = useState(false)
   const [bonusAuraActive, setBonusAuraActive] = useState(false)
+  const [superAttackerActive, setSuperAttackerActive] = useState(false)
   const [dashActive, setDashActive] = useState(false)
   const [rouletteActive, setRouletteActive] = useState(false)
   const [attackLives, setAttackLives] = useState(ATTACK_MAX_LIVES)
@@ -735,12 +739,14 @@ export function AttackPhase({
     slowmoUntilRef.current = 0
     wideGateUntilRef.current = 0
     blastNextWaveRef.current = false
+    superAttackerUntilRef.current = 0
     attackLivesRef.current = ATTACK_MAX_LIVES
     ghostUntilRef.current = 0
     shotBonusRef.current = { widerGreen: 0, slowKeeper: 0, powerShot: false }
     setComboDisplay(0)
     setFlow(0)
     setBonusFlash(false)
+    setSuperAttackerActive(false)
     setDashActive(false)
     setRouletteActive(false)
     setAttackLives(ATTACK_MAX_LIVES)
@@ -858,10 +864,16 @@ export function AttackPhase({
         setPowerupLabel('PORTE LARGE')
         auraDuration = 4200
       } else {
-        blastNextWaveRef.current = true
+        const now = performance.now()
+        blastNextWaveRef.current = false
+        superAttackerUntilRef.current = now + SUPER_ATTACKER_DURATION
         shotBonusRef.current.widerGreen += 0.35
-        setPowerupLabel('BOMBE CLEAN - NEXT WAVE')
-        auraDuration = 2400
+        setSuperAttackerActive(true)
+        window.setTimeout(() => {
+          if (performance.now() >= superAttackerUntilRef.current) setSuperAttackerActive(false)
+        }, SUPER_ATTACKER_DURATION + 60)
+        setPowerupLabel('BOULE DE FEU - SUPER ATTAQUANT')
+        auraDuration = SUPER_ATTACKER_DURATION
       }
       activateBonusAura(auraDuration)
       setBonusFlash(true)
@@ -1082,13 +1094,16 @@ export function AttackPhase({
         const roulette = getRouletteState(now)
         const ghostActiveNow = now < ghostUntilRef.current
 
-        if (blastNextWaveRef.current && wall.type !== 'bonus_choice') {
-          blastNextWaveRef.current = false
+        const superAttackerNow = now < superAttackerUntilRef.current
+        if ((superAttackerNow || blastNextWaveRef.current) && wall.type !== 'bonus_choice') {
+          if (!superAttackerNow) blastNextWaveRef.current = false
           wall.passed = true
+          wall.superBlasted = true
           registerDribbleSuccess(wall, { label: 'EXPLOSION !', quality: 'perfect' })
           gdCheckedRef.current++
           setGdWallsDisplay([...gdWallsRef.current])
-          setGdComment('RANGEE EXPLOSEE !')
+          sfx.kamikaze()
+          setGdComment(superAttackerNow ? 'SUPER ATTAQUANT !' : 'RANGEE EXPLOSEE !')
           if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
           commentTimerRef.current = setTimeout(() => setGdComment(null), 760)
           continue
@@ -1458,7 +1473,7 @@ export function AttackPhase({
 
   return (
     <section
-      className={`atk-root is-${phase}`}
+      className={`atk-root is-${phase}${superAttackerActive ? ' is-super-attacker' : ''}`}
       ref={containerRef}
       style={{ touchAction: 'none', userSelect: 'none' }}
       onPointerMove={(e) => {
@@ -1658,6 +1673,14 @@ export function AttackPhase({
         .atk-control-ghost__trail::after { content:''; position:absolute; left:50%; top:50%; width:18px; height:18px; border-radius:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,.82); box-shadow:0 0 14px rgba(43,255,154,.72); animation:atkGhostFinger 1.75s ease-in-out infinite; }
 
         .atk-slalom-wave.is-moving { animation: atkWaveDrift var(--atk-wave-duration,1.4s) ease-in-out var(--atk-wave-delay,0s) infinite alternate; }
+        .atk-root.is-super-attacker .atk-gd { filter:saturate(1.22) contrast(1.06); background:radial-gradient(circle at 50% 74%,rgba(255,184,0,.24),transparent 28%),linear-gradient(180deg,#020306,#06110c 55%,#0c1510); }
+        .atk-root.is-super-attacker .atk-gd::after { content:'SUPER ATTAQUANT'; position:absolute; left:50%; top:18%; transform:translateX(-50%); z-index:26; color:#FFB800; font:900 22px 'Barlow Condensed',sans-serif; letter-spacing:.2em; text-shadow:0 0 28px rgba(255,184,0,.9); pointer-events:none; animation:atkSuperFocus .34s ease-in-out infinite alternate; }
+        .atk-root.is-super-attacker .atk-gd-player::before { content:''; position:absolute; left:50%; top:44%; width:128px; height:150px; border-radius:999px; transform:translate(-50%,-50%); z-index:-1; pointer-events:none; background:radial-gradient(ellipse,rgba(255,216,74,.56),rgba(255,68,85,.2) 48%,transparent 72%); box-shadow:0 0 52px rgba(255,184,0,.92), inset 0 0 34px rgba(255,255,255,.24); animation:atkBonusAura .34s ease-in-out infinite alternate; }
+        .atk-root.is-super-attacker .atk-player-inner { filter:drop-shadow(0 0 30px rgba(255,216,74,1)) drop-shadow(0 0 22px rgba(255,68,85,.74)); }
+        .atk-slalom-wave.is-super-blasted .atk-slalom-gate,
+        .atk-slalom-wave.is-super-blasted .atk-slide-wall { animation:atkSuperGateBlast .54s cubic-bezier(.12,.78,.22,1) both; }
+        .atk-slalom-wave.is-super-blasted .atk-slalom-defender { animation:atkSuperDefenderBlast .58s cubic-bezier(.14,.84,.22,1) both; filter:drop-shadow(0 0 26px rgba(255,184,0,.95)); }
+        .atk-slalom-wave.is-super-blasted::after { content:'BOOM'; position:absolute; left:50%; top:-24px; transform:translateX(-50%); z-index:18; color:#fff; font:900 24px 'Barlow Condensed',sans-serif; letter-spacing:.18em; text-shadow:0 0 28px rgba(255,184,0,1); animation:atkSuperBoom .55s ease-out both; }
         @keyframes atkWaveDrift { from{ transform:translateX(calc(var(--atk-wave-shift,0%) * -1)); } to{ transform:translateX(var(--atk-wave-shift,0%)); } }
         .atk-slalom-gate {
           position: absolute;
@@ -1693,13 +1716,14 @@ export function AttackPhase({
         .atk-slalom-gate.is-bonus { border-color:#FFB800; color:#2b1800; background:radial-gradient(ellipse at center,rgba(255,184,0,.28),rgba(255,184,0,.08) 72%,transparent 100%); box-shadow:0 0 30px rgba(255,184,0,.48), inset 0 0 18px rgba(255,255,255,.18); }
         .atk-slalom-gate.is-bonus::before { background:#FFB800; box-shadow:0 0 16px rgba(255,184,0,.9); }
         .atk-slalom-gate.is-bonus .atk-slalom-gate__label { color:#fff2bf; text-shadow:0 0 12px rgba(255,184,0,.95); }
-        .atk-bonus-orb { position:absolute; left:50%; top:-18px; transform:translateX(-50%); min-width:30px; height:30px; padding:0 5px; border-radius:999px; display:grid; place-items:center; background:linear-gradient(180deg,#fff2b6,#ffb800); color:#1e1300; font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.05em; border:2px solid rgba(255,255,255,.72); box-shadow:0 0 20px rgba(255,184,0,.72); animation:atkBonusOrb 1s ease-in-out infinite alternate; }
+        .atk-bonus-orb { position:absolute; left:50%; top:-26px; transform:translateX(-50%); min-width:44px; height:44px; padding:0 7px; border-radius:999px; display:grid; place-items:center; background:linear-gradient(180deg,#fff9c7,#ffb800); color:#1e1300; font:900 11px 'Barlow Condensed',sans-serif; letter-spacing:.06em; border:3px solid rgba(255,255,255,.88); box-shadow:0 0 0 8px rgba(255,184,0,.14),0 0 34px rgba(255,184,0,.9),0 0 72px rgba(255,184,0,.44); animation:atkBonusOrb 0.46s ease-in-out infinite alternate; }
+        .atk-bonus-orb::before { content:''; position:absolute; inset:-15px; border-radius:inherit; border:2px solid rgba(255,216,74,.72); box-shadow:0 0 34px rgba(255,184,0,.76), inset 0 0 24px rgba(255,255,255,.2); animation:atkBonusHalo .72s ease-out infinite; }
         .atk-bonus-orb.is-boots { background:linear-gradient(180deg,#bdfcff,#19d3ff); color:#01141b; box-shadow:0 0 20px rgba(25,211,255,.72); }
         .atk-bonus-orb.is-whistle { background:linear-gradient(180deg,#d8ffba,#2bff9a); color:#03160c; box-shadow:0 0 20px rgba(43,255,154,.72); }
         .atk-bonus-orb.is-slowmo { background:linear-gradient(180deg,#e7d5ff,#a855f7); color:#17051f; box-shadow:0 0 20px rgba(168,85,247,.72); }
         .atk-bonus-orb.is-wide { background:linear-gradient(180deg,#d8ffba,#b8ff6a); color:#132100; box-shadow:0 0 20px rgba(184,255,106,.72); }
         .atk-bonus-orb.is-blast { background:linear-gradient(180deg,#fff4a8,#FF4455); color:#210305; box-shadow:0 0 24px rgba(255,68,85,.72); }
-        .atk-bonus-choice-label { position:absolute; left:50%; top:34px; transform:translateX(-50%); color:#ffdf73; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-shadow:0 0 10px rgba(255,184,0,.8); white-space:nowrap; }
+        .atk-bonus-choice-label { position:absolute; left:50%; top:42px; transform:translateX(-50%); color:#ffdf73; font:900 11px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-shadow:0 0 14px rgba(255,184,0,.95); white-space:nowrap; }
         .atk-slalom-gate__label { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:1; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.16em; color:#dfffee; text-shadow:0 0 10px rgba(43,255,154,.8); }
         .atk-slide-wall { position:absolute;left:0;right:0;height:74px;top:0;transform:translateY(-50%);pointer-events:none;z-index:4; }
         .atk-slide-danger { position:absolute;left:4%;right:4%;top:50%;height:34px;transform:translateY(-50%);border-radius:999px;background:rgba(255,184,0,.14);border:1px solid rgba(255,184,0,.55);box-shadow:0 0 18px rgba(255,184,0,.28);animation:slideDangerPulse .45s ease-in-out infinite alternate; }
@@ -1736,6 +1760,11 @@ export function AttackPhase({
         @keyframes atkRouletteSpin { 0%{ transform:perspective(420px) rotateY(0deg) scale(1); } 20%{ transform:perspective(420px) rotateY(82deg) scale(1.12); } 44%{ transform:perspective(420px) rotateY(180deg) scale(1.2); filter:brightness(.55) drop-shadow(0 0 30px rgba(255,184,0,.95)); } 68%{ transform:perspective(420px) rotateY(278deg) scale(1.12); } 100%{ transform:perspective(420px) rotateY(360deg) scale(1); } }
         @keyframes atkRouletteRing { 0%{ opacity:0;transform:translate(-50%,-50%) scale(.35) rotate(0deg); } 22%{ opacity:.95; } 100%{ opacity:0;transform:translate(-50%,-50%) scale(1.45) rotate(420deg); } }
         @keyframes atkBonusOrb { from{ transform:translateX(-50%) translateY(0) scale(.95); } to{ transform:translateX(-50%) translateY(-4px) scale(1.08); } }
+        @keyframes atkBonusHalo { from{ opacity:.95; transform:scale(.82); } to{ opacity:0; transform:scale(1.38); } }
+        @keyframes atkSuperFocus { from{ opacity:.72; scale:.98; } to{ opacity:1; scale:1.04; } }
+        @keyframes atkSuperGateBlast { 0%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)} 42%{opacity:1;filter:brightness(1.8)} 100%{opacity:0;transform:translate(-50%,-120%) scale(1.65) rotate(-12deg);filter:blur(2px)} }
+        @keyframes atkSuperDefenderBlast { 0%{opacity:1;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(calc(-50% + var(--atk-defender-patrol,0%) + 26px),-142%) scale(.76) rotate(24deg)} }
+        @keyframes atkSuperBoom { 0%{opacity:0;scale:.62} 18%{opacity:1;scale:1.2} 100%{opacity:0;translate:0 -32px;scale:1.42} }
         @keyframes atkPowerupPop { from{ opacity:0; transform:translateY(6px) scale(.92); } to{ opacity:1; transform:none; } }
         @keyframes atkDashTrail { from{ opacity:.9; transform:translateX(0); } to{ opacity:0; transform:translateX(-22px); } }
         @keyframes atkJumpButtonAlert { from{ transform:translateY(0); filter:brightness(1); } to{ transform:translateY(-2px); filter:brightness(1.18); } }
@@ -2265,7 +2294,7 @@ export function AttackPhase({
                   '--atk-wave-delay': moveDelay,
                 } as CSSProperties
                 return (
-                  <div key={wi} className={`atk-slalom-wave is-${wave.type}${moveAmp ? ' is-moving' : ''}`} style={waveMotionStyle}>
+                  <div key={wi} className={`atk-slalom-wave is-${wave.type}${moveAmp ? ' is-moving' : ''}${wave.superBlasted ? ' is-super-blasted' : ''}`} style={waveMotionStyle}>
                     {isSlideWave || isComboWave || isRouletteWave ? (
                       <div className={`atk-slide-wall${wave.failed ? ' is-failed' : ''}${wave.passed ? ' is-passed' : ''}${isRouletteWave ? ' is-roulette' : ''}`}>
                         <div className="atk-slide-danger" />

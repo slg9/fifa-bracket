@@ -333,7 +333,7 @@ function MatchNode({
   const officialScore = node.progress.realScore
   const panelScore = isClosed && officialScore ? officialScore : displayScore
   const pickedTeam = node.pickedTeamId === node.homeTeam?.id ? node.homeTeam : node.pickedTeamId === node.awayTeam?.id ? node.awayTeam : undefined
-  const resultTeams = node.homeTeam && node.awayTeam && (((isCompleted || isPicked) && node.pickedTeamId) || (isClosed && node.realWinnerTeamId))
+  const resultTeams = node.homeTeam && node.awayTeam && ((isCompleted && node.pickedTeamId) || (isClosed && node.realWinnerTeamId))
     ? [node.homeTeam, node.awayTeam] as const
     : null
   const officialPending = isCompleted && Boolean(node.pickedTeamId) && !node.progress.played
@@ -412,7 +412,7 @@ function MatchNode({
           </span>
         ) : null}
 
-        {(isLive || isAvailable || isPicked) && node.homeTeam && node.awayTeam ? (
+        {(isLive || isAvailable) && node.homeTeam && node.awayTeam ? (
           <span className={`wcmap__live-matchup${isAvailable ? ' is-available' : ''}`} aria-hidden="true">
             <TeamFlag team={node.homeTeam} />
             <strong>VS</strong>

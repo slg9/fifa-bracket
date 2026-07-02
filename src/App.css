@@ -5812,6 +5812,10 @@
   background: linear-gradient(90deg, transparent, rgba(43,255,154,.18), transparent);
 }
 
+.topbar__mobile-play {
+  display: none;
+}
+
 @media (max-width: 680px) {
   .topbar {
     position: sticky;
@@ -5824,6 +5828,27 @@
 
   .brand__logo {
     height: 32px;
+  }
+
+  .topbar__mobile-play {
+    grid-column: 2;
+    justify-self: center;
+    align-self: center;
+    display: inline-grid;
+    place-items: center;
+    min-width: 94px;
+    height: 40px;
+    padding: 0 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.5);
+    background: linear-gradient(180deg,#fff3a4,#FFB800);
+    color: #1a1000;
+    font: 900 15px 'Barlow Condensed', sans-serif;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    text-decoration: none;
+    box-shadow: 0 0 24px rgba(255,184,0,.75), 0 0 54px rgba(255,184,0,.34);
+    animation: mobilePlayPulse .72s ease-in-out infinite alternate;
   }
 
   .topactions {
@@ -5896,6 +5921,11 @@
   .app-shell.is-home-bracket .bracket-actions-wrap--topbar > .chip-btn {
     min-width: 54px;
     height: 42px;
+  }
+
+  @keyframes mobilePlayPulse {
+    from { transform: scale(.96); filter: brightness(1); }
+    to { transform: scale(1.05); filter: brightness(1.18); box-shadow: 0 0 34px rgba(255,184,0,.92), 0 0 70px rgba(255,184,0,.44); }
   }
 }
 

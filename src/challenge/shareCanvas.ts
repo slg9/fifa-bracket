@@ -52,6 +52,39 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, 
   return size
 }
 
+function drawMatchupBadge(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  flag: string | undefined,
+  label: string,
+) {
+  const badgeW = 128
+  const badgeH = 86
+  roundRect(ctx, x - badgeW / 2, y - badgeH / 2, badgeW, badgeH, 24)
+  ctx.fillStyle = 'rgba(255,255,255,.09)'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(255,216,74,.34)'
+  ctx.lineWidth = 2
+  ctx.stroke()
+
+  roundRect(ctx, x - 42, y - 34, 84, 48, 14)
+  ctx.fillStyle = 'rgba(5,12,26,.78)'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,.24)'
+  ctx.lineWidth = 2
+  ctx.stroke()
+
+  ctx.fillStyle = '#ffffff'
+  ctx.font = "900 34px 'Apple Color Emoji', 'Segoe UI Emoji', Arial, sans-serif"
+  ctx.fillText(flag || label.slice(0, 3).toUpperCase(), x, y - 10)
+
+  ctx.fillStyle = 'rgba(255,255,255,.88)'
+  const size = fitText(ctx, label, 104, 18, 13, (fontSize) => `900 ${fontSize}px 'Barlow Condensed', Arial, sans-serif`)
+  ctx.font = `900 ${size}px 'Barlow Condensed', Arial, sans-serif`
+  ctx.fillText(label, x, y + 31)
+}
+
 function gfMultiply(a: number, b: number) {
   let result = 0
   for (let i = 0; i < 8; i += 1) {
@@ -292,21 +325,11 @@ export async function renderResultShareCanvas(input: ResultShareCanvasInput): Pr
     ctx.shadowBlur = 0
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillStyle = '#ffffff'
-    ctx.font = "900 58px 'Barlow Condensed', Arial, sans-serif"
-    ctx.fillText(input.matchup.homeFlag || input.matchup.homeLabel.slice(0, 3).toUpperCase(), boxX + 98, boxY + 54)
+    drawMatchupBadge(ctx, boxX + 98, boxY + 72, input.matchup.homeFlag, input.matchup.homeLabel)
     ctx.fillStyle = 'rgba(255,255,255,.72)'
     ctx.font = "900 32px 'Barlow Condensed', Arial, sans-serif"
     ctx.fillText('VS', boxX + boxW / 2, boxY + 56)
-    ctx.fillStyle = '#ffffff'
-    ctx.font = "900 58px 'Barlow Condensed', Arial, sans-serif"
-    ctx.fillText(input.matchup.awayFlag || input.matchup.awayLabel.slice(0, 3).toUpperCase(), boxX + boxW - 98, boxY + 54)
-    ctx.fillStyle = 'rgba(255,255,255,.82)'
-    ctx.font = "900 22px 'Barlow Condensed', Arial, sans-serif"
-    fitText(ctx, input.matchup.homeLabel, 140, 22, 16, (size) => `900 ${size}px 'Barlow Condensed', Arial, sans-serif`)
-    ctx.fillText(input.matchup.homeLabel, boxX + 98, boxY + 104)
-    fitText(ctx, input.matchup.awayLabel, 140, 22, 16, (size) => `900 ${size}px 'Barlow Condensed', Arial, sans-serif`)
-    ctx.fillText(input.matchup.awayLabel, boxX + boxW - 98, boxY + 104)
+    drawMatchupBadge(ctx, boxX + boxW - 98, boxY + 72, input.matchup.awayFlag, input.matchup.awayLabel)
   }
 
   ctx.textAlign = 'center'

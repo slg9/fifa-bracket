@@ -28,6 +28,25 @@
   padding-bottom: max(48px, env(safe-area-inset-bottom));
   width: 100%;
 }
+.splash__close {
+  position: absolute;
+  z-index: 3;
+  top: max(14px, env(safe-area-inset-top));
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.26);
+  background: rgba(5,11,22,.58);
+  color: #fff;
+  font: 900 28px/1 'Barlow Condensed', sans-serif;
+  text-decoration: none;
+  box-shadow: 0 0 22px rgba(255,184,0,.22);
+  backdrop-filter: blur(10px);
+}
+.splash__close:active { transform: scale(.94) }
 /* Pulsing play button */
 .splash__cta {
   position: relative;

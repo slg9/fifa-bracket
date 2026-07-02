@@ -342,6 +342,11 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                     <span className="bkm-progress__badge is-correct">Prono reussi</span>
                   ) : predictionState === 'wrong' ? (
                     <span className="bkm-progress__badge is-wrong">Prono rate</span>
+                  ) : isPlayed ? (
+                    <>
+                      <span className="bkm-progress__badge is-official">Brakup joue</span>
+                      <span>J {formatScore(progress.playedScore)}</span>
+                    </>
                   ) : userPickId ? (
                     <span className="bkm-progress__badge is-pending">Prono en attente</span>
                   ) : selectedWinnerId ? (
