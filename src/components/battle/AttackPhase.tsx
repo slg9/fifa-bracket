@@ -26,9 +26,9 @@ type AttackPhaseProps = {
 
 //  Config 
 const ATTACK_CFG = {
-  easy:   { waveCount: 18, gateWidth: 42, narrowGateWidth: 32, gdSpeed: 28, difficultyRamp: 0.34, spacing: 42, gaugeGreenPx: 42, gaugeSpeed: 0.78 },
-  medium: { waveCount: 22, gateWidth: 36, narrowGateWidth: 28, gdSpeed: 35, difficultyRamp: 0.52, spacing: 40, gaugeGreenPx: 38, gaugeSpeed: 0.96 },
-  hard:   { waveCount: 26, gateWidth: 31, narrowGateWidth: 24, gdSpeed: 41, difficultyRamp: 0.74, spacing: 37, gaugeGreenPx: 33, gaugeSpeed: 1.34 },
+  easy:   { waveCount: 36, gateWidth: 42, narrowGateWidth: 32, gdSpeed: 28, difficultyRamp: 0.34, spacing: 42, gaugeGreenPx: 42, gaugeSpeed: 0.78 },
+  medium: { waveCount: 44, gateWidth: 36, narrowGateWidth: 28, gdSpeed: 35, difficultyRamp: 0.52, spacing: 40, gaugeGreenPx: 38, gaugeSpeed: 0.96 },
+  hard:   { waveCount: 52, gateWidth: 31, narrowGateWidth: 24, gdSpeed: 41, difficultyRamp: 0.74, spacing: 37, gaugeGreenPx: 33, gaugeSpeed: 1.34 },
 }
 
 const KEEPER_CFG = {
@@ -320,7 +320,7 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
 
   for (let i = 0; i < cfg.waveCount; i += 1) {
     const progress = i / Math.max(1, cfg.waveCount - 1)
-    const bonusEvery = params.difficulty === 'easy' ? 5 : params.difficulty === 'medium' ? 4 : 4
+    const bonusEvery = params.difficulty === 'easy' ? 7 : params.difficulty === 'medium' ? 6 : 6
     const forceBonus = i > 2 && i < cfg.waveCount - 2 && i % bonusEvery === 1
     const forceRoulette = i === 4 || (params.difficulty !== 'easy' && i > 7 && i % 7 === 4)
     const forceDiagonal = i > 3 && params.difficulty !== 'easy' && i % 6 === 3
@@ -351,7 +351,8 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
     const minBonusGap = gateWidth / 2 + Math.max(14, cfg.narrowGateWidth - 2) / 2 + 18
     const bonusGateCenterX = isBonus ? Math.max(18, Math.min(82, safeCenter + bonusDirection * (minBonusGap + rng() * 6))) : undefined
     const bonusGateWidth = isBonus ? Math.max(16, cfg.narrowGateWidth - 2) : undefined
-    const bonusKind = isBonus ? (['coin', 'boots', 'whistle', 'slowmo', 'wide', 'blast'] as const)[Math.floor(rng() * 6)] : undefined
+    const bonusPool: BonusKind[] = ['coin', 'boots', 'whistle', 'slowmo', 'wide', 'blast', 'blast']
+    const bonusKind = isBonus ? bonusPool[Math.floor(rng() * bonusPool.length)] : undefined
     const defenders = isSlide
       ? makeSlideDefenders(i, params.players, type === 'double_slide_wall')
       : isRoulette

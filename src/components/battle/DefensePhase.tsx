@@ -18,9 +18,9 @@ type PatternName = 'laneRushLeft'|'laneRushRight'|'centerWall'|'zigzagDuel'|'tan
 type Cfg = { timer:number; speed:number; waveGap:number; autoFireMs:number; waveCount:number; opening:PatternName[]; middle:PatternName[]; finale:PatternName[] }
 
 const DEFENSE_CFG: Record<BattleDifficulty, Cfg> = {
-  easy:{timer:25,speed:34,waveGap:1420,autoFireMs:315,waveCount:8,opening:['laneRushLeft','laneRushRight','diagonalRush'],middle:['splitAttack','zigzagPressure','lateSprinter'],finale:['tankEscort','oneTwoPass']},
-  medium:{timer:23,speed:43,waveGap:1240,autoFireMs:330,waveCount:10,opening:['laneRushLeft','diagonalRush','splitAttack'],middle:['zigzagPressure','tankEscort','lateSprinter','oneTwoPass','falseCenter','kamikazeDrop'],finale:['captainSupport','finalChaos','tankEscort']},
-  hard:{timer:22,speed:51,waveGap:1080,autoFireMs:350,waveCount:12,opening:['diagonalRush','splitAttack','zigzagPressure'],middle:['falseCenter','tankEscort','oneTwoPass','lateSprinter','captainSupport','kamikazeDrop'],finale:['finalChaos','captainSupport','zigzagPressure']},
+  easy:{timer:44,speed:34,waveGap:1320,autoFireMs:315,waveCount:18,opening:['laneRushLeft','laneRushRight','diagonalRush'],middle:['splitAttack','zigzagPressure','lateSprinter'],finale:['tankEscort','oneTwoPass']},
+  medium:{timer:46,speed:43,waveGap:1120,autoFireMs:330,waveCount:22,opening:['laneRushLeft','diagonalRush','splitAttack'],middle:['zigzagPressure','tankEscort','lateSprinter','oneTwoPass','falseCenter','kamikazeDrop'],finale:['captainSupport','finalChaos','tankEscort']},
+  hard:{timer:48,speed:51,waveGap:960,autoFireMs:350,waveCount:26,opening:['diagonalRush','splitAttack','zigzagPressure'],middle:['falseCenter','tankEscort','oneTwoPass','lateSprinter','captainSupport','kamikazeDrop'],finale:['finalChaos','captainSupport','zigzagPressure']},
 }
 const BULLET_SPEED=318, POWERUP_SPEED=26, DANGER_Y=88, TACKLE_COOLDOWN=3000, TACKLE_MAX=1000, LIGHTNING_COOLDOWN=7000, KAMIKAZE_BLAST_RADIUS=17, BOOTS_DURATION=5200, SUPER_ATTACKER_DURATION=4600
 const LANES = [14, 32, 50, 68, 86]
