@@ -685,25 +685,6 @@ export function WorldCupMapMenu({
     }
   }
 
-  const animatePanTo = (targetY: number, duration = 620) => {
-    stopPanMotion()
-    const startY = offsetRef.current.y
-    const clampedTarget = clampPanY(targetY)
-    const start = performance.now()
-
-    const tick = (now: number) => {
-      const progress = Math.min(1, (now - start) / duration)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      setPanOffset({ x: 0, y: startY + (clampedTarget - startY) * eased })
-      if (progress < 1) {
-        panAnimRef.current = requestAnimationFrame(tick)
-      } else {
-        panAnimRef.current = null
-      }
-    }
-
-    panAnimRef.current = requestAnimationFrame(tick)
-  }
 
   const startMomentum = (velocityY: number) => {
     if (Math.abs(velocityY) < 0.04) return
