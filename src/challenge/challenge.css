@@ -3888,17 +3888,31 @@
   text-align: center;
 }
 
-.brakup-team-action__flag {
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  margin: 0 auto 10px;
+.brakup-team-action__match {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 10px;
   border-radius: 999px;
-  background: rgba(43, 255, 154, .1);
-  border: 1px solid rgba(43, 255, 154, .28);
-  font-size: 34px;
-  line-height: 1;
+  border: 1px solid rgba(43, 255, 154, .26);
+  background: rgba(43, 255, 154, .08);
+  color: #2bff9a;
+  font: 900 10px/1 'Inter', sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.brakup-team-action__versus {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, .76);
+  font: 900 13px/1.2 'Barlow Condensed', sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.brakup-team-action__versus b {
+  color: #ffb800;
 }
 
 .brakup-team-action__actions {
@@ -3927,7 +3941,7 @@
   color: #fff4c4;
 }
 
-.brakup-team-action__choice i {
+.brakup-team-action__icon {
   display: grid;
   place-items: center;
   width: 34px;
@@ -3941,8 +3955,36 @@
   box-shadow: 0 0 18px rgba(43, 255, 154, .18);
 }
 
-.brakup-team-action__choice.is-duel i {
+.brakup-team-action__icon.is-duel {
   box-shadow: 0 0 18px rgba(255, 184, 0, .24);
+}
+
+.brakup-team-action__icon.is-pick::before {
+  content: '';
+  width: 15px;
+  height: 8px;
+  border-left: 4px solid currentColor;
+  border-bottom: 4px solid currentColor;
+  transform: translateY(-2px) rotate(-45deg);
+}
+
+.brakup-team-action__icon.is-duel::before,
+.brakup-team-action__icon.is-duel::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 24px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.brakup-team-action__icon.is-duel::before {
+  transform: rotate(42deg);
+}
+
+.brakup-team-action__icon.is-duel::after {
+  transform: rotate(-42deg);
 }
 
 .brakup-team-action__choice strong {

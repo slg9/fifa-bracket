@@ -9,7 +9,10 @@
   "background_color": "#070b14",
   "theme_color": "#070b14",
   "orientation": "portrait-primary",
-  "categories": ["games", "sports"],
+  "categories": [
+    "games",
+    "sports"
+  ],
   "lang": "fr",
   "icons": [
     {
@@ -17,18 +20,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    },
-    {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
     }
   ],
   "screenshots": [
     {
       "src": "/og-image.png",
-      "sizes": "1905x826",
+      "sizes": "1200x630",
       "type": "image/png"
     }
   ]

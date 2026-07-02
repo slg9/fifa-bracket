@@ -111,7 +111,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
   const [paths, setPaths] = useState<PathInfo[]>([])
   const [activeRound, setActiveRound] = useState(0)
   const [cancelWarning, setCancelWarning] = useState<{ matchId: string; teamLabel: string } | null>(null)
-  const [teamAction, setTeamAction] = useState<{ matchId: string; teamId: string; teamLabel: string; flag: string } | null>(null)
+  const [teamAction, setTeamAction] = useState<{ matchId: string; teamId: string; teamLabel: string; opponentLabel: string; matchLabel: string } | null>(null)
   const activeRoundRef = useRef(0)
 
   const scrollParentToTop = useCallback((from: HTMLElement) => {
@@ -295,8 +295,17 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   const isRealWinnerVisible = officialWinnerId === team.id
                   const showPointsStar = isWinner && progress.correct && progress.points > 0
                   const handleClick = readOnly || isLoser ? undefined : () => {
+                    const opponentSide = side === 'home' ? 'away' : 'home'
+                    const opponentEntrant = match[opponentSide]
+                    const opponentTeam = opponentEntrant.kind === 'team' ? teamsById.get(opponentEntrant.teamId) : undefined
                     sfx.pick()
-                    setTeamAction({ matchId: match.id, teamId: team.id, teamLabel: team.shortName || team.name, flag: team.flagEmoji })
+                    setTeamAction({
+                      matchId: match.id,
+                      teamId: team.id,
+                      teamLabel: team.shortName || team.name,
+                      opponentLabel: opponentTeam?.shortName || opponentTeam?.name || (opponentEntrant.kind === 'placeholder' ? opponentEntrant.label : 'Adversaire'),
+                      matchLabel: match.label,
+                    })
                   }
                   return <div key={side}
                     className={`${isWinner ? 'is-picked' : isLoser && !isPlayed ? 'is-lost' : ''}${isRealWinnerVisible ? ' is-real-winner' : ''}${canCancelPick && isWinner ? ' is-cancelable' : ''}${readOnly ? ' is-readonly' : ''}`}
@@ -364,8 +373,9 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
         <div className="brakup-dialog" role="dialog" aria-modal="true" aria-labelledby="brakup-team-action-title">
           <button type="button" className="brakup-dialog__scrim" onClick={() => setTeamAction(null)} aria-label="Fermer" />
           <div className="brakup-email brakup-confirm brakup-team-action">
-            <span className="brakup-team-action__flag" aria-hidden="true">{teamAction.flag}</span>
+            <small className="brakup-team-action__match">{teamAction.matchLabel}</small>
             <h2 id="brakup-team-action-title">{teamAction.teamLabel}</h2>
+            <p className="brakup-team-action__versus">{teamAction.teamLabel} <b>VS</b> {teamAction.opponentLabel}</p>
             <p>Choisis ton move.</p>
             <div className="brakup-team-action__actions">
               <button
@@ -378,7 +388,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   onPick(action.matchId, action.teamId)
                 }}
               >
-                <i aria-hidden="true">?</i>
+                <i className="brakup-team-action__icon is-pick" aria-hidden="true" />
                 <strong>PICK</strong>
                 <span>Valide le prono</span>
               </button>
@@ -392,7 +402,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   onPlay(action.matchId, action.teamId)
                 }}
               >
-                <i aria-hidden="true">?</i>
+                <i className="brakup-team-action__icon is-duel" aria-hidden="true" />
                 <strong>DUEL</strong>
                 <span>Joue ce camp</span>
               </button>
