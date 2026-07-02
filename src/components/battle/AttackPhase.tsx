@@ -69,6 +69,8 @@ const FEVER_DURATION = 3600
 const SUPER_ATTACKER_DURATION = 4300
 const ATTACK_MAX_LIVES = 3
 const ATTACK_GHOST_DURATION = 1550
+const DRIBBLE_RENDER_AHEAD = -145
+const DRIBBLE_RENDER_BEHIND = 135
 
 const GD_COMMENTS = [
   'Beau dribble !', 'Petit pont !', 'Il passe !', 'Quel crochet !',
@@ -285,7 +287,9 @@ function makeGateDefenders(i: number, center: number, gateWidth: number, players
     addBlocker(center + (center < 50 ? 1 : -1) * (half + 23 + rng() * 7))
   }
 
-  return blockers.sort((a, b) => a - b).slice(0, 10).map((x, index) => ({
+  const defenderCap = type === 'bonus_choice' ? 6 : type === 'narrow_gate' ? 7 : 6
+
+  return blockers.sort((a, b) => a - b).slice(0, defenderCap).map((x, index) => ({
     id: `${i}-block-${index}`,
     x,
     yOffset: yJitter(index),
@@ -1511,6 +1515,12 @@ export function AttackPhase({
   const nextGdWave = gdWallsDisplay.find((wave) => !wave.checked)
   const gdInstruction = getWaveInstruction(nextGdWave)
   const gdBadgeClass = nextGdWave?.type === 'slide_wall' || nextGdWave?.type === 'double_slide_wall' ? ' is-jump' : nextGdWave?.type === 'roulette_wall' ? ' is-roulette' : nextGdWave?.type === 'combo_gate_slide' ? ' is-combo' : nextGdWave?.type === 'bonus_choice' ? ' is-bonus' : nextGdWave?.moveAmplitude ? ' is-moving' : ''
+  const visibleGdWalls = phase === 'gd'
+    ? gdWallsDisplay.filter((wave) => {
+      const screenY = wave.worldY + gdFallPctRef.current
+      return screenY >= DRIBBLE_RENDER_AHEAD && screenY <= DRIBBLE_RENDER_BEHIND
+    })
+    : gdWallsDisplay
 
   return (
     <section
@@ -2420,7 +2430,7 @@ export function AttackPhase({
               ref={wallContainerRef}
               style={{ position: 'absolute', inset: 0, willChange: 'transform', transform: 'translateY(0%)' }}
             >
-              {gdWallsDisplay.map((wave, wi) => {
+              {visibleGdWalls.map((wave) => {
                 const gatePxWidth = `${wave.gateWidth}%`
                 const bonusGatePxWidth = wave.bonusGateWidth ? `${wave.bonusGateWidth}%` : '0%' 
                 const isSlideWave = wave.type === 'slide_wall' || wave.type === 'double_slide_wall'
@@ -2441,7 +2451,7 @@ export function AttackPhase({
                   '--atk-wave-delay': moveDelay,
                 } as CSSProperties
                 return (
-                  <div key={wi} className={`atk-slalom-wave is-${wave.type}${moveAmp ? ' is-moving' : ''}${wave.superBlasted ? ' is-super-blasted' : ''}`} style={waveMotionStyle}>
+                  <div key={wave.id} className={`atk-slalom-wave is-${wave.type}${moveAmp ? ' is-moving' : ''}${wave.superBlasted ? ' is-super-blasted' : ''}`} style={waveMotionStyle}>
                     {isSlideWave || isComboWave || isRouletteWave ? (
                       <div className={`atk-slide-wall${wave.failed ? ' is-failed' : ''}${wave.passed ? ' is-passed' : ''}${isRouletteWave ? ' is-roulette' : ''}`}>
                         <div className="atk-slide-danger" />
