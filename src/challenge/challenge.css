@@ -1903,6 +1903,13 @@
   border-color: rgba(255, 214, 90, 0.52);
 }
 
+.wcmap__field-node.is-recommended:not(.is-live) .wcmap__mini-field {
+  box-shadow:
+    0 0 0 4px rgba(255, 214, 90, 0.14),
+    0 0 28px rgba(255, 214, 90, 0.42),
+    0 18px 34px rgba(0, 0, 0, 0.45);
+}
+
 .wcmap__field-node.is-completed .wcmap__mini-field {
   border-color: rgba(48, 227, 255, 0.85);
 }
@@ -2176,6 +2183,25 @@
 
 .wcmap__field-node.is-live::after {
   content: "JOUER";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  z-index: 6;
+  margin-top: 8px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(255, 214, 90, 0.96);
+  color: #1a1100;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  transform: translateX(-50%);
+  box-shadow: 0 0 18px rgba(255, 214, 90, 0.4);
+  pointer-events: none;
+}
+
+.wcmap__field-node.is-recommended:not(.is-live)::after {
+  content: "ICI";
   position: absolute;
   left: 50%;
   top: 100%;

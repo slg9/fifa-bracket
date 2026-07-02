@@ -315,12 +315,14 @@ function MatchNode({
   selecting,
   score,
   readOnly,
+  recommended,
   onClick,
 }: {
   node: DisplayNode
   selecting: boolean
   score?: BattleScore
   readOnly?: boolean
+  recommended?: boolean
   onClick: () => void
 }) {
   const isLocked = node.status === 'locked'
@@ -357,6 +359,7 @@ function MatchNode({
         'wcmap__field-node',
         `is-${node.status}`,
         `is-border-${borderState}`,
+        recommended ? 'is-recommended' : '',
         readOnly ? 'is-readonly' : '',
         node.isFinalBoss ? 'is-final' : '',
         node.isThirdPlace ? 'is-third' : '',
@@ -651,7 +654,13 @@ export function WorldCupMapMenu({
   const [notice, setNotice] = useState<string | null>(null)
 
   const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks, scores, realResults, officialScores, scorers, realScorers), [matches, teamsById, picks, scores, realResults, officialScores, scorers, realScorers])
-  const focusNode = nodes.find((node) => node.isNextPlayable) ?? nodes.find((node) => node.status === 'live') ?? nodes.find((node) => node.status === 'available') ?? null
+  const recommendedNode = nodes.find((node) => node.status === 'closed' && !node.progress.played && node.homeTeam && node.awayTeam)
+    ?? nodes.find((node) => node.isNextPlayable)
+    ?? nodes.find((node) => node.status === 'live')
+    ?? nodes.find((node) => node.status === 'picked')
+    ?? nodes.find((node) => node.status === 'available')
+    ?? null
+  const focusNode = recommendedNode
   const selectedNode = nodes.find((node) => node.id === selectedMatchId) ?? null
 
   const setPanOffset = (next: { x: number; y: number }) => {
@@ -901,6 +910,7 @@ export function WorldCupMapMenu({
               selecting={selectingId === node.id}
               score={scores[node.id]}
               readOnly={readOnly}
+              recommended={recommendedNode?.id === node.id}
               onClick={() => handleSelectNode(node)}
             />
           ))}
