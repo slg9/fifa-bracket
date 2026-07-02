@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { BattleDifficulty } from '../../types'
+import KawaiiSprite, { KAWAII_SPRITE_CSS } from './KawaiiSprite'
 
 export type GoalTarget = {
   x: number
@@ -153,29 +154,19 @@ function Goalkeeper({
 }) {
   const core = color === '#2f7de1' ? '#ff5470' : color
   const accent = secondaryColor ?? '#ffffff'
-  const gloveColor = '#fff2b8'
   return (
     <g className={`goal-keeper${saving ? ' is-saving' : ''}`} style={{ '--goal-save-angle': `${saveAngle}deg` } as CSSProperties}>
-      <ellipse cx="0" cy="46" rx="34" ry="8" fill="rgba(0,0,0,.24)" />
-      <rect x="-30" y="-2" width="12" height="32" rx="6" fill="#f0c9a2" transform="rotate(-18 -24 12)" />
-      <rect x="18" y="-2" width="12" height="32" rx="6" fill="#f0c9a2" transform="rotate(18 24 12)" />
-      <circle className="goal-keeper__glove" cx="-35" cy="22" r="12" fill={gloveColor} stroke="#ffffff" strokeWidth="2" />
-      <circle className="goal-keeper__glove" cx="35" cy="22" r="12" fill={gloveColor} stroke="#ffffff" strokeWidth="2" />
-      <path d="M-24 2 q24 -12 48 0 l-4 34 q-20 7 -40 0z" fill={core} stroke="#ffffff" strokeWidth="1.7" />
-      {accent ? <path d="M-16 10 H16" stroke={accent} strokeWidth="5" strokeLinecap="round" opacity=".94" /> : null}
-      <rect x="-17" y="31" width="13" height="16" rx="5" fill={core} stroke="#ffffff" strokeWidth="1.2" />
-      <rect x="4" y="31" width="13" height="16" rx="5" fill={core} stroke="#ffffff" strokeWidth="1.2" />
-      <ellipse cx="-10" cy="48" rx="11" ry="5" fill="#121826" />
-      <ellipse cx="10" cy="48" rx="11" ry="5" fill="#121826" />
-      <circle cx="0" cy="-18" r="18" fill="#f0c9a2" stroke="#ffffff" strokeWidth="1.7" />
-      <path d="M-15 -19 q15 -17 30 0 q-3 -13 -15 -17 q-12 4 -15 17z" fill="#3b2a1e" />
-      <circle cx="-6" cy="-18" r="2.4" fill="#111" />
-      <circle cx="6" cy="-18" r="2.4" fill="#111" />
-      <circle cx="-5" cy="-19" r="0.9" fill="#fff" />
-      <circle cx="7" cy="-19" r="0.9" fill="#fff" />
-      <circle cx="-11" cy="-11" r="2.8" fill="#ff8a8a" opacity=".5" />
-      <circle cx="11" cy="-11" r="2.8" fill="#ff8a8a" opacity=".5" />
-      <path d="M-5 -8 q5 3 10 0" stroke="#111" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      <g transform="translate(-41 -34)">
+        <KawaiiSprite
+          jerseyColor={core}
+          accentColor={accent}
+          shortsColor="#141a2b"
+          role="keeper"
+          seed={`${core}-${accent}`}
+          width={82}
+          height={100}
+        />
+      </g>
     </g>
   )
 }
@@ -487,6 +478,26 @@ export function GoalView({
           stroke-width: 2.4;
           stroke-dasharray: 3 5;
         }
+        .goal-stage__target-pulse {
+          fill: none;
+          stroke: rgba(255,216,74,.5);
+          stroke-width: 1.6;
+          animation: goalTargetPulseRing 1.1s ease-out infinite;
+          transform-box: fill-box;
+          transform-origin: center;
+        }
+        .goal-stage__target.is-idle .goal-stage__target-pulse {
+          stroke: rgba(43,255,154,.55);
+        }
+        .goal-stage__target-cross {
+          stroke: rgba(255,255,255,.92);
+          stroke-width: 2.2;
+          filter: drop-shadow(0 0 6px rgba(255,216,74,.5));
+        }
+        @keyframes goalTargetPulseRing {
+          0% { transform: scale(.7); opacity: .9; }
+          100% { transform: scale(1.55); opacity: 0; }
+        }
         .goal-stage__target-label {
           fill: #ffffff;
           font: 900 10px 'Barlow Condensed', sans-serif;
@@ -551,9 +562,7 @@ export function GoalView({
         .goal-keeper.is-saving {
           animation: goalKeeperSave .42s ease-out both;
         }
-        .goal-keeper__glove {
-          opacity: .98;
-        }
+        ${KAWAII_SPRITE_CSS}
         .goal-stage__ball {
           fill: #f7f9ff;
           stroke: #06111f;
@@ -713,8 +722,12 @@ export function GoalView({
 
         {target ? (
           <g className={`goal-stage__target${targetActive ? ' is-active' : ' is-idle'}`} transform={`translate(${targetPoint.x} ${targetPoint.y})`}>
+            <circle className="goal-stage__target-pulse" r={compact ? 22 : 18} />
             <circle className="goal-stage__target-halo" r={compact ? 22 : 18} />
             <circle className="goal-stage__target-core" r={compact ? 12 : 11} />
+            <g className="goal-stage__target-cross" strokeLinecap="round">
+              <path d={compact ? 'M0 -20 V-13 M0 20 V13 M-20 0 H-13 M20 0 H13' : 'M0 -17 V-11 M0 17 V11 M-17 0 H-11 M17 0 H11'} />
+            </g>
             {!targetActive ? <text className="goal-stage__target-label" y={compact ? -30 : -26}>DRAG</text> : null}
           </g>
         ) : null}

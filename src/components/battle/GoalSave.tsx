@@ -3,6 +3,7 @@ import type { BattleDifficulty } from '../../types'
 import type { TeamKit } from '../../lib/teamKits'
 import { playGameSound } from '../../lib/useGameAudio'
 import { sfx } from '../../lib/sfx'
+import KawaiiSprite, { KAWAII_SPRITE_CSS } from './KawaiiSprite'
 
 export type GoalSaveProps = {
   ballCount: number
@@ -543,6 +544,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
         .gs-container.is-penalty { background:radial-gradient(circle at 50% 14%,rgba(255,68,85,.13),transparent 26%),radial-gradient(circle at 50% 96%,rgba(43,255,154,.11),transparent 32%),linear-gradient(180deg,#061426 0%,#082324 48%,#07130c 74%,#030806 100%); }
         .gs-container.is-sudden-death { background:radial-gradient(circle at 50% 14%,rgba(255,68,85,.22),transparent 28%),radial-gradient(circle at 50% 96%,rgba(255,184,0,.14),transparent 34%),linear-gradient(180deg,#090d18 0%,#081b1a 48%,#07130c 74%,#030806 100%); }
         .gs-penalty-kicker { position:absolute; top:9%; left:50%; z-index:9; transform:translateX(-50%); display:grid; place-items:center; gap:2px; color:#fff; pointer-events:none; filter:drop-shadow(0 10px 18px rgba(0,0,0,.42)); animation:gsKickerPulse .7s ease-in-out infinite alternate; }
+        ${KAWAII_SPRITE_CSS}
         .gs-container.is-sudden-death .gs-penalty-kicker { top:12%; animation:gsKickerStrike .55s ease-in-out infinite alternate; }
         .gs-penalty-kicker__flag { display:grid; place-items:center; width:31px; height:31px; border-radius:50%; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.22); font-size:19px; margin-bottom:-4px; }
         .gs-penalty-kicker__name { padding:4px 9px; border-radius:999px; background:rgba(2,8,16,.62); border:1px solid rgba(255,255,255,.12); font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.13em; text-transform:uppercase; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -552,7 +554,8 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
         .gs-tutorial__title { font:900 clamp(34px,11vw,58px) 'Barlow Condensed',sans-serif; color:#2bff9a; letter-spacing:.18em; text-transform:uppercase; text-shadow:0 0 28px rgba(43,255,154,.58); }
         .gs-tutorial__text { max-width:330px; color:rgba(255,255,255,.86); font:700 clamp(13px,4vw,17px) 'Barlow Condensed',sans-serif; line-height:1.42; }
         .gs-tutorial__sub { max-width:300px; color:rgba(255,255,255,.48); font:600 clamp(11px,3.4vw,13px) 'Barlow',sans-serif; line-height:1.35; }
-        .gs-tutorial__btn { margin-top:4px; padding:12px 30px; border-radius:12px; border:2px solid #2bff9a; background:rgba(43,255,154,.12); color:#2bff9a; font:900 16px 'Barlow Condensed',sans-serif; letter-spacing:.14em; cursor:pointer; }
+        .gs-tutorial__btn { margin-top:4px; min-height:50px; padding:0 30px; border-radius:14px; border:0; background:linear-gradient(90deg,#2bff9a,#1cd6c4 55%,#16a8ff); color:#031209; font:900 16px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-transform:uppercase; cursor:pointer; box-shadow:0 10px 26px rgba(43,255,154,.28), inset 0 1px 0 rgba(255,255,255,.35); transition:transform .12s ease; }
+        .gs-tutorial__btn:active { transform:scale(.97); }
         .gs-tutorial-countdown { position:absolute; inset:0; z-index:43; display:grid; place-items:center; background:rgba(3,7,14,.74); backdrop-filter:blur(2px); pointer-events:none; }
         .gs-tutorial-countdown span { color:#fff; font:900 clamp(80px,25vw,140px) 'Barlow Condensed',sans-serif; text-shadow:0 0 40px rgba(255,255,255,.5); animation:gsTutorialCount .82s both; }
         .gs-tutorial-countdown span.is-go { color:#2bff9a; text-shadow:0 0 40px rgba(43,255,154,.7); }
@@ -611,7 +614,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
             <br /><br />
             Les tirs rapides arrivent plus fort, les ballons lourds peuvent demander deux coupes proches, et les feintes ne comptent pas.
           </div>
-          <div className="gs-tutorial__sub">Un seul ballon qui passe peut donner but. Garde ton doigt pret devant la cage.</div>
+          <div className="gs-tutorial__sub">Un seul ballon qui passe peut donner but. Garde ton doigt prêt devant la cage.</div>
           <button type="button" className="gs-tutorial__btn" onClick={startGoalSaveTutorial}>OK GARDIEN</button>
         </div>
       ) : null}
@@ -641,22 +644,16 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
       {showKicker ? (
         <div className="gs-penalty-kicker" aria-hidden="true">
           {opponentFlag ? <div className="gs-penalty-kicker__flag">{opponentFlag}</div> : null}
-          <svg viewBox="0 0 80 98" width="62" height="76">
-            <ellipse cx="40" cy="91" rx="24" ry="6" fill="rgba(0,0,0,.28)" />
-            <rect x="27" y="58" width="9" height="23" rx="4.5" fill="#101827" />
-            <rect x="44" y="58" width="9" height="23" rx="4.5" fill="#101827" />
-            <path d="M16 31 q24 -10 48 0 l-4 30 q-20 6 -40 0z" fill={opponentJerseyColor} stroke="rgba(255,255,255,.55)" strokeWidth="1.2" />
-            <path d="M30 27 v31 M50 27 v31" stroke={opponentAccentColor} strokeWidth="3" opacity=".48" />
-            <rect x="7" y="34" width="10" height="22" rx="5" fill={opponentJerseyColor} />
-            <rect x="63" y="34" width="10" height="22" rx="5" fill={opponentJerseyColor} />
-            <circle cx="12" cy="57" r="4" fill="#f3c9a0" />
-            <circle cx="68" cy="57" r="4" fill="#f3c9a0" />
-            <circle cx="40" cy="19" r="18" fill="#f3c9a0" stroke="rgba(255,255,255,.5)" strokeWidth="1" />
-            <path d="M23 16 q17 -20 34 0 q-4 -14 -17 -16 q-13 2 -17 16z" fill="#322012" />
-            <circle cx="33" cy="19" r="3.2" fill="#111" />
-            <circle cx="47" cy="19" r="3.2" fill="#111" />
-            <path d="M35 27 q5 3 10 0" stroke="#111" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-          </svg>
+          <KawaiiSprite
+            jerseyColor={opponentJerseyColor}
+            accentColor={opponentAccentColor}
+            shortsColor="#101827"
+            role="kicker"
+            withBall
+            seed={opponentName ?? 'kicker'}
+            width={62}
+            height={76}
+          />
           <div className="gs-penalty-kicker__name">{opponentName ?? 'TIREUR'}</div>
         </div>
       ) : null}
@@ -668,10 +665,10 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
       <div className="gs-hud">
         <div className="gs-hud__pill">STOP <strong>{stoppedCount}/{totalRealBalls}</strong></div>
         <div className="gs-hud__pill">{isSuddenDeath ? 'TIR' : 'VAGUE'} <strong>{isSuddenDeath ? '1/1' : `${currentWave + 1}/${cfg.waves}`}</strong></div>
-        <div className="gs-hud__pill">RATE <strong>{missedCount}/1</strong></div>
+        <div className="gs-hud__pill">RATÉ <strong>{missedCount}/1</strong></div>
       </div>
-      <div className="gs-label">{showKicker ? `${keeperName ?? 'GARDIEN'} - SWIPE POUR ARRETER` : `${keeperName ?? 'GARDIEN'} : 1 PASSE = BUT`}</div>
-      {showWaveLabel ? <div className="gs-wave-label">{isSuddenDeath ? 'MORT SUBITE' : isPenalty ? 'PREPARE LE PLONGEON' : 'DERNIERE CHANCE'}</div> : null}
+      <div className="gs-label">{showKicker ? `${keeperName ?? 'GARDIEN'} - SWIPE POUR ARRÊTER` : `${keeperName ?? 'GARDIEN'} : 1 PASSE = BUT`}</div>
+      {showWaveLabel ? <div className="gs-wave-label">{isSuddenDeath ? 'MORT SUBITE' : isPenalty ? 'PRÉPARE LE PLONGEON' : 'DERNIÈRE CHANCE'}</div> : null}
       {combo >= 2 ? <div className="gs-combo">COMBO x{combo}</div> : null}
 
       {activeBalls.map(({ ball, point }) => {
@@ -720,7 +717,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
       {resultLabel ? (
         <div className={`gs-result${pendingResult ? ' is-save' : ''}`}>
           <div>{resultLabel}</div>
-          <div className="gs-result__comment">{pendingResult ? 'TIR BLOQUE - CAGES SAUVEES' : 'BUT ENCAISSE'}</div>
+          <div className="gs-result__comment">{pendingResult ? 'TIR BLOQUÉ - CAGES SAUVÉES' : 'BUT ENCAISSÉ'}</div>
           {!autoResolve ? <button type="button" className="gs-result__continue" onClick={handleResultContinue}>CONTINUER</button> : null}
         </div>
       ) : null}

@@ -173,6 +173,21 @@ function menuTeamName(match: ChallengeMenuMatch, side: 'home' | 'away', teamsByI
   return side === 'home' ? match.homeLabel ?? 'A determiner' : match.awayLabel ?? 'A determiner'
 }
 
+function teamFlagImageUrl(team?: Team) {
+  if (!team?.iso2) return null
+  return `https://flagcdn.com/w80/${team.iso2.toLowerCase()}.png`
+}
+
+function OutcomeFlag({ team, label }: { team?: Team; label: string }) {
+  const src = teamFlagImageUrl(team)
+  return (
+    <span className="brakup-outcome__flag">
+      {src
+        ? <img src={src} alt="" crossOrigin="anonymous" />
+        : <span>{team?.flagEmoji ?? label.slice(0, 3).toUpperCase()}</span>}
+    </span>
+  )
+}
 function resolveMatches(baseMatches: KnockoutMatch[], picks: Record<string, string>, realResults: Record<string, string>): KnockoutMatch[] {
   const baseMap = new Map(baseMatches.map((match) => [match.id, match]))
   const resolved = new Map<string, KnockoutMatch>()
@@ -407,7 +422,7 @@ export function BrakupHub({
   const [loginEmail, setLoginEmail] = useState<string | null>(null)
   const [loginFlow, setLoginFlow] = useState<'existing' | 'new'>('existing')
   const [loginPseudo, setLoginPseudo] = useState('')
-  const [pendingPostAuthAction, setPendingPostAuthAction] = useState<'share' | 'continue' | null>(null)
+  const [pendingPostAuthAction, setPendingPostAuthAction] = useState<'share' | null>(null)
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
   const [outcomeShareStatus, setOutcomeShareStatus] = useState<'idle' | 'working' | 'ready' | 'done' | 'error'>('idle')
   const [outcomeShareUrl, setOutcomeShareUrl] = useState<string | null>(null)
@@ -1019,12 +1034,13 @@ export function BrakupHub({
     }
   }
 
-  const handleLoginOTP = async (otp: string) => {
+  const handleLoginOTP = async (otp: string, verifiedPseudo?: string) => {
     if (!loginEmail) return
     setLoginBusy(true)
     setLoginError(null)
     try {
-      const pseudo = loginPseudo
+      const pseudo = verifiedPseudo?.trim()
+        || loginPseudo
         || (loginEmail.split('@')[0] ?? '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20)
         || 'Joueur'
       const result = loginFlow === 'new'
@@ -1088,12 +1104,6 @@ export function BrakupHub({
   }, [challengePreload.ready, outcomeNoticeKey, pendingOutcomeNotices, showSplash])
 
   const closeOutcomeNotice = () => {
-    if (!hasSyncedProfile) {
-      setPendingPostAuthAction('continue')
-      setSaveError(null)
-      setShowEmailEntry(true)
-      return
-    }
     if (outcomeNotice && !forcedOutcomeNotice) {
       const seen = new Set(readSeenOutcomeKeys())
       seen.add(outcomeNotice.key)
@@ -1148,7 +1158,13 @@ export function BrakupHub({
     if (!hasSyncedProfile) {
       setPendingPostAuthAction('share')
       setSaveError(null)
-      setShowEmailEntry(true)
+      setLoginError(null)
+      setLoginSent(false)
+      setLoginEmail(null)
+      setLoginFlow('existing')
+      setLoginPseudo('')
+      setShowEmailEntry(false)
+      setShowLoginEntry(true)
       return
     }
     if (outcomeShareUrl) {
@@ -1187,8 +1203,8 @@ export function BrakupHub({
           logoSrc: '/brakup-logo.png',
           ownerPseudo: savedProfile.pseudo || undefined,
           matchup: {
-            homeFlag: outcomeHomeTeam?.flagEmoji,
-            awayFlag: outcomeAwayTeam?.flagEmoji,
+            homeFlag: teamFlagImageUrl(outcomeHomeTeam) ?? outcomeHomeTeam?.flagEmoji,
+            awayFlag: teamFlagImageUrl(outcomeAwayTeam) ?? outcomeAwayTeam?.flagEmoji,
             homeLabel: outcomeHomeLabel,
             awayLabel: outcomeAwayLabel,
           },
@@ -1249,7 +1265,6 @@ export function BrakupHub({
     const action = pendingPostAuthAction
     setPendingPostAuthAction(null)
     if (action === 'share') void handleOutcomeShare()
-    if (action === 'continue') closeOutcomeNotice()
   }, [hasSyncedProfile, pendingPostAuthAction])
 
   const outcomeScorerNames = outcomeNotice?.progress.scorerHits.map((scorer) => scorer.name) ?? []
@@ -1532,9 +1547,9 @@ export function BrakupHub({
         <div className={`brakup-outcome${outcomeNotice.progress.correct ? ' is-correct' : outcomeIsPartial ? ' is-partial' : ' is-wrong'}${isOutcomeCapturingShare ? ' is-share-capturing' : ''}`} role="dialog" aria-modal="true">
           <div className="brakup-outcome__panel">
             <div className="brakup-outcome__matchup" aria-label={`${outcomeHomeLabel} contre ${outcomeAwayLabel}`}>
-              <span>{outcomeHomeTeam?.flagEmoji ?? outcomeHomeLabel.slice(0, 3).toUpperCase()}</span>
+              <OutcomeFlag team={outcomeHomeTeam} label={outcomeHomeLabel} />
               <b>VS</b>
-              <span>{outcomeAwayTeam?.flagEmoji ?? outcomeAwayLabel.slice(0, 3).toUpperCase()}</span>
+              <OutcomeFlag team={outcomeAwayTeam} label={outcomeAwayLabel} />
             </div>
             <div className="brakup-outcome__blast" aria-hidden="true">
               <i />
@@ -1543,25 +1558,25 @@ export function BrakupHub({
             <img className="brakup-outcome__logo" src="/brakup-logo.png" alt="Brakup" />
             <div className="brakup-outcome__boom">{outcomeBoomLabel}</div>
             <h2>{outcomeHeadline}</h2>
-            <p>{outcomeNotice.match.label} · reel {formatScore(outcomeNotice.progress.realScore)} · ton pari {formatScore(outcomeNotice.progress.playedScore)}</p>
+            <p>{outcomeNotice.match.label} · réel {formatScore(outcomeNotice.progress.realScore)} · ton pari {formatScore(outcomeNotice.progress.playedScore)}</p>
             <div className="brakup-outcome__points">
               <strong>+{outcomeBreakdownTotal}</strong>
-              <span>points gagnes</span>
+              <span>points gagnés</span>
             </div>
             <div className="brakup-outcome__scores">
-              <span>Vainqueur trouve <strong>{outcomeNotice.progress.correct ? `+${outcomeNotice.progress.stagePoints}` : '0'}</strong></span>
-              {outcomeExactLabel ? <span>Score exact reussi <strong>{outcomeExactLabel}</strong></span> : null}
-              {outcomeScorerLabel ? <span>Buteur trouve <strong>{outcomeScorerLabel}</strong></span> : null}
+              <span>Vainqueur trouvé {outcomeNotice.progress.correct ? <em>{outcomeRealWinnerLabel}</em> : null} <strong>{outcomeNotice.progress.correct ? `+${outcomeNotice.progress.stagePoints}` : '0'}</strong></span>
+              {outcomeExactLabel ? <span>Score exact réussi <strong>{outcomeExactLabel}</strong></span> : null}
+              {outcomeScorerLabel ? <span>Buteur trouvé <strong>{outcomeScorerLabel}</strong></span> : null}
               {outcomeScorerNames.length ? <span>Scoreurs Brakup <strong>{outcomeScorerNames.join(', ')}</strong></span> : null}
             </div>
             <div className="brakup-outcome__share-copy">
-              {isOutcomeCapturingShare ? 'Tente ta chance avec ton prono.' : 'Envoie ton prono et invite tes potes a tenter le leur.'}
+              {isOutcomeCapturingShare ? 'Tente ta chance avec ton prono.' : 'Envoie ton prono et invite tes potes à tenter le leur.'}
             </div>
             <button type="button" className="brakup-share-button" onClick={() => { sfx.click(); outcomeSharePreviewUrl ? setOutcomeSharePreviewOpen(true) : void handleOutcomeShare() }} disabled={outcomeShareStatus === 'working'}>
-              {outcomeShareStatus === 'working' ? 'Preparation...' : outcomeShareStatus === 'ready' ? 'Voir le visuel' : "Partager l'image"}
+              {outcomeShareStatus === 'working' ? 'Préparation...' : outcomeShareStatus === 'ready' ? 'Voir le visuel' : "Partager l'image"}
             </button>
-            {outcomeShareStatus === 'ready' ? <small className="brakup-share-feedback">Image prete. Ouvre le visuel pour partager.</small> : null}
-            {outcomeShareStatus === 'done' ? <small className="brakup-share-feedback">Partage lance.</small> : null}
+            {outcomeShareStatus === 'ready' ? <small className="brakup-share-feedback">Image prête. Ouvre le visuel pour partager.</small> : null}
+            {outcomeShareStatus === 'done' ? <small className="brakup-share-feedback">Partage lancé.</small> : null}
             {outcomeShareStatus === 'error' ? <small className="brakup-share-feedback is-error">Partage indisponible. Retente.</small> : null}
             {!forcedOutcomeNotice && pendingOutcomeNotices.length > 1 ? (
               <div className="brakup-outcome__slider" aria-label="Resultats non vus">
@@ -1604,7 +1619,7 @@ export function BrakupHub({
         </div>
       ) : null}
       {showEmailEntry ? <EmailEntry busy={saving} error={saveError} initialEmail={pendingEmail || savedProfile.email} initialPseudo={brackets.find((entry) => entry.id === activeBracketId)?.pseudo ?? savedProfile.pseudo} onDraftChange={rememberProfile} onSubmit={save} onCancel={() => { setShowEmailEntry(false); setLoginToken(null); setPendingEmail(null); }} /> : null}
-      {showLoginEntry ? <LoginEntry initialEmail={savedProfile.email} busy={loginBusy} error={loginError} sent={loginSent} onSubmit={handleLogin} onVerify={handleLoginOTP} onResend={handleLoginResend} onCancel={() => setShowLoginEntry(false)} /> : null}
+      {showLoginEntry ? <LoginEntry initialEmail={savedProfile.email} initialPseudo={loginPseudo} flow={loginFlow} busy={loginBusy} error={loginError} sent={loginSent} onSubmit={handleLogin} onVerify={handleLoginOTP} onPseudoChange={setLoginPseudo} onResend={handleLoginResend} onCancel={() => { setShowLoginEntry(false); setPendingPostAuthAction(null) }} /> : null}
       {showOTPEntry && pendingEmail && pendingPseudo ? <OTPEntry email={pendingEmail} pseudo={pendingPseudo} busy={otpBusy} error={otpError} onSubmit={handleOTPSubmit} onCancel={() => { setShowOTPEntry(false); setPendingEmail(null); setPendingPseudo(null); setShowEmailEntry(true) }} /> : null}
       {showProfileSettings ? <ProfileSettings initialEmail={savedProfile.email} initialPseudo={savedProfile.pseudo} busy={profileBusy} error={profileError} status={profileStatus} difficultySetting={difficultySetting} onDifficultyChange={updateDifficultySetting} onSubmit={handleProfileUpdate} onClose={() => setShowProfileSettings(false)} /> : null}
       <footer className="brakup-footer"><span>BRAKUP 2026</span><small>Données tournoi : {seed.meta.name} · {liveSource?.syncedAt ? `sync ${new Date(liveSource.syncedAt).toLocaleString('fr-FR')}` : 'projection locale'}</small></footer>

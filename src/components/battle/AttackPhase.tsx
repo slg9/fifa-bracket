@@ -4,6 +4,7 @@ import type { TeamKit } from '../../lib/teamKits'
 import { playGameSound } from '../../lib/useGameAudio'
 import { sfx } from '../../lib/sfx'
 import GoalView, { type BallFlight, type GoalTarget } from './GoalView'
+import KawaiiSprite, { KAWAII_SPRITE_CSS } from './KawaiiSprite'
 
 export type AttackEndReason = 'goal' | 'saved' | 'miss' | 'intercepted' | 'timeout'
 
@@ -469,6 +470,7 @@ function KawaiiFootballer({
   textColor,
   withBall = false,
   isPlayer = false,
+  motion,
 }: {
   label: string
   jerseyColor: string
@@ -477,37 +479,21 @@ function KawaiiFootballer({
   textColor: string
   withBall?: boolean
   isPlayer?: boolean
+  motion?: 'run' | 'idle' | 'ready'
 }) {
   return (
-    <svg viewBox="0 0 80 98" width="58" height="70" className={`atk-kawaii${isPlayer ? ' is-player' : ''}`} aria-hidden="true">
-      <ellipse cx="40" cy="91" rx="24" ry="6" fill="rgba(0,0,0,.28)" />
-      {withBall ? (
-        <>
-          <circle cx="57" cy="82" r="10" fill="#f7f9fc" stroke="#101827" strokeWidth="2" />
-          <path d="M57 74 l6 4 -2 7 h-8 l-2-7z" fill="none" stroke="#101827" strokeWidth="1.4" />
-        </>
-      ) : null}
-      <rect className="atk-kawaii__leg atk-kawaii__leg--l" x="27" y="58" width="9" height="23" rx="4.5" fill={shortsColor} />
-      <rect className="atk-kawaii__leg atk-kawaii__leg--r" x="44" y="58" width="9" height="23" rx="4.5" fill={shortsColor} />
-      <ellipse cx="31" cy="82" rx="8" ry="5" fill="#121826" />
-      <ellipse cx="48" cy="82" rx="8" ry="5" fill="#121826" />
-      <path d="M16 31 q24 -10 48 0 l-4 30 q-20 6 -40 0z" fill={jerseyColor} stroke="rgba(255,255,255,.55)" strokeWidth="1.2" />
-      <path d="M30 27 v31 M50 27 v31" stroke={accentColor} strokeWidth="3" opacity=".48" />
-      <rect x="7" y="34" width="10" height="22" rx="5" fill={jerseyColor} />
-      <rect x="63" y="34" width="10" height="22" rx="5" fill={jerseyColor} />
-      <circle cx="12" cy="57" r="4" fill="#f3c9a0" />
-      <circle cx="68" cy="57" r="4" fill="#f3c9a0" />
-      <circle cx="40" cy="19" r="18" fill="#f3c9a0" stroke="rgba(255,255,255,.5)" strokeWidth="1" />
-      <path d="M23 16 q17 -20 34 0 q-4 -14 -17 -16 q-13 2 -17 16z" fill="#322012" />
-      <circle cx="33" cy="19" r="3.2" fill="#111" />
-      <circle cx="47" cy="19" r="3.2" fill="#111" />
-      <circle cx="34" cy="18" r="1" fill="#fff" />
-      <circle cx="48" cy="18" r="1" fill="#fff" />
-      <circle cx="28" cy="25" r="2.8" fill="#ff8a8a" opacity=".5" />
-      <circle cx="52" cy="25" r="2.8" fill="#ff8a8a" opacity=".5" />
-      <path d="M35 27 q5 3 10 0" stroke="#111" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-      <text x="40" y="49" fontFamily="Barlow Condensed" fontWeight="900" fontSize={label.length > 6 ? '7' : '9'} fill={textColor} textAnchor="middle">{label}</text>
-    </svg>
+    <KawaiiSprite
+      label={label}
+      jerseyColor={jerseyColor}
+      accentColor={accentColor}
+      shortsColor={shortsColor}
+      textColor={textColor}
+      withBall={withBall}
+      role={isPlayer ? 'player' : 'enemy'}
+      motion={motion}
+      seed={label}
+      className={`atk-kawaii${isPlayer ? ' is-player' : ''}`}
+    />
   )
 }
 
@@ -1170,14 +1156,16 @@ export function AttackPhase({
     return () => cancelAnimationFrame(frame)
   }, [phase, tutorialDone, showShotIntro, cfg.gdSpeed, cfg.difficultyRamp, cfg.waveCount, finish, registerDribbleSuccess, absorbDribbleHit])
 
-  //  Pointer move for GD (drag ball left/right)  direct DOM, no re-render, no getBCR 
+  //  Pointer move for GD: desktop follows cursor, touch keeps drag-only control.
   const handleGdPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     if (phaseRef.current !== 'gd' || endedRef.current) return
     const pointer = gdPointerRef.current
-    if (pointer.id !== e.pointerId) return
-    const moved = Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y)
-    if (!pointer.dragging && moved < 8) return
-    pointer.dragging = true
+    if (e.pointerType !== 'mouse') {
+      if (pointer.id !== e.pointerId) return
+      const moved = Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y)
+      if (!pointer.dragging && moved < 8) return
+      pointer.dragging = true
+    }
     const { left, width } = containerRectRef.current
     if (!width) return
     gdPlayerXRef.current = Math.max(3, Math.min(97, ((e.clientX - left) / width) * 100))
@@ -1479,21 +1467,21 @@ export function AttackPhase({
       style={{ touchAction: 'none', userSelect: 'none' }}
       onPointerMove={(e) => {
         // Section-level: handles both phases so finger can roam anywhere (GD: no inner-div boundary)
-        if (phase === 'gd') handleGdPointerMove(e)
+        if (phase === 'gd' && tutorialDone) handleGdPointerMove(e)
         else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerMove(e)
       }}
       onPointerDown={(e) => {
-        if (phase === 'gd') {
+        if (phase === 'gd' && tutorialDone) {
           handleGdPointerDown(e)
         }
         else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerDown(e)
       }}
       onPointerUp={(e) => {
-        if (phase === 'gd') handleGdPointerUp(e)
+        if (phase === 'gd' && tutorialDone) handleGdPointerUp(e)
         else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerUp(e)
       }}
       onPointerCancel={(e) => {
-        if (phase === 'gd') handleGdPointerCancel(e)
+        if (phase === 'gd' && tutorialDone) handleGdPointerCancel(e)
         else if (phase === 'shot') handleShotPointerCancel()
       }}
     >
@@ -1537,12 +1525,14 @@ export function AttackPhase({
           to   { transform: translateX(12px); }
         }
         .atk-tutorial__btn {
-          margin-top: 8px; padding: 12px 28px; border-radius: 10px;
-          border: 2px solid #2bff9a; background: rgba(43,255,154,.1);
-          color: #2bff9a; font: 800 16px 'Barlow Condensed', sans-serif;
-          letter-spacing: .1em; cursor: pointer;
-          box-shadow: 0 0 16px rgba(43,255,154,.35);
+          margin-top: 8px; min-height: 50px; padding: 0 28px; border-radius: 14px;
+          border: 0; background: linear-gradient(90deg,#2bff9a,#1cd6c4 55%,#16a8ff);
+          color: #031209; font: 900 16px 'Barlow Condensed', sans-serif;
+          letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
+          box-shadow: 0 10px 26px rgba(43,255,154,.28), inset 0 1px 0 rgba(255,255,255,.35);
+          transition: transform .12s ease;
         }
+        .atk-tutorial__btn:active { transform: scale(.97); }
         .atk-pre-countdown {
           position: absolute; inset: 0; z-index: 75;
           display: flex; align-items: center; justify-content: center;
@@ -1740,8 +1730,10 @@ export function AttackPhase({
         .atk-slalom-defender::before { content:''; position:absolute; left:50%; top:-20px; width:3px; height:34px; transform:translateX(-50%); border-radius:999px; background:linear-gradient(rgba(255,255,255,.18), transparent); }
         .atk-slalom-defender__name { margin-top:-5px; text-align:center; color:rgba(255,255,255,.78); font:800 9px 'Barlow Condensed',sans-serif; letter-spacing:.06em; text-shadow:0 2px 8px rgba(0,0,0,.7); }
         .atk-kawaii { display:block; overflow:visible; }
-        .atk-kawaii__leg--l { animation: atkLegL .34s ease-in-out infinite alternate; transform-origin:31px 60px; }
-        .atk-kawaii__leg--r { animation: atkLegR .34s ease-in-out infinite alternate; transform-origin:48px 60px; }
+        ${KAWAII_SPRITE_CSS}
+        .atk-gd-player .kw-sprite { --kw-step: .26s; }
+        .atk-slalom-defender .kw-sprite { --kw-step: .4s; }
+        .atk-shooter-select__avatar .kw-sprite { --kw-step: .5s; }
         .atk-pass-pop { position:absolute; left:50%; top:-48px; transform:translateX(-50%); color:#2bff9a; font:900 15px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-shadow:0 0 12px rgba(43,255,154,.8); animation: atkPassPop .55s ease-out both; white-space:nowrap; }
         @keyframes atkGatePulse { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.9} 50%{transform:translate(-50%,-50%) scale(1.06);opacity:1} }
         @keyframes atkGatePass { from{transform:translate(-50%,-50%) scale(1);opacity:1} to{transform:translate(-50%,-50%) scale(1.35);opacity:.2} }
@@ -1751,8 +1743,6 @@ export function AttackPhase({
         @keyframes atkSlideSkid { from{translate:-1px -1px} to{translate:2px 2px} }
         @keyframes atkJumpWhoosh { 0%{opacity:.75;transform:translate(-50%,-50%) scale(.55)} 100%{opacity:0;transform:translate(-50%,-50%) scale(1.35)} }
         @keyframes atkTackle { from{rotate:-7deg; translate:0 -1px} to{rotate:7deg; translate:0 4px} }
-        @keyframes atkLegL { from{transform:rotate(-6deg)} to{transform:rotate(8deg)} }
-        @keyframes atkLegR { from{transform:rotate(8deg)} to{transform:rotate(-6deg)} }
         @keyframes atkPassPop { from{opacity:0;transform:translate(-50%,8px) scale(.8)} 20%{opacity:1} to{opacity:0;transform:translate(-50%,-18px) scale(1.1)} }
         @keyframes atkBonusFlash { from{opacity:1; transform:scale(.92)} to{opacity:0; transform:scale(1.08)} }
         @keyframes atkFeverPulse { from{ filter:brightness(1); } to{ filter:brightness(1.32); } }
@@ -1861,7 +1851,10 @@ export function AttackPhase({
           backdrop-filter: blur(6px);
         }
         .atk-shot-shooter.is-kicking .atk-kawaii {
-          animation: atkShotKick .42s cubic-bezier(.2,1.1,.3,1) both;
+          animation: atkShotKick .5s cubic-bezier(.2,1.1,.3,1) both;
+        }
+        .atk-shot-shooter.is-kicking .atk-kawaii .kw-leg--r {
+          animation: atkShotKickLeg .5s cubic-bezier(.2,1.1,.3,1) both;
         }
         @keyframes atkShotShooterIn {
           from { transform: translate(-10px, 18px) scale(.86); opacity: 0; }
@@ -1869,8 +1862,16 @@ export function AttackPhase({
         }
         @keyframes atkShotKick {
           0% { transform: translateY(0) rotate(0deg) scale(1); }
-          44% { transform: translate(10px, -7px) rotate(-7deg) scale(1.08); }
-          100% { transform: translate(18px, 3px) rotate(4deg) scale(.98); }
+          22% { transform: translate(-6px, 2px) rotate(6deg) scale(.96, 1.04); }
+          52% { transform: translate(12px, -8px) rotate(-9deg) scale(1.12, .98); }
+          74% { transform: translate(18px, 1px) rotate(2deg) scale(1.02); }
+          100% { transform: translate(16px, 3px) rotate(4deg) scale(.98); }
+        }
+        @keyframes atkShotKickLeg {
+          0% { transform: rotate(0deg); }
+          24% { transform: rotate(38deg); }
+          56% { transform: rotate(-52deg); }
+          100% { transform: rotate(-10deg); }
         }
 
         /*  Gauge above the goal in shot scene  */
@@ -2113,11 +2114,14 @@ export function AttackPhase({
           line-height: 1.42;
         }
         .atk-shot-tutorial__btn {
-          margin-top: 4px; padding: 12px 30px; border-radius: 12px;
-          border: 2px solid #2bff9a; background: rgba(43,255,154,.12);
-          color: #2bff9a; font: 900 16px 'Barlow Condensed', sans-serif;
-          letter-spacing: .14em; cursor: pointer; box-shadow: 0 0 18px rgba(43,255,154,.28);
+          margin-top: 4px; min-height: 50px; padding: 0 30px; border-radius: 14px;
+          border: 0; background: linear-gradient(90deg,#2bff9a,#1cd6c4 55%,#16a8ff);
+          color: #031209; font: 900 16px 'Barlow Condensed', sans-serif;
+          letter-spacing: .14em; text-transform: uppercase; cursor: pointer;
+          box-shadow: 0 10px 26px rgba(43,255,154,.28), inset 0 1px 0 rgba(255,255,255,.35);
+          transition: transform .12s ease;
         }
+        .atk-shot-tutorial__btn:active { transform: scale(.97); }
 
         /*  Result overlay  */
         .atk-result-overlay {
@@ -2426,6 +2430,7 @@ export function AttackPhase({
                 textColor={playerTextColor}
                 withBall={!ballFlight}
                 isPlayer
+                motion="idle"
               />
               <span className="atk-shot-shooter__name">{playerLastName(selectedShooter.name)}</span>
             </div>
@@ -2456,7 +2461,7 @@ export function AttackPhase({
                     />
                   </div>
                   <h3 className="atk-shooter-select__name">{selectedShooter.name}</h3>
-                  <div className="atk-shooter-select__meta">#{selectedShooter.number ?? 9} · {selectedShooterIndex + 1}/{shooterOptions.length}</div>
+                  <div className="atk-shooter-select__meta">#{selectedShooter.number ?? 9} &middot; {selectedShooterIndex + 1}/{shooterOptions.length}</div>
                 </div>
                 <button type="button" className="atk-shooter-select__arrow" onClick={() => changeShooter(1)} aria-label="Tireur suivant">&gt;</button>
               </div>
@@ -2542,9 +2547,9 @@ export function AttackPhase({
         <div className="atk-controls">
           <div className="atk-controls__stat">FLOW {flow}<small>Vie {attackLives}/{ATTACK_MAX_LIVES} - Combo x{comboDisplay}</small></div>
           <div className="atk-controls__buttons">
-            <button type="button" className="atk-ctrl-btn" data-control="left" aria-label="Gauche" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.left = true }} onPointerUp={() => { keysRef.current.left = false }} onPointerCancel={() => { keysRef.current.left = false }} onPointerLeave={() => { keysRef.current.left = false }}>←</button>
-            <button type="button" className={`atk-ctrl-btn atk-ctrl-btn--evade${gdJumping || dashActive || rouletteActive ? ' is-jumping' : ''}${nextGdWave?.requiresJump || nextGdWave?.requiresRoulette ? ' is-danger' : ''}`} data-control="jump" aria-label="Esquive" onPointerDown={(e) => { e.stopPropagation(); handleEvade() }}><b>{nextGdWave?.requiresRoulette ? 'R' : nextGdWave?.requiresJump ? '↑' : '↯'}</b>{nextGdWave?.requiresRoulette ? 'ROULETTE' : nextGdWave?.requiresJump ? 'SAUT' : 'ESQUIVE'}</button>
-            <button type="button" className="atk-ctrl-btn" data-control="right" aria-label="Droite" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.right = true }} onPointerUp={() => { keysRef.current.right = false }} onPointerCancel={() => { keysRef.current.right = false }} onPointerLeave={() => { keysRef.current.right = false }}>→</button>
+            <button type="button" className="atk-ctrl-btn" data-control="left" aria-label="Gauche" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.left = true }} onPointerUp={() => { keysRef.current.left = false }} onPointerCancel={() => { keysRef.current.left = false }} onPointerLeave={() => { keysRef.current.left = false }}>&larr;</button>
+            <button type="button" className={`atk-ctrl-btn atk-ctrl-btn--evade${gdJumping || dashActive || rouletteActive ? ' is-jumping' : ''}${nextGdWave?.requiresJump || nextGdWave?.requiresRoulette ? ' is-danger' : ''}`} data-control="jump" aria-label="Esquive" onPointerDown={(e) => { e.stopPropagation(); handleEvade() }}><b>{nextGdWave?.requiresRoulette ? 'R' : nextGdWave?.requiresJump ? '\u2191' : '\u21af'}</b>{nextGdWave?.requiresRoulette ? 'ROULETTE' : nextGdWave?.requiresJump ? 'SAUT' : 'ESQUIVE'}</button>
+            <button type="button" className="atk-ctrl-btn" data-control="right" aria-label="Droite" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.right = true }} onPointerUp={() => { keysRef.current.right = false }} onPointerCancel={() => { keysRef.current.right = false }} onPointerLeave={() => { keysRef.current.right = false }}>&rarr;</button>
           </div>
           <div className={`atk-controls__phase${gdBadgeClass}`}>SLALOM<small>{gdInstruction}</small></div>
         </div>

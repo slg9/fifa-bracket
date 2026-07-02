@@ -23,7 +23,7 @@ type MatchResultProps = {
 const CONFETTI_COLORS = ['#ffb800', '#2bff9a', '#ff4455', '#a855f7', '#3b82f6', '#ff6b35']
 const DIFFICULTY_LABELS: Record<BattleDifficulty, { label: string; detail: string }> = {
   easy: { label: 'Facile', detail: 'rythme plus cool' },
-  medium: { label: 'Moyen', detail: 'pression equilibree' },
+  medium: { label: 'Moyen', detail: 'pression équilibrée' },
   hard: { label: 'Difficile', detail: 'mode arcade intense' },
 }
 
@@ -39,12 +39,12 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
   const scorerNames = result.scorers?.map((scorer) => scorer.name) ?? []
   const difficultyMeta = difficulty ? DIFFICULTY_LABELS[difficulty] : null
   const shareText = playerWon
-    ? `Brakup ${matchLabel}: j'ai gagne mon duel ${scoreLabel}${difficultyMeta ? ` en difficulte ${difficultyMeta.label}` : ''}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. Et toi, tu veux tenter ton prono ?`
-    : `Brakup ${matchLabel}: j'ai tente mon duel ${scoreLabel}${difficultyMeta ? ` en difficulte ${difficultyMeta.label}` : ''}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. A toi de faire mieux ?`
+    ? `Brakup ${matchLabel}: j'ai gagné mon duel ${scoreLabel}${difficultyMeta ? ` en difficulté ${difficultyMeta.label}` : ''}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. Et toi, tu veux tenter ton prono ?`
+    : `Brakup ${matchLabel}: j'ai tenté mon duel ${scoreLabel}${difficultyMeta ? ` en difficulté ${difficultyMeta.label}` : ''}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. À toi de faire mieux ?`
 
   const shareRows = result.scorers?.length
     ? result.scorers.slice(0, 4).map((scorer) => ({ label: `Buteur: ${scorer.name}`, tone: 'win' as const }))
-    : [{ label: playerWon ? 'Duel gagne' : 'Duel joue', tone: playerWon ? 'win' as const : 'neutral' as const }]
+    : [{ label: playerWon ? 'Duel gagné' : 'Duel joué', tone: playerWon ? 'win' as const : 'neutral' as const }]
 
   useEffect(() => {
     setShareStatus('idle')
@@ -92,15 +92,15 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
           homeLabel: homeName,
           awayLabel: awayName,
         },
-        boomLabel: playerWon ? 'VICTOIRE' : 'MATCH JOUE',
-        headline: playerWon ? 'Victoire Brakup' : 'Bien essaye',
+        boomLabel: playerWon ? 'VICTOIRE' : 'MATCH JOUÉ',
+        headline: playerWon ? 'Victoire Brakup' : 'Bien essayé',
         subline: `${homeName} ${scoreLabel} ${awayName}`,
         messageLines: [
           `Match ${matchLabel}`,
           `Score Brakup: ${homeName} ${scoreLabel} ${awayName}`,
-          difficultyMeta ? `Difficulte: ${difficultyMeta.label}` : scorerNames.length ? `Buteur: ${scorerNames.slice(0, 3).join(', ')}` : '',
+          difficultyMeta ? `Difficulté: ${difficultyMeta.label}` : scorerNames.length ? `Buteur: ${scorerNames.slice(0, 3).join(', ')}` : '',
         ],
-        pointsLabel: playerWon ? 'Duel gagne' : 'Resultat partage',
+        pointsLabel: playerWon ? 'Duel gagné' : 'Résultat partagé',
         rows: shareRows,
         cta: 'Tente ta chance avec ton prono.',
       })
@@ -153,17 +153,17 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
         {syncStatusLabel ? <div className="battle-match-result__sync">{syncStatusLabel}</div> : null}
         {difficultyMeta ? (
           <div className={`battle-match-result__difficulty is-${difficulty}`}>
-            <span>Difficulte jouee</span>
+            <span>Difficulté jouée</span>
             <strong>{difficultyMeta.label}</strong>
             <small>{difficultyMeta.detail}</small>
           </div>
         ) : null}
-        <p className="battle-match-result__share-copy">Invite tes potes a tenter leur prono sur Brakup.</p>
+        <p className="battle-match-result__share-copy">Invite tes potes à tenter leur prono sur Brakup.</p>
         <button type="button" className="battle-share" onClick={() => { sharePreviewUrl ? setSharePreviewOpen(true) : void handleShare() }} disabled={shareStatus === 'working'}>
-          {shareStatus === 'working' ? 'Preparation...' : shareStatus === 'ready' ? 'Voir le visuel' : 'Partager'}
+          {shareStatus === 'working' ? 'Préparation...' : shareStatus === 'ready' ? 'Voir le visuel' : 'Partager'}
         </button>
-        {shareStatus === 'ready' ? <small className="battle-share__feedback">Image prete. Ouvre le visuel pour partager.</small> : null}
-        {shareStatus === 'done' ? <small className="battle-share__feedback">Partage lance.</small> : null}
+        {shareStatus === 'ready' ? <small className="battle-share__feedback">Image prête. Ouvre le visuel pour partager.</small> : null}
+        {shareStatus === 'done' ? <small className="battle-share__feedback">Partage lancé.</small> : null}
         {shareStatus === 'error' ? <small className="battle-share__feedback is-error">Partage indisponible. Retente.</small> : null}
         <button type="button" className="battle-continue" onClick={onContinue}>Continuer <span>→</span></button>
         <div className="battle-breakdown"><header><span>Round</span><span>Phase</span><span>Résultat</span></header>{result.rounds.length ? result.rounds.map((round, index) => <div key={`${round.type}-${index}`}><b>{index + 1}</b><span>{round.scorer ? `${round.type === 'attack' ? 'Attaque' : round.type === 'fruit_ninja' ? 'Tirs massifs' : 'Defense'} · ${round.scorer.name}` : round.type === 'attack' ? 'Attaque' : round.type === 'fruit_ninja' ? 'Tirs massifs' : 'Defense'}</span><strong className={round.success ? 'is-success' : 'is-fail'}>{round.success ? 'REUSSI' : 'ECHEC'}</strong></div>) : <div><b>SIM</b><span>Simulation directe</span><strong className="is-success">VALIDE</strong></div>}</div>
@@ -173,7 +173,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
           <div className="brakup-share-preview__panel">
             <div className={`brakup-share-preview__frame${sharePreviewUrl ? '' : ' is-loading'}`}>
               {sharePreviewUrl ? (
-                <img src={sharePreviewUrl} alt="Apercu du partage Brakup" />
+                <img src={sharePreviewUrl} alt="Aperçu du partage Brakup" />
               ) : (
                 <div className="brakup-share-loader">
                   <div className="boot-loader__mark boot-loader__mark--sm" aria-hidden="true">

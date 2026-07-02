@@ -7,6 +7,13 @@ import { formatKnockoutDateTime } from '../lib/knockoutSchedule'
 import { KNOCKOUT_ROUND_ORDER, formatBracketPathLabel, formatStageShortLabel } from '../lib/stageLabels'
 import { evaluateMatchProgress, formatScore, type BattleScore, type OfficialScore } from './progress'
 
+function BracketFlag({ team }: { team: Team }) {
+  if (team.iso2) {
+    return <img className="bkm-flag" src={`https://flagcdn.com/w40/${team.iso2.toLowerCase()}.png`} alt="" crossOrigin="anonymous" />
+  }
+  return <span>{team.flagEmoji}</span>
+}
+
 type BracketDisplayMatch = KnockoutMatch & {
   winnerId?: string | null
   pickedWinnerId?: string | null
@@ -312,7 +319,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                     onClick={handleClick}
                     role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}
                     title={isPlayed ? `Rejouer avec ${team.shortName}` : readOnly ? undefined : `Choisir ${team.shortName}`}>
-                    <span>{team.flagEmoji}</span>
+                    <BracketFlag team={team} />
                     <strong>{team.shortName}</strong>
                     {isRealWinnerVisible ? <small className="bkm-official">OFF</small> : null}
                     {showPointsStar ? <small className="bkm-points-star">★ +{progress.points}</small> : null}

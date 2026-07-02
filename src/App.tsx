@@ -2334,12 +2334,12 @@ function App() {
     }
   }
 
-  async function handleChallengeLoginOTP(otp: string) {
+  async function handleChallengeLoginOTP(otp: string, verifiedPseudo?: string) {
     if (!challengeLoginEmail) return
     setChallengeLoginBusy(true)
     setChallengeLoginError(null)
 
-    const pseudo = challengeLoginPseudoRef.current || challengeProfile.pseudo.trim()
+    const pseudo = verifiedPseudo?.trim() || challengeLoginPseudoRef.current || challengeProfile.pseudo.trim()
       || (challengeLoginEmail.split('@')[0] ?? '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20)
       || 'Joueur'
 
@@ -3715,7 +3715,7 @@ function App() {
           </div>
         )
       })() : null}
-      {showChallengeLoginEntry ? <LoginEntry initialEmail={challengeProfile.email} busy={challengeLoginBusy} error={challengeLoginError} sent={challengeLoginSent} onSubmit={handleChallengeLogin} onVerify={handleChallengeLoginOTP} onResend={handleChallengeResend} onCancel={() => setShowChallengeLoginEntry(false)} /> : null}
+      {showChallengeLoginEntry ? <LoginEntry initialEmail={challengeProfile.email} initialPseudo={challengeLoginPseudoRef.current || challengeProfile.pseudo} flow={challengeLoginFlowRef.current} busy={challengeLoginBusy} error={challengeLoginError} sent={challengeLoginSent} onSubmit={handleChallengeLogin} onVerify={handleChallengeLoginOTP} onPseudoChange={(pseudo) => { challengeLoginPseudoRef.current = pseudo }} onResend={handleChallengeResend} onCancel={() => setShowChallengeLoginEntry(false)} /> : null}
       {classicProfileSettingsOpen ? (
         <ProfileSettings
           initialEmail={challengeProfile.email}

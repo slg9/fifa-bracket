@@ -21,7 +21,6 @@ export function OTPEntry({ email, pseudo, busy = false, error, onSubmit, onCance
 
   const handleOtpChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value
-    // Only allow digits
     if (/^\d*$/.test(value)) {
       setOtp(value.slice(0, 6))
     }
@@ -33,14 +32,17 @@ export function OTPEntry({ email, pseudo, busy = false, error, onSubmit, onCance
       <form className="brakup-email" onSubmit={handleSubmit}>
         <span className="brakup-eyebrow">Verification OTP</span>
         <h2 id="brakup-otp-title">Code de connexion</h2>
-        <p>Un code à 6 chiffres a été envoyé à <strong>{email}</strong> pour le compte <strong>{pseudo}</strong>.</p>
-        <p>Entrez le code reçu ci-dessous pour vous connecter.</p>
-        
+        <p>Un code a 6 chiffres a ete envoye. Verifie tes infos puis entre le code recu.</p>
+
+        <label>Email<input readOnly type="email" autoComplete="email" value={email} /></label>
+        <label>Pseudo<input readOnly autoComplete="nickname" value={pseudo} /></label>
+
         <label>
           Code OTP (6 chiffres)
           <input
             required
             type="text"
+            name="one-time-code"
             inputMode="numeric"
             pattern="[0-9]{6}"
             maxLength={6}
@@ -48,12 +50,14 @@ export function OTPEntry({ email, pseudo, busy = false, error, onSubmit, onCance
             onChange={handleOtpChange}
             placeholder="123456"
             autoComplete="one-time-code"
+            autoCapitalize="none"
+            enterKeyHint="done"
             style={{ fontSize: '20px', letterSpacing: '8px', textAlign: 'center' }}
           />
         </label>
-        
+
         {error && <p className="brakup-form-error">{error}</p>}
-        
+
         <div className="brakup-email__actions">
           <button type="button" className="brakup-button brakup-button--ghost" onClick={onCancel}>
             Annuler

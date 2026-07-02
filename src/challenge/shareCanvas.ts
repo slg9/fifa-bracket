@@ -25,6 +25,7 @@ export type ResultShareCanvasInput = {
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image()
+    img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
     img.onerror = reject
     img.src = src
@@ -52,18 +53,44 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, 
   return size
 }
 
+function isImageFlag(flag: string | undefined) {
+  return Boolean(flag && (/^https?:\/\//.test(flag) || flag.startsWith('/')))
+}
+
 function drawMatchupFlag(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   flag: string | undefined,
   label: string,
+  image?: HTMLImageElement | null,
 ) {
+  if (image) {
+    const w = 92
+    const h = 64
+    const left = x - w / 2
+    const top = y - h / 2
+    const scale = Math.max(w / image.width, h / image.height)
+    const drawW = image.width * scale
+    const drawH = image.height * scale
+
+    ctx.save()
+    roundRect(ctx, left, top, w, h, 12)
+    ctx.clip()
+    ctx.drawImage(image, left + (w - drawW) / 2, top + (h - drawH) / 2, drawW, drawH)
+    ctx.restore()
+
+    ctx.strokeStyle = 'rgba(255,255,255,.65)'
+    ctx.lineWidth = 3
+    roundRect(ctx, left, top, w, h, 12)
+    ctx.stroke()
+    return
+  }
+
   ctx.fillStyle = '#ffffff'
   ctx.font = "900 72px 'Apple Color Emoji', 'Segoe UI Emoji', Arial, sans-serif"
   ctx.fillText(flag || label.slice(0, 3).toUpperCase(), x, y)
 }
-
 
 function gfMultiply(a: number, b: number) {
   let result = 0
@@ -292,6 +319,8 @@ export async function renderResultShareCanvas(input: ResultShareCanvasInput): Pr
   }
 
   if (input.matchup) {
+    const homeFlagImage = isImageFlag(input.matchup.homeFlag) ? await loadImage(input.matchup.homeFlag!).catch(() => null) : null
+    const awayFlagImage = isImageFlag(input.matchup.awayFlag) ? await loadImage(input.matchup.awayFlag!).catch(() => null) : null
     const groupX = width - 248
     const groupY = 100
     ctx.save()
@@ -299,14 +328,14 @@ export async function renderResultShareCanvas(input: ResultShareCanvasInput): Pr
     ctx.textBaseline = 'middle'
     ctx.shadowColor = 'rgba(0,0,0,.62)'
     ctx.shadowBlur = 18
-    drawMatchupFlag(ctx, groupX - 106, groupY, input.matchup.homeFlag, input.matchup.homeLabel)
+    drawMatchupFlag(ctx, groupX - 106, groupY, homeFlagImage ? undefined : input.matchup.homeFlag, input.matchup.homeLabel, homeFlagImage)
     ctx.shadowBlur = 0
     ctx.fillStyle = '#ffb800'
     ctx.font = "900 34px 'Barlow Condensed', Arial, sans-serif"
     ctx.fillText('VS', groupX, groupY + 1)
     ctx.shadowColor = 'rgba(0,0,0,.62)'
     ctx.shadowBlur = 18
-    drawMatchupFlag(ctx, groupX + 106, groupY, input.matchup.awayFlag, input.matchup.awayLabel)
+    drawMatchupFlag(ctx, groupX + 106, groupY, awayFlagImage ? undefined : input.matchup.awayFlag, input.matchup.awayLabel, awayFlagImage)
     ctx.restore()
   }
 

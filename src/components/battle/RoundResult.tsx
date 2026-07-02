@@ -22,64 +22,64 @@ type RoundResultProps = {
 
 const GOAL_CALLS = [
   'GOOOOOOAL !', 'GOLAZO !!!', 'MAGNIFIQUE !', 'IL MARQUE !!!',
-  'COUP DE MAITRE !', 'FANTASTIQUE !', 'INCROYABLE !!!', 'QUEL BUT !!!',
+  'COUP DE MAÎTRE !', 'FANTASTIQUE !', 'INCROYABLE !!!', 'QUEL BUT !!!',
 ]
 const GOAL_WARNINGS = [
   "But important, on reste lucide pour la suite.",
   "Avantage pris, mais le prochain duel compte encore.",
-  'Le score bouge, il faut garder le controle.',
+  'Le score bouge, il faut garder le contrôle.',
   "Belle finition, le match continue.",
-  "L'adversaire va devoir reagir.",
-  'Reste concentre, le prochain round arrive vite.',
+  "L'adversaire va devoir réagir.",
+  'Reste concentré, le prochain round arrive vite.',
 ]
 const CONCEDE_CALLS = [
-  'Aie... le gardien a ete battu.',
-  'Quel coup dur pour la defense !',
+  'Aïe... le gardien a été battu.',
+  'Quel coup dur pour la défense !',
   'Il fallait le voir venir...',
   "Le gardien n'a rien pu faire.",
   'Les filets tremblent ! Douloureux.',
   'Une frappe imparable pour le portier !',
 ]
 const CONCEDE_ENCOURAGEMENTS = [
-  "But encaisse, il faut regarder la suite du match.",
-  "La defense a cede, le prochain round dira si ca bascule.",
+  "But encaissé, il faut regarder la suite du match.",
+  "La défense a cédé, le prochain round dira si ça bascule.",
   "Le score change, reste focus.",
-  'Coup dur, mais la sequence suivante arrive.',
+  'Coup dur, mais la séquence suivante arrive.',
   "Le match avance, chaque round compte.",
 ]
 const INTERCEPT_CALLS = [
-  "Zut alors ! C'etait si bien parti...",
-  'Intercepte ! Il fallait trouver la faille.',
-  "La defense adverse a verrouille ca !",
-  'Rate de peu ! Le mur tenait bon.',
-  "Bloque ! L'adversaire etait bien en place.",
+  "Zut alors ! C'était si bien parti...",
+  'Intercepté ! Il fallait trouver la faille.',
+  "La défense adverse a verrouillé ça !",
+  'Raté de peu ! Le mur tenait bon.',
+  "Bloqué ! L'adversaire était bien en place.",
 ]
 const INTERCEPT_ENCOURAGEMENTS = [
   'Le ballon est perdu, on regarde la prochaine phase.',
-  'Action stoppee, le match continue.',
+  'Action stoppée, le match continue.',
   'La prochaine phase arrive vite.',
   'Reste focus, le round suivant compte.',
 ]
 const MISS_CALLS = [
-  "Zut alors, c'etait tout proche !",
+  "Zut alors, c'était tout proche !",
   'Pas loin du tout ! Il manquait un rien.',
-  'Le geste etait bon, la finition a file de peu.',
-  'Quelle occasion... le cadre etait a deux doigts.',
-  'Ca se joue a presque rien sur cette frappe.',
+  'Le geste était bon, la finition a filé de peu.',
+  'Quelle occasion... le cadre était à deux doigts.',
+  'Ça se joue à presque rien sur cette frappe.',
 ]
 const MISS_ENCOURAGEMENTS = [
-  'Occasion manquee, on regarde la suite.',
-  'Le mouvement etait la - il faut finir le travail.',
-  'Tu y etais presque, le match continue.',
+  'Occasion manquée, on regarde la suite.',
+  'Le mouvement était là - il faut finir le travail.',
+  'Tu y étais presque, le match continue.',
   'Garde le rythme pour la prochaine phase.',
 ]
 const BUTTON_COPY: Record<RoundOutcome, string[]> = {
-  goal: ['On garde le rythme', 'Continuer la pression', 'Enchainer'],
-  saved: ['On continue comme ca', 'Garder les cages', 'Rester solide'],
-  defense_perfect: ['Bloc solide, on enchaine', 'Continuer comme ca', 'Remettre le verrou'],
-  goal_conceded: ['On baisse pas les bras', 'Reagir tout de suite', 'Rester dans le match'],
-  intercepted: ['Se relancer', 'Reprendre le controle', 'On repart'],
-  miss: ['Regler la mire', 'La prochaine est dedans', 'On reste dangereux'],
+  goal: ['On garde le rythme', 'Continuer la pression', 'Enchaîner'],
+  saved: ['On continue comme ça', 'Garder les cages', 'Rester solide'],
+  defense_perfect: ['Bloc solide, on enchaîne', 'Continuer comme ça', 'Remettre le verrou'],
+  goal_conceded: ['On baisse pas les bras', 'Réagir tout de suite', 'Rester dans le match'],
+  intercepted: ['Se relancer', 'Reprendre le contrôle', 'On repart'],
+  miss: ['Régler la mire', 'La prochaine est dedans', 'On reste dangereux'],
 }
 
 function pick<T>(arr: T[]): T {
@@ -94,19 +94,19 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
   const title = outcome === 'goal'
     ? 'BUT !'
     : outcome === 'saved'
-      ? 'ARRET !'
+      ? 'ARRÊT !'
       : outcome === 'defense_perfect'
-        ? 'DEFENSE PARFAITE !'
+        ? 'DÉFENSE PARFAITE !'
         : outcome === 'goal_conceded'
-          ? 'BUT ENCAISSE !'
+          ? 'BUT ENCAISSÉ !'
           : outcome === 'intercepted'
             ? 'INTERCEPTION !'
-            : 'RATE !'
+            : 'RATÉ !'
 
   const nextPhaseHint = useMemo(() => {
-    if (!nextRoundType) return 'Coup de sifflet : le resultat du match arrive.'
+    if (!nextRoundType) return 'Coup de sifflet : le résultat du match arrive.'
     if (nextRoundType === 'attack') return "Prochaine phase : attaque. Il faut dribbler puis finir l'action."
-    if (nextRoundType === 'defense') return "Prochaine phase : defense. L'adversaire lance son offensive."
+    if (nextRoundType === 'defense') return "Prochaine phase : défense. L'adversaire lance son offensive."
     return 'Prochaine phase : Tirs massifs. Coupe les ballons.'
   }, [nextRoundType])
 
@@ -118,7 +118,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
     }
     if (outcome === 'goal_conceded') {
       const call = pick(CONCEDE_CALLS)
-      const keeper = keeperName ? `${keeperName} s'en mord les doigts.` : 'Le portier a tout tente.'
+      const keeper = keeperName ? `${keeperName} s'en mord les doigts.` : 'Le portier a tout tenté.'
       return { accent: '#FF4455', main: call, sub: `${keeper} ${pick(CONCEDE_ENCOURAGEMENTS)} ${nextPhaseHint}` }
     }
     if (outcome === 'intercepted') {
@@ -132,22 +132,22 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
       const keeper = keeperName ? `${keeperName} sort le grand jeu !` : 'Parade monumentale !'
       const sub = scorerName
         ? `${scorerName} bute sur le gardien. ${nextPhaseHint}`
-        : `${opponentName ? `${opponentName} va devoir s'y reprendre.` : "L'attaque adverse est repoussee."} ${nextPhaseHint}`
+        : `${opponentName ? `${opponentName} va devoir s'y reprendre.` : "L'attaque adverse est repoussée."} ${nextPhaseHint}`
       return { accent: '#2bff9a', main: keeper, sub }
     }
     if (outcome === 'defense_perfect') {
-      return { accent: '#2bff9a', main: "Zero pointe pour l'adversaire !", sub: `Defense de fer. ${nextPhaseHint}` }
+      return { accent: '#2bff9a', main: "Zéro pointé pour l'adversaire !", sub: `Défense de fer. ${nextPhaseHint}` }
     }
     return null
   }, [keeperName, nextPhaseHint, opponentName, outcome, scorerName])
 
   const showButton = roundResultNeedsClick(outcome)
   const buttonLabel = useMemo(() => {
-    if (!nextRoundType) return outcome === 'goal_conceded' ? 'Voir le verdict' : 'Voir le resultat'
+    if (!nextRoundType) return outcome === 'goal_conceded' ? 'Voir le verdict' : 'Voir le résultat'
     const situational = pick(BUTTON_COPY[outcome])
     if (nextRoundType === 'attack') return situational
     if (nextRoundType === 'defense') return outcome === 'goal_conceded' ? 'On baisse pas les bras' : situational
-    return outcome === 'goal_conceded' ? 'Resister aux tirs massifs' : 'Subir les tirs massifs'
+    return outcome === 'goal_conceded' ? 'Résister aux tirs massifs' : 'Subir les tirs massifs'
   }, [nextRoundType, outcome])
 
   return (

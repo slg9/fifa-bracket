@@ -152,7 +152,46 @@ export function unlockGameAudio() {
   return true
 }
 
+let lifecycleListenersInstalled = false
+let pausedByLifecycle = false
+
+/**
+ * Mobile browser lifecycle handling:
+ * - tab hidden / app backgrounded / screen locked -> pause music + suspend the context
+ * - back to foreground -> resume the context (iOS Safari can leave it in an
+ *   'interrupted' state after a call or the lock screen) and restart the music.
+ */
+function installLifecycleListeners() {
+  if (typeof window === 'undefined' || typeof document === 'undefined' || lifecycleListenersInstalled) return
+  lifecycleListenersInstalled = true
+
+  const resumeAll = () => {
+    if (document.hidden) return
+    if (_ctx && _ctx.state !== 'running') void _ctx.resume().catch(() => undefined)
+    if (pausedByLifecycle && _audio && _src && !_muted) {
+      pausedByLifecycle = false
+      _audio.play().catch(() => undefined)
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (_audio && !_audio.paused) {
+        pausedByLifecycle = true
+        rememberPosition(_audio, _src)
+        _audio.pause()
+      }
+      if (_ctx && _ctx.state === 'running') void _ctx.suspend().catch(() => undefined)
+    } else {
+      resumeAll()
+    }
+  })
+  window.addEventListener('pageshow', resumeAll)
+  window.addEventListener('focus', resumeAll)
+}
+
 function installGestureUnlockListeners() {
+  installLifecycleListeners()
   if (typeof window === 'undefined' || unlockListenersInstalled) return
   unlockListenersInstalled = true
   const events: Array<keyof WindowEventMap> = ['pointerdown', 'touchstart', 'keydown', 'click']

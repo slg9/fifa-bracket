@@ -26,6 +26,16 @@ function withRunningAudioContext(run: (context: AudioContext, destination: Audio
   c.resume().then(start).catch(() => undefined)
 }
 
+/**
+ * Light haptic feedback for key game moments (Android Chrome; iOS ignores it).
+ * Follows the mute toggle so "silent mode" really is silent.
+ */
+function buzz(pattern: number | number[]) {
+  if (isGameMuted()) return
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return
+  try { navigator.vibrate(pattern) } catch { /* unsupported */ }
+}
+
 function tone(
   freq: number,
   duration: number,
@@ -111,6 +121,7 @@ export const sfx: SFX = {
 
   /** Countdown GO */
   countdownGo() {
+    buzz(16)
     noise(0.2, { filterFreq: 1800, filterFreqEnd: 4200, gain: 0.14 })
     tone(520, 0.18, { type: 'triangle', gain: 0.24, freqEnd: 1040 })
     tone(1040, 0.22, { type: 'sine', gain: 0.18, delay: 0.06, freqEnd: 1560 })
@@ -125,6 +136,7 @@ export const sfx: SFX = {
 
   /** Bomb touched in save chaos */
   bomb() {
+    buzz([70, 30, 40])
     noise(0.42, { filterFreq: 2400, filterFreqEnd: 110, gain: 0.36 })
     noise(0.24, { filterFreq: 120, filterFreqEnd: 60, gain: 0.22, delay: 0.03 })
     tone(96, 0.42, { type: 'sawtooth', gain: 0.24, freqEnd: 42 })
@@ -133,6 +145,7 @@ export const sfx: SFX = {
 
   /** Red kamikaze player hit by a shot */
   kamikaze() {
+    buzz([40, 30, 60])
     tone(1320, 0.07, { type: 'square', gain: 0.14 })
     tone(880, 0.08, { type: 'square', gain: 0.14, delay: 0.075 })
     noise(0.34, { filterFreq: 3000, filterFreqEnd: 140, gain: 0.3, delay: 0.12 })
@@ -190,6 +203,7 @@ export const sfx: SFX = {
 
   /** Crowd roar — goal scored */
   goal() {
+    buzz([18, 60, 30])
     noise(1.4, { filterFreq: 600, filterFreqEnd: 2400, gain: 0.28 })
     noise(1.0, { filterFreq: 200, filterFreqEnd: 800, gain: 0.18, delay: 0.06 })
     tone(392, 0.22, { type: 'triangle', gain: 0.22 })
@@ -201,6 +215,7 @@ export const sfx: SFX = {
 
   /** Crowd groan — goal conceded */
   concede() {
+    buzz([50, 40, 50])
     noise(1.0, { filterFreq: 500, filterFreqEnd: 120, gain: 0.22 })
     tone(330, 0.4, { type: 'sawtooth', gain: 0.14, freqEnd: 220 })
     tone(220, 0.4, { type: 'sawtooth', gain: 0.12, delay: 0.32, freqEnd: 146 })
@@ -216,6 +231,7 @@ export const sfx: SFX = {
 
   /** Defensive tackle shockwave */
   tackle() {
+    buzz(24)
     noise(0.2, { filterFreq: 1200, filterFreqEnd: 120, gain: 0.3 })
     noise(0.12, { filterFreq: 2600, filterFreqEnd: 500, gain: 0.12, delay: 0.03 })
     tone(150, 0.22, { type: 'sawtooth', gain: 0.22, freqEnd: 60 })
