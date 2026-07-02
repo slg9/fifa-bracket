@@ -382,6 +382,7 @@ export function BrakupHub({
   const [outcomeSharePreviewOpen, setOutcomeSharePreviewOpen] = useState(false)
   const [isOutcomeCapturingShare, setIsOutcomeCapturingShare] = useState(false)
   const [outcomeNoticeKey, setOutcomeNoticeKey] = useState<string | null>(null)
+  const [forcedOutcomeNotice, setForcedOutcomeNotice] = useState<OutcomeNotice | null>(null)
   const [seenOutcomeVersion, setSeenOutcomeVersion] = useState(0)
   const [remoteSeenOutcomeKeys, setRemoteSeenOutcomeKeys] = useState<string[]>([])
   const outcomeShareRunRef = useRef(0)
@@ -447,7 +448,7 @@ export function BrakupHub({
         return hasFinalOfficialResult && item.progress.played && !seen.has(item.key)
       })
   }, [battleScores, matches, officialFinishedSet, officialScoreMap, picks, realResults, realScorers, remoteSeenOutcomeKeys, scorers, seenOutcomeVersion, storedRealResults])
-  const outcomeNotice = pendingOutcomeNotices.find((item) => item.key === outcomeNoticeKey) ?? pendingOutcomeNotices[0] ?? null
+  const outcomeNotice = forcedOutcomeNotice ?? pendingOutcomeNotices.find((item) => item.key === outcomeNoticeKey) ?? pendingOutcomeNotices[0] ?? null
   const outcomeNoticeIndex = outcomeNotice ? pendingOutcomeNotices.findIndex((item) => item.key === outcomeNotice.key) : -1
   const hubAudioSrc = outcomeNotice?.progress.correct ? '/audio/cup-victory-parade.mp3' : view !== 'battle' ? '/audio/kickoff-carnival.mp3' : null
   // Lobby music: kickoff when on challenge/brackets/board. Null during battle (BattleEngine takes over).
@@ -662,12 +663,6 @@ export function BrakupHub({
   }
   const handlePlay = (matchId: string, teamId?: string) => {
     trackAnalytics('challenge_play_match', { matchId, teamId, alreadyPlayed: battleScores[matchId] !== undefined }, 'challenge')
-    if (realResults[matchId] || officialResults[matchId]) {
-      if (battleScores[matchId] === undefined) {
-        sfx.error()
-        return
-      }
-    }
     const m = matches.find((mx) => mx.id === matchId)
     const selectedTeamId = teamId ?? picks[matchId]
     if (selectedTeamId && m?.home.kind === 'team' && m.away.kind === 'team') {
@@ -763,6 +758,7 @@ export function BrakupHub({
 
   const handleBattleComplete = (result: BattleResult) => {
     const mid = activeMatchId ?? ''
+    const officialReplay = Boolean(mid && realResults[mid])
     const nextPicks = mid ? { ...picks, [mid]: result.winnerId } : picks
     const playerTeamId = activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team'
       ? activeSide === 'away' ? activeMatch.away.teamId : activeMatch.home.teamId
@@ -774,6 +770,14 @@ export function BrakupHub({
     const nextBattleBonuses = Math.min(40, battleBonuses + Math.max(1, Math.round(result.playerScore / 20)))
     const nextProgressStats = summarizeProgress(matches, nextPicks, nextBattleScores, realResults, officialScoreMap, nextBattleBonuses, nextScorers, realScorers)
     const nextBreakdown = buildProgressBreakdown(matches, nextPicks, nextBattleScores, realResults, officialScoreMap, nextScorers, realScorers)
+    if (officialReplay && activeMatch) {
+      const replayProgress = evaluateMatchProgress(activeMatch, nextPicks, nextBattleScores, realResults, officialScoreMap, nextScorers, realScorers)
+      setForcedOutcomeNotice({
+        key: `${outcomeStorageKey(activeMatch.id, replayProgress.realWinnerTeamId, replayProgress.realScore)}:replay:${Date.now()}`,
+        match: activeMatch,
+        progress: replayProgress,
+      })
+    }
     trackAnalytics('challenge_battle_complete', {
       matchId: mid,
       winnerId: result.winnerId,
@@ -781,6 +785,7 @@ export function BrakupHub({
       homeScore: result.homeScore,
       awayScore: result.awayScore,
       scorers: result.scorers?.length ?? 0,
+      officialReplay,
     }, 'challenge')
     setPicks(nextPicks)
     if (mid) setBattleScores(nextBattleScores)
@@ -1025,7 +1030,7 @@ export function BrakupHub({
   }, [challengePreload.ready, outcomeNoticeKey, pendingOutcomeNotices, showSplash])
 
   const closeOutcomeNotice = () => {
-    if (outcomeNotice) {
+    if (outcomeNotice && !forcedOutcomeNotice) {
       const seen = new Set(readSeenOutcomeKeys())
       seen.add(outcomeNotice.key)
       const nextSeen = [...new Set([...remoteSeenOutcomeKeys, ...seen])]
@@ -1039,6 +1044,7 @@ export function BrakupHub({
       }
       setSeenOutcomeVersion((version) => version + 1)
     }
+    setForcedOutcomeNotice(null)
     setOutcomeNoticeKey(null)
     setOutcomeShareStatus('idle')
     setOutcomeShareUrl(null)
@@ -1274,7 +1280,7 @@ export function BrakupHub({
           ownerPseudo={savedProfile.pseudo || undefined}
           difficultySetting={difficultySetting}
           onDifficultyChange={updateDifficultySetting}
-          syncStatusLabel={hasSyncedProfile ? `Deja synchronise : ${savedProfile.pseudo || 'profil'} sera sauvegarde automatiquement.` : 'Synchro proposee apres ce match pour publier ton score.'}
+          syncStatusLabel={activeMatchId && realResults[activeMatchId] ? 'Replay officiel : reproduis le scenario pour marquer les points, le bracket ne bougera pas.' : hasSyncedProfile ? `Deja synchronise : ${savedProfile.pseudo || 'profil'} sera sauvegarde automatiquement.` : 'Synchro proposee apres ce match pour publier ton score.'}
           existingResult={activeMatch ? makeExistingBattleResult(activeMatch, battleScores, scorers) : null}
         />
       ) : null}
@@ -1490,7 +1496,7 @@ export function BrakupHub({
             {outcomeShareStatus === 'ready' ? <small className="brakup-share-feedback">Image prete. Ouvre le visuel pour partager.</small> : null}
             {outcomeShareStatus === 'done' ? <small className="brakup-share-feedback">Partage lance.</small> : null}
             {outcomeShareStatus === 'error' ? <small className="brakup-share-feedback is-error">Partage indisponible. Retente.</small> : null}
-            {pendingOutcomeNotices.length > 1 ? (
+            {!forcedOutcomeNotice && pendingOutcomeNotices.length > 1 ? (
               <div className="brakup-outcome__slider" aria-label="Resultats non vus">
                 <button type="button" onClick={() => { sfx.tab(); showOutcomeAt((outcomeNoticeIndex - 1 + pendingOutcomeNotices.length) % pendingOutcomeNotices.length) }}>‹</button>
                 <span>{outcomeNoticeIndex + 1} / {pendingOutcomeNotices.length}</span>

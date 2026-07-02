@@ -121,7 +121,7 @@ function getRoundShort(match: KnockoutMatch) {
 function getStatusHint(status: NodeStatus) {
   switch (status) {
     case 'closed':
-      return 'Match deja joue. Impossible de rejouer.'
+      return 'Resultat officiel connu. Rejoue le scenario pour le fun et pour marquer les points du prono.'
     case 'completed':
       return 'Match joue. Touche une equipe pour rejouer avec ce camp.'
     case 'picked':
@@ -423,7 +423,8 @@ function MatchNode({
 
       <span className="wcmap__round-chip">{node.roundShort}</span>
 
-      {(isLocked || isClosed) && <span className="wcmap__status-badge wcmap__status-badge--lock">{'\uD83D\uDD12'}</span>}
+      {isLocked && <span className="wcmap__status-badge wcmap__status-badge--lock">{'\uD83D\uDD12'}</span>}
+      {isClosed && <span className="wcmap__status-badge">OFF</span>}
       {isCompleted && <span className="wcmap__status-badge">{'\u2713'}</span>}
       {node.progress.played ? (
         <span className={`wcmap__outcome-badge${node.progress.correct ? ' is-correct' : ' is-wrong'}`} title={node.progress.correct ? `Prono reussi +${node.progress.points}` : 'Prono rate'}>
@@ -479,6 +480,7 @@ function LevelEntryScreen({
   const resultWinnerTeam = isClosed ? officialWinnerTeam : predictedWinnerTeam
   const officialPending = node.status === 'completed' && Boolean(node.pickedTeamId) && !node.progress.played
   const canReplayPlayedMatch = node.status === 'completed' && !isClosed
+  const canReplayOfficialMatch = isClosed && Boolean(node.homeTeam && node.awayTeam)
   const canSharePlayedMatch = canShare && Boolean(node.pickedTeamId && displayScore) && node.status === 'completed'
   const hasPreselectedWinner = node.status === 'picked' && Boolean(node.pickedTeamId)
   const schedule = knockoutKickoffById[node.match.id]
@@ -547,8 +549,8 @@ function LevelEntryScreen({
               </div>
             ) : isClosed ? (
               <div className="wcmap-entry__verdict is-pending">
-                <strong>Match verrouille</strong>
-                <span>Resultat officiel enregistre. Ce match ne peut plus etre joue.</span>
+                <strong>Replay officiel</strong>
+                <span>Essaie de reproduire le scenario du match pour recevoir un max de points. Ton resultat Brakup ne modifiera pas le bracket officiel.</span>
               </div>
             ) : hasPreselectedWinner ? (
               <div className="wcmap-entry__verdict is-pending">
@@ -571,10 +573,10 @@ function LevelEntryScreen({
           </div>
         ) : null}
 
-        {(node.status !== 'completed' && !isClosed) || canReplayPlayedMatch ? (
+        {(node.status !== 'completed' && !isClosed) || canReplayPlayedMatch || canReplayOfficialMatch ? (
           <div className="wcmap-entry__choose">
-            <span>{hasPreselectedWinner ? 'Confirme ton prono' : 'Choisis une equipe'}</span>
-            <small>{canReplayPlayedMatch ? "Touche une equipe pour rejouer ce match avec elle." : hasPreselectedWinner ? "Le flag selectionne lance le match avec ton vainqueur choisi." : "Le match demarre avec l'equipe que tu touches."}</small>
+            <span>{isClosed ? 'Rejoue le scenario officiel' : hasPreselectedWinner ? 'Confirme ton prono' : 'Choisis une equipe'}</span>
+            <small>{isClosed ? "Choisis un camp: c'est pour le fun et le scoring, pas pour changer la route du bracket." : canReplayPlayedMatch ? "Touche une equipe pour rejouer ce match avec elle." : hasPreselectedWinner ? "Le flag selectionne lance le match avec ton vainqueur choisi." : "Le match demarre avec l'equipe que tu touches."}</small>
           </div>
         ) : null}
 
@@ -583,7 +585,7 @@ function LevelEntryScreen({
             type="button"
             className={`wcmap-entry__team${selectedTeamId === node.homeTeam?.id ? ' is-selected' : ''}${isClosed && node.realWinnerTeamId === node.homeTeam?.id ? ' is-official-winner' : ''}${isClosed && node.realWinnerTeamId && node.realWinnerTeamId !== node.homeTeam?.id ? ' is-official-loser' : ''}`}
             onClick={() => node.homeTeam && onPickTeam(node.homeTeam.id)}
-            disabled={isClosed || !node.homeTeam || !node.awayTeam}
+            disabled={!node.homeTeam || !node.awayTeam}
           >
             <span className="wcmap-entry__team-flag">
               <span>{teamFlagEmoji(node.homeTeam)}</span>
@@ -596,7 +598,7 @@ function LevelEntryScreen({
             type="button"
             className={`wcmap-entry__team${selectedTeamId === node.awayTeam?.id ? ' is-selected' : ''}${isClosed && node.realWinnerTeamId === node.awayTeam?.id ? ' is-official-winner' : ''}${isClosed && node.realWinnerTeamId && node.realWinnerTeamId !== node.awayTeam?.id ? ' is-official-loser' : ''}`}
             onClick={() => node.awayTeam && onPickTeam(node.awayTeam.id)}
-            disabled={isClosed || !node.homeTeam || !node.awayTeam}
+            disabled={!node.homeTeam || !node.awayTeam}
           >
             <span className="wcmap-entry__team-flag">
               <span>{teamFlagEmoji(node.awayTeam)}</span>
@@ -842,11 +844,6 @@ export function WorldCupMapMenu({
   const handlePickTeam = (teamId: string) => {
     if (readOnly) return
     if (!selectedNode) return
-    if (selectedNode.status === 'closed') {
-      setNotice('Match déjà joué. Impossible de rejouer.')
-      sfx.error()
-      return
-    }
     if (!selectedNode.homeTeam || !selectedNode.awayTeam) {
       setNotice('Ce match n est pas encore disponible.')
       return
