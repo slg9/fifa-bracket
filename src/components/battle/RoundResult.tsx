@@ -47,19 +47,6 @@ const CONCEDE_ENCOURAGEMENTS = [
   'Coup dur, mais la séquence suivante arrive.',
   "Le match avance, chaque round compte.",
 ]
-const INTERCEPT_CALLS = [
-  "Zut alors ! C'était si bien parti...",
-  'Intercepté ! Il fallait trouver la faille.',
-  "La défense adverse a verrouillé ça !",
-  'Raté de peu ! Le mur tenait bon.',
-  "Bloqué ! L'adversaire était bien en place.",
-]
-const INTERCEPT_ENCOURAGEMENTS = [
-  'Le ballon est perdu, on regarde la prochaine phase.',
-  'Action stoppée, le match continue.',
-  'La prochaine phase arrive vite.',
-  'Reste focus, le round suivant compte.',
-]
 const MISS_CALLS = [
   "Zut alors, c'était tout proche !",
   'Pas loin du tout ! Il manquait un rien.',
@@ -73,15 +60,6 @@ const MISS_ENCOURAGEMENTS = [
   'Tu y étais presque, le match continue.',
   'Garde le rythme pour la prochaine phase.',
 ]
-const BUTTON_COPY: Record<RoundOutcome, string[]> = {
-  goal: ['On garde le rythme', 'Continuer la pression', 'Enchaîner'],
-  saved: ['On continue comme ça', 'Garder les cages', 'Rester solide'],
-  defense_perfect: ['Bloc solide, on enchaîne', 'Continuer comme ça', 'Remettre le verrou'],
-  goal_conceded: ['On baisse pas les bras', 'Réagir tout de suite', 'Rester dans le match'],
-  intercepted: ['Se relancer', 'Reprendre le contrôle', 'On repart'],
-  miss: ['Régler la mire', 'La prochaine est dedans', 'On reste dangereux'],
-}
-
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
 }
@@ -96,11 +74,11 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
     : outcome === 'saved'
       ? 'ARRÊT !'
       : outcome === 'defense_perfect'
-        ? 'DÉFENSE PARFAITE !'
+        ? 'BRAVO !'
         : outcome === 'goal_conceded'
           ? 'BUT ENCAISSÉ !'
           : outcome === 'intercepted'
-            ? 'INTERCEPTION !'
+            ? 'BALLON PERDU !'
             : 'RATÉ !'
 
   const nextPhaseHint = useMemo(() => {
@@ -122,7 +100,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
       return { accent: '#FF4455', main: call, sub: `${keeper} ${pick(CONCEDE_ENCOURAGEMENTS)} ${nextPhaseHint}` }
     }
     if (outcome === 'intercepted') {
-      return { accent: '#2bff9a', main: pick(INTERCEPT_CALLS), sub: pick(INTERCEPT_ENCOURAGEMENTS) }
+      return { accent: '#FF4455', main: 'Ballon perdu.', sub: 'Tu peux rejouer l’attaque ou tenter le Goal Save.' }
     }
     if (outcome === 'miss') {
       const sub = scorerName ? `${scorerName} rate sa frappe. ${pick(MISS_ENCOURAGEMENTS)}` : pick(MISS_ENCOURAGEMENTS)
@@ -136,19 +114,14 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
       return { accent: '#2bff9a', main: keeper, sub }
     }
     if (outcome === 'defense_perfect') {
-      return { accent: '#2bff9a', main: "Zéro pointé pour l'adversaire !", sub: `Défense de fer. ${nextPhaseHint}` }
+      return { accent: '#2bff9a', main: 'Tu as bloqué tous les tirs !', sub: `Tu gagnes un tir bonus. ${nextPhaseHint}` }
     }
     return null
   }, [keeperName, nextPhaseHint, opponentName, outcome, scorerName])
 
   const showButton = roundResultNeedsClick(outcome)
-  const buttonLabel = useMemo(() => {
-    if (!nextRoundType) return outcome === 'goal_conceded' ? 'Voir le verdict' : 'Voir le résultat'
-    const situational = pick(BUTTON_COPY[outcome])
-    if (nextRoundType === 'attack') return situational
-    if (nextRoundType === 'defense') return outcome === 'goal_conceded' ? 'On baisse pas les bras' : situational
-    return outcome === 'goal_conceded' ? 'Résister aux tirs massifs' : 'Subir les tirs massifs'
-  }, [nextRoundType, outcome])
+  const retryLabel = outcome === 'miss' && roundType === 'attack' ? 'Réessayer le tir' : "Réessayer l'attaque"
+  const buttonLabel = outcome === 'intercepted' ? 'Bloquer le tir' : 'Continuer'
 
   return (
     <section className={`battle-round-result is-${outcome}`}>
@@ -302,7 +275,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         <div className="rr-actions">
           {onRetry ? (
             <button type="button" className="rr-retry-btn" onClick={onRetry}>
-              Reessayer
+              {retryLabel}
             </button>
           ) : null}
           {onContinue ? (

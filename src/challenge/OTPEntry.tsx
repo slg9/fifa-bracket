@@ -2,20 +2,22 @@ import { useState } from 'react'
 
 export interface OTPEntryProps {
   email: string
-  pseudo: string
+  pseudo?: string
+  requirePseudo?: boolean
   busy?: boolean
   error?: string | null
-  onSubmit: (otp: string) => void
+  onSubmit: (otp: string, pseudo?: string) => void
   onCancel?: () => void
 }
 
-export function OTPEntry({ email, pseudo, busy = false, error, onSubmit, onCancel }: OTPEntryProps) {
+export function OTPEntry({ email, pseudo = '', requirePseudo = false, busy = false, error, onSubmit, onCancel }: OTPEntryProps) {
   const [otp, setOtp] = useState('')
+  const [draftPseudo, setDraftPseudo] = useState(pseudo)
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault()
-    if (otp.length === 6) {
-      onSubmit(otp)
+    if (otp.length === 6 && (!requirePseudo || draftPseudo.trim())) {
+      onSubmit(otp, draftPseudo.trim() || undefined)
     }
   }
 
@@ -30,12 +32,11 @@ export function OTPEntry({ email, pseudo, busy = false, error, onSubmit, onCance
     <div className="brakup-dialog" role="dialog" aria-modal="true" aria-labelledby="brakup-otp-title">
       <button type="button" className="brakup-dialog__scrim" onClick={onCancel} aria-label="Fermer" />
       <form className="brakup-email" onSubmit={handleSubmit}>
-        <span className="brakup-eyebrow">Verification OTP</span>
+        <span className="brakup-eyebrow">Vérification OTP</span>
         <h2 id="brakup-otp-title">Code de connexion</h2>
-        <p>Un code a 6 chiffres a ete envoye. Verifie tes infos puis entre le code recu.</p>
+        <p>Entre le code à 6 chiffres envoyé par email.{requirePseudo ? ' Comme ce mail est nouveau, choisis aussi ton pseudo.' : ''}</p>
 
         <label>Email<input readOnly type="email" autoComplete="email" value={email} /></label>
-        <label>Pseudo<input readOnly autoComplete="nickname" value={pseudo} /></label>
 
         <label>
           Code OTP (6 chiffres)
@@ -56,14 +57,16 @@ export function OTPEntry({ email, pseudo, busy = false, error, onSubmit, onCance
           />
         </label>
 
+        {requirePseudo ? <label>Pseudo<input required maxLength={40} autoComplete="nickname" value={draftPseudo} onChange={(event) => setDraftPseudo(event.target.value)} placeholder="Le sélectionneur" /></label> : null}
+
         {error && <p className="brakup-form-error">{error}</p>}
 
         <div className="brakup-email__actions">
           <button type="button" className="brakup-button brakup-button--ghost" onClick={onCancel}>
             Annuler
           </button>
-          <button type="submit" className="brakup-button" disabled={busy || otp.length !== 6}>
-            {busy ? 'Verification...' : 'Valider'}
+          <button type="submit" className="brakup-button" disabled={busy || otp.length !== 6 || (requirePseudo && !draftPseudo.trim())}>
+            {busy ? 'Vérification…' : 'Valider'}
           </button>
         </div>
       </form>

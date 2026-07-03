@@ -30,6 +30,7 @@ type GoalViewProps = {
   compact?: boolean
   showAimGuide?: boolean
   targetActive?: boolean
+  originYFrac?: number
   onTarget?: (target: GoalTarget) => void
   onPreviewTarget?: (target: GoalTarget | null) => void
   onKeeperMove?: (position: number) => void
@@ -66,8 +67,8 @@ function cubicBezierPoint(p0: Point, p1: Point, p2: Point, p3: Point, t: number)
 }
 
 function goalFrameMetrics(width: number, height: number, compact?: boolean) {
-  const topY = height * (compact ? 0.22 : 0.12)
-  const bottomY = height * (compact ? 0.44 : 0.88)
+  const topY = height * (compact ? 0.31 : 0.12)
+  const bottomY = height * (compact ? 0.46 : 0.88)
   const topLeft = width * (compact ? 0.18 : 0.12)
   const topRight = width * (compact ? 0.82 : 0.88)
   const bottomLeft = width * (compact ? 0.12 : 0.06)
@@ -185,6 +186,7 @@ export function GoalView({
   compact = false,
   showAimGuide = false,
   targetActive = true,
+  originYFrac: originYFracProp,
   onTarget,
   onPreviewTarget,
   onKeeperMove,
@@ -253,17 +255,17 @@ export function GoalView({
   const targetPoint = useMemo(() => activeTarget ? (ballFlight?.state === 'miss' ? pointFromPossiblyOutsideGoal(width, height, activeTarget, compact) : goalPointFromNormalized(width, height, activeTarget, compact)) : { x: width / 2, y: height / 2 }, [activeTarget, ballFlight?.state, compact, height, width])
   const keeperBottom = goalEdgeAtY(width, height, 92, compact)
   const keeperSvgX = interpolate(keeperBottom.left, keeperBottom.right, keeperX / 100)
-  const keeperMargin = compact ? clamp(goalHeight * 0.30, 28, 42) : 20
+  const keeperMargin = compact ? clamp(goalHeight * 0.22, 12, 28) : 20
   const keeperYNorm = clamp(keeperYProp, 10, 90) / 100
   const keeperSvgY = interpolate(frame.topY + keeperMargin, frame.bottomY - keeperMargin, keeperYNorm)
   const keeperScale = compact ? 0.78 : 1
-  const originYFrac = compact ? 0.86 : 0.95
+  const originYFrac = originYFracProp ?? (compact ? 0.86 : 0.95)
   const shot = useMemo(() => (activeTarget ? buildShotCurve(width, height, activeTarget, originYFrac, compact, ballFlight?.state === 'miss') : null), [activeTarget, ballFlight?.state, compact, height, originYFrac, width])
   const ballPoint = shot ? cubicBezierPoint(shot.origin, shot.cp1, shot.cp2, shot.targetPoint, flightProgress) : null
   const saveAngle = targetPoint.x >= keeperSvgX ? 42 : -42
   const saving = ballFlight?.state === 'saved'
   const keeperZoneWidth = clamp(width * (compact ? 0.145 : 0.20), 42, 82)
-  const keeperZoneHeight = clamp(goalHeight * (compact ? 0.52 : 0.34), 36, 78)
+  const keeperZoneHeight = clamp(goalHeight * (compact ? 0.62 : 0.34), 28, 64)
   const transitionMs = Math.max(40, 130 - 2.2 * 50) * (slowMotion ? 4 : 1)
 
   const coordinates = (clientX: number, clientY: number): GoalTarget | null => {

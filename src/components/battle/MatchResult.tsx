@@ -32,6 +32,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
   const [preparedShareUrl, setPreparedShareUrl] = useState<string | null>(null)
   const [sharePreviewUrl, setSharePreviewUrl] = useState<string | null>(null)
   const [sharePreviewOpen, setSharePreviewOpen] = useState(false)
+  const [showRoundDetails, setShowRoundDetails] = useState(false)
   const homeName = homeTeamName ?? homeTeamId
   const awayName = awayTeamName ?? awayTeamId
   const matchLabel = `${homeName} - ${awayName}`
@@ -166,7 +167,10 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
         {shareStatus === 'done' ? <small className="battle-share__feedback">Partage lancé.</small> : null}
         {shareStatus === 'error' ? <small className="battle-share__feedback is-error">Partage indisponible. Retente.</small> : null}
         <button type="button" className="battle-continue" onClick={onContinue}>Continuer <span>→</span></button>
-        <div className="battle-breakdown"><header><span>Round</span><span>Phase</span><span>Résultat</span></header>{result.rounds.length ? result.rounds.map((round, index) => <div key={`${round.type}-${index}`}><b>{index + 1}</b><span>{round.scorer ? `${round.type === 'attack' ? 'Attaque' : round.type === 'fruit_ninja' ? 'Tirs massifs' : 'Defense'} · ${round.scorer.name}` : round.type === 'attack' ? 'Attaque' : round.type === 'fruit_ninja' ? 'Tirs massifs' : 'Defense'}</span><strong className={round.success ? 'is-success' : 'is-fail'}>{round.success ? 'REUSSI' : 'ECHEC'}</strong></div>) : <div><b>SIM</b><span>Simulation directe</span><strong className="is-success">VALIDE</strong></div>}</div>
+        <button type="button" className="battle-round-details-toggle" onClick={() => setShowRoundDetails((open) => !open)} aria-expanded={showRoundDetails}>
+          {showRoundDetails ? 'Masquer les détails des rounds' : 'Voir détails des rounds'}
+        </button>
+        {showRoundDetails ? <div className="battle-breakdown"><header><span>Round</span><span>Phase</span><span>Résultat</span></header>{result.rounds.length ? result.rounds.map((round, index) => <div key={`${round.type}-${index}`}><b>{index + 1}</b><span>{round.scorer ? `${round.type === 'attack' ? 'Attaque' : round.type === 'fruit_ninja' ? 'Tirs massifs' : 'Défense'} · ${round.scorer.name}` : round.type === 'attack' ? 'Attaque' : round.type === 'fruit_ninja' ? 'Tirs massifs' : 'Défense'}</span><strong className={round.success ? 'is-success' : 'is-fail'}>{round.success ? 'RÉUSSI' : 'ÉCHEC'}</strong></div>) : <div><b>SIM</b><span>Simulation directe</span><strong className="is-success">VALIDÉ</strong></div>}</div> : null}
       </div>
       {(shareStatus === 'working' || (sharePreviewUrl && sharePreviewOpen)) ? (
         <div className="brakup-share-preview" role="dialog" aria-modal="true">

@@ -102,6 +102,12 @@ export interface SFX {
   lightning(): void
   jump(): void
   gatePass(): void
+  bonusCoin(): void
+  turbo(): void
+  slowmo(): void
+  powerShot(): void
+  blastPower(): void
+  wideGate(): void
   slice(): void
   error(): void
 }
@@ -258,6 +264,52 @@ export const sfx: SFX = {
     tone(620, 0.09, { type: 'triangle', gain: 0.16, freqEnd: 920 })
     tone(930, 0.11, { type: 'sine', gain: 0.14, delay: 0.045, freqEnd: 1240 })
     noise(0.08, { filterFreq: 3200, filterFreqEnd: 1800, gain: 0.08 })
+  },
+
+  /** Bonus coin collected */
+  bonusCoin() {
+    tone(880, 0.08, { type: 'triangle', gain: 0.18, freqEnd: 1320 })
+    tone(1320, 0.1, { type: 'sine', gain: 0.16, delay: 0.055, freqEnd: 1760 })
+    tone(1760, 0.12, { type: 'sine', gain: 0.11, delay: 0.12 })
+  },
+
+  /** Turbo boots collected */
+  turbo() {
+    buzz(14)
+    noise(0.18, { filterFreq: 1800, filterFreqEnd: 5200, gain: 0.16 })
+    tone(240, 0.22, { type: 'sawtooth', gain: 0.14, freqEnd: 680 })
+    tone(760, 0.16, { type: 'square', gain: 0.1, delay: 0.04, freqEnd: 1320 })
+  },
+
+  /** Slow motion collected */
+  slowmo() {
+    noise(0.28, { filterFreq: 2600, filterFreqEnd: 380, gain: 0.12 })
+    tone(660, 0.34, { type: 'sine', gain: 0.15, freqEnd: 330 })
+    tone(440, 0.3, { type: 'triangle', gain: 0.12, delay: 0.08, freqEnd: 220 })
+  },
+
+  /** Power shot charged */
+  powerShot() {
+    buzz([18, 24, 18])
+    noise(0.2, { filterFreq: 1200, filterFreqEnd: 3600, gain: 0.16 })
+    tone(392, 0.18, { type: 'triangle', gain: 0.18, freqEnd: 784 })
+    tone(784, 0.22, { type: 'sine', gain: 0.16, delay: 0.08, freqEnd: 1568 })
+  },
+
+  /** Blast power collected */
+  blastPower() {
+    buzz([26, 22, 48])
+    noise(0.3, { filterFreq: 3200, filterFreqEnd: 160, gain: 0.26 })
+    tone(140, 0.24, { type: 'sawtooth', gain: 0.18, freqEnd: 62 })
+    tone(920, 0.08, { type: 'square', gain: 0.12, delay: 0.05, freqEnd: 460 })
+  },
+  /** Dribble gates widen */
+  wideGate() {
+    buzz(18)
+    noise(0.18, { filterFreq: 900, filterFreqEnd: 2600, gain: 0.12 })
+    tone(360, 0.24, { type: 'triangle', gain: 0.16, freqEnd: 720 })
+    tone(720, 0.32, { type: 'sine', gain: 0.15, delay: 0.08, freqEnd: 1440 })
+    tone(1080, 0.22, { type: 'triangle', gain: 0.1, delay: 0.18, freqEnd: 1620 })
   },
 
   /** Ball sliced / swiped */

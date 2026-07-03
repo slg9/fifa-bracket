@@ -5050,7 +5050,7 @@
   white-space: nowrap;
 }
 
-/* ── Standings popup (R16 hover) ──────────────────────────────â”€ */
+/* Standings popup (R16 hover) */
 .standings-popup {
   position: fixed;
   z-index: 9999;

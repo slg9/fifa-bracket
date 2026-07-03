@@ -14,8 +14,12 @@ export type GoalSaveProps = {
   opponentName?: string
   opponentFlag?: string
   keeperName?: string
+  alertNames?: string[]
   mode?: 'goal_save' | 'penalty' | 'sudden_death'
   onAudioOverride?: (src: string | null) => void
+  roundIntroComment?: string
+  onRetry?: () => void
+  startLabel?: string
 }
 
 type BallType = 'normal' | 'fast' | 'curveLeft' | 'curveRight' | 'delayed' | 'doubleTap' | 'fake'
@@ -194,16 +198,19 @@ function makeGoalSaveBalls(ballCount: number, difficulty: BattleDifficulty, mode
   return balls
 }
 
-export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentKit, opponentName, opponentFlag, keeperName, mode = 'goal_save', onAudioOverride }: GoalSaveProps) {
+export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentKit, opponentName, opponentFlag, keeperName, alertNames = [], mode = 'goal_save', onAudioOverride, roundIntroComment, onRetry, startLabel }: GoalSaveProps) {
   const cfg = GOAL_SAVE_DIFFICULTY[difficulty]
   const isPenalty = mode === 'penalty'
   const isSuddenDeath = mode === 'sudden_death'
   const showKicker = isPenalty || isSuddenDeath
+  const hasInterceptionIntro = Boolean(roundIntroComment)
   const autoResolve = !isPenalty
   const playerJerseyColor = playerKit?.primary ?? '#2bff9a'
   const playerAccentColor = playerKit?.secondary ?? '#FFB800'
   const opponentJerseyColor = opponentKit?.primary ?? '#FF4455'
   const opponentAccentColor = opponentKit?.secondary ?? '#7dd3fc'
+  const opponentShortsColor = opponentKit?.shorts ?? '#101827'
+  const opponentTextColor = opponentKit?.text ?? '#ffffff'
   const [balls, setBalls] = useState<Ball[]>(() => makeGoalSaveBalls(ballCount, difficulty, mode))
   const [penaltyCountdown, setPenaltyCountdown] = useState<number | null>(null)
   const [tutorialDone, setTutorialDone] = useState(false)
@@ -218,7 +225,9 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
   const [missedCount, setMissedCount] = useState(0)
   const [stoppedCount, setStoppedCount] = useState(0)
   const [combo, setCombo] = useState(0)
-  const [hitFreeze, setHitFreeze] = useState(false)
+const [hitFreeze, setHitFreeze] = useState(false)
+  const alertNamesLabel = alertNames.length ? `${alertNames.slice(0, 4).join(', ')}${alertNames.length > 4 ? ` +${alertNames.length - 4}` : ''}` : ''
+  const keeperLabel = keeperName ?? 'Gardien'
 
   const containerRef = useRef<HTMLDivElement>(null)
   const startTimeRef = useRef(performance.now())
@@ -550,12 +559,31 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
         .gs-penalty-kicker__name { padding:4px 9px; border-radius:999px; background:rgba(2,8,16,.62); border:1px solid rgba(255,255,255,.12); font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.13em; text-transform:uppercase; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .gs-penalty-countdown { position:absolute; inset:0; z-index:35; display:grid; place-items:center; pointer-events:none; }
         .gs-penalty-countdown span { display:grid; place-items:center; width:118px; aspect-ratio:1; border-radius:50%; color:#fff; background:radial-gradient(circle,rgba(2,8,16,.86) 0 58%,transparent 60%),conic-gradient(#FFB800 0 80%,rgba(255,255,255,.14) 80%); box-shadow:0 0 42px rgba(255,184,0,.32); font:900 52px 'Barlow Condensed',sans-serif; letter-spacing:.12em; animation:gsPenaltyCount .72s ease-out both; }
-        .gs-tutorial { position:absolute; inset:0; z-index:42; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px; padding:26px 22px; text-align:center; background:rgba(3,7,14,.88); backdrop-filter:blur(4px); color:#fff; }
-        .gs-tutorial__title { font:900 clamp(34px,11vw,58px) 'Barlow Condensed',sans-serif; color:#2bff9a; letter-spacing:.18em; text-transform:uppercase; text-shadow:0 0 28px rgba(43,255,154,.58); }
-        .gs-tutorial__text { max-width:330px; color:rgba(255,255,255,.86); font:700 clamp(13px,4vw,17px) 'Barlow Condensed',sans-serif; line-height:1.42; }
-        .gs-tutorial__sub { max-width:300px; color:rgba(255,255,255,.48); font:600 clamp(11px,3.4vw,13px) 'Barlow',sans-serif; line-height:1.35; }
-        .gs-tutorial__btn { margin-top:4px; min-height:50px; padding:0 30px; border-radius:14px; border:0; background:linear-gradient(90deg,#2bff9a,#1cd6c4 55%,#16a8ff); color:#031209; font:900 16px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-transform:uppercase; cursor:pointer; box-shadow:0 10px 26px rgba(43,255,154,.28), inset 0 1px 0 rgba(255,255,255,.35); transition:transform .12s ease; }
+        .gs-tutorial { position:absolute; inset:0; z-index:42; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:11px; padding:22px 20px; text-align:center; background:rgba(3,7,14,.9); backdrop-filter:blur(4px); color:#fff; }
+        .gs-tutorial__title { font:900 clamp(30px,9vw,48px) 'Barlow Condensed',sans-serif; color:#FF4455; letter-spacing:.18em; text-transform:uppercase; text-shadow:0 0 28px rgba(255,68,85,.58); }
+        .gs-tutorial__comment { display:grid; grid-template-columns:58px minmax(0,1fr); align-items:center; gap:10px; width:min(86vw,340px); padding:9px 11px; border:1px solid rgba(255,68,85,.32); border-left:3px solid #FF4455; border-radius:14px; background:rgba(2,8,16,.64); box-shadow:0 0 28px rgba(255,68,85,.12); text-align:left; }
+        .gs-tutorial__avatar { width:58px; height:64px; display:grid; place-items:center; overflow:visible; filter:drop-shadow(0 8px 12px rgba(0,0,0,.42)); animation:gsKickerPulse .7s ease-in-out infinite alternate; }
+        .gs-tutorial__comment p { margin:0; color:#fff; font:800 clamp(13px,3.8vw,16px) 'Barlow Condensed',sans-serif; line-height:1.3; letter-spacing:.04em; }
+        .gs-tutorial__comment strong { color:#FFB800; text-shadow:0 0 12px rgba(255,184,0,.42); }
+        .gs-tutorial__text { max-width:340px; padding:10px 12px; border-left:3px solid #FF4455; background:rgba(10,21,38,.82); color:rgba(255,255,255,.9); font:800 clamp(13px,3.8vw,16px) 'Barlow Condensed',sans-serif; line-height:1.32; letter-spacing:.05em; }
+        .gs-tutorial__text strong { font-weight:950; color:#fff; text-shadow:0 0 12px rgba(255,255,255,.32); }
+        .gs-tutorial__sub { max-width:300px; color:rgba(255,255,255,.62); font:800 clamp(11px,3.4vw,13px) 'Barlow Condensed',sans-serif; line-height:1.25; letter-spacing:.07em; }
+        .gs-tutorial__demo { position:relative; width:min(78vw,270px); height:142px; border-radius:18px; overflow:hidden; border:1px solid rgba(255,255,255,.14); background:linear-gradient(180deg,#092417,#0b3a1d 58%,#101827); box-shadow:0 16px 36px rgba(0,0,0,.34), inset 0 0 30px rgba(43,255,154,.06); }
+        .gs-tutorial__demo:before { content:''; position:absolute; left:8%; right:8%; bottom:22%; height:3px; background:rgba(255,68,85,.68); box-shadow:0 0 14px rgba(255,68,85,.75); }
+        .gs-demo-ball { position:absolute; top:18%; width:30px; height:30px; border-radius:50%; background:#f7f9fc; border:3px solid #101827; box-shadow:0 0 14px rgba(255,184,0,.7); animation:gsDemoBall 2.55s linear infinite; }
+        .gs-demo-ball:before { content:''; position:absolute; inset:6px; border-radius:inherit; background:radial-gradient(circle at 34% 34%,#fff 0 22%,#d9e0ea 24% 100%); }
+        .gs-demo-ball:after { content:''; position:absolute; left:50%; top:50%; width:54px; height:54px; border-radius:50%; transform:translate(-50%,-50%) scale(.2); background:radial-gradient(circle,rgba(255,216,74,.95) 0 18%,rgba(255,68,85,.82) 19% 34%,transparent 58%); opacity:0; animation:gsDemoBurst 2.55s linear infinite; }
+        .gs-demo-ball i { position:absolute; left:-7px; right:-7px; top:50%; height:4px; border-radius:999px; background:#2bff9a; box-shadow:0 0 12px rgba(43,255,154,.95); transform:translateY(-50%) rotate(-18deg) scaleX(.18); opacity:0; animation:gsDemoCut 2.55s linear infinite; }
+        .gs-demo-ball--1 { left:28%; } .gs-demo-ball--1:after,.gs-demo-ball--1 i { animation-delay:-.2s; }
+        .gs-demo-ball--2 { left:51%; }
+        .gs-demo-ball--3 { left:70%; } .gs-demo-ball--3:after,.gs-demo-ball--3 i { animation-delay:.2s; }
+        .gs-demo-finger { position:absolute; left:-34px; top:54%; width:40px; height:58px; z-index:6; animation:gsDemoSwipe 2.55s linear infinite; filter:drop-shadow(0 0 12px rgba(43,255,154,.78)); }
+        .gs-demo-finger svg { width:100%; height:100%; overflow:visible; }
+        .gs-demo-slash { position:absolute; right:30px; top:13px; width:0; height:7px; border-radius:999px; background:linear-gradient(90deg,rgba(43,255,154,.08),rgba(43,255,154,.88),#2bff9a); box-shadow:0 0 16px rgba(43,255,154,.9); transform-origin:100% 50%; transform:rotate(-8deg); opacity:0; animation:gsDemoSlash 2.55s linear infinite; }
+        .gs-tutorial__actions { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:4px; }
+        .gs-tutorial__btn { min-height:50px; padding:0 30px; border-radius:14px; border:0; background:linear-gradient(90deg,#2bff9a,#1cd6c4 55%,#16a8ff); color:#031209; font:900 16px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-transform:uppercase; cursor:pointer; box-shadow:0 10px 26px rgba(43,255,154,.28), inset 0 1px 0 rgba(255,255,255,.35); transition:transform .12s ease; }
         .gs-tutorial__btn:active { transform:scale(.97); }
+        .gs-tutorial__btn.is-retry { border:1.5px solid rgba(255,184,0,.86); background:rgba(255,184,0,.1); color:#FFB800; box-shadow:0 0 24px rgba(255,184,0,.24); }
         .gs-tutorial-countdown { position:absolute; inset:0; z-index:43; display:grid; place-items:center; background:rgba(3,7,14,.74); backdrop-filter:blur(2px); pointer-events:none; }
         .gs-tutorial-countdown span { color:#fff; font:900 clamp(80px,25vw,140px) 'Barlow Condensed',sans-serif; text-shadow:0 0 40px rgba(255,255,255,.5); animation:gsTutorialCount .82s both; }
         .gs-tutorial-countdown span.is-go { color:#2bff9a; text-shadow:0 0 40px rgba(43,255,154,.7); }
@@ -604,18 +632,48 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
         @keyframes gsKickerStrike { to{ transform:translateX(-50%) translateY(7px) scale(1.08); filter:drop-shadow(0 0 22px rgba(255,68,85,.46)) drop-shadow(0 10px 18px rgba(0,0,0,.42)); } }
         @keyframes gsPenaltyCount { 0%{opacity:0;transform:scale(.58)} 30%{opacity:1;transform:scale(1.08)} 100%{opacity:0;transform:scale(.92)} }
         @keyframes gsTutorialCount { 0%{transform:scale(2.1);opacity:0} 24%{opacity:1} 82%{transform:scale(1)} 100%{transform:scale(.82);opacity:0} }
+        @keyframes gsDemoBall { 0%{transform:translate3d(-50%,-36px,0) scale(.72);opacity:0} 10%{transform:translate3d(-50%,36px,0) scale(1);opacity:1} 78%{transform:translate3d(-50%,38px,0) scale(1.04);opacity:1} 88%{transform:translate3d(-50%,39px,0) scale(1.36);opacity:.18;filter:brightness(2.2)} 100%{transform:translate3d(-50%,108px,0) scale(.48);opacity:0} }
+        @keyframes gsDemoCut { 0%,58%{opacity:0;transform:translateY(-50%) rotate(-18deg) scaleX(.18)} 63%,72%{opacity:1;transform:translateY(-50%) rotate(-18deg) scaleX(1)} 86%,100%{opacity:0;transform:translateY(-50%) rotate(-18deg) scaleX(1.18)} }
+        @keyframes gsDemoBurst { 0%,68%{opacity:0;transform:translate(-50%,-50%) scale(.2)} 76%{opacity:1;transform:translate(-50%,-50%) scale(1)} 92%,100%{opacity:0;transform:translate(-50%,-50%) scale(1.55)} }
+        @keyframes gsDemoSwipe { 0%,42%{left:-34px;transform:translate3d(0,26px,0) rotate(-10deg);opacity:0} 47%{left:8%;transform:translate3d(0,18px,0) rotate(-9deg);opacity:1} 58%{left:28%;transform:translate3d(-14px,6px,0) rotate(-6deg);opacity:1} 68%{left:51%;transform:translate3d(-14px,0,0) rotate(-1deg);opacity:1} 78%{left:70%;transform:translate3d(-14px,-4px,0) rotate(6deg);opacity:1} 92%{left:96%;transform:translate3d(-14px,-12px,0) rotate(12deg);opacity:.2} 100%{left:102%;transform:translate3d(-14px,-14px,0) rotate(12deg);opacity:0} }
+        @keyframes gsDemoSlash { 0%,50%{opacity:0;width:0} 57%{opacity:.9;width:62px} 70%{opacity:1;width:132px} 84%{opacity:.72;width:204px} 96%,100%{opacity:0;width:224px} }
       `}</style>
 
       {!tutorialDone && tutorialCountdown === null ? (
         <div className="gs-tutorial">
-          <div className="gs-tutorial__title">GOAL SAVE</div>
-          <div className="gs-tutorial__text">
-            Swipe vite sur chaque ballon avant qu'il franchisse la ligne de but.
-            <br /><br />
-            Les tirs rapides arrivent plus fort, les ballons lourds peuvent demander deux coupes proches, et les feintes ne comptent pas.
+          <div className="gs-tutorial__title">{isSuddenDeath ? 'PENALTY' : 'ATTENTION !'}</div>
+          {roundIntroComment ? (
+            <div className="gs-tutorial__comment">
+              <div className="gs-tutorial__avatar" aria-hidden="true">
+                <KawaiiSprite
+                  jerseyColor={opponentJerseyColor}
+                  accentColor={opponentAccentColor}
+                  shortsColor={opponentShortsColor}
+                  textColor={opponentTextColor}
+                  role="kicker"
+                  withBall
+                  seed={opponentName ?? 'interceptor'}
+                  width={56}
+                  height={68}
+                />
+              </div>
+              <p>{roundIntroComment}</p>
+            </div>
+          ) : null}
+          <div className="gs-tutorial__demo" aria-hidden="true">
+            {[0,1,2].slice(0, Math.min(3, ballCount)).map((i)=><i key={i} className={`gs-demo-ball gs-demo-ball--${i+1}`}><span /></i>)}
+            <span className="gs-demo-finger"><i className="gs-demo-slash"/><svg viewBox="0 0 36 54"><path d="M15 4c3.2 0 5.7 2.5 5.7 5.7v13.1l1.4-1.2c2.2-1.8 5.4-1.4 7.1.9l1.4 1.9c1.1 1.5 1.5 3.3 1.2 5.1l-2.1 12.3c-.7 4.1-4.2 7.1-8.4 7.1h-8.2c-3.2 0-6.1-1.8-7.6-4.6L2.7 37c-1.1-2-.4-4.5 1.6-5.6 1.8-1 4-.6 5.3.9V9.7C9.6 6.5 12.1 4 15 4z" fill="#fff" stroke="#101827" strokeWidth="2.2" strokeLinejoin="round"/><path d="M15.1 8.2v21.4M20.8 22.8v8.1M25.4 25.1v7.7" stroke="rgba(16,24,39,.46)" strokeWidth="1.7" strokeLinecap="round"/><circle cx="15" cy="35" r="7" fill="rgba(43,255,154,.22)" stroke="#2bff9a" strokeWidth="2"/></svg></span>
           </div>
-          <div className="gs-tutorial__sub">Un seul ballon qui passe peut donner but. Garde ton doigt prêt devant la cage.</div>
-          <button type="button" className="gs-tutorial__btn" onClick={startGoalSaveTutorial}>OK GARDIEN</button>
+          {!hasInterceptionIntro ? (
+            <>
+              <div className="gs-tutorial__text">{isSuddenDeath ? <><strong>{keeperLabel}</strong>, prépare-toi pour le penalty. Swipe le ballon avant la cage.</> : <><strong>{keeperLabel}</strong>, {ballCount} attaquant{ballCount>1?'s':''} {ballCount>1?'ont':'a'} franchi la ligne rouge{alertNamesLabel&&<> : <strong>{alertNamesLabel}</strong></>}. Swipe les ballons avant la cage.</>}</div>
+              <div className="gs-tutorial__sub">Si tu rates la séquence, l'action finit en but encaissé.</div>
+            </>
+          ) : null}
+          <div className="gs-tutorial__actions">
+            {onRetry ? <button type="button" className="gs-tutorial__btn is-retry" onClick={onRetry}>Réessayer l'attaque</button> : null}
+            <button type="button" className="gs-tutorial__btn" onClick={startGoalSaveTutorial}>{startLabel ?? 'Je défends !'}</button>
+          </div>
         </div>
       ) : null}
 

@@ -22,6 +22,7 @@ type AttackPhaseProps = {
   shotOnly?: boolean
   shotAudioMode?: 'normal' | 'heartOnly'
   shotTitle?: string
+  roundIntroComment?: string
   showControls?: boolean
 }
 
@@ -69,8 +70,9 @@ const FEVER_DURATION = 3600
 const SUPER_ATTACKER_DURATION = 4300
 const ATTACK_MAX_LIVES = 3
 const ATTACK_GHOST_DURATION = 1550
-const DRIBBLE_RENDER_AHEAD = -145
-const DRIBBLE_RENDER_BEHIND = 135
+const SHOT_ORIGIN_Y_FRAC = 0.66
+const DRIBBLE_RENDER_BACKTRACK = 3
+const DRIBBLE_RENDER_LOOKAHEAD = 12
 
 const GD_COMMENTS = [
   'Beau dribble !', 'Petit pont !', 'Il passe !', 'Quel crochet !',
@@ -244,75 +246,106 @@ function pickWaveType(rng: () => number, difficulty: BattleDifficulty, previous:
 
 function makeGateDefenders(i: number, center: number, gateWidth: number, players: string[], type: SlalomWaveType, rng: () => number, bonusGate?: { center: number; width: number }): SlalomDefender[] {
   const half = gateWidth / 2
-  const yJitter = (index: number) => [-18, 12, -4, 20][index % 4] + Math.round((rng() - 0.5) * 6)
+  const yJitter = (index: number) => [-16, 10, -3][index % 3] + Math.round((rng() - 0.5) * 5)
   const gates = [{ left: center - half, right: center + half }]
   if (bonusGate) gates.push({ left: bonusGate.center - bonusGate.width / 2, right: bonusGate.center + bonusGate.width / 2 })
   gates.sort((a, b) => a.left - b.left)
 
-  const blockers: number[] = []
-  const addBlocker = (x: number) => {
-    const clamped = Math.max(7, Math.min(93, x))
-    if (blockers.every((existing) => Math.abs(existing - clamped) >= 7)) blockers.push(clamped)
-  }
-
-  addBlocker(gates[0].left - 9 - rng() * 2)
-  addBlocker(gates[gates.length - 1].right + 9 + rng() * 2)
-
-  for (let g = 0; g < gates.length - 1; g += 1) {
-    const gap = gates[g + 1].left - gates[g].right
-    if (gap > 15) addBlocker((gates[g].right + gates[g + 1].left) / 2)
-  }
-
-  const blockedSegments: Array<{ left: number; right: number }> = []
+  const gateSafetyMargin = type === 'narrow_gate' || type === 'combo_gate_slide' ? 5 : 6
+  const segments: Array<{ left: number; right: number; side: 'left' | 'right' | 'middle' }> = []
   let cursor = 7
-  for (const gate of gates) {
-    const left = Math.max(7, gate.left - 4)
-    const right = Math.min(93, gate.right + 4)
-    if (left - cursor >= 7) blockedSegments.push({ left: cursor, right: left })
+  for (let gateIndex = 0; gateIndex < gates.length; gateIndex += 1) {
+    const gate = gates[gateIndex]
+    const left = Math.max(7, gate.left - gateSafetyMargin)
+    const right = Math.min(93, gate.right + gateSafetyMargin)
+    if (left - cursor >= 10) {
+      segments.push({
+        left: cursor,
+        right: left,
+        side: gateIndex === 0 ? 'left' : 'middle',
+      })
+    }
     cursor = Math.max(cursor, right)
   }
-  if (93 - cursor >= 7) blockedSegments.push({ left: cursor, right: 93 })
+  if (93 - cursor >= 10) segments.push({ left: cursor, right: 93, side: 'right' })
 
-  blockedSegments.forEach((segment, segmentIndex) => {
-    const width = segment.right - segment.left
-    const count = Math.max(1, Math.floor(width / 10))
-    for (let n = 0; n < count; n += 1) {
-      const t = (n + 0.5) / count
-      const jitter = (rng() - 0.5) * 2.2
-      addBlocker(segment.left + width * t + jitter + (segmentIndex % 2 ? 1 : -1))
+  const primaryGateIsLeft = center < 50
+  const preferredSide: 'left' | 'right' = primaryGateIsLeft ? 'right' : 'left'
+  const secondarySide: 'left' | 'right' = primaryGateIsLeft ? 'left' : 'right'
+  const orderedSegments = [...segments].sort((a, b) => {
+    const score = (segment: { left: number; right: number; side: 'left' | 'right' | 'middle' }) => {
+      const width = segment.right - segment.left
+      if (segment.side === preferredSide) return 300 + width
+      if (segment.side === secondarySide) return 180 + width
+      return 120 + width
     }
+    return score(b) - score(a)
   })
 
-  if (!bonusGate && (type === 'diagonal_press' || type === 'combo_gate_slide' || type === 'moving_gate' || rng() < 0.68)) {
-    addBlocker(center + (center < 50 ? 1 : -1) * (half + 23 + rng() * 7))
+  const picked: Array<{ x: number; segment: { left: number; right: number; side: 'left' | 'right' | 'middle' } }> = []
+  const addFromSegment = (segment: { left: number; right: number; side: 'left' | 'right' | 'middle' }, slot: number) => {
+    const width = segment.right - segment.left
+    if (width < 10 || picked.length >= 2) return
+    const preferredT = slot === 0 ? 0.5 : slot === 1 ? 0.28 : 0.72
+    const jitter = (rng() - 0.5) * Math.min(4, width * 0.1)
+    const x = Math.max(segment.left + 5, Math.min(segment.right - 5, segment.left + width * preferredT + jitter))
+    if (picked.every((item) => Math.abs(item.x - x) >= 9)) picked.push({ x, segment })
   }
 
-  const defenderCap = type === 'bonus_choice' ? 6 : type === 'narrow_gate' ? 7 : 6
+  const preferredSegments = orderedSegments.filter((segment) => segment.side === preferredSide)
+  const otherSegments = orderedSegments.filter((segment) => segment.side !== preferredSide)
+  if (preferredSegments[0]) addFromSegment(preferredSegments[0], 0)
+  if (preferredSegments[0]) addFromSegment(preferredSegments[0], 1)
+  if (otherSegments[0]) addFromSegment(otherSegments[0], 0)
 
-  return blockers.sort((a, b) => a - b).slice(0, defenderCap).map((x, index) => ({
-    id: `${i}-block-${index}`,
-    x,
-    yOffset: yJitter(index),
-    label: defenderLabel(players, i * 4 + index, String([4, 5, 6, 8, 2, 3, 7, 10][(i + index) % 8])),
-    variant: type === 'combo_gate_slide' && index === blockers.length - 1 ? 'sliding' : type === 'diagonal_press' || index === 2 ? 'press' : 'normal',
-    moveAmplitude: type === 'diagonal_press' || type === 'moving_gate' || type === 'combo_gate_slide' || index === 2 ? 5 + rng() * 7 : rng() < 0.55 ? 3 + rng() * 4 : 0,
-    moveDuration: 0.58 + rng() * 0.48,
-    moveDelay: -rng() * 0.9,
-  }))
+  for (const segment of orderedSegments) {
+    addFromSegment(segment, picked.length)
+    if (picked.length >= 2) break
+  }
+
+  const fallbackSegments = orderedSegments.length
+    ? orderedSegments
+    : [
+      { left: 7, right: Math.max(17, gates[0].left - gateSafetyMargin), side: 'left' as const },
+      { left: Math.min(83, gates[gates.length - 1].right + gateSafetyMargin), right: 93, side: 'right' as const },
+    ].filter((segment) => segment.right - segment.left >= 8)
+
+  for (let attempt = 0; picked.length < 2 && fallbackSegments.length && attempt < 12; attempt += 1) {
+    const segment = fallbackSegments[attempt % fallbackSegments.length]
+    const width = segment.right - segment.left
+    const slot = picked.length
+    const t = slot === 0 ? 0.5 : slot === 1 ? (segment.side === preferredSide ? 0.25 : 0.72) : (segment.side === preferredSide ? 0.72 : 0.25)
+    const x = Math.max(segment.left + 4, Math.min(segment.right - 4, segment.left + width * t + (rng() - 0.5) * 2))
+    if (picked.every((item) => Math.abs(item.x - x) >= 6)) picked.push({ x, segment })
+  }
+
+  return picked.slice(0, 2).map(({ x, segment }, index) => {
+    const patrolRoom = Math.min(x - segment.left - 4, segment.right - x - 4)
+    const moveAmplitude = Math.max(8, Math.min(18, Math.max(9, (segment.right - segment.left) / 2 - 5), Math.max(8, patrolRoom + 3)))
+    return {
+      id: `${i}-block-${index}`,
+      x,
+      yOffset: yJitter(index),
+      label: defenderLabel(players, i * 3 + index, String([4, 5, 6][(i + index) % 3])),
+      variant: type === 'combo_gate_slide' && index === 1 ? 'sliding' : type === 'diagonal_press' || type === 'moving_gate' || index === 1 ? 'press' : 'normal',
+      moveAmplitude,
+      moveDuration: 0.72 + rng() * 0.42,
+      moveDelay: index * -0.18 - rng() * 0.24,
+    }
+  })
 }
 
 function makeSlideDefenders(i: number, players: string[], doubleLine: boolean): SlalomDefender[] {
-  const xs = doubleLine ? [22, 45, 68, 84] : [25, 50, 75]
-  return xs.map((x, index) => ({
-    id: `${i}-slide-${index}`,
-    x,
-    yOffset: doubleLine && index % 2 ? 17 : doubleLine ? -17 : (index - 1) * 5,
-    label: defenderLabel(players, i * 4 + index, String([2, 4, 5, 6][index % 4])),
+  return [{
+    id: `${i}-slide-0`,
+    x: 50,
+    yOffset: 0,
+    label: defenderLabel(players, i * 3, doubleLine ? '4' : '2'),
     variant: 'sliding' as const,
-    moveAmplitude: doubleLine ? 8 : 5,
-    moveDuration: doubleLine ? 0.52 : 0.66,
-    moveDelay: index * -0.12,
-  }))
+    moveAmplitude: doubleLine ? 42 : 38,
+    moveDuration: doubleLine ? 0.68 : 0.72,
+    moveDelay: -0.08,
+  }]
 }
 
 function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: string; players: string[] }): SlalomWave[] {
@@ -361,7 +394,7 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
     const defenders = isSlide
       ? makeSlideDefenders(i, params.players, type === 'double_slide_wall')
       : isRoulette
-        ? makeSlideDefenders(i, params.players, true).map((defender, index) => ({ ...defender, id: `${i}-roulette-${index}`, variant: 'press' as const, x: [18, 34, 50, 66, 82][index % 5] }))
+        ? makeSlideDefenders(i, params.players, true).map((defender) => ({ ...defender, id: `${i}-roulette-0`, variant: 'press' as const, moveAmplitude: 38, moveDuration: 0.7 }))
         : makeGateDefenders(i, safeCenter, gateWidth, params.players, type, rng, bonusGateCenterX != null && bonusGateWidth != null ? { center: bonusGateCenterX, width: bonusGateWidth } : undefined)
 
     waves.push({
@@ -391,7 +424,7 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
 
 function getWaveInstruction(wave?: SlalomWave) {
   if (wave?.type === 'slide_wall') return 'SAUTE !'
-  if (wave?.type === 'double_slide_wall') return 'DOUBLE TACLE : SAUTE !'
+  if (wave?.type === 'double_slide_wall') return 'SAUTE !'
   if (wave?.type === 'combo_gate_slide') return 'PASSE + SAUTE !'
   if (wave?.type === 'roulette_wall') return 'ROULETTE !'
   if (wave?.type === 'bonus_choice') return 'Vert sur / Dore bonus'
@@ -430,7 +463,7 @@ function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive
   if (wave.type === 'gate') return { success: inGate, label: inGate ? perfectGate ? 'PERFECT !' : 'PASSE !' : 'INTERCEPTE !', quality }
   if (wave.type === 'narrow_gate') return { success: inGate, label: inGate ? perfectGate ? 'PETIT PONT PARFAIT !' : 'PETIT PONT !' : 'HORS PORTE !', quality }
   if (wave.type === 'slide_wall') return { success: jump.isActive, label: jump.isActive ? 'SAUTE !' : 'TACLE !' }
-  if (wave.type === 'double_slide_wall') return { success: jump.isActive, label: jump.isActive ? 'DOUBLE TACLE EVITE !' : 'TACLE !' }
+  if (wave.type === 'double_slide_wall') return { success: jump.isActive, label: jump.isActive ? 'SAUTE !' : 'TACLE !' }
   if (wave.type === 'diagonal_press') return { success: inGate, label: inGate ? perfectGate ? 'CROCHET PARFAIT !' : 'CROCHET !' : 'PRESSE !', quality }
   if (wave.type === 'moving_gate') return { success: inGate, label: inGate ? perfectGate ? 'TIMING PARFAIT !' : 'BIEN LU !' : 'INTERCEPTE !', quality }
   if (wave.type === 'bonus_choice') {
@@ -553,6 +586,24 @@ function KawaiiFootballer({
   )
 }
 
+function BonusPowerIcon({ kind }: { kind: BonusKind | 'shot' }) {
+  if (kind === 'boots') {
+    return <svg viewBox="0 0 64 64"><path d="M21 9c7 7 3 13 10 18 4-6 9-8 9-16 8 7 13 16 9 27l8 7-6 9-20-11-20 1c-5 0-8-4-6-9l4-10c7 5 15 5 21 2-8-4-12-10-9-18z" fill="#ff5a44"/><path d="M11 35h20l20 11-4 7-20-10H9c-3 0-4-3-3-5l2-5c1 1 2 2 3 2z" fill="#101827" stroke="#fff" strokeWidth="3" strokeLinejoin="round"/><path d="M22 34c8-1 14 1 21 6" stroke="#2bff9a" strokeWidth="4" strokeLinecap="round"/></svg>
+  }
+  if (kind === 'wide') {
+    return <svg viewBox="0 0 64 64"><g className="atk-dribble-demo__wide-arrows"><path d="M20 14 8 32l12 18M44 14l12 18-12 18" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/></g><g className="atk-dribble-demo__wide-gate"><path d="M18 18v28M46 18v28" stroke="#2bff9a" strokeWidth="7" strokeLinecap="round"/><path d="M18 32h28" stroke="#2bff9a" strokeWidth="4" strokeLinecap="round" opacity=".55"/></g><circle cx="32" cy="32" r="5" fill="#FFB800"/></svg>
+  }
+  if (kind === 'blast') {
+    return <svg viewBox="0 0 64 64"><path d="M32 4 39 23 58 14 47 32 60 47 40 43 32 60 24 43 4 47 17 32 6 14 25 23z" fill="#FFB800" stroke="#fff" strokeWidth="3" strokeLinejoin="round"/><circle className="atk-dribble-demo__blast-def" cx="22" cy="34" r="6" fill="#FF4455" stroke="#101827" strokeWidth="2"/><circle className="atk-dribble-demo__blast-def atk-dribble-demo__blast-def--2" cx="32" cy="28" r="6" fill="#FF4455" stroke="#101827" strokeWidth="2"/><circle className="atk-dribble-demo__blast-def atk-dribble-demo__blast-def--3" cx="42" cy="34" r="6" fill="#FF4455" stroke="#101827" strokeWidth="2"/></svg>
+  }
+  if (kind === 'whistle') {
+    return <svg viewBox="0 0 64 64"><path d="M18 36c0-10 8-18 18-18h10v14H36c-3 0-6 3-6 6s3 6 6 6h4" fill="none" stroke="#2bff9a" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="47" cy="25" r="8" fill="#fff" stroke="#101827" strokeWidth="3"/><path d="M10 20 4 14M13 12l-3-8M54 44l7 5" stroke="#ffdf73" strokeWidth="4" strokeLinecap="round"/></svg>
+  }
+  if (kind === 'slowmo') {
+    return <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="22" fill="rgba(168,85,247,.35)" stroke="#e7d5ff" strokeWidth="4"/><path d="M32 16v17l12 7" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 50h40" stroke="#a855f7" strokeWidth="5" strokeLinecap="round"/><path d="M17 55h30" stroke="#e7d5ff" strokeWidth="3" strokeLinecap="round"/></svg>
+  }
+  return <svg viewBox="0 0 64 64"><g className="atk-dribble-demo__fire-flame"><path d="M19 42C8 27 20 18 18 7c9 5 9 13 16 18 5-8 12-12 12-23 12 10 17 23 9 39 4 1 7 4 8 8-12 7-31 8-44-7z" fill="#ff5a44"/><path d="M27 44c-5-8 1-13 0-19 6 4 6 9 11 12 3-5 7-7 7-14 7 7 9 15 3 24-6 3-14 3-21-3z" fill="#FFB800"/></g><g className="atk-dribble-demo__fire-ball"><circle cx="32" cy="38" r="14" fill="#fff" stroke="#101827" strokeWidth="4"/><path d="M20 36c8-6 16-7 24 0M25 49c5-5 10-5 15 0M32 24v28" fill="none" stroke="#101827" strokeWidth="3" strokeLinecap="round"/><path d="M18 25 10 17M47 24l8-8" stroke="#ffdf73" strokeWidth="4" strokeLinecap="round"/></g></svg>
+}
 //  Component 
 export function AttackPhase({
   difficulty,
@@ -568,6 +619,7 @@ export function AttackPhase({
   shotOnly = false,
   shotAudioMode = 'normal',
   shotTitle,
+  roundIntroComment,
   showControls = false,
 }: AttackPhaseProps) {
   const cfg = ATTACK_CFG[difficulty]
@@ -578,6 +630,8 @@ export function AttackPhase({
   const playerTextColor = playerKit?.text ?? '#0b1422'
   const opponentJerseyColor = opponentKit?.primary ?? '#FF4455'
   const opponentAccentColor = opponentKit?.secondary ?? '#7dd3fc'
+  const opponentShortsColor = opponentKit?.shorts ?? '#2b0508'
+  const opponentTextColor = opponentKit?.text ?? '#ffffff'
 
   // Utiliser tous les joueurs de l'equipe (plus de limite a 6)
   // Pour commencer par les attaquants, il faudrait avoir les roles dans les donnees
@@ -620,6 +674,7 @@ export function AttackPhase({
   const dashUntilRef     = useRef(0)
   const dashCooldownUntilRef = useRef(0)
   const dashDirectionRef = useRef<1 | -1>(1)
+  const dashTargetXRef = useRef<number | null>(null)
   const gdPointerRef = useRef<{ id: number | null; x: number; y: number; dragging: boolean }>({ id: null, x: 0, y: 0, dragging: false })
   const rouletteUntilRef = useRef(0)
   const rouletteCooldownUntilRef = useRef(0)
@@ -645,10 +700,14 @@ export function AttackPhase({
   const flowRef        = useRef(0)
   const shotBonusRef   = useRef({ widerGreen: 0, slowKeeper: 0, powerShot: false })
   const bonusAuraTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const wideGateTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const bonusFxTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const [comboDisplay, setComboDisplay] = useState(0)
   const [flow, setFlow] = useState(0)
   const [bonusFlash, setBonusFlash] = useState(false)
   const [bonusAuraActive, setBonusAuraActive] = useState(false)
+  const [wideGateActive, setWideGateActive] = useState(false)
+  const [activeBonusFx, setActiveBonusFx] = useState<BonusKind | null>(null)
   const [superAttackerActive, setSuperAttackerActive] = useState(false)
   const [dashActive, setDashActive] = useState(false)
   const [rouletteActive, setRouletteActive] = useState(false)
@@ -679,6 +738,8 @@ export function AttackPhase({
 
   useEffect(() => () => {
     if (bonusAuraTimeoutRef.current) window.clearTimeout(bonusAuraTimeoutRef.current)
+    if (wideGateTimeoutRef.current) window.clearTimeout(wideGateTimeoutRef.current)
+    if (bonusFxTimeoutRef.current) window.clearTimeout(bonusFxTimeoutRef.current)
   }, [])
 
   // Shot phase: aim cursor follows hold/drag; release fires.
@@ -775,12 +836,23 @@ export function AttackPhase({
     flowRef.current = 0
     dashUntilRef.current = 0
     dashCooldownUntilRef.current = 0
+    dashTargetXRef.current = null
     rouletteUntilRef.current = 0
     rouletteCooldownUntilRef.current = 0
     rouletteStartedAtRef.current = null
     dribbleBoostUntilRef.current = 0
     slowmoUntilRef.current = 0
     wideGateUntilRef.current = 0
+    if (wideGateTimeoutRef.current) {
+      window.clearTimeout(wideGateTimeoutRef.current)
+      wideGateTimeoutRef.current = null
+    }
+    setWideGateActive(false)
+    if (bonusFxTimeoutRef.current) {
+      window.clearTimeout(bonusFxTimeoutRef.current)
+      bonusFxTimeoutRef.current = null
+    }
+    setActiveBonusFx(null)
     blastNextWaveRef.current = false
     superAttackerUntilRef.current = 0
     attackLivesRef.current = ATTACK_MAX_LIVES
@@ -849,6 +921,14 @@ export function AttackPhase({
     }, durationMs)
   }, [])
 
+  const activateBonusFieldFx = useCallback((kind: BonusKind, durationMs: number) => {
+    setActiveBonusFx(kind)
+    if (bonusFxTimeoutRef.current) window.clearTimeout(bonusFxTimeoutRef.current)
+    bonusFxTimeoutRef.current = window.setTimeout(() => {
+      setActiveBonusFx(null)
+      bonusFxTimeoutRef.current = null
+    }, durationMs)
+  }, [])
   const registerDribbleSuccess = useCallback((wave: SlalomWave, outcome: { bonus?: boolean; label: string; quality?: DribbleQuality }) => {
     const comboIncrement = outcome.bonus ? 2 : 1
     comboRef.current += comboIncrement
@@ -885,28 +965,40 @@ export function AttackPhase({
       const bonusKind = wave.bonusKind ?? 'coin'
       let auraDuration = 1400
       if (bonusKind === 'coin') {
+        sfx.bonusCoin()
         shotBonusRef.current.widerGreen += 1
         setPowerupLabel('PIECE + ZONE VERTE')
       } else if (bonusKind === 'boots') {
+        sfx.turbo()
         dribbleBoostUntilRef.current = performance.now() + 3200
         shotBonusRef.current.widerGreen += 0.5
         setPowerupLabel('CRAMPONS TURBO')
         auraDuration = 3200
       } else if (bonusKind === 'whistle') {
+        sfx.whistle()
         shotBonusRef.current.slowKeeper += 1
         setPowerupLabel('SIFFLET - GARDIEN RALENTI')
         auraDuration = 2600
       } else if (bonusKind === 'slowmo') {
+        sfx.slowmo()
         slowmoUntilRef.current = performance.now() + 3600
         shotBonusRef.current.slowKeeper += 0.5
         setPowerupLabel('SLOWMO - JEU RALENTI')
         auraDuration = 3600
       } else if (bonusKind === 'wide') {
         wideGateUntilRef.current = performance.now() + 4200
+        if (wideGateTimeoutRef.current) window.clearTimeout(wideGateTimeoutRef.current)
+        setWideGateActive(true)
+        wideGateTimeoutRef.current = window.setTimeout(() => {
+          setWideGateActive(false)
+          wideGateTimeoutRef.current = null
+        }, 4200)
+        sfx.wideGate()
         shotBonusRef.current.widerGreen += 0.75
-        setPowerupLabel('PORTE LARGE')
+        setPowerupLabel('PORTES MAXI')
         auraDuration = 4200
       } else {
+        sfx.blastPower()
         const now = performance.now()
         blastNextWaveRef.current = false
         superAttackerUntilRef.current = now + SUPER_ATTACKER_DURATION
@@ -919,19 +1011,23 @@ export function AttackPhase({
         auraDuration = SUPER_ATTACKER_DURATION
       }
       activateBonusAura(auraDuration)
+      activateBonusFieldFx(bonusKind, auraDuration)
       setBonusFlash(true)
       window.setTimeout(() => setBonusFlash(false), 420)
       window.setTimeout(() => setPowerupLabel(null), 1150)
     }
-
     if (nextFlow >= 70 && shotBonusRef.current.slowKeeper === 0) {
       shotBonusRef.current.slowKeeper = 1
     }
 
-    if ((nextFlow >= 100 && wasBelowMax) || comboRef.current >= cfg.waveCount) {
+    if (((nextFlow >= 100 && wasBelowMax) || comboRef.current >= cfg.waveCount) && !shotBonusRef.current.powerShot) {
       shotBonusRef.current.powerShot = true
+      sfx.powerShot()
+      setPowerupLabel('TIR BOOSTE CHARGE')
+      activateBonusFieldFx('coin', 1300)
+      window.setTimeout(() => setPowerupLabel(null), 1250)
     }
-  }, [activateBonusAura, cfg.waveCount])
+  }, [activateBonusAura, activateBonusFieldFx, cfg.waveCount])
 
   function getJumpState(now: number) {
     const startedAt = jumpStartedAtRef.current
@@ -987,27 +1083,54 @@ export function AttackPhase({
     }, JUMP_DURATION)
   }
 
-  const handleDash = (direction?: -1 | 1) => {
-    const now = performance.now()
-    if (now < dashCooldownUntilRef.current) return
-    const inferredDirection: -1 | 1 = direction
-      ?? (keysRef.current.left && !keysRef.current.right ? -1 : keysRef.current.right && !keysRef.current.left ? 1 : gdPlayerXRef.current < 50 ? 1 : -1)
-    dashDirectionRef.current = inferredDirection
-    dashUntilRef.current = now + DASH_DURATION
-    dashCooldownUntilRef.current = now + (now < feverUntilRef.current ? DASH_COOLDOWN * 0.58 : DASH_COOLDOWN)
-    gdPlayerXRef.current = Math.max(3, Math.min(97, gdPlayerXRef.current + inferredDirection * DASH_DISTANCE))
+  const moveDribblePlayerTo = (nextX: number) => {
+    gdPlayerXRef.current = Math.max(3, Math.min(97, nextX))
     if (playerElRef.current) {
       const width = gameWidthRef.current || containerRectRef.current.width
       const x = (gdPlayerXRef.current / 100) * width - 29
       playerElRef.current.style.transform = `translateX(${x}px)`
       playerElRef.current.style.setProperty('--atk-player-x', `${x}px`)
     }
+  }
+
+  const getEvadeTargetX = (wave?: SlalomWave) => {
+    if (!wave || !isGatePassWave(wave)) return null
+    const gateCenter = getWaveGateCenter(wave, gdElapsedRef.current)
+    if (wave.bonusGateCenterX != null && wave.bonusGateWidth != null) {
+      const playerX = gdPlayerXRef.current
+      const regularDistance = Math.abs(playerX - gateCenter)
+      const bonusDistance = Math.abs(playerX - wave.bonusGateCenterX)
+      return bonusDistance + 5 < regularDistance ? wave.bonusGateCenterX : gateCenter
+    }
+    return gateCenter
+  }
+
+  const handleDash = (direction?: -1 | 1, targetX?: number | null) => {
+    const now = performance.now()
+    if (now < dashCooldownUntilRef.current) return
+    const currentX = gdPlayerXRef.current
+    const hasTarget = targetX != null && Math.abs(targetX - currentX) > 1
+    const inferredDirection: -1 | 1 = hasTarget
+      ? targetX > currentX ? 1 : -1
+      : direction
+        ?? (keysRef.current.left && !keysRef.current.right ? -1 : keysRef.current.right && !keysRef.current.left ? 1 : currentX < 50 ? 1 : -1)
+    dashDirectionRef.current = inferredDirection
+    dashUntilRef.current = now + DASH_DURATION
+    dashCooldownUntilRef.current = now + (now < feverUntilRef.current ? DASH_COOLDOWN * 0.58 : DASH_COOLDOWN)
+    dashTargetXRef.current = hasTarget ? targetX : null
+    const nextX = hasTarget
+      ? currentX + Math.max(-DASH_DISTANCE, Math.min(DASH_DISTANCE, targetX - currentX))
+      : currentX + inferredDirection * DASH_DISTANCE
+    moveDribblePlayerTo(nextX)
     sfx.jump()
     setDashActive(true)
-    setGdComment(now < feverUntilRef.current ? 'FEVER DASH !' : 'ESQUIVE !')
+    setGdComment(hasTarget ? 'VERS LA PORTE !' : now < feverUntilRef.current ? 'FEVER DASH !' : 'ESQUIVE !')
     if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
     commentTimerRef.current = setTimeout(() => setGdComment(null), 520)
-    window.setTimeout(() => setDashActive(false), DASH_DURATION)
+    window.setTimeout(() => {
+      dashTargetXRef.current = null
+      setDashActive(false)
+    }, DASH_DURATION)
   }
 
   const handleRoulette = () => {
@@ -1037,7 +1160,7 @@ export function AttackPhase({
       handleJump()
       return
     }
-    handleDash()
+    handleDash(undefined, getEvadeTargetX(nextWave))
   }
 
   //  Keyboard handler 
@@ -1096,7 +1219,15 @@ export function AttackPhase({
         gdPlayerXRef.current = Math.min(97, gdPlayerXRef.current + playerSpeed * delta)
       }
       if (dashActiveNow) {
-        gdPlayerXRef.current = Math.max(3, Math.min(97, gdPlayerXRef.current + dashDirectionRef.current * 48 * delta))
+        const dashTarget = dashTargetXRef.current
+        if (dashTarget != null) {
+          const diff = dashTarget - gdPlayerXRef.current
+          const step = Math.sign(diff) * Math.min(Math.abs(diff), 88 * delta)
+          gdPlayerXRef.current = Math.max(3, Math.min(97, gdPlayerXRef.current + step))
+          if (Math.abs(diff) <= 0.8) dashTargetXRef.current = null
+        } else {
+          gdPlayerXRef.current = Math.max(3, Math.min(97, gdPlayerXRef.current + dashDirectionRef.current * 48 * delta))
+        }
       }
       if (playerElRef.current) {
         // transform: compositor thread only  no layout, no paint
@@ -1118,6 +1249,23 @@ export function AttackPhase({
       const walls   = gdWallsRef.current
       const playerX = gdPlayerXRef.current
       const fall    = gdFallPctRef.current
+      const markSlalomCompleteIfNeeded = (wall: SlalomWave) => {
+        if (slalomCompletePendingRef.current || gdCheckedRef.current < walls.length) return
+        slalomCompletePendingRef.current = true
+        slalomCompleteWorldYRef.current = wall.worldY
+        if (comboRef.current >= walls.length) {
+          shotBonusRef.current.powerShot = true
+          setGdComment('DRIBBLE PARFAIT !')
+        } else if (flowRef.current >= 70) {
+          setGdComment('FACE AU GARDIEN - TIR BOOSTE !')
+        } else {
+          setGdComment('FACE AU GARDIEN !')
+        }
+        if (commentTimerRef.current) {
+          clearTimeout(commentTimerRef.current)
+          commentTimerRef.current = null
+        }
+      }
       for (let i = 0; i < walls.length; i++) {
         const wall = walls[i]
         if (wall.checked) continue
@@ -1149,6 +1297,7 @@ export function AttackPhase({
           setGdComment(superAttackerNow ? 'SUPER ATTAQUANT !' : 'RANGEE EXPLOSEE !')
           if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
           commentTimerRef.current = setTimeout(() => setGdComment(null), 760)
+          markSlalomCompleteIfNeeded(wall)
           continue
         }
 
@@ -1168,27 +1317,13 @@ export function AttackPhase({
           if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
           commentTimerRef.current = setTimeout(() => setGdComment(null), 800)
 
-          if (gdCheckedRef.current >= cfg.waveCount) {
-            slalomCompletePendingRef.current = true
-            slalomCompleteWorldYRef.current = wall.worldY
-            if (comboRef.current >= cfg.waveCount) {
-              shotBonusRef.current.powerShot = true
-              setGdComment('DRIBBLE PARFAIT !')
-            } else if (flowRef.current >= 70) {
-              setGdComment('FACE AU GARDIEN - TIR BOOSTE !')
-            } else {
-              setGdComment('FACE AU GARDIEN !')
-            }
-            if (commentTimerRef.current) {
-              clearTimeout(commentTimerRef.current)
-              commentTimerRef.current = null
-            }
-          }
+          markSlalomCompleteIfNeeded(wall)
         } else {
           wall.failed = true
           setGdWallsDisplay([...gdWallsRef.current])
           const nextLives = absorbDribbleHit(outcome.label || getJumpTone(wall, now, jump))
           gdCheckedRef.current++
+          markSlalomCompleteIfNeeded(wall)
           if (nextLives <= 0) {
             setTimeout(() => finish(false, 'intercepted'), 420)
             return
@@ -1299,19 +1434,6 @@ export function AttackPhase({
         gaugeCursorElRef.current.style.left = `${cursor * 100}%`
       }
 
-      // Auto-miss after ~12s: still show the ball leaving the frame before the label.
-      if (gaugeTimeRef.current > 12) {
-        shotFiredRef.current = true
-        const FLIGHT_MS = 700
-        const KICK_DELAY_MS = 120
-        window.setTimeout(() => {
-          setBallFlight({ id: Date.now(), target: { x: 118, y: -18, clientX: 0, clientY: 0 }, state: 'miss', duration: FLIGHT_MS })
-          window.setTimeout(() => setResultLabel('RATE !'), FLIGHT_MS)
-          window.setTimeout(() => finish(false, 'miss', selectedShooterRef.current), FLIGHT_MS + 700)
-        }, KICK_DELAY_MS)
-        return
-      }
-
       frame = requestAnimationFrame(tick)
     }
 
@@ -1332,7 +1454,7 @@ export function AttackPhase({
     }
 
     const originX = rect.left + rect.width * 0.5
-    const originY = rect.top + rect.height * 0.86
+    const originY = rect.top + rect.height * SHOT_ORIGIN_Y_FRAC
     const maxPullX = Math.max(72, rect.width * 0.34)
     const maxPullY = Math.max(92, rect.height * 0.32)
     const pullX = Math.max(-maxPullX, Math.min(maxPullX, clientX - originX))
@@ -1481,12 +1603,11 @@ export function AttackPhase({
   const confirmShooter = () => {
     sfx.pick()
     setShooterSelectionDone(true)
-    setShotTutorialDone(false)
   }
 
   //  Transition from GD to shot 
-  const handleStartShot = () => {
-    sfx.click()
+  function handleStartShot(withClickSound = true) {
+    if (withClickSound) sfx.click()
     setShowShotIntro(false)
     phaseRef.current = 'shot'
     setPhase('shot')
@@ -1512,38 +1633,41 @@ export function AttackPhase({
   //  Derived display values 
   const effectiveGaugeGreenPx = getEffectiveGaugeGreenPx()
   const gaugeGreenLeftPct = gaugeGreenLeft.current * 100  // % of track
+  const shotBoostReady = shotBonusRef.current.powerShot || flow >= 70
   const nextGdWave = gdWallsDisplay.find((wave) => !wave.checked)
   const gdInstruction = getWaveInstruction(nextGdWave)
   const gdBadgeClass = nextGdWave?.type === 'slide_wall' || nextGdWave?.type === 'double_slide_wall' ? ' is-jump' : nextGdWave?.type === 'roulette_wall' ? ' is-roulette' : nextGdWave?.type === 'combo_gate_slide' ? ' is-combo' : nextGdWave?.type === 'bonus_choice' ? ' is-bonus' : nextGdWave?.moveAmplitude ? ' is-moving' : ''
-  const visibleGdWalls = phase === 'gd'
-    ? gdWallsDisplay.filter((wave) => {
-      const screenY = wave.worldY + gdFallPctRef.current
-      return screenY >= DRIBBLE_RENDER_AHEAD && screenY <= DRIBBLE_RENDER_BEHIND
-    })
+  const firstPendingGdWaveIndex = gdWallsDisplay.findIndex((wave) => !wave.checked)
+  const visibleGdWalls = phase === 'gd' && firstPendingGdWaveIndex >= 0
+    ? gdWallsDisplay.slice(
+      Math.max(0, firstPendingGdWaveIndex - DRIBBLE_RENDER_BACKTRACK),
+      Math.min(gdWallsDisplay.length, firstPendingGdWaveIndex + DRIBBLE_RENDER_LOOKAHEAD),
+    )
     : gdWallsDisplay
+  const shotTutorialComment = roundIntroComment ?? `${selectedShooter.name} est prêt. Choisis ta zone, puis frappe quand la jauge passe au vert.`
 
   return (
     <section
-      className={`atk-root is-${phase}${superAttackerActive ? ' is-super-attacker' : ''}`}
+      className={`atk-root is-${phase}${superAttackerActive ? ' is-super-attacker' : ''}${activeBonusFx ? ` is-bonus-${activeBonusFx}` : ''}` }
       ref={containerRef}
       style={{ touchAction: 'none', userSelect: 'none' }}
       onPointerMove={(e) => {
         // Section-level: handles both phases so finger can roam anywhere (GD: no inner-div boundary)
-        if (phase === 'gd' && tutorialDone) handleGdPointerMove(e)
+        if (phase === 'gd' && tutorialDone && !showShotIntro) handleGdPointerMove(e)
         else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerMove(e)
       }}
       onPointerDown={(e) => {
-        if (phase === 'gd' && tutorialDone) {
+        if (phase === 'gd' && tutorialDone && !showShotIntro) {
           handleGdPointerDown(e)
         }
         else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerDown(e)
       }}
       onPointerUp={(e) => {
-        if (phase === 'gd' && tutorialDone) handleGdPointerUp(e)
+        if (phase === 'gd' && tutorialDone && !showShotIntro) handleGdPointerUp(e)
         else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerUp(e)
       }}
       onPointerCancel={(e) => {
-        if (phase === 'gd' && tutorialDone) handleGdPointerCancel(e)
+        if (phase === 'gd' && tutorialDone && !showShotIntro) handleGdPointerCancel(e)
         else if (phase === 'shot') handleShotPointerCancel()
       }}
     >
@@ -1595,6 +1719,101 @@ export function AttackPhase({
           transition: transform .12s ease;
         }
         .atk-tutorial__btn:active { transform: scale(.97); }
+        .atk-tutorial__comment { display:grid; grid-template-columns:50px minmax(0,1fr); align-items:center; gap:10px; width:min(86vw,340px); padding:8px 10px; border:1px solid rgba(43,255,154,.28); border-left:3px solid #2bff9a; border-radius:14px; background:rgba(2,8,16,.58); color:#fff; font:800 13px 'Barlow Condensed',sans-serif; letter-spacing:.04em; text-align:left; }
+        .atk-tutorial__avatar { width:50px; height:58px; display:grid; place-items:center; overflow:visible; }
+        .atk-tutorial__avatar .atk-kawaii { width:48px; height:60px; filter:drop-shadow(0 8px 10px rgba(0,0,0,.45)); animation:battleOrbFloat .72s ease-in-out infinite alternate; }
+        .atk-dribble-demo { position:relative; width:min(86vw,340px); height:min(46vh,330px); min-height:292px; overflow:hidden; border:1px solid rgba(43,255,154,.26); border-radius:18px; background:linear-gradient(180deg,#07351d 0%,#0a2518 100%); box-shadow:inset 0 0 28px rgba(255,255,255,.06),0 18px 36px rgba(0,0,0,.34); perspective:520px; }
+        .atk-dribble-demo:before { content:''; position:absolute; inset:0; background:repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 1px,transparent 1px 20%),repeating-linear-gradient(0deg,transparent 0 38px,rgba(255,255,255,.045) 38px 40px); opacity:.82; }
+        .atk-dribble-demo__row { position:absolute; left:6%; right:6%; height:74px; z-index:4; opacity:0; animation-duration:9s; animation-timing-function:linear; animation-iteration-count:infinite; }
+        .atk-dribble-demo__row--gate-a { top:-24%; animation-name:atkDemoRowA; }
+        .atk-dribble-demo__row--gate-b { top:-24%; animation-name:atkDemoRowB; }
+        .atk-dribble-demo__row--jump { top:-24%; animation-name:atkDemoRowC; }
+        .atk-dribble-demo__row--jump-b { top:-24%; animation-name:atkDemoRowD; }
+        .atk-dribble-demo__lane { position:absolute; left:30%; top:6px; width:34%; height:48px; transform:translateX(-50%); border:3px solid #2bff9a; border-block-color:transparent; border-radius:999px; box-shadow:inset 0 0 18px rgba(43,255,154,.18),0 0 18px rgba(43,255,154,.72); }
+        .atk-dribble-demo__lane:after { content:'PORTE'; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); color:#2bff9a; font:900 10px 'Barlow Condensed'; letter-spacing:.16em; text-shadow:0 0 10px rgba(43,255,154,.9); }
+        .atk-dribble-demo__wall { position:absolute; left:4%; right:4%; top:24px; height:7px; border-radius:999px; background:linear-gradient(90deg,rgba(255,184,0,.2),rgba(255,68,85,.82),rgba(255,184,0,.2)); box-shadow:0 0 18px rgba(255,68,85,.52); }
+        .atk-dribble-demo__row--jump-b .atk-dribble-demo__wall { background:linear-gradient(90deg,rgba(255,184,0,.2),rgba(255,68,85,.82),rgba(255,184,0,.2)); box-shadow:0 0 18px rgba(255,68,85,.52); }
+        .atk-dribble-demo__def { position:absolute; top:0; width:42px; height:54px; transform:translateX(-50%); filter:drop-shadow(0 8px 10px rgba(0,0,0,.42)); animation:atkDemoDefBob .62s ease-in-out infinite alternate; }
+        .atk-dribble-demo__def .atk-defender { width:42px; height:54px; }
+        .atk-dribble-demo__def--l { left:18%; }
+        .atk-dribble-demo__def--m { left:50%; }
+        .atk-dribble-demo__def--r { left:82%; }
+        .atk-dribble-demo__row--gate-a .atk-dribble-demo__lane { left:30%; }
+        .atk-dribble-demo__row--gate-a .atk-dribble-demo__def--l { left:58%; }
+        .atk-dribble-demo__row--gate-a .atk-dribble-demo__def--r { left:84%; }
+        .atk-dribble-demo__row--gate-b .atk-dribble-demo__lane { left:70%; }
+        .atk-dribble-demo__row--gate-b .atk-dribble-demo__def--l { left:16%; }
+        .atk-dribble-demo__row--gate-b .atk-dribble-demo__def--r { left:42%; }
+        .atk-dribble-demo__row--jump .atk-dribble-demo__def { top:2px; }
+        .atk-dribble-demo__row--jump-b .atk-dribble-demo__def { top:2px; }
+        .atk-dribble-demo__row--jump .atk-dribble-demo__def--l,
+        .atk-dribble-demo__row--jump .atk-dribble-demo__def--r,
+        .atk-dribble-demo__row--jump-b .atk-dribble-demo__def--l,
+        .atk-dribble-demo__row--jump-b .atk-dribble-demo__def--r { display:none; }
+        .atk-dribble-demo__row--jump .atk-dribble-demo__def--m,
+        .atk-dribble-demo__row--jump-b .atk-dribble-demo__def--m { left:50%; animation:atkDemoDefBob .62s ease-in-out infinite alternate, atkDemoDefPatrolWide 1.05s ease-in-out infinite alternate; }
+        .atk-dribble-demo__row--gate-a .atk-dribble-demo__def,
+        .atk-dribble-demo__row--gate-b .atk-dribble-demo__def { animation:atkDemoDefBob .62s ease-in-out infinite alternate, atkDemoDefPatrol 1.15s ease-in-out infinite alternate; }
+        .atk-dribble-demo__row--gate-a .atk-dribble-demo__def--r,
+        .atk-dribble-demo__row--gate-b .atk-dribble-demo__def--r { animation-delay:0s,-.55s; }
+        .atk-dribble-demo__player { position:absolute; left:50%; bottom:9%; z-index:10; width:54px; height:66px; transform:translateX(-50%); transform-style:preserve-3d; animation:atkDemoPlayerMove 9s ease-in-out infinite; }
+        .atk-dribble-demo__player .atk-kawaii { width:54px; height:66px; filter:drop-shadow(0 0 16px rgba(43,255,154,.5)); }
+        .atk-dribble-demo__player:before { content:''; position:absolute; left:50%; top:54%; width:62px; height:62px; margin:-31px 0 0 -31px; border-radius:999px; border:3px solid rgba(255,184,0,.82); box-shadow:0 0 18px rgba(255,184,0,.62); opacity:0; pointer-events:none; }
+        .atk-dribble-demo__player:before { animation:atkDemoPlayerHaloJump 9s linear infinite; }
+        .atk-dribble-demo__finger { position:absolute; z-index:16; left:50%; bottom:6%; width:42px; height:58px; transform:translate(-50%,0); animation:atkDemoFingerMove 9s ease-in-out infinite; filter:drop-shadow(0 0 12px rgba(43,255,154,.75)); }
+        .atk-dribble-demo__finger svg { position:relative; z-index:2; width:100%; height:100%; overflow:visible; }
+        .atk-dribble-demo__tap { position:absolute; z-index:1; left:15px; top:2px; display:block; width:8px; height:8px; border-radius:999px; border:0; color:transparent; background:transparent; font-size:0; box-shadow:none; opacity:1; transform-origin:50% 50%; pointer-events:none; overflow:visible; }
+        .atk-dribble-demo__tap:before, .atk-dribble-demo__tap:after { content:''; position:absolute; left:50%; top:50%; width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:999px; border:3px solid rgba(255,184,0,.95); box-shadow:0 0 22px rgba(255,184,0,.7); opacity:0; }
+        .atk-dribble-demo__tap:after { border-color:rgba(255,255,255,.8); box-shadow:0 0 26px rgba(255,255,255,.45); }
+        .atk-dribble-demo__tap--jump:before, .atk-dribble-demo__tap--jump2:before { animation:atkDemoTapHalo 9s linear infinite; }
+        .atk-dribble-demo__tap--jump:after, .atk-dribble-demo__tap--jump2:after { animation:atkDemoTapWave 9s linear infinite; }
+        .atk-dribble-demo__tap--jump:before, .atk-dribble-demo__tap--jump:after { animation-delay:4.9s; }
+        .atk-dribble-demo__tap--jump2:before, .atk-dribble-demo__tap--jump2:after { animation-delay:6.5s; }
+        .atk-dribble-demo__tap--jump { animation:atkDemoTap 9s linear infinite 4.9s; }
+        .atk-dribble-demo__tap--jump2 { animation:atkDemoTap 9s linear infinite 6.5s; }
+        .atk-dribble-demo__jump-arc { display:none; }
+        .atk-dribble-demo__caption { position:absolute; left:10px; right:10px; bottom:8px; z-index:18; display:flex; justify-content:space-between; gap:6px; color:rgba(255,255,255,.78); font:900 10px 'Barlow Condensed'; letter-spacing:.08em; text-transform:uppercase; }
+        .atk-dribble-demo__caption b { color:#2bff9a; }
+        .atk-dribble-demo__bonus-tip { display:grid; grid-template-columns:1fr; justify-items:center; gap:7px; width:min(86vw,340px); color:rgba(255,255,255,.78); font:900 10px 'Barlow Condensed'; letter-spacing:.06em; text-transform:uppercase; text-align:center; }
+        .atk-dribble-demo__bonus-icons { display:grid; grid-template-columns:repeat(4,42px); align-items:center; justify-content:center; gap:18px; width:100%; }
+        .atk-dribble-demo__bonus-icon { width:42px; height:42px; display:grid; place-items:center; border-radius:999px; border:2px solid rgba(255,255,255,.72); background:rgba(5,11,22,.72); box-shadow:0 0 18px rgba(255,184,0,.32); animation:atkBonusOrb .46s ease-in-out infinite alternate; }
+        .atk-dribble-demo__bonus-icon svg { width:30px; height:30px; display:block; overflow:visible; }
+        .atk-dribble-demo__bonus-icon--boot { box-shadow:0 0 20px rgba(255,68,85,.46); }
+        .atk-dribble-demo__bonus-icon--wide { box-shadow:0 0 20px rgba(43,255,154,.44); }
+        .atk-dribble-demo__bonus-icon--shot { box-shadow:0 0 22px rgba(255,216,74,.54); }
+        .atk-dribble-demo__fire-ball { animation:atkDemoFireBall .58s ease-in-out infinite alternate; transform-origin:center; }
+        .atk-dribble-demo__fire-flame { animation:atkDemoFireFlame .42s ease-in-out infinite alternate; transform-origin:center bottom; }
+        .atk-dribble-demo__wide-gate { transform-origin:32px 32px; animation:atkDemoWideGate 1.05s ease-in-out infinite alternate; }
+        .atk-dribble-demo__wide-arrows { animation:atkDemoWideArrows 1.05s ease-in-out infinite alternate; }
+        .atk-dribble-demo__bonus-icon--blast { box-shadow:0 0 20px rgba(255,184,0,.5); }
+        .atk-dribble-demo__blast-def { animation:atkDemoBlastDef .7s ease-out infinite; transform-origin:center; }
+        .atk-dribble-demo__blast-def--2 { animation-delay:.12s; }
+        .atk-dribble-demo__blast-def--3 { animation-delay:.24s; }
+        .atk-dribble-demo__tap-hint { position:absolute; z-index:17; left:calc(100% + 3px); top:-8px; color:#FFB800; font:900 9px 'Barlow Condensed'; letter-spacing:.12em; text-shadow:0 0 10px rgba(255,184,0,.9); opacity:0; animation:atkDemoTapHint 9s linear infinite; }
+        .atk-dribble-demo__tap-hint--jump { animation-delay:4.45s; }
+        .atk-dribble-demo__tap-hint--jump2 { animation-delay:6.05s; }
+        @keyframes atkDemoDefBob { from{transform:translateX(-50%) translateY(-1px)} to{transform:translateX(-50%) translateY(2px)} }
+        @keyframes atkDemoDefPatrol { from{margin-left:-10px} to{margin-left:10px} }
+        @keyframes atkDemoDefPatrolWide { from{margin-left:-42px} to{margin-left:42px} }
+        @keyframes atkDemoRowA { 0%{transform:translateY(-180px);opacity:0} 5%{opacity:1} 20%{transform:translateY(250px);opacity:1} 34%{transform:translateY(520px);opacity:0} 100%{transform:translateY(520px);opacity:0} }
+        @keyframes atkDemoRowB { 0%,16%{transform:translateY(-180px);opacity:0} 20%{opacity:1} 38%{transform:translateY(250px);opacity:1} 52%{transform:translateY(520px);opacity:0} 100%{transform:translateY(520px);opacity:0} }
+        @keyframes atkDemoRowC { 0%,34%{transform:translateY(-180px);opacity:0} 38%{opacity:1} 56%{transform:translateY(250px);opacity:1} 70%{transform:translateY(520px);opacity:0} 100%{transform:translateY(520px);opacity:0} }
+        @keyframes atkDemoRowD { 0%,52%{transform:translateY(-180px);opacity:0} 56%{opacity:1} 74%{transform:translateY(250px);opacity:1} 88%{transform:translateY(520px);opacity:0} 100%{transform:translateY(520px);opacity:0} }
+        @keyframes atkDemoPlayerMove { 0%,13%{left:50%;bottom:9%;transform:translateX(-50%) scale(1)} 17%,29%{left:30%;bottom:9%;transform:translateX(-50%) scale(1.04)} 32%,34%{left:50%;bottom:9%;transform:translateX(-50%) scale(1)} 36%,48%{left:70%;bottom:9%;transform:translateX(-50%) scale(1.04)} 51%,53%{left:50%;bottom:9%;transform:translateX(-50%) scale(1)} 54%,64%{left:50%;bottom:9%;transform:translateX(-50%) translateY(-34px) scale(1.26)} 67%,70%{left:50%;bottom:9%;transform:translateX(-50%) scale(1)} 72%,82%{left:50%;bottom:9%;transform:translateX(-50%) translateY(-34px) scale(1.26)} 85%,100%{left:50%;bottom:9%;transform:translateX(-50%) scale(1)} }
+        @keyframes atkDemoFingerMove { 0%,13%{left:50%;bottom:4%;opacity:.85;transform:translate(-50%,0) scale(1)} 17%,29%{left:30%;bottom:6%;opacity:1;transform:translate(-50%,0) scale(1)} 32%,34%{left:50%;bottom:4%;opacity:.9;transform:translate(-50%,0) scale(1)} 36%,48%{left:70%;bottom:6%;opacity:1;transform:translate(-50%,0) scale(1)} 51%,53%{left:50%;bottom:5%;opacity:.95;transform:translate(-50%,0) scale(1)} 54%,60%{left:50%;bottom:10%;opacity:1;transform:translate(-50%,0) scale(1.26)} 63%,70%{left:50%;bottom:10%;opacity:1;transform:translate(-50%,0) scale(1)} 72%,78%{left:50%;bottom:10%;opacity:1;transform:translate(-50%,0) scale(1.26)} 81%,100%{left:50%;bottom:4%;opacity:.7;transform:translate(-50%,0) scale(1)} }
+        @keyframes atkDemoTap { 0%,100%{opacity:1;transform:scale(1)} }
+        @keyframes atkDemoTapHalo { 0%,5%{opacity:0;transform:scale(.25)} 8%{opacity:.95;transform:scale(.7)} 18%{opacity:0;transform:scale(2.2)} 100%{opacity:0;transform:scale(2.2)} }
+        @keyframes atkDemoTapWave { 0%,6%{opacity:0;transform:scale(.25)} 10%{opacity:.78;transform:scale(.9)} 22%{opacity:0;transform:scale(2.8)} 100%{opacity:0;transform:scale(2.8)} }
+        @keyframes atkDemoPlayerHaloJump { 0%,52%{opacity:0;transform:scale(.45)} 55%{opacity:.9;transform:scale(.82)} 64%{opacity:.7;transform:scale(1.58)} 68%{opacity:0;transform:scale(1.85)} 70%{opacity:0;transform:scale(.45)} 73%{opacity:.9;transform:scale(.82)} 82%{opacity:.7;transform:scale(1.58)} 86%,100%{opacity:0;transform:scale(1.85)} }
+        @keyframes atkDemoWideGate { from{transform:scaleX(.58)} to{transform:scaleX(1.18)} }
+        @keyframes atkDemoFireBall { from{transform:scale(.96) rotate(-6deg)} to{transform:scale(1.08) rotate(8deg)} }
+        @keyframes atkDemoFireFlame { from{transform:scale(.86) translateY(2px);opacity:.72} to{transform:scale(1.16) translateY(-2px);opacity:1} }
+        @keyframes atkDemoWideArrows { from{transform:scaleX(.76);opacity:.72} to{transform:scaleX(1.18);opacity:1} }
+        @keyframes atkDemoBlastDef { 0%{opacity:1;transform:translateY(0) scale(1)} 42%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-7px) scale(1.75)} }
+        @keyframes atkDemoTapHint { 0%,4%{opacity:0;transform:translateY(5px) scale(.9)} 8%,20%{opacity:1;transform:translateY(0) scale(1)} 30%,100%{opacity:0;transform:translateY(-5px) scale(1.04)} }
+        
+        @keyframes atkDemoArc { 0%,10%{opacity:0;transform:translateY(8px) scale(.8)} 18%,38%{opacity:1;transform:translateY(0) scale(1)} 54%,100%{opacity:0;transform:translateY(-8px) scale(1.05)} }
+        @keyframes atkDemoRoulette { 0%,10%{opacity:0;transform:translateX(-50%) scale(.4) rotateY(0)} 18%,42%{opacity:1;transform:translateX(-50%) scale(1) rotateY(300deg)} 58%,100%{opacity:0;transform:translateX(-50%) scale(1.25) rotateY(720deg)} }
         .atk-pre-countdown {
           position: absolute; inset: 0; z-index: 75;
           display: flex; align-items: center; justify-content: center;
@@ -1679,6 +1898,23 @@ export function AttackPhase({
         .atk-perfect-badge { margin-top:7px; width:max-content; padding:4px 8px; border-radius:999px; color:#03131d; background:linear-gradient(90deg,#bdfcff,#2bff9a); font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; box-shadow:0 0 14px rgba(43,255,154,.38); }
         .atk-perfect-badge.is-fever { background:linear-gradient(90deg,#ffdf73,#ff5f7c); box-shadow:0 0 20px rgba(255,184,0,.54); animation:atkFeverPulse .36s ease-in-out infinite alternate; }
         .atk-bonus-flash { position:absolute; inset:0; z-index:23; pointer-events:none; background:radial-gradient(circle at 50% 72%, rgba(255,184,0,.34), transparent 42%); animation:atkBonusFlash .42s ease-out both; }
+        .atk-bonus-field-fx { position:absolute; inset:0; z-index:4; pointer-events:none; mix-blend-mode:screen; opacity:.9; animation:atkBonusFieldFade .9s ease-out both; }
+        .atk-bonus-field-fx.is-coin { background:radial-gradient(circle at 50% 70%,rgba(255,216,74,.34),transparent 30%),radial-gradient(circle at 50% 70%,rgba(255,184,0,.18),transparent 55%); }
+        .atk-bonus-field-fx.is-boots { background:repeating-linear-gradient(90deg,transparent 0 26px,rgba(25,211,255,.22) 26px 30px),linear-gradient(0deg,transparent,rgba(25,211,255,.12),transparent); animation:atkTurboField .34s linear infinite; }
+        .atk-bonus-field-fx.is-whistle { background:radial-gradient(circle at 50% 62%,rgba(43,255,154,.34),transparent 24%),radial-gradient(circle at 50% 62%,transparent 28%,rgba(43,255,154,.22) 29%,transparent 45%); animation:atkWhistleField .72s ease-out infinite; }
+        .atk-bonus-field-fx.is-slowmo { background:linear-gradient(180deg,rgba(168,85,247,.18),transparent 44%,rgba(168,85,247,.16)); backdrop-filter:saturate(.8); animation:atkSlowmoField .9s ease-in-out infinite alternate; }
+        .atk-bonus-field-fx.is-wide { background:radial-gradient(ellipse at 50% 52%,rgba(184,255,106,.26),transparent 42%),linear-gradient(90deg,rgba(184,255,106,.14),transparent 28%,transparent 72%,rgba(184,255,106,.14)); animation:atkWideField .62s ease-in-out infinite alternate; }
+        .atk-bonus-field-fx.is-blast { background:radial-gradient(circle at 50% 62%,rgba(255,184,0,.36),transparent 24%),radial-gradient(circle at 50% 62%,rgba(255,68,85,.26),transparent 48%); animation:atkBlastField .38s ease-out infinite alternate; }
+        .atk-gd.is-bonus-boots .atk-gd-player .atk-player-inner { animation:atkTurboPlayer .18s ease-in-out infinite alternate; filter:drop-shadow(0 0 24px rgba(25,211,255,.92)); }
+        .atk-gd.is-bonus-slowmo .atk-slalom-wave { filter:hue-rotate(18deg) saturate(.82); }
+        .atk-gd.is-bonus-whistle .atk-slalom-defender { filter:drop-shadow(0 0 16px rgba(43,255,154,.72)) grayscale(.2); }
+        @keyframes atkBonusFieldFade { from{opacity:1} to{opacity:.35} }
+        @keyframes atkTurboField { from{background-position:0 0,0 0} to{background-position:46px 0,0 -18px} }
+        @keyframes atkWhistleField { from{transform:scale(.92);opacity:.95} to{transform:scale(1.1);opacity:.45} }
+        @keyframes atkSlowmoField { from{opacity:.34;filter:blur(0)} to{opacity:.72;filter:blur(1.5px)} }
+        @keyframes atkWideField { from{transform:scaleX(.96);opacity:.52} to{transform:scaleX(1.06);opacity:.94} }
+        @keyframes atkBlastField { from{transform:scale(.96);filter:brightness(1)} to{transform:scale(1.04);filter:brightness(1.35)} }
+        @keyframes atkTurboPlayer { from{transform:scale(1.04) skewX(-4deg)} to{transform:scale(1.14) skewX(5deg)} }
 
         /*  GD speed indicator  */
         .atk-gd-speed {
@@ -1719,7 +1955,23 @@ export function AttackPhase({
         .atk-gd-player.is-max-flow .atk-player-inner { filter:drop-shadow(0 0 22px rgba(255,184,0,.9)) drop-shadow(0 0 16px rgba(43,255,154,.62)); }
         .atk-gd-player.is-max-flow::after { content:'TIR BOOSTE'; position:absolute; left:50%; top:-22px; transform:translateX(-50%); color:#ffdd73; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; white-space:nowrap; text-shadow:0 0 12px rgba(255,184,0,.8); }
         @keyframes atkBonusAura { from{ opacity:.62; transform:translate(-50%,-50%) scale(.92); filter:blur(.2px); } to{ opacity:1; transform:translate(-50%,-50%) scale(1.08); filter:blur(1px); } }
+        @keyframes atkWideGatePulse { from{ transform:translate(-50%,-50%) scaleX(.92); filter:brightness(1); } to{ transform:translate(-50%,-50%) scaleX(1.08); filter:brightness(1.16); } }
+        @keyframes atkWideGateBar { from{ transform:translate(-50%,-50%) scaleX(.76); } to{ transform:translate(-50%,-50%) scaleX(1.18); } }
         .atk-gd-player.is-fever .atk-player-inner { filter:drop-shadow(0 0 26px rgba(255,184,0,.9)) drop-shadow(0 0 20px rgba(25,211,255,.62)); animation:atkFeverPlayer .32s ease-in-out infinite alternate; }
+        .atk-gd-player.is-roulette { z-index:18; }
+        .atk-gd-player.is-roulette .atk-player-inner,
+        .atk-gd-player.is-roulette.is-fever .atk-player-inner { animation:atkRouletteSpin .82s cubic-bezier(.16,.92,.22,1) both;filter:drop-shadow(0 0 32px rgba(255,184,0,1)) drop-shadow(0 0 20px rgba(43,255,154,.78)); }
+        .atk-gd-player.is-roulette .atk-player-whoosh { opacity:1; }
+        .atk-gd-player.atk-gd-player--pass .atk-player-inner,
+        .atk-gd-player.atk-gd-player--pass.is-fever .atk-player-inner,
+        .atk-gd-player.atk-gd-player--pass.is-max-flow .atk-player-inner {
+          transform:translateY(-16px) scale(1.34);
+          filter:drop-shadow(0 0 26px rgba(43,255,154,.92)) drop-shadow(0 18px 16px rgba(0,0,0,.24));
+        }
+        .atk-gd-player.atk-gd-player--pass .atk-player-shadow {
+          transform:translateX(-50%) scale(1.7);
+          opacity:.14;
+        }
         .atk-control-ghost { position:absolute; left:50%; bottom:max(28px,calc(env(safe-area-inset-bottom) + 18px)); z-index:18; display:grid; justify-items:center; gap:8px; width:148px; transform:translateX(-50%); pointer-events:none; opacity:.44; filter:drop-shadow(0 0 16px rgba(43,255,154,.28)); }
         .atk-control-ghost__player { width:44px; height:54px; border-radius:999px 999px 18px 18px; background:linear-gradient(180deg,rgba(43,255,154,.38),rgba(43,255,154,.12)); border:1px solid rgba(43,255,154,.42); box-shadow:inset 0 0 18px rgba(255,255,255,.12); animation:atkGhostPlayer 1.75s ease-in-out infinite; }
         .atk-control-ghost__trail { position:relative; width:132px; height:7px; border-radius:999px; background:linear-gradient(90deg,transparent,rgba(43,255,154,.72),transparent); }
@@ -1766,11 +2018,15 @@ export function AttackPhase({
         .atk-slalom-gate.is-combo { border-color:#FFB800;background:radial-gradient(ellipse at center,rgba(255,184,0,.18),rgba(43,255,154,.07) 72%,transparent);box-shadow:0 0 24px rgba(255,184,0,.3),inset 0 0 18px rgba(43,255,154,.18); }
         .atk-slalom-gate.is-narrow { height:50px; border-style:dashed; }
         .atk-slalom-gate.is-moving { border-color:#19d3ff; box-shadow:0 0 24px rgba(25,211,255,.34), inset 0 0 18px rgba(25,211,255,.14); }
+        .atk-slalom-gate.is-wide-power { border-color:#b8ff6a; background:radial-gradient(ellipse at center,rgba(184,255,106,.24),rgba(43,255,154,.08) 74%,transparent); box-shadow:0 0 34px rgba(184,255,106,.52), inset 0 0 24px rgba(43,255,154,.24); animation:atkWideGatePulse .62s ease-in-out infinite alternate; }
+        .atk-slalom-gate.is-wide-power::before { width:62%; background:#b8ff6a; box-shadow:0 0 20px rgba(184,255,106,.95); animation:atkWideGateBar .62s ease-in-out infinite alternate; }
         .atk-slalom-gate.is-bonus { border-color:#FFB800; color:#2b1800; background:radial-gradient(ellipse at center,rgba(255,184,0,.28),rgba(255,184,0,.08) 72%,transparent 100%); box-shadow:0 0 30px rgba(255,184,0,.48), inset 0 0 18px rgba(255,255,255,.18); }
         .atk-slalom-gate.is-bonus::before { background:#FFB800; box-shadow:0 0 16px rgba(255,184,0,.9); }
         .atk-slalom-gate.is-bonus .atk-slalom-gate__label { color:#fff2bf; text-shadow:0 0 12px rgba(255,184,0,.95); }
         .atk-bonus-orb { position:absolute; left:50%; top:-26px; transform:translateX(-50%); min-width:44px; height:44px; padding:0 7px; border-radius:999px; display:grid; place-items:center; background:linear-gradient(180deg,#fff9c7,#ffb800); color:#1e1300; font:900 11px 'Barlow Condensed',sans-serif; letter-spacing:.06em; border:3px solid rgba(255,255,255,.88); box-shadow:0 0 0 8px rgba(255,184,0,.14),0 0 34px rgba(255,184,0,.9),0 0 72px rgba(255,184,0,.44); animation:atkBonusOrb 0.46s ease-in-out infinite alternate; }
         .atk-bonus-orb::before { content:''; position:absolute; inset:-15px; border-radius:inherit; border:2px solid rgba(255,216,74,.72); box-shadow:0 0 34px rgba(255,184,0,.76), inset 0 0 24px rgba(255,255,255,.2); animation:atkBonusHalo .72s ease-out infinite; }
+        .atk-bonus-orb svg { position:relative; z-index:1; width:34px; height:34px; display:block; overflow:visible; }
+        .atk-bonus-orb.is-coin { box-shadow:0 0 22px rgba(255,216,74,.72),0 0 54px rgba(255,68,85,.34); }
         .atk-bonus-orb.is-boots { background:linear-gradient(180deg,#bdfcff,#19d3ff); color:#01141b; box-shadow:0 0 20px rgba(25,211,255,.72); }
         .atk-bonus-orb.is-whistle { background:linear-gradient(180deg,#d8ffba,#2bff9a); color:#03160c; box-shadow:0 0 20px rgba(43,255,154,.72); }
         .atk-bonus-orb.is-slowmo { background:linear-gradient(180deg,#e7d5ff,#a855f7); color:#17051f; box-shadow:0 0 20px rgba(168,85,247,.72); }
@@ -1828,92 +2084,6 @@ export function AttackPhase({
         @keyframes atkGhostFinger { 0%,100%{ transform:translate(-62px,-50%); opacity:.35; } 50%{ transform:translate(44px,-50%); opacity:.9; } }
 
 
-        /* Low-FX dribble mode: keep gameplay movement, remove the heavy visual effects added around bonus/super states. */
-        .atk-root.is-gd .atk-bonus-flash,
-        .atk-root.is-gd .atk-player-whoosh,
-        .atk-root.is-gd .atk-gd-player.is-bonus-aura::before,
-        .atk-root.is-gd.is-super-attacker .atk-gd::after,
-        .atk-root.is-gd.is-super-attacker .atk-gd-player::before,
-        .atk-root.is-gd .atk-slalom-wave.is-super-blasted::after,
-        .atk-root.is-gd .atk-bonus-orb::before {
-          display: none !important;
-        }
-        .atk-root.is-gd.is-super-attacker .atk-gd {
-          filter: none !important;
-          background: linear-gradient(180deg,#020306,#06110c 55%,#0c1510) !important;
-        }
-        .atk-root.is-gd .atk-player-inner,
-        .atk-root.is-gd .atk-gd-player--flash .atk-player-inner,
-        .atk-root.is-gd .atk-gd-player--pass .atk-player-inner,
-        .atk-root.is-gd .atk-gd-player.is-dashing .atk-player-inner,
-        .atk-root.is-gd .atk-gd-player.is-ghost .atk-player-inner,
-        .atk-root.is-gd .atk-gd-player.is-bonus-aura .atk-player-inner,
-        .atk-root.is-gd .atk-gd-player.is-roulette .atk-player-inner,
-        .atk-root.is-gd .atk-gd-player.is-flowing .atk-player-inner,
-        .atk-root.is-gd .atk-gd-player.is-max-flow .atk-player-inner,
-        .atk-root.is-gd .atk-gd-player.is-fever .atk-player-inner,
-        .atk-root.is-gd.is-super-attacker .atk-player-inner,
-        .atk-root.is-gd .atk-slalom-defender,
-        .atk-root.is-gd .atk-slalom-defender.is-sliding,
-        .atk-root.is-gd .atk-slalom-defender.is-press,
-        .atk-root.is-gd .atk-slalom-defender.is-diagonal,
-        .atk-root.is-gd .atk-slalom-defender.is-bonus_guard,
-        .atk-root.is-gd .atk-slalom-wave.is-super-blasted .atk-slalom-defender,
-        .atk-root.is-gd .atk-flow-bar.is-fever .atk-flow-bar__fill,
-        .atk-root.is-gd .atk-ctrl-btn--evade.is-danger {
-          filter: none !important;
-        }
-        .atk-root.is-gd .atk-gd-player.is-roulette .atk-player-inner,
-        .atk-root.is-gd .atk-flow-bar.is-fever .atk-flow-bar__fill,
-        .atk-root.is-gd .atk-perfect-badge.is-fever,
-        .atk-root.is-gd .atk-powerup-label,
-        .atk-root.is-gd .atk-slalom-gate,
-        .atk-root.is-gd .atk-slalom-gate.is-passed,
-        .atk-root.is-gd .atk-slalom-wave.is-super-blasted .atk-slalom-gate,
-        .atk-root.is-gd .atk-slalom-wave.is-super-blasted .atk-slide-wall,
-        .atk-root.is-gd .atk-bonus-orb,
-        .atk-root.is-gd .atk-slide-danger,
-        .atk-root.is-gd .atk-pass-pop,
-        .atk-root.is-gd .atk-ctrl-btn--evade.is-danger {
-          animation: none !important;
-        }
-        .atk-root.is-gd .atk-flow-bar,
-        .atk-root.is-gd .atk-flow-bar__fill,
-        .atk-root.is-gd .atk-powerup-label,
-        .atk-root.is-gd .atk-combo-badge,
-        .atk-root.is-gd .atk-combo-badge.is-hot,
-        .atk-root.is-gd .atk-perfect-badge,
-        .atk-root.is-gd .atk-perfect-badge.is-fever,
-        .atk-root.is-gd .atk-life-badge i,
-        .atk-root.is-gd .atk-life-badge i.is-on,
-        .atk-root.is-gd .atk-slalom-gate,
-        .atk-root.is-gd .atk-slalom-gate::before,
-        .atk-root.is-gd .atk-slalom-gate.is-failed,
-        .atk-root.is-gd .atk-slalom-gate.is-combo,
-        .atk-root.is-gd .atk-slalom-gate.is-moving,
-        .atk-root.is-gd .atk-slalom-gate.is-bonus,
-        .atk-root.is-gd .atk-slalom-gate.is-bonus::before,
-        .atk-root.is-gd .atk-bonus-orb,
-        .atk-root.is-gd .atk-bonus-orb.is-boots,
-        .atk-root.is-gd .atk-bonus-orb.is-whistle,
-        .atk-root.is-gd .atk-bonus-orb.is-slowmo,
-        .atk-root.is-gd .atk-bonus-orb.is-wide,
-        .atk-root.is-gd .atk-bonus-orb.is-blast,
-        .atk-root.is-gd .atk-slide-danger,
-        .atk-root.is-gd .atk-slide-wall.is-failed .atk-slide-danger,
-        .atk-root.is-gd .atk-slide-wall.is-roulette .atk-slide-danger,
-        .atk-root.is-gd .atk-ctrl-btn,
-        .atk-root.is-gd .atk-ctrl-btn--evade.is-danger {
-          box-shadow: none !important;
-        }
-        .atk-root.is-gd .atk-pass-pop,
-        .atk-root.is-gd .atk-bonus-choice-label,
-        .atk-root.is-gd .atk-slalom-gate__label,
-        .atk-root.is-gd .atk-slide-label,
-        .atk-root.is-gd .atk-slalom-defender__name,
-        .atk-root.is-gd .atk-controls__phase.is-roulette {
-          text-shadow: none !important;
-        }
         .atk-controls { display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"stat phase" "buttons buttons"; align-items:center; gap:9px 12px; padding:10px 14px max(18px, calc(env(safe-area-inset-bottom) + 12px)); background:linear-gradient(180deg,rgba(7,23,15,.94),#030b08); border-top:1px solid rgba(255,255,255,.1); box-shadow:0 -18px 34px rgba(0,0,0,.34); }
         .atk-controls__stat { grid-area:stat; color:#dffef0; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.1em; text-transform:uppercase; }
         .atk-controls__stat small { display:inline; color:rgba(255,255,255,.5); font:800 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; margin-left:7px; }
@@ -1940,6 +2110,10 @@ export function AttackPhase({
         .atk-shot-game .goal-arcade {
           width: 100%; height: 100%; border-radius: 0;
         }
+        .atk-shot-game.is-boosted { background:radial-gradient(circle at 50% 64%,rgba(255,184,0,.18),transparent 32%),linear-gradient(180deg,#06172a,#082d1e 62%,#0a1419); }
+        .atk-shot-game.is-boosted::after { content:'TIR BOOSTE'; position:absolute; left:50%; top:max(72px,calc(env(safe-area-inset-top) + 54px)); transform:translateX(-50%); z-index:12; color:#ffdf73; font:900 13px 'Barlow Condensed',sans-serif; letter-spacing:.18em; text-shadow:0 0 18px rgba(255,184,0,.9); pointer-events:none; animation:atkPowerupPop .42s ease-out both, atkFeverPulse .46s ease-in-out .42s infinite alternate; }
+        .atk-shot-game.is-boosted .atk-gauge-green { background:linear-gradient(90deg,#2bff9a,#ffdf73); box-shadow:0 0 22px rgba(255,184,0,.85),0 0 12px rgba(43,255,154,.72); }
+        .atk-shot-game.is-boosted .atk-shot-shooter .atk-kawaii { filter:drop-shadow(0 0 22px rgba(255,184,0,.86)) drop-shadow(0 0 12px rgba(43,255,154,.6)); }
         .atk-shot-game .goal-arcade > svg {
           min-height: unset; aspect-ratio: unset; height: 100%;
         }
@@ -1969,8 +2143,10 @@ export function AttackPhase({
 
         .atk-shot-shooter {
           position: absolute;
-          left: clamp(66px, 22%, 118px);
-          bottom: max(84px, calc(env(safe-area-inset-bottom) + 72px));
+          left: 50%;
+          top: 66%;
+          bottom: auto;
+          transform: translate(-50%, -50%);
           z-index: 24;
           display: grid;
           justify-items: center;
@@ -2009,8 +2185,8 @@ export function AttackPhase({
           animation: atkShotKickLeg .5s cubic-bezier(.2,1.1,.3,1) both;
         }
         @keyframes atkShotShooterIn {
-          from { transform: translate(-10px, 18px) scale(.86); opacity: 0; }
-          to { transform: translate(0, 0) scale(1); opacity: 1; }
+          from { transform: translate(calc(-50% - 10px), calc(-50% + 18px)) scale(.86); opacity: 0; }
+          to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         }
         @keyframes atkShotKick {
           0% { transform: translateY(0) rotate(0deg) scale(1); }
@@ -2062,7 +2238,7 @@ export function AttackPhase({
         }
 
         .atk-aim-hint {
-          position: absolute; top: 70%; left: 50%; transform: translate(-50%, -50%);
+          position: absolute; top: 73%; left: 50%; transform: translate(-50%, -50%);
           z-index: 25; pointer-events: none; text-align: center;
           padding: 8px 12px; border-radius: 999px;
           background: rgba(4, 12, 22, .72); border: 1px solid rgba(43,255,154,.34);
@@ -2074,7 +2250,7 @@ export function AttackPhase({
         .atk-shot-joystick {
           position: absolute;
           left: 50%;
-          top: 86%;
+          top: 66%;
           z-index: 26;
           width: 0;
           height: 0;
@@ -2261,10 +2437,49 @@ export function AttackPhase({
           text-shadow: 0 0 30px rgba(255,184,0,.58);
         }
         .atk-shot-tutorial__text {
-          max-width: 330px; color: rgba(255,255,255,.86);
-          font: 700 clamp(13px,4vw,17px) 'Barlow Condensed', sans-serif;
-          line-height: 1.42;
+          width:min(86vw,340px); color: rgba(255,255,255,.86);
+          font: 800 clamp(13px,4vw,17px) 'Barlow Condensed', sans-serif;
+          line-height: 1.3; display:grid; gap:7px;
         }
+        .atk-shot-step { opacity:.38; transform:translateY(3px) scale(.98); transition:none; }
+        .atk-shot-step b { color:#2bff9a; }
+        .atk-shot-step--hold { animation:atkShotStepHold 6.2s linear infinite; }
+        .atk-shot-step--aim { animation:atkShotStepAim 6.2s linear infinite; }
+        .atk-shot-step--release { animation:atkShotStepRelease 6.2s linear infinite; }
+        .atk-shot-warning { margin-top:2px; color:#ffdd73; font:900 13px 'Barlow Condensed',sans-serif; letter-spacing:.1em; text-transform:uppercase; text-shadow:0 0 12px rgba(255,184,0,.48); animation:atkShotWarning 6.2s linear infinite; }
+        @keyframes atkShotStepHold { 0%,24%{opacity:1;transform:translateY(0) scale(1);color:#fff} 32%,100%{opacity:.34;transform:translateY(3px) scale(.98)} }
+        @keyframes atkShotStepAim { 0%,22%{opacity:.34;transform:translateY(3px) scale(.98)} 30%,50%{opacity:1;transform:translateY(0) scale(1);color:#fff} 58%,100%{opacity:.34;transform:translateY(3px) scale(.98)} }
+        @keyframes atkShotStepRelease { 0%,70%{opacity:.34;transform:translateY(3px) scale(.98)} 78%,100%{opacity:1;transform:translateY(0) scale(1);color:#fff} }
+        @keyframes atkShotWarning { 0%,26%{opacity:.42} 34%,100%{opacity:1} }
+        .atk-shot-tutorial__comment { display:grid; grid-template-columns:54px minmax(0,1fr); align-items:center; gap:10px; width:min(86vw,340px); padding:8px 10px; border:1px solid rgba(255,184,0,.28); border-left:3px solid #FFB800; border-radius:14px; background:rgba(2,8,16,.58); color:#fff; font:800 13px 'Barlow Condensed',sans-serif; letter-spacing:.04em; text-align:left; }
+        .atk-shot-tutorial__avatar { width:54px; height:58px; display:grid; place-items:center; overflow:visible; }
+        .atk-shot-tutorial__avatar .atk-kawaii { width:52px; height:63px; filter:drop-shadow(0 8px 10px rgba(0,0,0,.42)); animation:battleOrbFloat .72s ease-in-out infinite alternate; }
+        .atk-shot-demo { position:relative; width:min(90vw,360px); height:min(38vh,230px); min-height:214px; border-radius:18px; border:1px solid rgba(255,255,255,.14); overflow:hidden; background:linear-gradient(180deg,#082032,#092617 64%,#101827); box-shadow:0 18px 38px rgba(0,0,0,.34), inset 0 0 30px rgba(43,255,154,.06); }
+        .atk-shot-demo__goal { position:absolute; left:12%; right:12%; top:22%; height:44%; border:3px solid rgba(255,255,255,.38); border-bottom:0; border-radius:18px 18px 0 0; background:repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 1px,transparent 1px 22px),repeating-linear-gradient(0deg,rgba(255,255,255,.06) 0 1px,transparent 1px 18px); }
+        .atk-shot-demo__aim { position:absolute; inset:0; z-index:3; overflow:visible; opacity:0; transform-origin:190px 163px; animation:atkDemoAim 6.2s linear infinite; filter:drop-shadow(0 0 10px rgba(43,255,154,.65)); }
+        .atk-shot-demo__curve { fill:none; stroke:#FFB800; stroke-width:5; stroke-linecap:round; stroke-dasharray:230; stroke-dashoffset:230; animation:atkDemoCurveGrow 6.2s linear infinite; filter:drop-shadow(0 0 8px rgba(255,184,0,.9)); }
+        .atk-shot-demo__aim-group { opacity:1; }
+        .atk-shot-demo__target { fill:rgba(43,255,154,.12); stroke:#2bff9a; stroke-width:4; opacity:0; animation:atkDemoTargetPop 6.2s linear infinite; }
+        .atk-shot-demo__target-dot { fill:#2bff9a; opacity:0; animation:atkDemoTargetPop 6.2s linear infinite; filter:drop-shadow(0 0 8px rgba(43,255,154,.95)); }
+        .atk-shot-demo__keeper { position:absolute; left:50%; bottom:-2px; width:48px; height:58px; transform:translateX(-50%); z-index:2; animation:atkDemoKeeper 1.05s ease-in-out infinite alternate; filter:drop-shadow(0 0 12px rgba(255,68,85,.55)); }
+        .atk-shot-demo__keeper .atk-kawaii { width:48px; height:58px; }
+        .atk-shot-demo__player { position:absolute; z-index:5; left:43%; bottom:9%; width:56px; height:68px; transform:translate(-50%,0); filter:drop-shadow(0 8px 14px rgba(0,0,0,.42)); }
+        .atk-shot-demo__player .atk-kawaii { width:56px; height:68px; }
+        .atk-shot-demo__ball { position:absolute; z-index:6; left:54%; bottom:15%; width:32px; height:32px; border-radius:50%; transform:translate(-50%,0); background:#f7f9fc; border:3px solid #101827; box-shadow:0 0 14px rgba(255,184,0,.7); animation:atkDemoBall 6.2s linear infinite; }
+        .atk-shot-demo__ball:before { content:''; position:absolute; inset:6px; border:3px solid #101827; border-radius:50%; clip-path:polygon(50% 0,100% 38%,82% 100%,18% 100%,0 38%); }
+        .atk-shot-demo__hand { position:absolute; z-index:7; left:54%; bottom:6%; width:58px; height:64px; background:transparent; border:0; transform:translate(-50%,0) rotate(-10deg); filter:drop-shadow(0 0 12px rgba(43,255,154,.55)) drop-shadow(0 8px 10px rgba(0,0,0,.38)); animation:atkDemoHand 6.2s linear infinite; }
+        .atk-shot-demo__hand:before { content:''; position:absolute; left:9px; top:18px; width:38px; height:36px; border-radius:18px 18px 15px 15px; background:linear-gradient(180deg,#fff,#e9fff6); border:3px solid #101827; box-shadow:inset 0 -10px 0 rgba(43,255,154,.16); }
+        .atk-shot-demo__hand:after { content:''; position:absolute; left:5px; top:3px; width:11px; height:32px; border-radius:10px; background:#fff; border:3px solid #101827; box-shadow:12px -2px 0 -1px #fff,12px -2px 0 2px #101827,24px 0 0 -1px #fff,24px 0 0 2px #101827,35px 8px 0 -2px #fff,35px 8px 0 1px #101827; transform:rotate(-7deg); transform-origin:30px 42px; }
+        .atk-shot-demo__gauge { position:absolute; left:12%; right:12%; top:9px; height:11px; border-radius:999px; background:rgba(255,255,255,.14); overflow:hidden; }
+        .atk-shot-demo__green { position:absolute; left:42%; width:24%; inset-block:0; background:#2bff9a; box-shadow:0 0 14px rgba(43,255,154,.85); }
+        .atk-shot-demo__gauge i { position:absolute; top:-4px; left:0; width:6px; height:19px; border-radius:999px; background:#fff; box-shadow:0 0 10px rgba(255,255,255,.9); animation:atkDemoGauge 6.2s linear infinite; }
+        @keyframes atkDemoKeeper { 0%{left:24%;transform:translateX(-50%)} 100%{left:76%;transform:translateX(-50%)} }
+        @keyframes atkDemoHand { 0%,8%{left:54%;bottom:13%;opacity:.25;transform:translate(-50%,0) rotate(-8deg) scale(.96)} 14%{left:54%;bottom:13%;opacity:.78;transform:translate(-50%,0) rotate(-8deg) scale(1)} 30%{left:70%;bottom:2%;opacity:.82;transform:translate(-50%,0) rotate(10deg) scale(1)} 48%,82%{left:37%;bottom:3%;opacity:.82;transform:translate(-50%,0) rotate(-20deg) scale(1)} 88%,100%{left:37%;bottom:3%;opacity:0;transform:translate(-50%,0) rotate(-20deg) scale(.96)} }
+        @keyframes atkDemoBall { 0%,86%{left:54%;bottom:15%;opacity:1;scale:1} 94%{left:83%;bottom:60%;opacity:1;scale:.72} 100%{left:83%;bottom:66%;opacity:1;scale:.55} }
+        @keyframes atkDemoAim { 0%,8%{opacity:.22;transform:scale(1)} 16%,100%{opacity:1;transform:scale(1)} }
+        @keyframes atkDemoCurveGrow { 0%,12%{stroke-dashoffset:230;opacity:.25} 30%,100%{stroke-dashoffset:0;opacity:1} }
+        @keyframes atkDemoTargetPop { 0%,8%{opacity:.2;transform:scale(.68)} 16%,100%{opacity:1;transform:scale(1)} }
+        @keyframes atkDemoGauge { 0%{left:0} 10%{left:100%} 20%{left:0} 30%{left:100%} 40%{left:0} 50%{left:100%} 60%{left:0} 70%{left:100%} 78%{left:0} 84%,100%{left:50%} }
         .atk-shot-tutorial__btn {
           margin-top: 4px; min-height: 50px; padding: 0 30px; border-radius: 14px;
           border: 0; background: linear-gradient(90deg,#2bff9a,#1cd6c4 55%,#16a8ff);
@@ -2341,20 +2556,42 @@ export function AttackPhase({
       {!tutorialDone && preCountdownNum === null && (
         <div className="atk-tutorial">
           <div className="atk-tutorial__title">DRIBBLE RUSH</div>
-          <div className="atk-tutorial__instruction">
-            Passe dans les portes vertes entre les defenseurs.
-            <br /><br />
-            Utilise <b style={{ color:'#2bff9a' }}>Gauche / Esquive / Droite</b> pour slalomer.
-            <br />
-            Les portes peuvent etre etroites, mobiles, diagonales ou protegees par des murs.
-            <br /><br />
-            Si tu rates, ton attaquant perd une vie et passe en <b style={{ color:'#bdfcff' }}>mode ghost</b> quelques instants. Certaines rangees demandent une <b style={{ color:'#FFB800' }}>roulette</b> avec Esquive.
-            <br /><br />
-            Garde le <b style={{ color:'#FFB800' }}>FLOW</b> : les combos agrandissent la zone verte, ralentissent le gardien ou boostent la frappe.
-            <br /><br />
-            <span style={{ color:'rgba(255,255,255,.5)', fontSize:'0.9em' }}>Clavier : fleches pour se deplacer, Espace pour sauter, Shift pour esquiver</span>
+          <div className="atk-tutorial__comment">
+            <div className="atk-tutorial__avatar">
+              <KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="ready" />
+            </div>
+            <span><b>{playerLastName(attackerName)}</b> est en forme. Il se lance dans une percée de la défense.</span>
           </div>
-          <span className="atk-tutorial__arrow"></span>
+          <div className="atk-dribble-demo" aria-hidden="true">
+            <div className="atk-dribble-demo__row atk-dribble-demo__row--gate-a">
+              <span className="atk-dribble-demo__lane" />
+              <span className="atk-dribble-demo__def atk-dribble-demo__def--l"><KawaiiFootballer label="4" jerseyColor={opponentJerseyColor} accentColor={opponentAccentColor} shortsColor={opponentShortsColor} textColor={opponentTextColor} /></span>
+              <span className="atk-dribble-demo__def atk-dribble-demo__def--r"><KawaiiFootballer label="5" jerseyColor={opponentJerseyColor} accentColor={opponentAccentColor} shortsColor={opponentShortsColor} textColor={opponentTextColor} /></span>
+            </div>
+            <div className="atk-dribble-demo__row atk-dribble-demo__row--gate-b">
+              <span className="atk-dribble-demo__lane" />
+              <span className="atk-dribble-demo__def atk-dribble-demo__def--l"><KawaiiFootballer label="3" jerseyColor={opponentJerseyColor} accentColor={opponentAccentColor} shortsColor={opponentShortsColor} textColor={opponentTextColor} /></span>
+              <span className="atk-dribble-demo__def atk-dribble-demo__def--r"><KawaiiFootballer label="6" jerseyColor={opponentJerseyColor} accentColor={opponentAccentColor} shortsColor={opponentShortsColor} textColor={opponentTextColor} /></span>
+            </div>
+            <div className="atk-dribble-demo__row atk-dribble-demo__row--jump">
+              <span className="atk-dribble-demo__wall" />
+              <span className="atk-dribble-demo__def atk-dribble-demo__def--l"><KawaiiFootballer label="2" jerseyColor={opponentJerseyColor} accentColor={opponentAccentColor} shortsColor={opponentShortsColor} textColor={opponentTextColor} /></span>
+              <span className="atk-dribble-demo__def atk-dribble-demo__def--m"><KawaiiFootballer label="6" jerseyColor={opponentJerseyColor} accentColor={opponentAccentColor} shortsColor={opponentShortsColor} textColor={opponentTextColor} /></span>
+              <span className="atk-dribble-demo__def atk-dribble-demo__def--r"><KawaiiFootballer label="3" jerseyColor={opponentJerseyColor} accentColor={opponentAccentColor} shortsColor={opponentShortsColor} textColor={opponentTextColor} /></span>
+            </div>
+            <div className="atk-dribble-demo__row atk-dribble-demo__row--jump-b">
+              <span className="atk-dribble-demo__wall" />
+              <span className="atk-dribble-demo__def atk-dribble-demo__def--l"><KawaiiFootballer label="8" jerseyColor={opponentJerseyColor} accentColor={opponentAccentColor} shortsColor={opponentShortsColor} textColor={opponentTextColor} /></span>
+              <span className="atk-dribble-demo__def atk-dribble-demo__def--m"><KawaiiFootballer label="4" jerseyColor={opponentJerseyColor} accentColor={opponentAccentColor} shortsColor={opponentShortsColor} textColor={opponentTextColor} /></span>
+              <span className="atk-dribble-demo__def atk-dribble-demo__def--r"><KawaiiFootballer label="5" jerseyColor={opponentJerseyColor} accentColor={opponentAccentColor} shortsColor={opponentShortsColor} textColor={opponentTextColor} /></span>
+            </div>
+            <span className="atk-dribble-demo__player">
+              <KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="run" />
+            </span>
+            <span className="atk-dribble-demo__finger"><svg viewBox="0 0 36 54"><path d="M15 4c3.2 0 5.7 2.5 5.7 5.7v13.1l1.4-1.2c2.2-1.8 5.4-1.4 7.1.9l1.4 1.9c1.1 1.5 1.5 3.3 1.2 5.1l-2.1 12.3c-.7 4.1-4.2 7.1-8.4 7.1h-8.2c-3.2 0-6.1-1.8-7.6-4.6L2.7 37c-1.1-2-.4-4.5 1.6-5.6 1.8-1 4-.6 5.3.9V9.7C9.6 6.5 12.1 4 15 4z" fill="#fff" stroke="#101827" strokeWidth="2.2" strokeLinejoin="round"/><path d="M15.1 8.2v21.4M20.8 22.8v8.1M25.4 25.1v7.7" stroke="rgba(16,24,39,.46)" strokeWidth="1.7" strokeLinecap="round"/></svg><span className="atk-dribble-demo__tap atk-dribble-demo__tap--jump"></span><span className="atk-dribble-demo__tap atk-dribble-demo__tap--jump2"></span><span className="atk-dribble-demo__tap-hint atk-dribble-demo__tap-hint--jump">TAPE</span><span className="atk-dribble-demo__tap-hint atk-dribble-demo__tap-hint--jump2">TAPE</span></span>
+            <div className="atk-dribble-demo__caption"><span><b>Glisse</b> entre les portes vertes</span><span><b>Saute</b> au-dessus des rangées</span></div>
+          </div>
+          <div className="atk-dribble-demo__bonus-tip"><span>Essaie de ramasser les bonus et les pouvoirs</span><div className="atk-dribble-demo__bonus-icons"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--boot" aria-hidden="true"><BonusPowerIcon kind="boots" /></span><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--wide" aria-hidden="true"><BonusPowerIcon kind="wide" /></span><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--shot" aria-label="Tir boosté"><BonusPowerIcon kind="shot" /></span><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--blast" aria-hidden="true"><BonusPowerIcon kind="blast" /></span></div></div>
           <button
             type="button"
             className="atk-tutorial__btn"
@@ -2371,25 +2608,24 @@ export function AttackPhase({
             {preCountdownNum === 0 ? 'GO !' : preCountdownNum}
           </div>
         </div>
-      ) : null}
+      ) : null}
 
-      {/*  Shot intro transition  */}
-      {showShotIntro && (
-        <div className="atk-transition">
-          <div style={{ fontSize: 36 }}></div>
-          <div className="atk-transition__title">ZONE DE TIR</div>
-          <div className="atk-transition__sub">{flow >= 70 || shotBonusRef.current.powerShot ? perfectStreak >= 3 ? `TIR BOOSTE - PERFECT x${perfectStreak}` : 'TIR BOOSTE' : 'Maintiens, vise, relache'}</div>
-          <div className="atk-transition__desc">
-            Maintiens la balle au pied, tire vers le bas comme un lance-pierre, vise une zone de l'ecran, puis relache quand la jauge est dans le vert.<br /><br />
-            <b style={{ color:'#2bff9a' }}>Vert = tir cadre</b>  Hors cage = rate  Gardien sur la route = arret<br />
-            Plus ton FLOW est haut, plus le tir devient favorable.
-          </div>
-          <button type="button" className="atk-transition__btn" onClick={handleStartShot}>
-             Tirer !
+      {!shotOnly && showShotIntro ? (
+        <div className="atk-transition" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}>
+          <div className="atk-transition__title">BRAVO !</div>
+          <div className="atk-transition__sub">Tu arrives dans la zone de tir</div>
+          <button
+            type="button"
+            className="atk-transition__btn"
+            onClick={(event) => {
+              event.stopPropagation()
+              handleStartShot()
+            }}
+          >
+            Continuer
           </button>
         </div>
-      )}
-
+      ) : null}
       {/*  GD game area  */}
       {phase === 'gd' && (
       <div
@@ -2397,8 +2633,9 @@ export function AttackPhase({
       >
         {/*  GD Phase  */}
         {phase === 'gd' && (
-          <div className="atk-gd">
+          <div className={`atk-gd${activeBonusFx ? ` is-bonus-${activeBonusFx}` : ''}`}>
             <div className="atk-gd-stripe-overlay" />
+            {activeBonusFx ? <div className={`atk-bonus-field-fx is-${activeBonusFx}`} /> : null}
             {bonusFlash ? <div className="atk-bonus-flash" /> : null}
             <div className="atk-dribble-hud">
               <div>
@@ -2431,7 +2668,9 @@ export function AttackPhase({
               style={{ position: 'absolute', inset: 0, willChange: 'transform', transform: 'translateY(0%)' }}
             >
               {visibleGdWalls.map((wave) => {
-                const gatePxWidth = `${wave.gateWidth}%`
+                const isWideGatePower = wideGateActive && isGatePassWave(wave) && !wave.hasBonus
+                const visualGateWidth = isWideGatePower ? Math.min(78, wave.gateWidth + 12) : wave.gateWidth
+                const gatePxWidth = `${visualGateWidth}%`
                 const bonusGatePxWidth = wave.bonusGateWidth ? `${wave.bonusGateWidth}%` : '0%' 
                 const isSlideWave = wave.type === 'slide_wall' || wave.type === 'double_slide_wall'
                 const isComboWave = wave.type === 'combo_gate_slide'
@@ -2455,20 +2694,18 @@ export function AttackPhase({
                     {isSlideWave || isComboWave || isRouletteWave ? (
                       <div className={`atk-slide-wall${wave.failed ? ' is-failed' : ''}${wave.passed ? ' is-passed' : ''}${isRouletteWave ? ' is-roulette' : ''}`}>
                         <div className="atk-slide-danger" />
-                        <span className="atk-slide-label">{isRouletteWave ? 'ROULETTE OBLIGATOIRE !' : wave.type === 'double_slide_wall' ? 'DOUBLE TACLE : SAUTE !' : isComboWave ? 'PLACE-TOI + SAUTE !' : 'SAUTE !'}</span>
+                        <span className="atk-slide-label">{isRouletteWave ? 'ROULETTE OBLIGATOIRE !' : isComboWave ? 'PLACE-TOI + SAUTE !' : 'SAUTE !'}</span>
                       </div>
                     ) : null}
                     {!isSlideWave && !isRouletteWave ? (
-                      <div className={`atk-slalom-gate${wave.passed ? ' is-passed' : ''}${wave.failed ? ' is-failed' : ''}${isComboWave ? ' is-combo' : ''}${wave.type === 'narrow_gate' ? ' is-narrow' : ''}${wave.type === 'moving_gate' ? ' is-moving' : ''}`} style={{ left: `${wave.gateCenterX}%`, width: gatePxWidth }}>
+                      <div className={`atk-slalom-gate${wave.passed ? ' is-passed' : ''}${wave.failed ? ' is-failed' : ''}${isComboWave ? ' is-combo' : ''}${wave.type === 'narrow_gate' ? ' is-narrow' : ''}${wave.type === 'moving_gate' ? ' is-moving' : ''}${isWideGatePower ? ' is-wide-power' : ''}`} style={{ left: `${wave.gateCenterX}%`, width: gatePxWidth }}>
                         <span className="atk-slalom-gate__label">PASSAGE</span>
                         {wave.passed && !wave.bonusCollected ? <span className="atk-pass-pop">PASSE !</span> : null}
                       </div>
                     ) : wave.passed ? <span className="atk-pass-pop atk-pass-pop--slide">SAUTE !</span> : null}
                     {wave.hasBonus && wave.bonusGateCenterX != null && wave.bonusGateWidth != null ? (
                       <div className={`atk-slalom-gate is-bonus${wave.bonusCollected ? ' is-passed' : ''}${wave.failed ? ' is-failed' : ''}`} style={{ left: `${wave.bonusGateCenterX}%`, width: bonusGatePxWidth }}>
-                        <span className={`atk-bonus-orb is-${wave.bonusKind ?? 'coin'}`}>
-                          {wave.bonusKind === 'boots' ? 'SPD' : wave.bonusKind === 'whistle' ? 'STOP' : wave.bonusKind === 'slowmo' ? 'SLOW' : wave.bonusKind === 'wide' ? 'WIDE' : wave.bonusKind === 'blast' ? 'BOOM' : '$'}
-                        </span>
+                        <span className={`atk-bonus-orb is-${wave.bonusKind ?? 'coin'}`}> <BonusPowerIcon kind={wave.bonusKind ?? 'coin'} /> </span>
                         <span className="atk-slalom-gate__label">{wave.bonusKind === 'boots' ? 'TURBO' : wave.bonusKind === 'whistle' ? 'SIFFLET' : wave.bonusKind === 'slowmo' ? 'SLOWMO' : wave.bonusKind === 'wide' ? 'PORTE +' : wave.bonusKind === 'blast' ? 'BOOM' : 'PIECE'}</span>
                         <span className="atk-bonus-choice-label">RISQUE = BONUS</span>
                         {wave.bonusCollected ? <span className="atk-pass-pop">BONUS !</span> : null}
@@ -2555,7 +2792,7 @@ export function AttackPhase({
       {/*  Shot Phase  full screen  */}
       {phase === 'shot' && (
         <div
-          className="atk-shot-game"
+          className={`atk-shot-game${shotBoostReady ? ' is-boosted' : ''}`}
           ref={shotGameRef}
         >
           {shotTitle ? <div className="atk-shot-title">{shotTitle}</div> : null}
@@ -2571,6 +2808,7 @@ export function AttackPhase({
             goalkeeperColor={opponentJerseyColor}
             goalkeeperSecondaryColor={opponentAccentColor}
             targetActive={hasAimedTarget}
+            originYFrac={SHOT_ORIGIN_Y_FRAC}
           />
           {shooterSelectionDone && shotTutorialDone && !resultLabel ? (
             <div className={`atk-shot-shooter${ballFlight ? ' is-kicking' : ''}`} aria-hidden="true">
@@ -2587,7 +2825,7 @@ export function AttackPhase({
               <span className="atk-shot-shooter__name">{playerLastName(selectedShooter.name)}</span>
             </div>
           ) : null}
-          {!shooterSelectionDone && !ballFlight && !resultLabel ? (
+          {shotTutorialDone && !shooterSelectionDone && !ballFlight && !resultLabel ? (
             <div
               className="atk-shooter-select"
               onPointerDown={(event) => event.stopPropagation()}
@@ -2595,7 +2833,7 @@ export function AttackPhase({
               onPointerUp={(event) => event.stopPropagation()}
             >
               <div className="atk-shooter-select__title">
-                <span>Choisis ton</span>
+                <span>Choisis ton tireur</span>
                 <strong>TIREUR</strong>
               </div>
               <div className="atk-shooter-select__stage">
@@ -2622,20 +2860,40 @@ export function AttackPhase({
               </button>
             </div>
           ) : null}
-          {shooterSelectionDone && !shotTutorialDone && !ballFlight && !resultLabel ? (
+          {!shotTutorialDone && !ballFlight && !resultLabel ? (
             <div className="atk-shot-tutorial">
-              <div className="atk-shot-tutorial__title">PHASE DE TIR</div>
+              <div className="atk-shot-tutorial__title">{shotTitle ?? 'PHASE DE TIR'}</div>
+              <div className="atk-shot-tutorial__comment"><div className="atk-shot-tutorial__avatar"><KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer /></div><span>{shotTutorialComment}</span></div>
+              <div className="atk-shot-demo" aria-hidden="true">
+                <div className="atk-shot-demo__goal"><div className="atk-shot-demo__keeper"><KawaiiFootballer label="GK" jerseyColor="#FF4455" accentColor="#FFB800" shortsColor="#2b0508" textColor="#ffffff" motion="ready" /></div></div>
+                <svg className="atk-shot-demo__aim" viewBox="0 0 350 220" aria-hidden="true">
+                  <g className="atk-shot-demo__aim-group">
+                    <path className="atk-shot-demo__curve" d="M190 163 C166 137 144 95 112 67">
+                      <animate attributeName="d" dur="6.2s" repeatCount="indefinite" keyTimes="0;0.12;0.30;0.48;0.86;1" values="M190 163 C190 159 190 154 190 149;M190 163 C190 159 190 154 190 149;M190 163 C168 137 145 95 112 67;M190 163 C207 134 243 94 292 73;M190 163 C207 134 243 94 292 73;M190 163 C207 134 243 94 292 73" />
+                    </path>
+                    <circle className="atk-shot-demo__target" cx="112" cy="67" r="17">
+                      <animate attributeName="cx" dur="6.2s" repeatCount="indefinite" keyTimes="0;0.12;0.30;0.48;0.86;1" values="190;190;112;292;292;292" />
+                      <animate attributeName="cy" dur="6.2s" repeatCount="indefinite" keyTimes="0;0.12;0.30;0.48;0.86;1" values="149;149;67;73;73;73" />
+                    </circle>
+                    <circle className="atk-shot-demo__target-dot" cx="112" cy="67" r="4.5">
+                      <animate attributeName="cx" dur="6.2s" repeatCount="indefinite" keyTimes="0;0.12;0.30;0.48;0.86;1" values="190;190;112;292;292;292" />
+                      <animate attributeName="cy" dur="6.2s" repeatCount="indefinite" keyTimes="0;0.12;0.30;0.48;0.86;1" values="149;149;67;73;73;73" />
+                    </circle>
+                  </g>
+                </svg>
+                <div className="atk-shot-demo__player"><KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="idle" /></div>
+                <span className="atk-shot-demo__ball" />
+                <span className="atk-shot-demo__hand" />
+                <div className="atk-shot-demo__gauge"><span className="atk-shot-demo__green" /><i /></div>
+              </div>
               <div className="atk-shot-tutorial__text">
-                {selectedShooter.name} attend ton geste.
-                <br /><br />
-                Maintiens le rond jaune sur la balle au pied du joueur.
-                <br /><br />
-                Tire vers le bas avec le doigt ou la souris pour viser comme dans Angry Birds. La cible peut aller dans la cage ou dehors.
-                <br /><br />
-                Relache quand le curseur est dans le <b style={{ color: '#2bff9a' }}>vert</b>. Vert + cage + gardien pas sur la route = but. Hors vert, hors cage ou gardien devant = echec.
+                <span className="atk-shot-step atk-shot-step--hold">Maintiens le <b>ballon</b></span>
+                <span className="atk-shot-step atk-shot-step--aim">Ajuste le <b>lancer</b></span>
+                <span className="atk-shot-step atk-shot-step--release">Relâche dans la <b>zone verte</b></span>
+                <span className="atk-shot-warning">Attention au gardien</span>
               </div>
               <button type="button" className="atk-shot-tutorial__btn" onClick={() => { sfx.click(); setShotTutorialDone(true) }}>
-                OK TIRER
+                Choisir mon tireur
               </button>
             </div>
           ) : null}
