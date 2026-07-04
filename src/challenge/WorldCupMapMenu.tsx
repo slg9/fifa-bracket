@@ -730,6 +730,7 @@ export function WorldCupMapMenu({
   const [selectingId, setSelectingId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [introEntering, setIntroEntering] = useState(false)
+  const [introHasStarted, setIntroHasStarted] = useState(false)
   const [introRevealY, setIntroRevealY] = useState<number | null>(null)
 
   const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks, scores, realResults, officialScores, scorers, realScorers), [matches, teamsById, picks, scores, realResults, officialScores, scorers, realScorers])
@@ -784,6 +785,7 @@ export function WorldCupMapMenu({
     if (wasIntroAnimating) {
       setIntroEntering(false)
       setIntroRevealY(null)
+      setIntroHasStarted(true)
     }
   }
 
@@ -831,15 +833,77 @@ export function WorldCupMapMenu({
     return true
   }
 
+  const panForRouteY = (routeY: number) => {
+    if (!viewportRef.current) return null
+    const viewportHeight = viewportRef.current.clientHeight
+    if (!viewportHeight) return null
+    const maxPan = Math.max(0, MAP_HEIGHT - viewportHeight)
+    const targetOffset = -(routeY - viewportHeight * 0.68)
+    return Math.max(-maxPan, Math.min(0, targetOffset))
+  }
+
+  const animateIntroRevealToNode = (node: DisplayNode) => {
+    if (!viewportRef.current) return false
+    const startY = Math.min(MAP_HEIGHT, ROUTE_Y_START + 120)
+    const revealEndY = Math.max(0, ROUTE_Y_END - 80)
+    const cameraStopY = node.y
+    const duration = 6200
+    const startAt = performance.now()
+    const ease = (t: number) => t < 0.5
+      ? 2 * t * t
+      : 1 - Math.pow(-2 * t + 2, 2) / 2
+
+    stopPanMotion()
+    introPanDoneRef.current = true
+    introAnimatingRef.current = true
+    panFocusRef.current = node.id
+    introRevealedSoundRef.current.clear()
+    lastStadiumRevealSfxRef.current = 0
+    setIntroEntering(true)
+    setIntroHasStarted(true)
+    setIntroRevealY(startY)
+    const bottomPan = panForRouteY(startY)
+    if (bottomPan !== null) setPanOffset({ x: 0, y: bottomPan })
+
+    const tick = (now: number) => {
+      const raw = Math.min(1, (now - startAt) / duration)
+      const progress = ease(raw)
+      const currentY = startY + (revealEndY - startY) * progress
+      const cameraY = Math.max(currentY, cameraStopY)
+      const nextPan = panForRouteY(cameraY)
+      setIntroRevealY(currentY)
+      if (nextPan !== null) setPanOffset({ x: 0, y: nextPan })
+
+      if (raw < 1) {
+        introRevealRef.current = requestAnimationFrame(tick)
+      } else {
+        introRevealRef.current = null
+        introAnimatingRef.current = false
+        setIntroEntering(false)
+        setIntroRevealY(null)
+        focusMapImmediately(node)
+      }
+    }
+
+    introRevealRef.current = requestAnimationFrame(tick)
+    return true
+  }
+
   useLayoutEffect(() => {
     if (!introReady || !focusNode || panFocusRef.current === focusNode.id) return
-    introPanDoneRef.current = true
-    if (focusMapImmediately(focusNode)) return
+    if (!introPanDoneRef.current && viewportRef.current?.clientHeight) {
+      animateIntroRevealToNode(focusNode)
+      return
+    }
+    if (introPanDoneRef.current && focusMapImmediately(focusNode)) return
 
     const frameId = window.requestAnimationFrame(() => {
       if (panFocusRef.current !== focusNode.id) {
-        introPanDoneRef.current = true
-        focusMapImmediately(focusNode)
+        if (!introPanDoneRef.current) {
+          animateIntroRevealToNode(focusNode)
+        } else {
+          focusMapImmediately(focusNode)
+        }
       }
     })
     return () => window.cancelAnimationFrame(frameId)
@@ -874,6 +938,7 @@ export function WorldCupMapMenu({
     introRevealedSoundRef.current.clear()
     lastStadiumRevealSfxRef.current = 0
     setIntroEntering(false)
+    setIntroHasStarted(false)
     setIntroRevealY(null)
     stopPanMotion()
   }, [introReady])
@@ -1010,7 +1075,7 @@ export function WorldCupMapMenu({
     onPlay(selectedNode.id, selectedNode.pickedTeamId)
   }
   const displayedPseudo = ownerPseudo.trim()
-  const introPending = !readOnly && !introReady
+  const introPending = !readOnly && (!introReady || (Boolean(focusNode) && !introHasStarted))
 
   return (
     <section className={`wcmap${readOnly ? ' is-readonly' : ''}${introEntering ? ' is-intro-entering' : ''}${introPending ? ' is-intro-pending' : ''}`}>
