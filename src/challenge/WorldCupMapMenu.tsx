@@ -764,6 +764,7 @@ export function WorldCupMapMenu({
   }
 
   const stopPanMotion = () => {
+    const wasIntroAnimating = introAnimatingRef.current || introRevealRef.current !== null
     if (introPanTimerRef.current !== null) {
       window.clearTimeout(introPanTimerRef.current)
       introPanTimerRef.current = null
@@ -781,6 +782,11 @@ export function WorldCupMapMenu({
       introRevealRef.current = null
     }
     introAnimatingRef.current = false
+    if (wasIntroAnimating) {
+      setIntroEntering(false)
+      setIntroRevealY(null)
+      setIntroHasStarted(true)
+    }
   }
 
 
@@ -951,7 +957,11 @@ export function WorldCupMapMenu({
   }, [introRevealY, nodes])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const wasIntroRevealActive = introAnimatingRef.current || introRevealRef.current !== null || introRevealY !== null
     stopPanMotion()
+    if (wasIntroRevealActive && focusNode) {
+      focusMapImmediately(focusNode)
+    }
 
     // Vérifie si le clic a ciblé un bouton MatchNode
     const target = event.target as HTMLElement;
