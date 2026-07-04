@@ -4472,8 +4472,19 @@
 }
 
 .brakup-shell--map-only .wcmap {
+  width: 100%;
+  height: 100dvh;
+  aspect-ratio: auto;
   max-width: none;
   min-width: 0;
+  margin: 0;
+  box-shadow: none;
+}
+
+.brakup-shell--map-only .wcmap-sync-shell {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
   margin: 0;
 }
 
