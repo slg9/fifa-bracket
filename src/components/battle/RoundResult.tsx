@@ -138,6 +138,8 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
   const showButton = roundResultNeedsClick(outcome)
   const retryLabel = retryLabelFor(roundType, outcome)
   const buttonLabel = outcome === 'intercepted' ? 'Bloquer le tir' : 'Continuer'
+  const isSuccessOutcome = outcome === 'goal' || outcome === 'saved' || outcome === 'defense_perfect'
+  const showRetryButton = Boolean(onRetry) && !isSuccessOutcome
 
   return (
     <section className={`battle-round-result is-${outcome}`}>
@@ -303,9 +305,9 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         {awayFlag ? <span className="battle-round-result__score-flag">{awayFlag}</span> : null}
       </div>
 
-      {showButton && (onContinue || onRetry) ? (
+      {showButton && (onContinue || showRetryButton) ? (
         <div className="rr-actions">
-          {onRetry ? (
+          {showRetryButton ? (
             <button type="button" className="rr-retry-btn" onClick={onRetry}>
               {retryLabel}
             </button>
