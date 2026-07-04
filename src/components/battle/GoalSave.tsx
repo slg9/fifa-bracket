@@ -3,6 +3,7 @@ import type { BattleDifficulty } from '../../types'
 import type { TeamKit } from '../../lib/teamKits'
 import { playGameSound } from '../../lib/useGameAudio'
 import { sfx } from '../../lib/sfx'
+import { hasSeenBattleTutorial, markBattleTutorialSeen, type BattleTutorialId } from './tutorialPrefs'
 import KawaiiSprite, { KAWAII_SPRITE_CSS } from './KawaiiSprite'
 
 export type GoalSaveProps = {
@@ -19,6 +20,7 @@ export type GoalSaveProps = {
   onAudioOverride?: (src: string | null) => void
   roundIntroComment?: string
   onRetry?: () => void
+  retryLabel?: string
   startLabel?: string
 }
 
@@ -198,15 +200,17 @@ function makeGoalSaveBalls(ballCount: number, difficulty: BattleDifficulty, mode
   return balls
 }
 
-export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentKit, opponentName, opponentFlag, keeperName, alertNames = [], mode = 'goal_save', onAudioOverride, roundIntroComment, onRetry, startLabel }: GoalSaveProps) {
+export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentKit, opponentName, opponentFlag, keeperName, alertNames = [], mode = 'goal_save', onAudioOverride, roundIntroComment, onRetry, retryLabel, startLabel }: GoalSaveProps) {
   const cfg = GOAL_SAVE_DIFFICULTY[difficulty]
   const isPenalty = mode === 'penalty'
   const isSuddenDeath = mode === 'sudden_death'
+  const tutorialId: BattleTutorialId = isPenalty || isSuddenDeath ? 'penalty' : 'goal-save'
   const showKicker = isPenalty || isSuddenDeath
-  const hasInterceptionIntro = Boolean(roundIntroComment)
   const autoResolve = !isPenalty
   const playerJerseyColor = playerKit?.primary ?? '#2bff9a'
   const playerAccentColor = playerKit?.secondary ?? '#FFB800'
+  const playerShortsColor = playerKit?.shorts ?? '#101827'
+  const playerTextColor = playerKit?.text ?? '#ffffff'
   const opponentJerseyColor = opponentKit?.primary ?? '#FF4455'
   const opponentAccentColor = opponentKit?.secondary ?? '#7dd3fc'
   const opponentShortsColor = opponentKit?.shorts ?? '#101827'
@@ -214,6 +218,8 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
   const [balls, setBalls] = useState<Ball[]>(() => makeGoalSaveBalls(ballCount, difficulty, mode))
   const [penaltyCountdown, setPenaltyCountdown] = useState<number | null>(null)
   const [tutorialDone, setTutorialDone] = useState(false)
+  const [showGoalSaveTutorial, setShowGoalSaveTutorial] = useState(true)
+  const [showGoalSaveDemo, setShowGoalSaveDemo] = useState(() => !hasSeenBattleTutorial(tutorialId))
   const [tutorialCountdown, setTutorialCountdown] = useState<number | null>(null)
   const [particles, setParticles] = useState<Particle[]>([])
   const [trail, setTrail] = useState<TrailSegment[]>([])
@@ -286,6 +292,8 @@ const [hitFreeze, setHitFreeze] = useState(false)
 
   const startGoalSaveTutorial = useCallback(() => {
     sfx.click()
+    markBattleTutorialSeen(tutorialId)
+    setShowGoalSaveTutorial(false)
     sfx.countdownTick()
     setTutorialCountdown(3)
     addTimer(() => { setTutorialCountdown(2); sfx.countdownTick() }, 800)
@@ -295,7 +303,7 @@ const [hitFreeze, setHitFreeze] = useState(false)
       setTutorialCountdown(null)
       setTutorialDone(true)
     }, 3050)
-  }, [addTimer])
+  }, [addTimer, tutorialId])
 
   const updateBalls = useCallback((updater: (prev: Ball[]) => Ball[]) => {
     setBalls((prev) => {
@@ -483,6 +491,10 @@ const [hitFreeze, setHitFreeze] = useState(false)
   }
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!swipeRef.current && event.pointerType === 'mouse') {
+      handlePointerDown(event)
+      return
+    }
     if (!swipeRef.current || endedRef.current || !tutorialDone || penaltyCountdown !== null) return
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
@@ -559,6 +571,8 @@ const [hitFreeze, setHitFreeze] = useState(false)
         .gs-penalty-kicker__name { padding:4px 9px; border-radius:999px; background:rgba(2,8,16,.62); border:1px solid rgba(255,255,255,.12); font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.13em; text-transform:uppercase; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .gs-penalty-countdown { position:absolute; inset:0; z-index:35; display:grid; place-items:center; pointer-events:none; }
         .gs-penalty-countdown span { display:grid; place-items:center; width:118px; aspect-ratio:1; border-radius:50%; color:#fff; background:radial-gradient(circle,rgba(2,8,16,.86) 0 58%,transparent 60%),conic-gradient(#FFB800 0 80%,rgba(255,255,255,.14) 80%); box-shadow:0 0 42px rgba(255,184,0,.32); font:900 52px 'Barlow Condensed',sans-serif; letter-spacing:.12em; animation:gsPenaltyCount .72s ease-out both; }
+        .gs-tutorial-open { position:absolute; z-index:41; top:max(76px, calc(env(safe-area-inset-top) + 56px)); right:12px; padding:9px 13px; border-radius:999px; border:1px solid rgba(43,255,154,.55); background:rgba(3,14,18,.74); color:#2bff9a; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-transform:uppercase; box-shadow:0 0 18px rgba(43,255,154,.18); backdrop-filter:blur(8px); cursor:pointer; }
+        .gs-tutorial-open:active { transform:scale(.96); }
         .gs-tutorial { position:absolute; inset:0; z-index:42; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:11px; padding:22px 20px; text-align:center; background:rgba(3,7,14,.9); backdrop-filter:blur(4px); color:#fff; }
         .gs-tutorial__title { font:900 clamp(30px,9vw,48px) 'Barlow Condensed',sans-serif; color:#FF4455; letter-spacing:.18em; text-transform:uppercase; text-shadow:0 0 28px rgba(255,68,85,.58); }
         .gs-tutorial__comment { display:grid; grid-template-columns:58px minmax(0,1fr); align-items:center; gap:10px; width:min(86vw,340px); padding:9px 11px; border:1px solid rgba(255,68,85,.32); border-left:3px solid #FF4455; border-radius:14px; background:rgba(2,8,16,.64); box-shadow:0 0 28px rgba(255,68,85,.12); text-align:left; }
@@ -639,39 +653,44 @@ const [hitFreeze, setHitFreeze] = useState(false)
         @keyframes gsDemoSlash { 0%,50%{opacity:0;width:0} 57%{opacity:.9;width:62px} 70%{opacity:1;width:132px} 84%{opacity:.72;width:204px} 96%,100%{opacity:0;width:224px} }
       `}</style>
 
-      {!tutorialDone && tutorialCountdown === null ? (
+      {showGoalSaveTutorial && !tutorialDone && tutorialCountdown === null ? (
         <div className="gs-tutorial">
           <div className="gs-tutorial__title">{isSuddenDeath ? 'PENALTY' : 'ATTENTION !'}</div>
-          {roundIntroComment ? (
-            <div className="gs-tutorial__comment">
-              <div className="gs-tutorial__avatar" aria-hidden="true">
-                <KawaiiSprite
-                  jerseyColor={opponentJerseyColor}
-                  accentColor={opponentAccentColor}
-                  shortsColor={opponentShortsColor}
-                  textColor={opponentTextColor}
-                  role="kicker"
-                  withBall
-                  seed={opponentName ?? 'interceptor'}
-                  width={56}
-                  height={68}
-                />
-              </div>
-              <p>{roundIntroComment}</p>
+          <div className="gs-tutorial__comment">
+            <div className="gs-tutorial__avatar" aria-hidden="true">
+              <KawaiiSprite
+                label={keeperLabel.split(' ').pop()?.slice(0, 7).toUpperCase() ?? 'GK'}
+                jerseyColor={playerJerseyColor}
+                accentColor={playerAccentColor}
+                shortsColor={playerShortsColor}
+                textColor={playerTextColor}
+                role="keeper"
+                motion="ready"
+                gloveColor="#f7fbff"
+                seed={keeperLabel}
+                width={56}
+                height={68}
+              />
             </div>
-          ) : null}
-          <div className="gs-tutorial__demo" aria-hidden="true">
-            {[0,1,2].slice(0, Math.min(3, ballCount)).map((i)=><i key={i} className={`gs-demo-ball gs-demo-ball--${i+1}`}><span /></i>)}
-            <span className="gs-demo-finger"><i className="gs-demo-slash"/><svg viewBox="0 0 36 54"><path d="M15 4c3.2 0 5.7 2.5 5.7 5.7v13.1l1.4-1.2c2.2-1.8 5.4-1.4 7.1.9l1.4 1.9c1.1 1.5 1.5 3.3 1.2 5.1l-2.1 12.3c-.7 4.1-4.2 7.1-8.4 7.1h-8.2c-3.2 0-6.1-1.8-7.6-4.6L2.7 37c-1.1-2-.4-4.5 1.6-5.6 1.8-1 4-.6 5.3.9V9.7C9.6 6.5 12.1 4 15 4z" fill="#fff" stroke="#101827" strokeWidth="2.2" strokeLinejoin="round"/><path d="M15.1 8.2v21.4M20.8 22.8v8.1M25.4 25.1v7.7" stroke="rgba(16,24,39,.46)" strokeWidth="1.7" strokeLinecap="round"/><circle cx="15" cy="35" r="7" fill="rgba(43,255,154,.22)" stroke="#2bff9a" strokeWidth="2"/></svg></span>
+            <p>{roundIntroComment ?? (isSuddenDeath ? <><strong>{keeperLabel}</strong>, prépare-toi pour le penalty. Swipe le ballon avant la cage.</> : <><strong>{keeperLabel}</strong>, {ballCount} attaquant{ballCount>1?'s':''} {ballCount>1?'ont':'a'} franchi la ligne rouge{alertNamesLabel&&<> : <strong>{alertNamesLabel}</strong></>}. Swipe les ballons avant la cage.</>)}</p>
           </div>
-          {!hasInterceptionIntro ? (
+          {showGoalSaveDemo ? (
+            <div className="gs-tutorial__demo" aria-hidden="true">
+              {[0,1,2].slice(0, Math.min(3, ballCount)).map((i)=><i key={i} className={`gs-demo-ball gs-demo-ball--${i+1}`}><span /></i>)}
+              <span className="gs-demo-finger"><i className="gs-demo-slash"/><svg viewBox="0 0 36 54"><path d="M15 4c3.2 0 5.7 2.5 5.7 5.7v13.1l1.4-1.2c2.2-1.8 5.4-1.4 7.1.9l1.4 1.9c1.1 1.5 1.5 3.3 1.2 5.1l-2.1 12.3c-.7 4.1-4.2 7.1-8.4 7.1h-8.2c-3.2 0-6.1-1.8-7.6-4.6L2.7 37c-1.1-2-.4-4.5 1.6-5.6 1.8-1 4-.6 5.3.9V9.7C9.6 6.5 12.1 4 15 4z" fill="#fff" stroke="#101827" strokeWidth="2.2" strokeLinejoin="round"/><path d="M15.1 8.2v21.4M20.8 22.8v8.1M25.4 25.1v7.7" stroke="rgba(16,24,39,.46)" strokeWidth="1.7" strokeLinecap="round"/><circle cx="15" cy="35" r="7" fill="rgba(43,255,154,.22)" stroke="#2bff9a" strokeWidth="2"/></svg></span>
+            </div>
+          ) : (
+            <button type="button" className="gs-tutorial-open" onClick={() => { sfx.click(); setShowGoalSaveDemo(true) }}>
+              Voir tuto
+            </button>
+          )}
+          {!roundIntroComment ? (
             <>
-              <div className="gs-tutorial__text">{isSuddenDeath ? <><strong>{keeperLabel}</strong>, prépare-toi pour le penalty. Swipe le ballon avant la cage.</> : <><strong>{keeperLabel}</strong>, {ballCount} attaquant{ballCount>1?'s':''} {ballCount>1?'ont':'a'} franchi la ligne rouge{alertNamesLabel&&<> : <strong>{alertNamesLabel}</strong></>}. Swipe les ballons avant la cage.</>}</div>
               <div className="gs-tutorial__sub">Si tu rates la séquence, l'action finit en but encaissé.</div>
             </>
           ) : null}
           <div className="gs-tutorial__actions">
-            {onRetry ? <button type="button" className="gs-tutorial__btn is-retry" onClick={onRetry}>Réessayer l'attaque</button> : null}
+            {onRetry ? <button type="button" className="gs-tutorial__btn is-retry" onClick={onRetry}>{retryLabel ?? 'Réessayer la phase'}</button> : null}
             <button type="button" className="gs-tutorial__btn" onClick={startGoalSaveTutorial}>{startLabel ?? 'Je défends !'}</button>
           </div>
         </div>
@@ -705,7 +724,8 @@ const [hitFreeze, setHitFreeze] = useState(false)
           <KawaiiSprite
             jerseyColor={opponentJerseyColor}
             accentColor={opponentAccentColor}
-            shortsColor="#101827"
+            shortsColor={opponentShortsColor}
+            textColor={opponentTextColor}
             role="kicker"
             withBall
             seed={opponentName ?? 'kicker'}

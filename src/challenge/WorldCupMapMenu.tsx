@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type WheelEvent 
 import { sfx } from '../lib/sfx'
 import { formatKnockoutDateTime, knockoutKickoffById } from '../lib/knockoutSchedule'
 import type { BattleScorer, KnockoutMatch, Team } from '../types'
-import { evaluateMatchProgress, formatScore, scoreForPick, type BattleScore, type DisplayScore, type MatchProgress, type OfficialScore, type RealScorer } from './progress'
+import { evaluateMatchProgress, scoreForPick, type BattleScore, type DisplayScore, type MatchProgress, type OfficialScore, type RealScorer } from './progress'
 
 export interface WorldCupMapMenuProps {
   matches: KnockoutMatch[]
@@ -20,6 +20,7 @@ export interface WorldCupMapMenuProps {
   autosavedAt?: string | null
   ownerPseudo?: string
   readOnly?: boolean
+  introReady?: boolean
 }
 
 type NodeStatus = 'locked' | 'available' | 'picked' | 'completed' | 'live' | 'closed'
@@ -90,6 +91,8 @@ const ZONE_BANNERS = [
   { label: 'DEMI-FINALES', y: 700 },
   { label: 'FINALE', y: 390 },
 ]
+
+const INTRO_REVEAL_MARGIN = 90
 
 const ROUND_LONG: Record<string, string> = {
   'Round of 32': '16e de finale',
@@ -176,6 +179,40 @@ function TeamFlag({ team, className }: { team?: Team; className?: string }) {
   return <span className={className}>{teamFlagEmoji(team)}</span>
 }
 
+function BrakupScorersToggle({ scorers }: { scorers: BattleScorer[] }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className={`wcmap-entry__scorers${open ? ' is-open' : ''}`}>
+      <button type="button" className="wcmap-entry__scorers-toggle" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+        <strong>{open ? 'Masquer buteurs' : 'Voir buteurs'}</strong>
+        <span>{scorers.length}</span>
+      </button>
+      {open ? <span className="wcmap-entry__scorers-list">{scorers.map((scorer) => `#${scorer.number ?? 9} ${scorer.name}`).join(' · ')}</span> : null}
+    </div>
+  )
+}
+
+function MapStageIcon({ kind }: { kind: 'missing' | 'failed' }) {
+  if (kind === 'missing') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M7 3.5h7l4 4V20.5H7z" />
+        <path d="M14 3.5v4h4" />
+        <path d="M9.4 13h5.2M9.4 16h3.6" />
+        <circle cx="17.2" cy="17.2" r="3.1" />
+        <path d="M17.2 15.9v1.8M17.2 19h.01" />
+      </svg>
+    )
+  }
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="7.5" />
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M5.4 18.6 18.6 5.4" />
+    </svg>
+  )
+}
+
 function scoreForNode(node: DisplayNode, score?: BattleScore): DisplayScore | null {
   return scoreForPick(node.match, node.pickedTeamId, score)
 }
@@ -245,7 +282,7 @@ function buildDisplayNodes(
   })
 }
 
-function MapPathSvg({ nodes }: { nodes: DisplayNode[] }) {
+function MapPathSvg({ nodes, revealY }: { nodes: DisplayNode[]; revealY?: number | null }) {
   const byId = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes])
 
   return (
@@ -273,12 +310,18 @@ function MapPathSvg({ nodes }: { nodes: DisplayNode[] }) {
         const cp2y = ty + 62
         const pathDef = `M ${fx} ${fy} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tx} ${ty}`
         const isActive = to.status !== 'locked'
+        const segmentDistance = Math.max(1, fy - ty)
+        const revealProgress = revealY == null
+          ? 1
+          : Math.max(0, Math.min(1, (fy - revealY + INTRO_REVEAL_MARGIN * 0.35) / segmentDistance))
 
         return (
           <path
             key={`${MATCH_SEQUENCE[index]}-${id}`}
-            className={`wcmap__path${isActive ? ' is-active' : ''}`}
+            className={`wcmap__path${isActive ? ' is-active' : ''}${revealY != null ? ' is-intro-reveal' : ''}`}
             d={pathDef}
+            pathLength={1}
+            style={revealY != null ? { strokeDasharray: 1, strokeDashoffset: 1 - revealProgress, opacity: revealProgress > 0 ? 1 : 0 } : undefined}
             vectorEffect="non-scaling-stroke"
           />
         )
@@ -294,6 +337,7 @@ function MatchNode({
   readOnly,
   recommended,
   invite,
+  introState,
   onClick,
 }: {
   node: DisplayNode
@@ -302,6 +346,7 @@ function MatchNode({
   readOnly?: boolean
   recommended?: boolean
   invite?: boolean
+  introState?: 'hidden' | 'revealed'
   onClick: () => void
 }) {
   const isLocked = node.status === 'locked'
@@ -327,14 +372,14 @@ function MatchNode({
   const stageBadge = node.progress.played
     ? {
         className: [node.progress.correct ? 'is-correct' : 'is-wrong', hasBrakupScore ? 'is-filled' : 'is-empty'].join(' '),
-        label: node.progress.correct ? '\u2605 +' + node.progress.points : '!',
+        label: node.progress.correct ? '\u2605 +' + node.progress.points : <MapStageIcon kind="failed" />,
         title: node.progress.correct ? 'Prono réussi +' + node.progress.points : 'Prono raté',
       }
     : officialOnly
       ? {
           className: 'is-incomplete is-empty',
-          label: '?',
-          title: 'Match officiel joué, prono à compléter',
+          label: <MapStageIcon kind="missing" />,
+          title: 'Resultat officiel connu, aucun prono joue',
         }
       : officialPending
         ? {
@@ -374,6 +419,8 @@ function MatchNode({
         recommended ? 'is-recommended' : '',
         invite ? 'is-invite' : '',
         readOnly ? 'is-readonly' : '',
+        introState === 'hidden' ? 'is-intro-hidden' : '',
+        introState === 'revealed' ? 'is-intro-revealed' : '',
         node.isFinalBoss ? 'is-final' : '',
         node.isThirdPlace ? 'is-third' : '',
         selecting ? 'is-selecting' : '',
@@ -499,12 +546,12 @@ function LevelEntryScreen({
         ? 'Confirme ton prono'
         : 'Choisis une equipe'
   const actionHint = isClosed
-    ? 'Choisis un camp pour rejouer le scenario officiel et tenter les points Brakup.'
+    ? 'Rejoue avec un camp.'
     : canReplayPlayedMatch
-      ? 'Touche une equipe pour relancer ce match avec elle.'
+      ? 'Touche une equipe.'
       : hasPreselectedWinner
-        ? 'Le flag selectionne lance le match avec ton vainqueur choisi.'
-        : "Le match demarre avec l'equipe que tu touches."
+        ? 'Ton vainqueur est deja choisi.'
+        : 'Touche une equipe.'
   const showStatusHint = node.status === 'locked'
 
   return (
@@ -528,62 +575,63 @@ function LevelEntryScreen({
 
         {(((node.status === 'completed' || node.status === 'picked') && node.pickedTeamId) || (isClosed && resultWinnerTeam)) ? (
           <div className="wcmap-entry__result">
-            <div className="wcmap-entry__result-winner">
-              <span className="wcmap-entry__result-flag">
-                <TeamFlag team={resultWinnerTeam} />
-              </span>
-              <div>
-                <small className="wcmap-entry__result-label">{isClosed ? 'VAINQUEUR OFFICIEL' : hasPreselectedWinner ? 'CHOIX VAINQUEUR' : 'VAINQUEUR'}</small>
-                <strong className="wcmap-entry__result-name">
-                  {resultWinnerTeam?.name ?? node.pickedTeamId}
-                </strong>
+            <div className="wcmap-entry__result-main">
+              <div className="wcmap-entry__result-winner">
+                <span className="wcmap-entry__result-flag">
+                  <TeamFlag team={resultWinnerTeam} />
+                </span>
+                <div>
+                  <small className="wcmap-entry__result-label">{isClosed ? 'VAINQUEUR OFFICIEL' : hasPreselectedWinner ? 'CHOIX VAINQUEUR' : 'VAINQUEUR'}</small>
+                  <strong className="wcmap-entry__result-name">
+                    {resultWinnerTeam?.name ?? node.pickedTeamId}
+                  </strong>
+                </div>
               </div>
+              {hasScoreSummary ? (
+                <div className="wcmap-entry__score-grid">
+                  {officialScoreSummary ? (
+                    <div className="wcmap-entry__score-card is-official">
+                      <span>Officiel</span>
+                      <strong>{officialScoreSummary.home} - {officialScoreSummary.away}</strong>
+                    </div>
+                  ) : null}
+                  {brakupScoreSummary ? (
+                    <div className="wcmap-entry__score-card is-brakup">
+                      <span>Brakup</span>
+                      <strong>{brakupScoreSummary.home} - {brakupScoreSummary.away}</strong>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="wcmap-entry__result-vs">
+                  <span><TeamFlag team={node.homeTeam} /> {displayTeamName(node.homeTeam)}</span>
+                  <em>vs</em>
+                  <span><TeamFlag team={node.awayTeam} /> {displayTeamName(node.awayTeam)}</span>
+                </div>
+              )}
             </div>
-            {hasScoreSummary ? (
-              <div className="wcmap-entry__score-grid">
-                {officialScoreSummary ? (
-                  <div className="wcmap-entry__score-card is-official">
-                    <span>Score officiel</span>
-                    <strong>{officialScoreSummary.home} - {officialScoreSummary.away}</strong>
+            {(node.progress.played || officialPending || scorers.length || canSharePlayedMatch) ? (
+              <div className="wcmap-entry__result-meta">
+                {node.progress.played ? (
+                  <div className={`wcmap-entry__verdict${node.progress.correct ? ' is-correct' : ' is-wrong'}`}>
+                    <strong>{node.progress.correct ? 'Prono reussi' : 'Prono rate'}</strong>
+                    {node.progress.exact ? <em>Score exact +{node.progress.exactPoints}</em> : null}
+                    {node.progress.scorerHits.length ? <em>Buteur +{node.progress.scorerPoints}</em> : null}
+                  </div>
+                ) : officialPending ? (
+                  <div className="wcmap-entry__verdict is-pending">
+                    <strong>Officiel en attente</strong>
+                    <span>Jeu sauvegarde</span>
                   </div>
                 ) : null}
-                {brakupScoreSummary ? (
-                  <div className="wcmap-entry__score-card is-brakup">
-                    <span>Score Brakup</span>
-                    <strong>{brakupScoreSummary.home} - {brakupScoreSummary.away}</strong>
-                  </div>
+                {scorers.length ? <BrakupScorersToggle scorers={scorers} /> : null}
+                {canSharePlayedMatch ? (
+                  <button type="button" className="wcmap-entry__share" onClick={onShare} aria-label="Partager">
+                    <span aria-hidden="true">↗</span>
+                    <b>Partager</b>
+                  </button>
                 ) : null}
               </div>
-            ) : (
-              <div className="wcmap-entry__result-vs">
-                <span><TeamFlag team={node.homeTeam} /> {displayTeamName(node.homeTeam)}</span>
-                <em>vs</em>
-                <span><TeamFlag team={node.awayTeam} /> {displayTeamName(node.awayTeam)}</span>
-              </div>
-            )}
-            {node.progress.played ? (
-              <div className={`wcmap-entry__verdict${node.progress.correct ? ' is-correct' : ' is-wrong'}`}>
-                <strong>{node.progress.correct ? 'Prono reussi' : 'Prono rate'}</strong>
-                {node.progress.exact ? <em>Score exact +{node.progress.exactPoints}</em> : null}
-                {node.progress.scorerHits.length ? <em>Buteur trouve +{node.progress.scorerPoints} : {node.progress.scorerHits.map((scorer) => scorer.name).join(', ')}</em> : null}
-              </div>
-            ) : officialPending ? (
-              <div className="wcmap-entry__verdict is-pending">
-                <strong>Score officiel en attente</strong>
-                <span>Ton jeu {formatScore(displayScore)} est sauvegarde. Des que FIFA synchronise ce match, la map affichera reussi ou rate.</span>
-              </div>
-            ) : null}
-            {scorers.length ? (
-              <div className="wcmap-entry__scorers">
-                <strong>Buteurs Brakup</strong>
-                <span>{scorers.map((scorer) => `#${scorer.number ?? 9} ${scorer.name}`).join(' · ')}</span>
-              </div>
-            ) : null}
-            {canSharePlayedMatch ? (
-              <button type="button" className="wcmap-entry__share" onClick={onShare}>
-                <span aria-hidden="true">↗</span>
-                Partager
-              </button>
             ) : null}
           </div>
         ) : null}
@@ -661,9 +709,16 @@ export function WorldCupMapMenu({
   onShowBracket,
   ownerPseudo = '',
   readOnly = false,
+  introReady = true,
 }: WorldCupMapMenuProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const panFocusRef = useRef<string | null>(null)
+  const introPanDoneRef = useRef(false)
+  const introPanTimerRef = useRef<number | null>(null)
+  const introAnimatingRef = useRef(false)
+  const introRevealRef = useRef<number | null>(null)
+  const introRevealedSoundRef = useRef<Set<string>>(new Set())
+  const lastStadiumRevealSfxRef = useRef(0)
   const dragRef = useRef<{ px: number; py: number; ox: number; oy: number; lastY: number; lastT: number; vy: number } | null>(null)
   const offsetRef = useRef({ x: 0, y: 0 })
   const momentumRef = useRef<number | null>(null)
@@ -674,6 +729,9 @@ export function WorldCupMapMenu({
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [selectingId, setSelectingId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [introEntering, setIntroEntering] = useState(false)
+  const [introHasStarted, setIntroHasStarted] = useState(false)
+  const [introRevealY, setIntroRevealY] = useState<number | null>(null)
 
   const nodes = useMemo(() => buildDisplayNodes(matches, teamsById, picks, scores, realResults, officialScores, scorers, realScorers), [matches, teamsById, picks, scores, realResults, officialScores, scorers, realScorers])
   // Invite à jouer : les matchs jouables sans prono clignotent ; si tous les
@@ -706,6 +764,10 @@ export function WorldCupMapMenu({
   }
 
   const stopPanMotion = () => {
+    if (introPanTimerRef.current !== null) {
+      window.clearTimeout(introPanTimerRef.current)
+      introPanTimerRef.current = null
+    }
     if (momentumRef.current !== null) {
       cancelAnimationFrame(momentumRef.current)
       momentumRef.current = null
@@ -714,6 +776,11 @@ export function WorldCupMapMenu({
       cancelAnimationFrame(panAnimRef.current)
       panAnimRef.current = null
     }
+    if (introRevealRef.current !== null) {
+      cancelAnimationFrame(introRevealRef.current)
+      introRevealRef.current = null
+    }
+    introAnimatingRef.current = false
   }
 
 
@@ -760,23 +827,89 @@ export function WorldCupMapMenu({
     return true
   }
 
+  const panForRouteY = (routeY: number) => {
+    if (!viewportRef.current) return null
+    const viewportHeight = viewportRef.current.clientHeight
+    if (!viewportHeight) return null
+    const maxPan = Math.max(0, MAP_HEIGHT - viewportHeight)
+    const targetOffset = -(routeY - viewportHeight * 0.68)
+    return Math.max(-maxPan, Math.min(0, targetOffset))
+  }
+
+  const animateIntroRevealToNode = (node: DisplayNode) => {
+    if (!viewportRef.current) return false
+    const startY = Math.min(MAP_HEIGHT, ROUTE_Y_START + 120)
+    const revealEndY = Math.max(0, ROUTE_Y_END - 80)
+    const cameraStopY = node.y
+    const duration = 6200
+    const startAt = performance.now()
+    const ease = (t: number) => t < 0.5
+      ? 2 * t * t
+      : 1 - Math.pow(-2 * t + 2, 2) / 2
+
+    stopPanMotion()
+    introPanDoneRef.current = true
+    introAnimatingRef.current = true
+    panFocusRef.current = node.id
+    introRevealedSoundRef.current.clear()
+    lastStadiumRevealSfxRef.current = 0
+    setIntroEntering(true)
+    setIntroHasStarted(true)
+    setIntroRevealY(startY)
+    const bottomPan = panForRouteY(startY)
+    if (bottomPan !== null) setPanOffset({ x: 0, y: bottomPan })
+
+    const tick = (now: number) => {
+      const raw = Math.min(1, (now - startAt) / duration)
+      const progress = ease(raw)
+      const currentY = startY + (revealEndY - startY) * progress
+      const cameraY = Math.max(currentY, cameraStopY)
+      const nextPan = panForRouteY(cameraY)
+      setIntroRevealY(currentY)
+      if (nextPan !== null) setPanOffset({ x: 0, y: nextPan })
+
+      if (raw < 1) {
+        introRevealRef.current = requestAnimationFrame(tick)
+      } else {
+        introRevealRef.current = null
+        introAnimatingRef.current = false
+        setIntroEntering(false)
+        setIntroRevealY(null)
+        focusMapImmediately(node)
+      }
+    }
+
+    introRevealRef.current = requestAnimationFrame(tick)
+    return true
+  }
+
   useLayoutEffect(() => {
-    if (!focusNode || panFocusRef.current === focusNode.id) return
-    if (focusMapImmediately(focusNode)) return
+    if (!introReady || !focusNode || panFocusRef.current === focusNode.id) return
+    if (!introPanDoneRef.current && viewportRef.current?.clientHeight) {
+      animateIntroRevealToNode(focusNode)
+      return
+    }
+    if (introPanDoneRef.current && focusMapImmediately(focusNode)) return
 
     const frameId = window.requestAnimationFrame(() => {
-      if (panFocusRef.current !== focusNode.id) focusMapImmediately(focusNode)
+      if (panFocusRef.current !== focusNode.id) {
+        if (!introPanDoneRef.current) {
+          animateIntroRevealToNode(focusNode)
+        } else {
+          focusMapImmediately(focusNode)
+        }
+      }
     })
     return () => window.cancelAnimationFrame(frameId)
-  }, [focusNode])
+  }, [focusNode, introReady])
 
   useEffect(() => {
-    if (!focusNode) return
+    if (!introReady || !focusNode) return
 
     const viewport = viewportRef.current
     const observer = viewport && typeof ResizeObserver !== 'undefined'
       ? new ResizeObserver(() => {
-        if (panFocusRef.current === focusNode.id) focusMapImmediately(focusNode)
+        if (panFocusRef.current === focusNode.id && !introAnimatingRef.current) focusMapImmediately(focusNode)
       })
       : null
     if (viewport && observer) observer.observe(viewport)
@@ -789,7 +922,33 @@ export function WorldCupMapMenu({
       window.clearTimeout(timeoutId)
       observer?.disconnect()
     }
-  }, [focusNode])
+  }, [focusNode, introReady])
+
+  useEffect(() => {
+    if (introReady) return
+    introPanDoneRef.current = false
+    panFocusRef.current = null
+    introAnimatingRef.current = false
+    introRevealedSoundRef.current.clear()
+    lastStadiumRevealSfxRef.current = 0
+    setIntroEntering(false)
+    setIntroHasStarted(false)
+    setIntroRevealY(null)
+    stopPanMotion()
+  }, [introReady])
+
+  useEffect(() => {
+    if (introRevealY == null) return
+    const visibleNodes = nodes.filter((node) => node.y >= introRevealY - INTRO_REVEAL_MARGIN)
+    const newlyVisible = visibleNodes.filter((node) => !introRevealedSoundRef.current.has(node.id))
+    if (!newlyVisible.length) return
+    visibleNodes.forEach((node) => introRevealedSoundRef.current.add(node.id))
+    const now = performance.now()
+    if (now - lastStadiumRevealSfxRef.current > 130) {
+      sfx.mapStadiumReveal()
+      lastStadiumRevealSfxRef.current = now
+    }
+  }, [introRevealY, nodes])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     stopPanMotion()
@@ -906,9 +1065,10 @@ export function WorldCupMapMenu({
     onPlay(selectedNode.id, selectedNode.pickedTeamId)
   }
   const displayedPseudo = ownerPseudo.trim()
+  const introPending = !readOnly && (!introReady || (Boolean(focusNode) && !introHasStarted))
 
   return (
-    <section className={`wcmap${readOnly ? ' is-readonly' : ''}`}>
+    <section className={`wcmap${readOnly ? ' is-readonly' : ''}${introEntering ? ' is-intro-entering' : ''}${introPending ? ' is-intro-pending' : ''}`}>
       <button type="button" className="wcmap__focus-button" onClick={handleFocusPlayableMatch} aria-label="Aller au match à jouer" disabled={!focusNode}>
         <svg className="wcmap__stadium-icon" viewBox="0 0 44 34" aria-hidden="true">
           {/* Floodlights */}
@@ -945,26 +1105,36 @@ export function WorldCupMapMenu({
           className="wcmap__canvas"
           style={{ height: `${MAP_HEIGHT}px`, transform: `translateY(${offset.y}px)` }}
         >
-          <MapPathSvg nodes={nodes} />
+          <MapPathSvg nodes={nodes} revealY={introRevealY} />
 
           {ZONE_BANNERS.map((banner) => (
-            <div key={banner.label} className="wcmap__marker" style={{ top: `${banner.y}px` }}>
+            <div
+              key={banner.label}
+              className={`wcmap__marker${introRevealY != null && banner.y < introRevealY - INTRO_REVEAL_MARGIN ? ' is-hidden-by-intro' : ''}`}
+              style={{ top: `${banner.y}px` }}
+            >
               <span>{banner.label}</span>
             </div>
           ))}
 
-          {nodes.map((node) => (
-            <MatchNode
-              key={node.id}
-              node={node}
-              selecting={selectingId === node.id}
-              score={scores[node.id]}
-              readOnly={readOnly}
-              recommended={recommendedNode?.id === node.id}
-              invite={!readOnly && (inviteIds.has(node.id) || (node.status === 'picked' && Boolean(node.pickedTeamId) && !scores[node.id]))}
-              onClick={() => handleSelectNode(node)}
-            />
-          ))}
+          {nodes.map((node) => {
+            const introState = introRevealY == null
+              ? undefined
+              : node.y < introRevealY - INTRO_REVEAL_MARGIN ? 'hidden' : 'revealed'
+            return (
+              <MatchNode
+                key={node.id}
+                node={node}
+                selecting={selectingId === node.id}
+                score={scores[node.id]}
+                readOnly={readOnly || introRevealY != null}
+                recommended={recommendedNode?.id === node.id}
+                invite={!readOnly && introRevealY == null && (inviteIds.has(node.id) || (node.status === 'picked' && Boolean(node.pickedTeamId) && !scores[node.id]))}
+                introState={introState}
+                onClick={() => handleSelectNode(node)}
+              />
+            )
+          })}
         </div>
       </div>
 
@@ -992,4 +1162,3 @@ export function WorldCupMapMenu({
 }
 
 export default WorldCupMapMenu
-

@@ -14,12 +14,14 @@ type ApiResponse = {
 }
 
 type TokenPayload = { emailHash: string; exp: number }
+type OTPRecord = { email: string; pseudo?: string; otp: string; expiresAt: number; requestedAt?: number }
 
 const encoder = new TextEncoder()
 const DEV_SECRET = 'brakup-local-development-secret-32'
 const PUBLIC_SITE_URL = (process.env.PUBLIC_SITE_URL ?? 'https://brakup.app').replace(/\/$/, '')
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? process.env.BRAKUP_FROM_EMAIL ?? 'Brakup <no-reply@brakup.app>'
 const BLOB_ACCESS = process.env.BRAKUP_BLOB_ACCESS === 'public' ? 'public' : 'private'
+const OTP_RESEND_COOLDOWN_MS = 60 * 1000
 
 function base64Url(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('base64url')
@@ -575,14 +577,22 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         res.status(500).json({ error: 'Connexion indisponible: stockage Brakup non configuré.' })
         return
       }
+      const otpPathname = `challenge/login-otp/${emailHash}.json`
+      const currentOtp = await readJson<OTPRecord | null>(otpPathname, null)
+      const now = Date.now()
+      if (currentOtp?.requestedAt && now - currentOtp.requestedAt < OTP_RESEND_COOLDOWN_MS) {
+        res.status(429).json({ error: `Attends encore ${Math.ceil((OTP_RESEND_COOLDOWN_MS - (now - currentOtp.requestedAt)) / 1000)}s avant de renvoyer un code.` })
+        return
+      }
       // Generer OTP et envoyer email dans tous les cas
       // La creation de compte se fera dans verifyLoginOTP si necessaire
       const token = await signToken(emailHash)
       const otp = String(Math.floor(100000 + Math.random() * 900000))
-      await writeJson(`challenge/login-otp/${emailHash}.json`, {
+      await writeJson(otpPathname, {
         email,
         otp,
-        expiresAt: Date.now() + 15 * 60 * 1000,
+        expiresAt: now + 15 * 60 * 1000,
+        requestedAt: now,
       })
       const sent = await sendMagicLink(email, token, otp)
       if (!sent) {
@@ -606,7 +616,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }
       const emailHash = await sha256(email)
       const otpPathname = `challenge/login-otp/${emailHash}.json`
-      const otpData = await readJson<{ email: string; otp: string; expiresAt: number } | null>(otpPathname, null)
+      const otpData = await readJson<OTPRecord | null>(otpPathname, null)
       if (!otpData || otpData.otp !== otp || otpData.expiresAt < Date.now()) {
         res.status(401).json({ error: 'Code OTP invalide ou expiré.' })
         return
@@ -685,9 +695,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       }
       
       const emailHash = await sha256(email)
-      const otp = String(Math.floor(100000 + Math.random() * 900000))
       const otpPathname = `challenge/otp/${emailHash}.json`
-      const otpData = { email, pseudo, otp, expiresAt: Date.now() + 15 * 60 * 1000 }
+      const currentOtp = await readJson<OTPRecord | null>(otpPathname, null)
+      const now = Date.now()
+      if (currentOtp?.requestedAt && now - currentOtp.requestedAt < OTP_RESEND_COOLDOWN_MS) {
+        res.status(429).json({ error: `Attends encore ${Math.ceil((OTP_RESEND_COOLDOWN_MS - (now - currentOtp.requestedAt)) / 1000)}s avant de renvoyer un code.` })
+        return
+      }
+      const otp = String(Math.floor(100000 + Math.random() * 900000))
+      const otpData = { email, pseudo, otp, expiresAt: now + 15 * 60 * 1000, requestedAt: now }
       await writeJson(otpPathname, otpData)
       
       const origin = PUBLIC_SITE_URL
@@ -716,7 +732,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       
       const emailHash = await sha256(email)
       const otpPathname = `challenge/otp/${emailHash}.json`
-      const otpData = await readJson<{ email: string; pseudo: string; otp: string; expiresAt: number } | null>(otpPathname, null)
+      const otpData = await readJson<OTPRecord | null>(otpPathname, null)
       
       if (!otpData || otpData.otp !== otp || otpData.expiresAt < Date.now()) {
         res.status(401).json({ error: 'Code OTP invalide ou expiré.' })

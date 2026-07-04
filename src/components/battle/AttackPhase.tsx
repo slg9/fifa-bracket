@@ -3,6 +3,7 @@ import type { BattleDifficulty, BattleScorer } from '../../types'
 import type { TeamKit } from '../../lib/teamKits'
 import { playGameSound } from '../../lib/useGameAudio'
 import { sfx } from '../../lib/sfx'
+import { hasSeenBattleTutorial, markBattleTutorialSeen } from './tutorialPrefs'
 import GoalView, { type BallFlight, type GoalTarget } from './GoalView'
 import KawaiiSprite, { KAWAII_SPRITE_CSS } from './KawaiiSprite'
 
@@ -68,6 +69,7 @@ const ROULETTE_ACTIVE_END = 720
 const ROULETTE_COOLDOWN = 760
 const FEVER_DURATION = 3600
 const SUPER_ATTACKER_DURATION = 4300
+const POWER_SHOT_FLOW_THRESHOLD = 92
 const ATTACK_MAX_LIVES = 3
 const ATTACK_GHOST_DURATION = 1550
 const SHOT_ORIGIN_Y_FRAC = 0.66
@@ -186,7 +188,7 @@ function playerLastName(value: string) {
 
 function buildShooterOptions(players: string[], teamId: string): BattleScorer[] {
   const uniquePlayers = Array.from(new Set(players.map((name) => name.trim()).filter(Boolean)))
-  const source = uniquePlayers.length ? uniquePlayers.reverse() : [`Buteur ${teamId.toUpperCase()}`]
+  const source = uniquePlayers.length ? uniquePlayers : [`Buteur ${teamId.toUpperCase()}`]
 
   return source.map((name, index) => ({
     name,
@@ -604,6 +606,15 @@ function BonusPowerIcon({ kind }: { kind: BonusKind | 'shot' }) {
   }
   return <svg viewBox="0 0 64 64"><g className="atk-dribble-demo__fire-flame"><path d="M19 42C8 27 20 18 18 7c9 5 9 13 16 18 5-8 12-12 12-23 12 10 17 23 9 39 4 1 7 4 8 8-12 7-31 8-44-7z" fill="#ff5a44"/><path d="M27 44c-5-8 1-13 0-19 6 4 6 9 11 12 3-5 7-7 7-14 7 7 9 15 3 24-6 3-14 3-21-3z" fill="#FFB800"/></g><g className="atk-dribble-demo__fire-ball"><circle cx="32" cy="38" r="14" fill="#fff" stroke="#101827" strokeWidth="4"/><path d="M20 36c8-6 16-7 24 0M25 49c5-5 10-5 15 0M32 24v28" fill="none" stroke="#101827" strokeWidth="3" strokeLinecap="round"/><path d="M18 25 10 17M47 24l8-8" stroke="#ffdf73" strokeWidth="4" strokeLinecap="round"/></g></svg>
 }
+
+function bonusPowerText(kind: BonusKind) {
+  if (kind === 'boots') return { short: 'BOUCLIER', pickup: 'BOUCLIER - 1 ERREUR PROTEGEE', hint: 'protege 1 erreur' }
+  if (kind === 'whistle') return { short: 'GARDIEN LENT', pickup: 'GARDIEN RALENTI', hint: 'gardien lent' }
+  if (kind === 'slowmo') return { short: 'SLOWMO', pickup: 'SLOWMO - JEU RALENTI', hint: 'ralenti' }
+  if (kind === 'wide') return { short: 'PORTES LARGES', pickup: 'PORTES LARGES - PASSAGE AGRANDI', hint: 'rond vert = portes + larges' }
+  if (kind === 'blast') return { short: 'SUPER ATTAQUANT', pickup: 'SUPER ATTAQUANT - DEFENSE EXPLOSEE', hint: 'explose la ligne' }
+  return { short: 'TIR FACILE', pickup: 'TIR FACILE - ZONE VERTE +', hint: 'zone verte +' }
+}
 //  Component 
 export function AttackPhase({
   difficulty,
@@ -632,6 +643,7 @@ export function AttackPhase({
   const opponentAccentColor = opponentKit?.secondary ?? '#7dd3fc'
   const opponentShortsColor = opponentKit?.shorts ?? '#2b0508'
   const opponentTextColor = opponentKit?.text ?? '#ffffff'
+  const isSuddenDeathShot = shotTitle === 'TIR DE MORT SUBITE'
 
   // Utiliser tous les joueurs de l'equipe (plus de limite a 6)
   // Pour commencer par les attaquants, il faudrait avoir les roles dans les donnees
@@ -646,10 +658,11 @@ export function AttackPhase({
   const attackerShort = playerLastName(attackerName).slice(0, 7)
 
   //  Tutorial 
-  const [tutorialDone, setTutorialDone] = useState(
-    () => shotOnly
-  )
+  const [tutorialDone, setTutorialDone] = useState(() => shotOnly)
+  const [showDribbleTutorial, setShowDribbleTutorial] = useState(() => !shotOnly)
+  const [showDribbleDemo, setShowDribbleDemo] = useState(() => !hasSeenBattleTutorial('attack-dribble'))
   const [preCountdownNum, setPreCountdownNum] = useState<number | null>(null)
+  const [countdownDone, setCountdownDone] = useState(() => shotOnly)
 
   //  Top-level phase 
   const [phase, setPhase] = useState<'gd' | 'shot'>(() => shotOnly ? 'shot' : 'gd')
@@ -679,7 +692,7 @@ export function AttackPhase({
   const rouletteUntilRef = useRef(0)
   const rouletteCooldownUntilRef = useRef(0)
   const rouletteStartedAtRef = useRef<number | null>(null)
-  const dribbleBoostUntilRef = useRef(0)
+  const shieldChargesRef = useRef(0)
   const slowmoUntilRef = useRef(0)
   const wideGateUntilRef = useRef(0)
   const blastNextWaveRef = useRef(false)
@@ -719,6 +732,10 @@ export function AttackPhase({
 
   const startTutorialCountdown = useCallback(() => {
     sfx.click()
+    markBattleTutorialSeen('attack-dribble')
+    setShowDribbleTutorial(false)
+    setTutorialDone(true)
+    setCountdownDone(false)
     sfx.countdownTick()
     setPreCountdownNum(3)
     const t1 = window.setTimeout(() => { setPreCountdownNum(2); sfx.countdownTick() }, 800)
@@ -726,7 +743,7 @@ export function AttackPhase({
     const t3 = window.setTimeout(() => { setPreCountdownNum(0); sfx.countdownGo() }, 2400)
     const t4 = window.setTimeout(() => {
       setPreCountdownNum(null)
-      setTutorialDone(true)
+      setCountdownDone(true)
     }, 3050)
     return () => {
       window.clearTimeout(t1)
@@ -751,6 +768,8 @@ export function AttackPhase({
   const [shotAimWarning, setShotAimWarning] = useState(false)
   const [shooterSelectionDone, setShooterSelectionDone] = useState(false)
   const [shotTutorialDone, setShotTutorialDone] = useState(false)
+  const [showShotTutorial, setShowShotTutorial] = useState(true)
+  const [showShotDemo, setShowShotDemo] = useState(() => !hasSeenBattleTutorial('attack-shot'))
   const [shotJoystick, setShotJoystick] = useState<{
     pullX: number
     pullY: number
@@ -815,6 +834,8 @@ export function AttackPhase({
     setAimCursorPos(defaultAim)
     setShooterSelectionDone(false)
     setShotTutorialDone(false)
+    setShowShotTutorial(true)
+    setShowShotDemo(!hasSeenBattleTutorial('attack-shot'))
     gaugeGreenLeft.current = 0.34
   }, [shotOnly])
 
@@ -840,7 +861,7 @@ export function AttackPhase({
     rouletteUntilRef.current = 0
     rouletteCooldownUntilRef.current = 0
     rouletteStartedAtRef.current = null
-    dribbleBoostUntilRef.current = 0
+    shieldChargesRef.current = 0
     slowmoUntilRef.current = 0
     wideGateUntilRef.current = 0
     if (wideGateTimeoutRef.current) {
@@ -909,7 +930,7 @@ export function AttackPhase({
   }, [onRoundEnd])
 
   const getEffectiveGaugeGreenPx = useCallback(() => {
-    return Math.min(110, cfg.gaugeGreenPx + shotBonusRef.current.widerGreen * 4 + (flowRef.current >= 70 ? 4 : 0) + (shotBonusRef.current.powerShot ? 4 : 0))
+    return Math.min(110, cfg.gaugeGreenPx + shotBonusRef.current.widerGreen * 4 + (flowRef.current >= POWER_SHOT_FLOW_THRESHOLD ? 3 : 0) + (shotBonusRef.current.powerShot ? 4 : 0))
   }, [cfg.gaugeGreenPx])
 
   const activateBonusAura = useCallback((durationMs: number) => {
@@ -963,27 +984,28 @@ export function AttackPhase({
     if (outcome.bonus) {
       wave.bonusCollected = true
       const bonusKind = wave.bonusKind ?? 'coin'
+      const bonusText = bonusPowerText(bonusKind)
       let auraDuration = 1400
       if (bonusKind === 'coin') {
         sfx.bonusCoin()
         shotBonusRef.current.widerGreen += 1
-        setPowerupLabel('PIECE + ZONE VERTE')
+        setPowerupLabel(bonusText.pickup)
       } else if (bonusKind === 'boots') {
-        sfx.turbo()
-        dribbleBoostUntilRef.current = performance.now() + 3200
+        sfx.bonusCoin()
+        shieldChargesRef.current = Math.min(2, shieldChargesRef.current + 1)
         shotBonusRef.current.widerGreen += 0.5
-        setPowerupLabel('CRAMPONS TURBO')
-        auraDuration = 3200
+        setPowerupLabel(bonusText.pickup)
+        auraDuration = 4200
       } else if (bonusKind === 'whistle') {
         sfx.whistle()
         shotBonusRef.current.slowKeeper += 1
-        setPowerupLabel('SIFFLET - GARDIEN RALENTI')
+        setPowerupLabel(bonusText.pickup)
         auraDuration = 2600
       } else if (bonusKind === 'slowmo') {
         sfx.slowmo()
         slowmoUntilRef.current = performance.now() + 3600
         shotBonusRef.current.slowKeeper += 0.5
-        setPowerupLabel('SLOWMO - JEU RALENTI')
+        setPowerupLabel(bonusText.pickup)
         auraDuration = 3600
       } else if (bonusKind === 'wide') {
         wideGateUntilRef.current = performance.now() + 4200
@@ -995,7 +1017,7 @@ export function AttackPhase({
         }, 4200)
         sfx.wideGate()
         shotBonusRef.current.widerGreen += 0.75
-        setPowerupLabel('PORTES MAXI')
+        setPowerupLabel(bonusText.pickup)
         auraDuration = 4200
       } else {
         sfx.blastPower()
@@ -1007,7 +1029,7 @@ export function AttackPhase({
         window.setTimeout(() => {
           if (performance.now() >= superAttackerUntilRef.current) setSuperAttackerActive(false)
         }, SUPER_ATTACKER_DURATION + 60)
-        setPowerupLabel('BOULE DE FEU - SUPER ATTAQUANT')
+        setPowerupLabel(bonusText.pickup)
         auraDuration = SUPER_ATTACKER_DURATION
       }
       activateBonusAura(auraDuration)
@@ -1051,6 +1073,16 @@ export function AttackPhase({
   }
 
   const absorbDribbleHit = useCallback((label: string) => {
+    if (shieldChargesRef.current > 0) {
+      shieldChargesRef.current -= 1
+      ghostUntilRef.current = performance.now() + ATTACK_GHOST_DURATION
+      setGhostActive(true)
+      window.setTimeout(() => setGhostActive(false), ATTACK_GHOST_DURATION)
+      setGdFlash(true)
+      setGdComment('BOUCLIER CASSE - ERREUR PROTEGEE')
+      window.setTimeout(() => setGdFlash(false), 300)
+      return attackLivesRef.current
+    }
     const nextLives = Math.max(0, attackLivesRef.current - 1)
     attackLivesRef.current = nextLives
     setAttackLives(nextLives)
@@ -1165,7 +1197,7 @@ export function AttackPhase({
 
   //  Keyboard handler 
   useEffect(() => {
-    if (!tutorialDone) return
+    if (!tutorialDone || !countdownDone) return
     const onDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft')  { keysRef.current.left  = true; e.preventDefault() }
       if (e.key === 'ArrowRight') { keysRef.current.right = true; e.preventDefault() }
@@ -1183,11 +1215,11 @@ export function AttackPhase({
       window.removeEventListener('keyup',   onUp)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tutorialDone])
+  }, [countdownDone, tutorialDone])
 
   //  GD RAF  walls fall from top 
   useEffect(() => {
-    if (phase !== 'gd' || !tutorialDone || showShotIntro) return
+    if (phase !== 'gd' || !tutorialDone || !countdownDone || showShotIntro) return
     let frame = 0
     let prev: number | null = null
     gdElapsedRef.current = 0
@@ -1204,10 +1236,9 @@ export function AttackPhase({
 
       gdElapsedRef.current += delta
 
-      const isTurboActive = now < dribbleBoostUntilRef.current
       const isFeverActive = now < feverUntilRef.current
       const isSlowmoActive = now < slowmoUntilRef.current
-      const playerSpeed = PLAYER_SPEED * (isTurboActive ? 1.22 : 1) * (flowRef.current >= 70 ? 1.08 : 1) * (isFeverActive ? 1.14 : 1)
+      const playerSpeed = PLAYER_SPEED * (flowRef.current >= POWER_SHOT_FLOW_THRESHOLD ? 1.05 : 1) * (isFeverActive ? 1.12 : 1)
       const dashActiveNow = now < dashUntilRef.current
       const rouletteActiveNow = now < rouletteUntilRef.current
 
@@ -1256,7 +1287,7 @@ export function AttackPhase({
         if (comboRef.current >= walls.length) {
           shotBonusRef.current.powerShot = true
           setGdComment('DRIBBLE PARFAIT !')
-        } else if (flowRef.current >= 70) {
+        } else if (flowRef.current >= POWER_SHOT_FLOW_THRESHOLD) {
           setGdComment('FACE AU GARDIEN - TIR BOOSTE !')
         } else {
           setGdComment('FACE AU GARDIEN !')
@@ -1312,7 +1343,7 @@ export function AttackPhase({
           const comboLabel = outcome.quality === 'perfect'
             ? perfectStreakRef.current >= 3 ? `PERFECT x${perfectStreakRef.current}` : 'PERFECT !'
             : comboRef.current >= 10 ? 'INARRETABLE !' : comboRef.current >= 7 ? 'FLOW !' : comboRef.current >= 5 ? 'DRIBBLE FOU !' : comboRef.current >= 3 ? 'CROCHET !' : outcome.label
-          const comment = outcome.bonus ? 'BONUS !' : comboLabel || GD_COMMENTS[Math.floor(Math.random() * GD_COMMENTS.length)]
+          const comment = outcome.bonus ? bonusPowerText(wall.bonusKind ?? 'coin').short : comboLabel || GD_COMMENTS[Math.floor(Math.random() * GD_COMMENTS.length)]
           setGdComment(comment)
           if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
           commentTimerRef.current = setTimeout(() => setGdComment(null), 800)
@@ -1345,7 +1376,7 @@ export function AttackPhase({
 
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [phase, tutorialDone, showShotIntro, cfg.gdSpeed, cfg.difficultyRamp, cfg.waveCount, finish, registerDribbleSuccess, absorbDribbleHit])
+  }, [phase, tutorialDone, countdownDone, showShotIntro, cfg.gdSpeed, cfg.difficultyRamp, cfg.waveCount, finish, registerDribbleSuccess, absorbDribbleHit])
 
   //  Pointer move for GD: desktop follows cursor, touch keeps drag-only control.
   const handleGdPointerMove = (e: React.PointerEvent<HTMLElement>) => {
@@ -1410,7 +1441,7 @@ export function AttackPhase({
       shotTime += delta
 
       const keeperCfg = KEEPER_CFG[difficulty]
-      const keeperSpeedMultiplier = shotBonusRef.current.slowKeeper > 0 || flowRef.current >= 70 ? 0.85 : 1
+      const keeperSpeedMultiplier = shotBonusRef.current.slowKeeper > 0 || flowRef.current >= POWER_SHOT_FLOW_THRESHOLD ? 0.85 : 1
       const keeperSpeed = keeperCfg.speed * keeperSpeedMultiplier
       const kx = Math.max(8, Math.min(92,
         50 +
@@ -1613,6 +1644,8 @@ export function AttackPhase({
     setPhase('shot')
     setShooterSelectionDone(false)
     setShotTutorialDone(false)
+    setShowShotTutorial(true)
+    setShowShotDemo(!hasSeenBattleTutorial('attack-shot'))
     // Default cursor low in the goal while the visible control starts on the ball.
     const defaultAim = { x: 50, y: 82 }
     aimCursorRef.current = defaultAim
@@ -1633,7 +1666,7 @@ export function AttackPhase({
   //  Derived display values 
   const effectiveGaugeGreenPx = getEffectiveGaugeGreenPx()
   const gaugeGreenLeftPct = gaugeGreenLeft.current * 100  // % of track
-  const shotBoostReady = shotBonusRef.current.powerShot || flow >= 70
+  const shotBoostReady = shotBonusRef.current.powerShot || flow >= POWER_SHOT_FLOW_THRESHOLD
   const nextGdWave = gdWallsDisplay.find((wave) => !wave.checked)
   const gdInstruction = getWaveInstruction(nextGdWave)
   const gdBadgeClass = nextGdWave?.type === 'slide_wall' || nextGdWave?.type === 'double_slide_wall' ? ' is-jump' : nextGdWave?.type === 'roulette_wall' ? ' is-roulette' : nextGdWave?.type === 'combo_gate_slide' ? ' is-combo' : nextGdWave?.type === 'bonus_choice' ? ' is-bonus' : nextGdWave?.moveAmplitude ? ' is-moving' : ''
@@ -1653,21 +1686,21 @@ export function AttackPhase({
       style={{ touchAction: 'none', userSelect: 'none' }}
       onPointerMove={(e) => {
         // Section-level: handles both phases so finger can roam anywhere (GD: no inner-div boundary)
-        if (phase === 'gd' && tutorialDone && !showShotIntro) handleGdPointerMove(e)
+        if (phase === 'gd' && tutorialDone && countdownDone && !showShotIntro) handleGdPointerMove(e)
         else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerMove(e)
       }}
       onPointerDown={(e) => {
-        if (phase === 'gd' && tutorialDone && !showShotIntro) {
+        if (phase === 'gd' && tutorialDone && countdownDone && !showShotIntro) {
           handleGdPointerDown(e)
         }
         else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerDown(e)
       }}
       onPointerUp={(e) => {
-        if (phase === 'gd' && tutorialDone && !showShotIntro) handleGdPointerUp(e)
+        if (phase === 'gd' && tutorialDone && countdownDone && !showShotIntro) handleGdPointerUp(e)
         else if (phase === 'shot' && !showShotIntro && !ballFlight) handleShotPointerUp(e)
       }}
       onPointerCancel={(e) => {
-        if (phase === 'gd' && tutorialDone && !showShotIntro) handleGdPointerCancel(e)
+        if (phase === 'gd' && tutorialDone && countdownDone && !showShotIntro) handleGdPointerCancel(e)
         else if (phase === 'shot') handleShotPointerCancel()
       }}
     >
@@ -1719,6 +1752,24 @@ export function AttackPhase({
           transition: transform .12s ease;
         }
         .atk-tutorial__btn:active { transform: scale(.97); }
+        .atk-tutorial-open {
+          position: absolute;
+          z-index: 44;
+          top: max(76px, calc(env(safe-area-inset-top) + 54px));
+          right: 12px;
+          min-height: 34px;
+          padding: 0 13px;
+          border-radius: 999px;
+          border: 1px solid rgba(43,255,154,.52);
+          background: rgba(2,8,16,.68);
+          color: #2bff9a;
+          font: 900 11px 'Barlow Condensed', sans-serif;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+          box-shadow: 0 0 18px rgba(43,255,154,.16);
+          backdrop-filter: blur(8px);
+          cursor: pointer;
+        }
         .atk-tutorial__comment { display:grid; grid-template-columns:50px minmax(0,1fr); align-items:center; gap:10px; width:min(86vw,340px); padding:8px 10px; border:1px solid rgba(43,255,154,.28); border-left:3px solid #2bff9a; border-radius:14px; background:rgba(2,8,16,.58); color:#fff; font:800 13px 'Barlow Condensed',sans-serif; letter-spacing:.04em; text-align:left; }
         .atk-tutorial__avatar { width:50px; height:58px; display:grid; place-items:center; overflow:visible; }
         .atk-tutorial__avatar .atk-kawaii { width:48px; height:60px; filter:drop-shadow(0 8px 10px rgba(0,0,0,.45)); animation:battleOrbFloat .72s ease-in-out infinite alternate; }
@@ -1775,7 +1826,9 @@ export function AttackPhase({
         .atk-dribble-demo__caption { position:absolute; left:10px; right:10px; bottom:8px; z-index:18; display:flex; justify-content:space-between; gap:6px; color:rgba(255,255,255,.78); font:900 10px 'Barlow Condensed'; letter-spacing:.08em; text-transform:uppercase; }
         .atk-dribble-demo__caption b { color:#2bff9a; }
         .atk-dribble-demo__bonus-tip { display:grid; grid-template-columns:1fr; justify-items:center; gap:7px; width:min(86vw,340px); color:rgba(255,255,255,.78); font:900 10px 'Barlow Condensed'; letter-spacing:.06em; text-transform:uppercase; text-align:center; }
-        .atk-dribble-demo__bonus-icons { display:grid; grid-template-columns:repeat(4,42px); align-items:center; justify-content:center; gap:18px; width:100%; }
+        .atk-dribble-demo__bonus-icons { display:grid; grid-template-columns:repeat(4,minmax(48px,62px)); align-items:start; justify-content:center; gap:10px; width:100%; }
+        .atk-dribble-demo__bonus-item { display:grid; justify-items:center; gap:4px; min-width:0; }
+        .atk-dribble-demo__bonus-item small { max-width:64px; color:rgba(255,255,255,.76); font:900 8px/1 'Barlow Condensed'; letter-spacing:.06em; text-align:center; }
         .atk-dribble-demo__bonus-icon { width:42px; height:42px; display:grid; place-items:center; border-radius:999px; border:2px solid rgba(255,255,255,.72); background:rgba(5,11,22,.72); box-shadow:0 0 18px rgba(255,184,0,.32); animation:atkBonusOrb .46s ease-in-out infinite alternate; }
         .atk-dribble-demo__bonus-icon svg { width:30px; height:30px; display:block; overflow:visible; }
         .atk-dribble-demo__bonus-icon--boot { box-shadow:0 0 20px rgba(255,68,85,.46); }
@@ -1900,12 +1953,12 @@ export function AttackPhase({
         .atk-bonus-flash { position:absolute; inset:0; z-index:23; pointer-events:none; background:radial-gradient(circle at 50% 72%, rgba(255,184,0,.34), transparent 42%); animation:atkBonusFlash .42s ease-out both; }
         .atk-bonus-field-fx { position:absolute; inset:0; z-index:4; pointer-events:none; mix-blend-mode:screen; opacity:.9; animation:atkBonusFieldFade .9s ease-out both; }
         .atk-bonus-field-fx.is-coin { background:radial-gradient(circle at 50% 70%,rgba(255,216,74,.34),transparent 30%),radial-gradient(circle at 50% 70%,rgba(255,184,0,.18),transparent 55%); }
-        .atk-bonus-field-fx.is-boots { background:repeating-linear-gradient(90deg,transparent 0 26px,rgba(25,211,255,.22) 26px 30px),linear-gradient(0deg,transparent,rgba(25,211,255,.12),transparent); animation:atkTurboField .34s linear infinite; }
+        .atk-bonus-field-fx.is-boots { background:radial-gradient(circle at 50% 62%,rgba(125,211,252,.34),transparent 28%),radial-gradient(circle at 50% 62%,transparent 30%,rgba(125,211,252,.24) 31%,transparent 48%); animation:atkWhistleField .72s ease-out infinite; }
         .atk-bonus-field-fx.is-whistle { background:radial-gradient(circle at 50% 62%,rgba(43,255,154,.34),transparent 24%),radial-gradient(circle at 50% 62%,transparent 28%,rgba(43,255,154,.22) 29%,transparent 45%); animation:atkWhistleField .72s ease-out infinite; }
         .atk-bonus-field-fx.is-slowmo { background:linear-gradient(180deg,rgba(168,85,247,.18),transparent 44%,rgba(168,85,247,.16)); backdrop-filter:saturate(.8); animation:atkSlowmoField .9s ease-in-out infinite alternate; }
         .atk-bonus-field-fx.is-wide { background:radial-gradient(ellipse at 50% 52%,rgba(184,255,106,.26),transparent 42%),linear-gradient(90deg,rgba(184,255,106,.14),transparent 28%,transparent 72%,rgba(184,255,106,.14)); animation:atkWideField .62s ease-in-out infinite alternate; }
         .atk-bonus-field-fx.is-blast { background:radial-gradient(circle at 50% 62%,rgba(255,184,0,.36),transparent 24%),radial-gradient(circle at 50% 62%,rgba(255,68,85,.26),transparent 48%); animation:atkBlastField .38s ease-out infinite alternate; }
-        .atk-gd.is-bonus-boots .atk-gd-player .atk-player-inner { animation:atkTurboPlayer .18s ease-in-out infinite alternate; filter:drop-shadow(0 0 24px rgba(25,211,255,.92)); }
+        .atk-gd.is-bonus-boots .atk-gd-player .atk-player-inner { filter:drop-shadow(0 0 24px rgba(125,211,252,.92)); }
         .atk-gd.is-bonus-slowmo .atk-slalom-wave { filter:hue-rotate(18deg) saturate(.82); }
         .atk-gd.is-bonus-whistle .atk-slalom-defender { filter:drop-shadow(0 0 16px rgba(43,255,154,.72)) grayscale(.2); }
         @keyframes atkBonusFieldFade { from{opacity:1} to{opacity:.35} }
@@ -2027,7 +2080,7 @@ export function AttackPhase({
         .atk-bonus-orb::before { content:''; position:absolute; inset:-15px; border-radius:inherit; border:2px solid rgba(255,216,74,.72); box-shadow:0 0 34px rgba(255,184,0,.76), inset 0 0 24px rgba(255,255,255,.2); animation:atkBonusHalo .72s ease-out infinite; }
         .atk-bonus-orb svg { position:relative; z-index:1; width:34px; height:34px; display:block; overflow:visible; }
         .atk-bonus-orb.is-coin { box-shadow:0 0 22px rgba(255,216,74,.72),0 0 54px rgba(255,68,85,.34); }
-        .atk-bonus-orb.is-boots { background:linear-gradient(180deg,#bdfcff,#19d3ff); color:#01141b; box-shadow:0 0 20px rgba(25,211,255,.72); }
+        .atk-bonus-orb.is-boots { background:linear-gradient(180deg,#dff7ff,#7dd3fc); color:#031525; box-shadow:0 0 20px rgba(125,211,252,.72); }
         .atk-bonus-orb.is-whistle { background:linear-gradient(180deg,#d8ffba,#2bff9a); color:#03160c; box-shadow:0 0 20px rgba(43,255,154,.72); }
         .atk-bonus-orb.is-slowmo { background:linear-gradient(180deg,#e7d5ff,#a855f7); color:#17051f; box-shadow:0 0 20px rgba(168,85,247,.72); }
         .atk-bonus-orb.is-wide { background:linear-gradient(180deg,#d8ffba,#b8ff6a); color:#132100; box-shadow:0 0 20px rgba(184,255,106,.72); }
@@ -2140,6 +2193,9 @@ export function AttackPhase({
           pointer-events: none;
           backdrop-filter: blur(8px);
         }
+        .atk-shot-game.is-sudden-shot .atk-shot-title {
+          top: max(82px, calc(env(safe-area-inset-top) + 74px));
+        }
 
         .atk-shot-shooter {
           position: absolute;
@@ -2208,6 +2264,9 @@ export function AttackPhase({
           display: flex; flex-direction: column; align-items: center; gap: 8px;
           padding: 0 20px;
           pointer-events: none;
+        }
+        .atk-shot-game.is-sudden-shot .atk-gauge-bottom {
+          top: max(118px, calc(env(safe-area-inset-top) + 108px));
         }
         .atk-gauge-label {
           font: 900 clamp(13px,4.5vw,18px) 'Barlow Condensed', sans-serif;
@@ -2553,7 +2612,7 @@ export function AttackPhase({
       `}</style>
 
       {/*  Tutorial overlay  */}
-      {!tutorialDone && preCountdownNum === null && (
+      {showDribbleTutorial && !tutorialDone && preCountdownNum === null && (
         <div className="atk-tutorial">
           <div className="atk-tutorial__title">DRIBBLE RUSH</div>
           <div className="atk-tutorial__comment">
@@ -2562,6 +2621,7 @@ export function AttackPhase({
             </div>
             <span><b>{playerLastName(attackerName)}</b> est en forme. Il se lance dans une percée de la défense.</span>
           </div>
+          {showDribbleDemo ? (
           <div className="atk-dribble-demo" aria-hidden="true">
             <div className="atk-dribble-demo__row atk-dribble-demo__row--gate-a">
               <span className="atk-dribble-demo__lane" />
@@ -2591,7 +2651,12 @@ export function AttackPhase({
             <span className="atk-dribble-demo__finger"><svg viewBox="0 0 36 54"><path d="M15 4c3.2 0 5.7 2.5 5.7 5.7v13.1l1.4-1.2c2.2-1.8 5.4-1.4 7.1.9l1.4 1.9c1.1 1.5 1.5 3.3 1.2 5.1l-2.1 12.3c-.7 4.1-4.2 7.1-8.4 7.1h-8.2c-3.2 0-6.1-1.8-7.6-4.6L2.7 37c-1.1-2-.4-4.5 1.6-5.6 1.8-1 4-.6 5.3.9V9.7C9.6 6.5 12.1 4 15 4z" fill="#fff" stroke="#101827" strokeWidth="2.2" strokeLinejoin="round"/><path d="M15.1 8.2v21.4M20.8 22.8v8.1M25.4 25.1v7.7" stroke="rgba(16,24,39,.46)" strokeWidth="1.7" strokeLinecap="round"/></svg><span className="atk-dribble-demo__tap atk-dribble-demo__tap--jump"></span><span className="atk-dribble-demo__tap atk-dribble-demo__tap--jump2"></span><span className="atk-dribble-demo__tap-hint atk-dribble-demo__tap-hint--jump">TAPE</span><span className="atk-dribble-demo__tap-hint atk-dribble-demo__tap-hint--jump2">TAPE</span></span>
             <div className="atk-dribble-demo__caption"><span><b>Glisse</b> entre les portes vertes</span><span><b>Saute</b> au-dessus des rangées</span></div>
           </div>
-          <div className="atk-dribble-demo__bonus-tip"><span>Essaie de ramasser les bonus et les pouvoirs</span><div className="atk-dribble-demo__bonus-icons"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--boot" aria-hidden="true"><BonusPowerIcon kind="boots" /></span><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--wide" aria-hidden="true"><BonusPowerIcon kind="wide" /></span><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--shot" aria-label="Tir boosté"><BonusPowerIcon kind="shot" /></span><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--blast" aria-hidden="true"><BonusPowerIcon kind="blast" /></span></div></div>
+          ) : (
+            <button type="button" className="atk-tutorial-open" onClick={() => { sfx.click(); setShowDribbleDemo(true) }}>
+              Voir tuto
+            </button>
+          )}
+          <div className="atk-dribble-demo__bonus-tip"><span>Ramasse les pouvoirs : ils affichent leur effet</span><div className="atk-dribble-demo__bonus-icons"><span className="atk-dribble-demo__bonus-item"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--boot" aria-hidden="true"><BonusPowerIcon kind="boots" /></span><small>Bouclier</small></span><span className="atk-dribble-demo__bonus-item"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--wide" aria-hidden="true"><BonusPowerIcon kind="wide" /></span><small>Portes larges</small></span><span className="atk-dribble-demo__bonus-item"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--shot" aria-label="Tir facile"><BonusPowerIcon kind="shot" /></span><small>Tir facile</small></span><span className="atk-dribble-demo__bonus-item"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--blast" aria-hidden="true"><BonusPowerIcon kind="blast" /></span><small>Super attaquant</small></span></div></div>
           <button
             type="button"
             className="atk-tutorial__btn"
@@ -2602,7 +2667,7 @@ export function AttackPhase({
         </div>
       )}
 
-      {!tutorialDone && preCountdownNum !== null ? (
+      {tutorialDone && preCountdownNum !== null ? (
         <div className="atk-pre-countdown">
           <div key={preCountdownNum} className={`atk-pre-countdown__num${preCountdownNum === 0 ? ' is-go' : ''}`}>
             {preCountdownNum === 0 ? 'GO !' : preCountdownNum}
@@ -2706,9 +2771,9 @@ export function AttackPhase({
                     {wave.hasBonus && wave.bonusGateCenterX != null && wave.bonusGateWidth != null ? (
                       <div className={`atk-slalom-gate is-bonus${wave.bonusCollected ? ' is-passed' : ''}${wave.failed ? ' is-failed' : ''}`} style={{ left: `${wave.bonusGateCenterX}%`, width: bonusGatePxWidth }}>
                         <span className={`atk-bonus-orb is-${wave.bonusKind ?? 'coin'}`}> <BonusPowerIcon kind={wave.bonusKind ?? 'coin'} /> </span>
-                        <span className="atk-slalom-gate__label">{wave.bonusKind === 'boots' ? 'TURBO' : wave.bonusKind === 'whistle' ? 'SIFFLET' : wave.bonusKind === 'slowmo' ? 'SLOWMO' : wave.bonusKind === 'wide' ? 'PORTE +' : wave.bonusKind === 'blast' ? 'BOOM' : 'PIECE'}</span>
-                        <span className="atk-bonus-choice-label">RISQUE = BONUS</span>
-                        {wave.bonusCollected ? <span className="atk-pass-pop">BONUS !</span> : null}
+                        <span className="atk-slalom-gate__label">{bonusPowerText(wave.bonusKind ?? 'coin').short}</span>
+                        <span className="atk-bonus-choice-label">{bonusPowerText(wave.bonusKind ?? 'coin').hint}</span>
+                        {wave.bonusCollected ? <span className="atk-pass-pop">{bonusPowerText(wave.bonusKind ?? 'coin').short}</span> : null}
                       </div>
                     ) : null}
                     {wave.defenders.map((defender) => (
@@ -2778,7 +2843,7 @@ export function AttackPhase({
             {gdComment && (
               <div className="atk-row-comment">{gdComment}</div>
             )}
-            {!showControls && tutorialDone ? (
+            {!showControls && tutorialDone && countdownDone ? (
               <div className="atk-control-ghost" aria-hidden="true">
                 <i className="atk-control-ghost__player" />
                 <i className="atk-control-ghost__trail" />
@@ -2792,7 +2857,7 @@ export function AttackPhase({
       {/*  Shot Phase  full screen  */}
       {phase === 'shot' && (
         <div
-          className={`atk-shot-game${shotBoostReady ? ' is-boosted' : ''}`}
+          className={`atk-shot-game${shotBoostReady ? ' is-boosted' : ''}${isSuddenDeathShot ? ' is-sudden-shot' : ''}`}
           ref={shotGameRef}
         >
           {shotTitle ? <div className="atk-shot-title">{shotTitle}</div> : null}
@@ -2860,10 +2925,11 @@ export function AttackPhase({
               </button>
             </div>
           ) : null}
-          {!shotTutorialDone && !ballFlight && !resultLabel ? (
+          {showShotTutorial && !shotTutorialDone && !ballFlight && !resultLabel ? (
             <div className="atk-shot-tutorial">
               <div className="atk-shot-tutorial__title">{shotTitle ?? 'PHASE DE TIR'}</div>
               <div className="atk-shot-tutorial__comment"><div className="atk-shot-tutorial__avatar"><KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer /></div><span>{shotTutorialComment}</span></div>
+              {showShotDemo ? (
               <div className="atk-shot-demo" aria-hidden="true">
                 <div className="atk-shot-demo__goal"><div className="atk-shot-demo__keeper"><KawaiiFootballer label="GK" jerseyColor="#FF4455" accentColor="#FFB800" shortsColor="#2b0508" textColor="#ffffff" motion="ready" /></div></div>
                 <svg className="atk-shot-demo__aim" viewBox="0 0 350 220" aria-hidden="true">
@@ -2886,13 +2952,18 @@ export function AttackPhase({
                 <span className="atk-shot-demo__hand" />
                 <div className="atk-shot-demo__gauge"><span className="atk-shot-demo__green" /><i /></div>
               </div>
+              ) : (
+                <button type="button" className="atk-tutorial-open" onClick={() => { sfx.click(); setShowShotDemo(true) }}>
+                  Voir tuto
+                </button>
+              )}
               <div className="atk-shot-tutorial__text">
                 <span className="atk-shot-step atk-shot-step--hold">Maintiens le <b>ballon</b></span>
                 <span className="atk-shot-step atk-shot-step--aim">Ajuste le <b>lancer</b></span>
                 <span className="atk-shot-step atk-shot-step--release">Relâche dans la <b>zone verte</b></span>
                 <span className="atk-shot-warning">Attention au gardien</span>
               </div>
-              <button type="button" className="atk-shot-tutorial__btn" onClick={() => { sfx.click(); setShotTutorialDone(true) }}>
+              <button type="button" className="atk-shot-tutorial__btn" onClick={() => { sfx.click(); markBattleTutorialSeen('attack-shot'); setShowShotTutorial(false); setShotTutorialDone(true) }}>
                 Choisir mon tireur
               </button>
             </div>

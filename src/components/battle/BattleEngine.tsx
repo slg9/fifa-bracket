@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { BattleDifficulty, BattleDifficultySetting, BattleMatchState, BattleResult, BattleRoundType, BattleScorer, DefenseOutcome, KnockoutMatch, Team } from '../../types'
 import { getCommentary } from '../../lib/commentary'
 import { playGameSound, setGameAudioVolume, setGameMuted, setGameMusicVolumeMultiplier, useGameAudio, useGameAudioVolume, useGameMuted } from '../../lib/useGameAudio'
@@ -30,7 +30,6 @@ type BattleEngineProps = {
   onQuit?: () => void
   playerSide?: 'home' | 'away'
   showControls?: boolean
-  syncStatusLabel?: string
   ownerPseudo?: string
   existingResult?: BattleResult | null
   difficultySetting?: BattleDifficultySetting
@@ -49,35 +48,64 @@ function highlightPlayerName(text: string, playerName: string): ReactNode {
   return <>{text.slice(0, idx)}<b style={{ color: '#2bff9a', fontStyle: 'normal' }}>{playerName}</b>{text.slice(idx + playerName.length)}</>
 }
 
-function pickPlayer(players: string[] | undefined, start: number, fallback?: string) {
-  if (!players?.length) return fallback
-  const index = Math.min(start, players.length - 1)
-  return players[index] ?? fallback
+const ASSUMED_ATTACKER_COUNT = 8
+const ASSUMED_KEEPER_COUNT = 3
+
+function uniquePlayerNames(players: string[] | undefined) {
+  return Array.from(new Set((players ?? []).map((name) => name.trim()).filter(Boolean)))
 }
 
-function pickDefender(players: string[] | undefined, fallback?: string) {
-  if (!players?.length) return fallback
-  // indices 1-6 = defenders (index 0 is GK)
-  const pool = players.slice(1, Math.min(players.length, 7))
-  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : players[0]
+function splitPlayerRoles(players: string[] | undefined) {
+  const names = uniquePlayerNames(players)
+  if (!names.length) return { attackers: [] as string[], defenders: [] as string[], keepers: [] as string[] }
+  if (names.length <= 4) {
+    return {
+      attackers: names.slice(0, Math.max(1, names.length - 1)),
+      defenders: names.slice(1, Math.max(1, names.length - 1)),
+      keepers: names.slice(-1),
+    }
+  }
+  const keeperStart = Math.max(1, names.length - ASSUMED_KEEPER_COUNT)
+  const attackEnd = Math.min(ASSUMED_ATTACKER_COUNT, keeperStart)
+  const attackers = names.slice(0, Math.max(1, attackEnd))
+  const defenders = names.slice(attackEnd, keeperStart)
+  const keepers = names.slice(keeperStart)
+  return {
+    attackers,
+    defenders: defenders.length ? defenders : names.slice(Math.max(1, keeperStart - ASSUMED_ATTACKER_COUNT), keeperStart),
+    keepers: keepers.length ? keepers : names.slice(-1),
+  }
+}
+
+function pickFromPool(players: string[], fallback?: string) {
+  if (!players.length) return fallback
+  return players[Math.floor(Math.random() * players.length)] ?? fallback
 }
 
 function pickForward(players: string[] | undefined, fallback?: string) {
-  if (!players?.length) return fallback
-  // last 6 players = forwards/attackers
-  const pool = players.slice(Math.max(1, players.length - 6)).reverse()
-  return pool[0] ?? players[players.length - 1]
+  const roles = splitPlayerRoles(players)
+  return roles.attackers[0] ?? fallback
+}
+
+function pickDefender(players: string[] | undefined, fallback?: string) {
+  return pickFromPool(splitPlayerRoles(players).defenders, fallback)
+}
+
+function pickKeeper(players: string[] | undefined, fallback?: string) {
+  return splitPlayerRoles(players).keepers.at(-1) ?? fallback
 }
 
 type NextAction = { type: 'next'; append?: BattleRoundType; insertNext?: BattleRoundType } | { type: 'finish' } | { type: 'coin_flip' }
 
-const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja', 'attack', 'defense', 'fruit_ninja']
+const DRAW_ROUND_COUNT = 3
+const DRAW_POOL: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
+const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
 const MAX_SUDDEN_DEATH_ROUNDS = 4 // 2 full attack+defense cycles before forcing a result
 
-const ROUND_LABELS: Record<BattleRoundType, { short: string; label: string }> = {
-  attack: { short: 'ATT', label: 'Attaque' },
-  defense: { short: 'DEF', label: 'Defense' },
-  fruit_ninja: { short: 'TM', label: 'Tirs massifs' },
+const ROUND_LABELS: Record<BattleRoundType, { short: string; label: string; tone: string }> = {
+  attack: { short: 'ATT', label: 'Attaque', tone: 'attack' },
+  defense: { short: 'DEF', label: 'Defense', tone: 'defense' },
+  fruit_ninja: { short: 'TM', label: 'Tirs massifs', tone: 'massive' },
 }
 
 const DIFFICULTY_META: Record<BattleDifficulty, { label: string; short: string }> = {
@@ -106,14 +134,19 @@ function entrantId(match: KnockoutMatch, side: 'home' | 'away') {
   return entrant.kind === 'team' ? entrant.teamId : side
 }
 
+function drawRoundSequence(): BattleRoundType[] {
+  return Array.from({ length: DRAW_ROUND_COUNT }, () => DRAW_POOL[Math.floor(Math.random() * DRAW_POOL.length)])
+}
+
 function makeInitialState(homeTeamId: string, awayTeamId: string, skipIntro: boolean, difficulty: BattleDifficulty): BattleMatchState {
+  const rounds = [...STANDARD_ROUNDS]
   return {
     roundIndex: 0,
-    rounds: [...STANDARD_ROUNDS],
-    suddenDeathStartIndex: STANDARD_ROUNDS.length,
+    rounds,
+    suddenDeathStartIndex: rounds.length,
     playerScore: 0,
     opponentScore: 0,
-    phase: skipIntro ? 'playing' : 'intro',
+    phase: skipIntro ? 'draw' : 'intro',
     difficulty,
     homeTeamId,
     awayTeamId,
@@ -123,6 +156,36 @@ function makeInitialState(homeTeamId: string, awayTeamId: string, skipIntro: boo
 function roundProgressMeta(round: BattleRoundType, absoluteIndex: number, suddenDeathStartIndex: number) {
   if (absoluteIndex >= suddenDeathStartIndex && round === 'defense') return { short: 'GS', label: 'Goal save' }
   return ROUND_LABELS[round]
+}
+
+function BattlePhaseIcon({ type, className }: { type: BattleRoundType; className?: string }) {
+  if (type === 'attack') {
+    return (
+      <svg className={className} viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M8 35 C16 20 25 16 40 11" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+        <path d="M31 9 H41 V19" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="15" cy="34" r="6" fill="#f7fbff" stroke="#06111f" strokeWidth="3" />
+        <path d="M15 28 L20 33 L18 40 H12 L10 33 Z" fill="#06111f" opacity=".9" />
+      </svg>
+    )
+  }
+  if (type === 'defense') {
+    return (
+      <svg className={className} viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M24 6 L38 12 V23 C38 32 32 38 24 42 C16 38 10 32 10 23 V12 Z" fill="currentColor" opacity=".22" />
+        <path d="M24 6 L38 12 V23 C38 32 32 38 24 42 C16 38 10 32 10 23 V12 Z" fill="none" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+        <path d="M17 24 L22 29 L32 18" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  }
+  return (
+    <svg className={className} viewBox="0 0 48 48" aria-hidden="true">
+      <circle cx="17" cy="18" r="7" fill="#f7fbff" stroke="#06111f" strokeWidth="3" />
+      <circle cx="31" cy="18" r="7" fill="#f7fbff" stroke="#06111f" strokeWidth="3" />
+      <circle cx="24" cy="31" r="8" fill="#f7fbff" stroke="#06111f" strokeWidth="3" />
+      <path d="M12 37 L36 11 M10 25 L30 8 M20 42 L40 22" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+    </svg>
+  )
 }
 
 function BattleProgressRail({ rounds, currentIndex, phase, suddenDeathStartIndex }: { rounds: BattleRoundType[]; currentIndex: number; phase: string; suddenDeathStartIndex: number }) {
@@ -144,10 +207,10 @@ function BattleProgressRail({ rounds, currentIndex, phase, suddenDeathStartIndex
           return (
             <div
               key={`${absoluteIndex}-${round}`}
-              className={`battle-progress-step${isDone ? ' is-done' : ''}${isActive ? ' is-active' : ''}`}
+              className={`battle-progress-step is-${ROUND_LABELS[round].tone}${isDone ? ' is-done' : ''}${isActive ? ' is-active' : ''}`}
               title={`${absoluteIndex + 1}. ${meta.label}`}
             >
-              <span>{meta.short}</span>
+              <span><BattlePhaseIcon type={round} /></span>
               <i />
             </div>
           )
@@ -215,7 +278,7 @@ function BattleFlag({ team, emoji }: { team?: Team; emoji: string }) {
   return <span>{emoji}</span>
 }
 
-export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false, syncStatusLabel, ownerPseudo, existingResult, difficultySetting = 'medium', onDifficultyChange }: BattleEngineProps) {
+export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false, ownerPseudo, existingResult, difficultySetting = 'medium', onDifficultyChange }: BattleEngineProps) {
   const rawHomeId = entrantId(match, 'home')
   const rawAwayId = entrantId(match, 'away')
   const homeTeamId = playerSide === 'away' ? rawAwayId : rawHomeId
@@ -226,6 +289,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const awayFlag = awayTeam?.flagEmoji ?? ''
   const homeKit = useMemo(() => resolveTeamKit(homeTeam, homeTeamId), [homeTeam, homeTeamId])
   const awayKit = useMemo(() => resolveTeamKit(awayTeam, awayTeamId), [awayTeam, awayTeamId])
+  const homeRoles = useMemo(() => splitPlayerRoles(homeTeam?.players), [homeTeam?.players])
+  const awayRoles = useMemo(() => splitPlayerRoles(awayTeam?.players), [awayTeam?.players])
   const skipIntro = playerSide != null
   const skipScreens = false
   const selectedDifficulty = resolveDifficulty(match.stage, difficultySetting)
@@ -249,27 +314,29 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const [simulatedResult, setSimulatedResult] = useState<BattleResult | null>(null)
   const [roundScorer, setRoundScorer] = useState<BattleScorer | null>(null)
   const [matchScorers, setMatchScorers] = useState<BattleScorer[]>([])
+  const [drawPreview, setDrawPreview] = useState<BattleRoundType[]>(() => [...STANDARD_ROUNDS])
+  const [isDrawingRounds, setIsDrawingRounds] = useState(false)
+  const [drawComplete, setDrawComplete] = useState(false)
+  const [drawRevealActive, setDrawRevealActive] = useState(false)
+  const [bonusAttackIndexes, setBonusAttackIndexes] = useState<Set<number>>(() => new Set())
+  const drawStartedRef = useRef(false)
   const audioMuted = useGameMuted()
   const audioVolume = useGameAudioVolume()
 
   // Pick stable player names for this match (avoid re-computing each render)
-  const homeAttackerName = useMemo(() => pickForward(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} ATT` : undefined),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  [homeTeamId])
-  const awayAttackerName = useMemo(() => pickForward(awayTeam?.players, awayTeam?.shortName ? `${awayTeam.shortName} ATT` : undefined),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  [awayTeamId])
+  const homeAttackerName = useMemo(() => pickForward(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} ATT` : undefined), [homeTeam?.players, homeTeam?.shortName])
+  const awayAttackerName = useMemo(() => pickForward(awayTeam?.players, awayTeam?.shortName ? `${awayTeam.shortName} ATT` : undefined), [awayTeam?.players, awayTeam?.shortName])
   const homeDefenderName = useMemo(() => pickDefender(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} DEF` : undefined), [homeTeam?.players, homeTeam?.shortName])
-  const homeKeeperName = pickPlayer(homeTeam?.players, 0, homeTeam?.shortName ? `${homeTeam.shortName} GK` : undefined)
-  const awayKeeperName = pickPlayer(awayTeam?.players, 0, awayTeam?.shortName ? `${awayTeam.shortName} GK` : undefined)
+  const homeKeeperName = useMemo(() => pickKeeper(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} GK` : undefined), [homeTeam?.players, homeTeam?.shortName])
+  const awayKeeperName = useMemo(() => pickKeeper(awayTeam?.players, awayTeam?.shortName ? `${awayTeam.shortName} GK` : undefined), [awayTeam?.players, awayTeam?.shortName])
 
   const currentRound = state.rounds[state.roundIndex]
   const suddenDeath = state.roundIndex >= state.suddenDeathStartIndex
   const isSuddenGoalSave = suddenDeath && currentRound === 'defense'
   const previousRound = history[state.roundIndex - 1]
-  const isCounterAttackRound = !suddenDeath && currentRound === 'attack' && !!previousRound && (previousRound.type === 'defense' || previousRound.type === 'fruit_ninja') && previousRound.success
+  const isCounterAttackRound = !suddenDeath && currentRound === 'attack' && bonusAttackIndexes.has(state.roundIndex)
   const roundStartPlayerNumber = currentRound === 'attack' ? '9' : currentRound === 'defense' ? '10' : '1'
-  const roundStartPlayerName = currentRound === 'attack' ? undefined : currentRound === 'defense' ? awayAttackerName : awayKeeperName
+  const roundStartPlayerName = currentRound === 'attack' ? homeAttackerName : currentRound === 'defense' ? awayAttackerName : awayKeeperName
   const roundStartCommentaryPlayer = roundStartPlayerName ? `${roundStartPlayerName} #${roundStartPlayerNumber}` : undefined
   const result = useMemo<BattleResult>(() => ({
     homeScore: state.playerScore,
@@ -286,6 +353,50 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const startRoundCountdown = () => {
     setState((current) => ({ ...current, phase: 'playing' }))
   }
+
+  const launchRoundDraw = () => {
+    if (isDrawingRounds) return
+    drawStartedRef.current = true
+    setDrawRevealActive(false)
+    sfx.battle()
+    const finalRounds = drawRoundSequence()
+    setDrawPreview(drawRoundSequence())
+    setIsDrawingRounds(true)
+    setDrawComplete(false)
+    sfx.rouletteTick()
+    const shuffle = window.setInterval(() => {
+      setDrawPreview(drawRoundSequence())
+      sfx.rouletteTick()
+    }, 110)
+    window.setTimeout(() => {
+      window.clearInterval(shuffle)
+      setDrawPreview(finalRounds)
+      sfx.rouletteStop()
+      setState((current) => ({
+        ...current,
+        rounds: finalRounds,
+        suddenDeathStartIndex: finalRounds.length,
+        roundIndex: 0,
+      }))
+      window.setTimeout(() => {
+        setIsDrawingRounds(false)
+        setDrawComplete(true)
+      }, 650)
+    }, 1750)
+  }
+
+  useEffect(() => {
+    if (state.phase !== 'draw' || drawStartedRef.current || drawComplete || isDrawingRounds) return
+    setDrawRevealActive(true)
+    sfx.rouletteReveal()
+    const revealTimer = window.setTimeout(() => setDrawRevealActive(false), 980)
+    const spinTimer = window.setTimeout(launchRoundDraw, 1080)
+    return () => {
+      window.clearTimeout(revealTimer)
+      window.clearTimeout(spinTimer)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawComplete, isDrawingRounds, state.phase])
 
   // Audio
   const playerWon = displayedResult.winnerId === homeTeamId
@@ -350,6 +461,9 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           : nextAction.append ? [...current.rounds, nextAction.append] : current.rounds
         const roundIndex = current.roundIndex + 1
         const nextRoundType = rounds[roundIndex]
+        if (nextAction.insertNext === 'attack') {
+          setBonusAttackIndexes((prev) => new Set(prev).add(roundIndex))
+        }
         return {
           ...current,
           rounds,
@@ -528,7 +642,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
       playGameSound('/audio/sad.mp3', { volume: 0.95 })
       sfx.concede()
     }
-    completeRound(saved, !saved, saved ? 'defense_perfect' : 'goal_conceded', saved ? undefined : opponentScorer, perfect)
+    completeRound(saved, !saved, saved ? (perfect ? 'defense_perfect' : 'saved') : 'goal_conceded', saved ? undefined : opponentScorer, perfect)
   }
 
   const handleCoinFlipEnd = (winnerId: string, score?: { home: number; away: number }, commentary?: string) => {
@@ -585,6 +699,12 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     setSimulatedResult(null)
     setCoinFlipMode('sudden_death')
     setState(makeInitialState(homeTeamId, awayTeamId, skipIntro, selectedDifficulty))
+    setDrawPreview([...STANDARD_ROUNDS])
+    setIsDrawingRounds(false)
+    setDrawComplete(false)
+    setDrawRevealActive(false)
+    setBonusAttackIndexes(new Set())
+    drawStartedRef.current = false
   }
 
   const handleRetryRound = () => {
@@ -652,9 +772,9 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         <div className="battle-intro__spacer" />
         <div className="battle-intro__sequence">
           {STANDARD_ROUNDS.map((round, index) => (
-            <div key={index}>
-              <b>{round === 'fruit_ninja' ? 'TM' : round === 'attack' ? 'ATT' : 'DEF'}</b>
-              <small>{round === 'fruit_ninja' ? 'TIRS' : round === 'attack' ? 'ATT' : 'DEF'}</small>
+            <div key={index} className={`is-${ROUND_LABELS[round].tone}`}>
+              <BattlePhaseIcon type={round} />
+              <small>{ROUND_LABELS[round].label}</small>
             </div>
           ))}
         </div>
@@ -664,8 +784,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           <small>{difficultySetting === 'auto' ? 'Auto selon le stade' : 'Reglage manuel'}</small>
         </div>
         <div className="battle-intro__actions">
-          <button type="button" className="battle-intro__cta" onClick={() => { sfx.battle(); startRoundCountdown() }}>
-            Jouer ce match
+          <button type="button" className="battle-intro__cta" onClick={() => { sfx.click(); setState((current) => ({ ...current, phase: 'draw' })) }}>
+            Lancer le tirage
           </button>
           <button type="button" className="battle-intro__simulate" onClick={() => { sfx.click(); setCoinFlipMode('simulation'); setState((current) => ({ ...current, phase: 'coin_flip' })) }}>
             Simuler
@@ -673,8 +793,54 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         </div>
       </section> : null}
 
+      {state.phase === 'draw' ? <section className={`battle-draw${drawRevealActive ? ' is-revealing' : ''}${isDrawingRounds ? ' is-drawing' : ''}${drawComplete ? ' is-complete' : ''}`}>
+        <div className="battle-draw__meta">{match.stage} - {match.label}</div>
+        {drawRevealActive ? (
+          <div className="battle-draw__reveal" aria-hidden="true">
+            <i className="battle-draw__smoke battle-draw__smoke--a" />
+            <i className="battle-draw__smoke battle-draw__smoke--b" />
+            <i className="battle-draw__smoke battle-draw__smoke--c" />
+          </div>
+        ) : null}
+        <div className="battle-draw__matchup">
+          <span><BattleFlag team={homeTeam} emoji={homeFlag || homeTeamId.slice(0, 2).toUpperCase()} /> {homeTeam?.shortName?.toUpperCase() ?? homeTeamId.toUpperCase()}</span>
+          <strong>VS</strong>
+          <span>{awayTeam?.shortName?.toUpperCase() ?? awayTeamId.toUpperCase()} <BattleFlag team={awayTeam} emoji={awayFlag || awayTeamId.slice(0, 2).toUpperCase()} /></span>
+        </div>
+        <div className={`battle-draw__roulette${isDrawingRounds ? ' is-spinning' : ''}`} aria-label="Roulette des phases">
+          {drawPreview.map((round, index) => (
+            <div key={`${index}-${round}`} className={`battle-draw-slot is-${ROUND_LABELS[round].tone}`}>
+              <span className="battle-draw-slot__reel">
+                <BattlePhaseIcon type={round} />
+              </span>
+              <small>{ROUND_LABELS[round].label}</small>
+            </div>
+          ))}
+        </div>
+        {drawComplete ? (
+          <div className="battle-draw__result" aria-live="polite">
+            <span>Ce match va etre compose de</span>
+            <div>
+              {drawPreview.map((round, index) => (
+                <b key={`${index}-${round}`}>{ROUND_LABELS[round].label}</b>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {drawComplete ? (
+          <div className="battle-draw__actions">
+            <button type="button" className="battle-draw__reroll" onClick={() => { sfx.click(); setDrawComplete(false); drawStartedRef.current = false; launchRoundDraw() }}>
+              Relancer la roue
+            </button>
+            <button type="button" className="battle-draw__cta" onClick={() => { sfx.click(); setState((current) => ({ ...current, phase: 'playing' })) }}>
+              Continuer
+            </button>
+          </div>
+        ) : null}
+      </section> : null}
+
       {/* Round start */}
-      {state.phase === 'round_start' ? <section className="battle-round-start" key={state.roundIndex}>
+      {state.phase === 'round_start' ? <section className={`battle-round-start${suddenDeath ? ' is-sudden' : ''}`} key={state.roundIndex}>
         <div className="battle-round-start__card">
           <p>{commentaryData
             ? highlightPlayerName(commentaryData.text, commentaryData.tokens[0])
@@ -717,7 +883,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
       {/* Game phases */}
       {/* Show during countdown too so the player can preview the game layout */}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'attack' && !suddenDeath
-        ? <AttackPhase key={`attack-${state.roundIndex}-${state.difficulty}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeTeam?.players} awayTeamPlayers={awayTeam?.players} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} shotOnly={isCounterAttackRound || retryShotOnly} shotAudioMode={isCounterAttackRound ? 'heartOnly' : undefined} shotTitle={isCounterAttackRound ? 'TIR BONUS' : retryShotOnly ? 'PHASE DE TIR' : undefined} roundIntroComment={isCounterAttackRound ? (previousRound?.type === 'fruit_ninja' ? 'Bravo ! Tu as bloqué tous les tirs. Tu gagnes un tir bonus.' : 'Bravo ! Perfect défensif. Tu gagnes un tir bonus.') : undefined} />
+        ? <AttackPhase key={`attack-${state.roundIndex}-${state.difficulty}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeRoles.attackers} awayTeamPlayers={awayRoles.defenders} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} shotOnly={isCounterAttackRound || retryShotOnly} shotAudioMode={isCounterAttackRound ? 'heartOnly' : undefined} shotTitle={isCounterAttackRound ? 'TIR BONUS' : retryShotOnly ? 'PHASE DE TIR' : undefined} roundIntroComment={isCounterAttackRound ? (previousRound?.type === 'fruit_ninja' ? 'Bravo ! Tu as bloqué tous les tirs. Tu gagnes un tir bonus.' : 'Bravo ! Perfect défensif. Tu gagnes un tir bonus.') : undefined} />
         : null}
       {state.phase === 'playing' && currentRound === 'attack' && suddenDeath
         ? <AttackPhase
@@ -725,8 +891,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
             difficulty={state.difficulty}
             homeTeamId={homeTeamId}
             awayTeamId={awayTeamId}
-            homeTeamPlayers={homeTeam?.players}
-            awayTeamPlayers={awayTeam?.players}
+            homeTeamPlayers={homeRoles.attackers}
+            awayTeamPlayers={awayRoles.defenders}
             playerKit={homeKit}
             opponentKit={awayKit}
             onRoundEnd={handleAttackEnd}
@@ -739,7 +905,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           />
         : null}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'defense' && !suddenDeath
-        ? <DefensePhase key={`defense-${state.roundIndex}-${state.difficulty}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} playerKit={homeKit} opponentKit={awayKit} awayTeamPlayers={awayTeam?.players} defenderName={homeDefenderName} keeperName={homeKeeperName} onRoundEnd={handleDefenseEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} roundIntroComment={isSuddenGoalSave ? 'Mort subite : ton gardien doit sortir le ballon.' : `${roundStartCommentaryPlayer ?? awayTeam?.name ?? awayTeamId} attaque en force. Protège ta surface !`} />
+        ? <DefensePhase key={`defense-${state.roundIndex}-${state.difficulty}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} playerKit={homeKit} opponentKit={awayKit} awayTeamPlayers={awayRoles.attackers} defenderName={homeDefenderName} keeperName={homeKeeperName} onRoundEnd={handleDefenseEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} roundIntroComment={isSuddenGoalSave ? 'Mort subite : ton gardien doit sortir le ballon.' : `${roundStartCommentaryPlayer ?? awayTeam?.name ?? awayTeamId} attaque en force. Protège ta surface !`} />
         : null}
       {state.phase === 'playing' && currentRound === 'defense' && suddenDeath
         ? <GoalSave
@@ -770,6 +936,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
             onAudioOverride={setAudioOverride}
             roundIntroComment={`Mince, tu t'es fait prendre la balle par ${roundScorer?.name ?? awayAttackerName ?? awayTeam?.name ?? awayTeamId}. Il arme sa frappe. Donne tout pour bloquer.`}
             onRetry={retrySnapshot ? handleRetryRound : undefined}
+            retryLabel="Réessayer l'attaque"
             startLabel="Bloquer le tir"
             onResult={handleInterceptionGoalSaveEnd}
           />
@@ -799,6 +966,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           awayFlag={awayFlag}
           scorerName={roundOutcome === 'intercepted' ? roundScorer?.name : currentRound === 'attack' ? roundScorer?.name ?? homeAttackerName : undefined}
           keeperName={currentRound === 'defense' || currentRound === 'fruit_ninja' ? homeKeeperName : awayKeeperName}
+          playerKit={homeKit}
           opponentName={awayTeam?.name}
           nextRoundType={nextRoundType}
           onContinue={roundOutcome === 'intercepted' ? handleStartInterceptionGoalSave : () => { sfx.click(); advanceRound() }}
@@ -817,7 +985,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           onComplete={(winnerId, score, commentary) => { sfx.click(); handleCoinFlipEnd(winnerId, score, commentary) }}
         />
       ) : null}
-      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} syncStatusLabel={syncStatusLabel} ownerPseudo={ownerPseudo} difficulty={existingResult ? existingResult.difficulty : displayedResult.difficulty ?? state.difficulty} onContinue={() => { sfx.click(); existingResult ? onQuit?.() : onComplete(displayedResult) }} /> : null}
+      {state.phase === 'match_result' ? <MatchResult result={displayedResult} playerWon={displayedResult.winnerId === homeTeamId} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamName={homeTeam?.name} awayTeamName={awayTeam?.name} homeFlag={homeFlag} awayFlag={awayFlag} ownerPseudo={ownerPseudo} difficulty={existingResult ? existingResult.difficulty : displayedResult.difficulty ?? state.difficulty} onContinue={() => { sfx.click(); existingResult ? onQuit?.() : onComplete(displayedResult) }} onRestart={handleRestart} /> : null}
 
       {/* Countdown overlay */}
       {state.phase === 'countdown' && countdownNum !== null ? (

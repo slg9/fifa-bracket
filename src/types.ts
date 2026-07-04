@@ -224,7 +224,7 @@ export type DefenseOutcome =
 
 export type BattleRoundType = 'attack' | 'defense' | 'fruit_ninja'
 
-export type BattlePhase = 'intro' | 'round_start' | 'countdown' | 'playing' | 'round_result' | 'interception_goal_save' | 'penalties' | 'coin_flip' | 'match_result'
+export type BattlePhase = 'intro' | 'draw' | 'round_start' | 'countdown' | 'playing' | 'round_result' | 'interception_goal_save' | 'penalties' | 'coin_flip' | 'match_result'
 
 export type BattleMatchState = {
   roundIndex: number

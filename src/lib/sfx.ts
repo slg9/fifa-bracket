@@ -108,6 +108,11 @@ export interface SFX {
   powerShot(): void
   blastPower(): void
   wideGate(): void
+  rouletteReveal(): void
+  rouletteTick(): void
+  rouletteStop(): void
+  mapStadiumReveal(): void
+  dialogueBlip(): void
   slice(): void
   error(): void
 }
@@ -310,6 +315,44 @@ export const sfx: SFX = {
     tone(360, 0.24, { type: 'triangle', gain: 0.16, freqEnd: 720 })
     tone(720, 0.32, { type: 'sine', gain: 0.15, delay: 0.08, freqEnd: 1440 })
     tone(1080, 0.22, { type: 'triangle', gain: 0.1, delay: 0.18, freqEnd: 1620 })
+  },
+
+  /** Roulette appears before spinning */
+  rouletteReveal() {
+    buzz(18)
+    noise(0.34, { filterFreq: 260, filterFreqEnd: 5200, gain: 0.28 })
+    noise(0.22, { filterFreq: 5200, filterFreqEnd: 900, gain: 0.16, delay: 0.06 })
+    tone(160, 0.22, { type: 'sawtooth', gain: 0.1, freqEnd: 420 })
+    tone(620, 0.2, { type: 'triangle', gain: 0.15, delay: 0.08, freqEnd: 1120 })
+    tone(1480, 0.14, { type: 'sine', gain: 0.1, delay: 0.2, freqEnd: 1980 })
+  },
+
+  /** Casino roulette reel tick */
+  rouletteTick() {
+    noise(0.045, { filterFreq: 3400, filterFreqEnd: 1200, gain: 0.08 })
+    tone(1180, 0.045, { type: 'square', gain: 0.08, freqEnd: 760 })
+  },
+
+  /** Roulette result locks in */
+  rouletteStop() {
+    buzz([12, 18, 12])
+    tone(520, 0.1, { type: 'triangle', gain: 0.18, freqEnd: 780 })
+    tone(780, 0.12, { type: 'triangle', gain: 0.16, delay: 0.06, freqEnd: 1040 })
+    tone(1320, 0.18, { type: 'sine', gain: 0.13, delay: 0.14 })
+    noise(0.16, { filterFreq: 2200, filterFreqEnd: 5200, gain: 0.1, delay: 0.04 })
+  },
+
+  /** Soft stadium reveal on the match map */
+  mapStadiumReveal() {
+    tone(620, 0.11, { type: 'triangle', gain: 0.11, freqEnd: 820 })
+    tone(980, 0.14, { type: 'sine', gain: 0.08, delay: 0.045, freqEnd: 1220 })
+    noise(0.08, { filterFreq: 2600, filterFreqEnd: 4200, gain: 0.045, delay: 0.015 })
+  },
+
+  /** Kawaii character speech blip */
+  dialogueBlip() {
+    tone(520 + Math.random() * 180, 0.045, { type: 'triangle', gain: 0.055, freqEnd: 420 + Math.random() * 140 })
+    tone(900 + Math.random() * 220, 0.035, { type: 'sine', gain: 0.028, delay: 0.012 })
   },
 
   /** Ball sliced / swiped */

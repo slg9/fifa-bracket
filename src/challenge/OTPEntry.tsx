@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+const RESEND_DELAY = 60
 
 export interface OTPEntryProps {
   email: string
@@ -7,12 +9,20 @@ export interface OTPEntryProps {
   busy?: boolean
   error?: string | null
   onSubmit: (otp: string, pseudo?: string) => void
+  onResend?: () => void
   onCancel?: () => void
 }
 
-export function OTPEntry({ email, pseudo = '', requirePseudo = false, busy = false, error, onSubmit, onCancel }: OTPEntryProps) {
+export function OTPEntry({ email, pseudo = '', requirePseudo = false, busy = false, error, onSubmit, onResend, onCancel }: OTPEntryProps) {
   const [otp, setOtp] = useState('')
   const [draftPseudo, setDraftPseudo] = useState(pseudo)
+  const [countdown, setCountdown] = useState(RESEND_DELAY)
+
+  useEffect(() => {
+    if (countdown <= 0) return
+    const id = window.setTimeout(() => setCountdown((value) => value - 1), 1000)
+    return () => window.clearTimeout(id)
+  }, [countdown])
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault()
@@ -26,6 +36,12 @@ export function OTPEntry({ email, pseudo = '', requirePseudo = false, busy = fal
     if (/^\d*$/.test(value)) {
       setOtp(value.slice(0, 6))
     }
+  }
+
+  const handleResend = () => {
+    if (!onResend || countdown > 0 || busy) return
+    setCountdown(RESEND_DELAY)
+    onResend()
   }
 
   return (
@@ -58,6 +74,12 @@ export function OTPEntry({ email, pseudo = '', requirePseudo = false, busy = fal
         </label>
 
         {requirePseudo ? <label>Pseudo<input required maxLength={40} autoComplete="nickname" value={draftPseudo} onChange={(event) => setDraftPseudo(event.target.value)} placeholder="Le sélectionneur" /></label> : null}
+
+        {onResend ? (
+          countdown > 0
+            ? <p className="brakup-form-hint">Renvoyer le code dans {countdown}s</p>
+            : <button type="button" className="brakup-form-resend" disabled={busy} onClick={handleResend}>Renvoyer le code</button>
+        ) : null}
 
         {error && <p className="brakup-form-error">{error}</p>}
 

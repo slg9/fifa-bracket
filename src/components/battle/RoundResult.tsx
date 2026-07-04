@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import type { BattleRoundType } from '../../types'
+import type { TeamKit } from '../../lib/teamKits'
+import KawaiiSprite, { KAWAII_SPRITE_CSS } from './KawaiiSprite'
 
 export type RoundOutcome = 'goal' | 'saved' | 'intercepted' | 'miss' | 'defense_perfect' | 'goal_conceded'
 
@@ -14,6 +16,7 @@ type RoundResultProps = {
   awayFlag?: string
   scorerName?: string
   keeperName?: string
+  playerKit?: TeamKit
   opponentName?: string
   nextRoundType?: BattleRoundType | null
   onContinue?: () => void
@@ -64,11 +67,24 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
+function phaseLabel(roundType: BattleRoundType) {
+  if (roundType === 'attack') return "Phase d'attaque"
+  if (roundType === 'defense') return 'Phase defense'
+  return 'Tirs massifs'
+}
+
+function retryLabelFor(roundType: BattleRoundType, outcome: RoundOutcome) {
+  if (roundType === 'attack' && outcome === 'miss') return 'Réessayer le tir'
+  if (roundType === 'attack') return "Réessayer l'attaque"
+  if (roundType === 'defense') return 'Réessayer la défense'
+  return 'Réessayer les tirs massifs'
+}
+
 export function roundResultNeedsClick(outcome: RoundOutcome) {
   return MANUAL_CONTINUE_OUTCOMES.includes(outcome)
 }
 
-export function RoundResult({ outcome, roundType, playerScore, opponentScore, homeFlag, awayFlag, scorerName, keeperName, opponentName, nextRoundType, onContinue, onRetry }: RoundResultProps) {
+export function RoundResult({ outcome, roundType, playerScore, opponentScore, homeFlag, awayFlag, scorerName, keeperName, playerKit, opponentName, nextRoundType, onContinue, onRetry }: RoundResultProps) {
   const title = outcome === 'goal'
     ? 'BUT !'
     : outcome === 'saved'
@@ -100,7 +116,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
       return { accent: '#FF4455', main: call, sub: `${keeper} ${pick(CONCEDE_ENCOURAGEMENTS)} ${nextPhaseHint}` }
     }
     if (outcome === 'intercepted') {
-      return { accent: '#FF4455', main: 'Ballon perdu.', sub: 'Tu peux rejouer l’attaque ou tenter le Goal Save.' }
+      return { accent: '#FF4455', main: 'Ballon perdu.', sub: 'Tu peux rejouer cette attaque ou tenter le Goal Save.' }
     }
     if (outcome === 'miss') {
       const sub = scorerName ? `${scorerName} rate sa frappe. ${pick(MISS_ENCOURAGEMENTS)}` : pick(MISS_ENCOURAGEMENTS)
@@ -120,7 +136,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
   }, [keeperName, nextPhaseHint, opponentName, outcome, scorerName])
 
   const showButton = roundResultNeedsClick(outcome)
-  const retryLabel = outcome === 'miss' && roundType === 'attack' ? 'Réessayer le tir' : "Réessayer l'attaque"
+  const retryLabel = retryLabelFor(roundType, outcome)
   const buttonLabel = outcome === 'intercepted' ? 'Bloquer le tir' : 'Continuer'
 
   return (
@@ -141,7 +157,9 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         .battle-round-result__visual svg{width:100%;height:100%;overflow:visible}
         .battle-result-ring{fill:none;stroke:#FFB800;stroke-width:5;transform-origin:100px 100px;animation:battleResultRing .8s both}
         .battle-result-ray{stroke:#FFB800;stroke-width:5;stroke-linecap:round;stroke-dasharray:90;animation:battleResultRay .7s both}
-        .battle-result-keeper{display:grid;width:120px;height:120px;place-items:center;margin:20px;border-radius:50%;background:rgba(43,255,154,.16);border:2px solid #2bff9a;color:#2bff9a;font-size:60px;animation:battleKeeperJump .8s both;box-shadow:0 0 40px rgba(43,255,154,.32)}
+        ${KAWAII_SPRITE_CSS}
+        .battle-result-keeper{display:grid;width:132px;height:132px;place-items:center;margin:14px;border-radius:50%;background:radial-gradient(circle,rgba(43,255,154,.24),rgba(43,255,154,.08) 58%,transparent 72%);border:2px solid #2bff9a;color:#2bff9a;animation:battleKeeperJump .8s both;box-shadow:0 0 40px rgba(43,255,154,.32)}
+        .battle-result-keeper .kw-sprite{width:92px;height:112px;filter:drop-shadow(0 10px 14px rgba(0,0,0,.44));animation:rrKeeperDance .42s ease-in-out infinite alternate}
         .rr-shield{filter:drop-shadow(0 0 24px rgba(255,184,0,.6));animation:bk-pulse 1.6s ease-in-out infinite}
         .battle-round-result.is-goal_conceded svg circle{fill:#f4f7ff}
         .battle-round-result.is-goal_conceded svg path{fill:#0b1422}
@@ -187,6 +205,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
           .rr-continue-btn,.rr-retry-btn{padding:10px 16px;font-size:13px}
         }
         @keyframes rrRetryGold{from{filter:brightness(.92);box-shadow:0 0 14px rgba(255,184,0,.26)}to{filter:brightness(1.25);box-shadow:0 0 34px rgba(255,184,0,.72)}}
+        @keyframes rrKeeperDance{from{transform:translateY(5px) rotate(-4deg) scale(1)}to{transform:translateY(-8px) rotate(4deg) scale(1.04)}}
       `}</style>
 
       {(outcome === 'goal' || outcome === 'defense_perfect') ? (
@@ -221,7 +240,20 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         ) : null}
 
         {outcome === 'saved' ? (
-          <div className="battle-result-keeper">GK</div>
+          <div className="battle-result-keeper">
+            <KawaiiSprite
+              label={keeperName?.split(' ').pop()?.slice(0, 7).toUpperCase() ?? 'GK'}
+              jerseyColor={playerKit?.primary ?? '#2bff9a'}
+              accentColor={playerKit?.secondary ?? '#FFB800'}
+              shortsColor={playerKit?.shorts ?? '#101827'}
+              textColor={playerKit?.text ?? '#ffffff'}
+              role="keeper"
+              motion="ready"
+              seed={keeperName ?? 'round-result-keeper'}
+              width={92}
+              height={112}
+            />
+          </div>
         ) : null}
 
         {outcome === 'defense_perfect' ? (
@@ -253,7 +285,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         {outcome === 'miss' ? <div className="battle-result-miss">X</div> : null}
       </div>
 
-      <span>{roundType === 'attack' ? "Phase d'attaque" : 'Phase defensive'}</span>
+      <span>{phaseLabel(roundType)}</span>
       <h2>{title}</h2>
 
       {commentary ? (
