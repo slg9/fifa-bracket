@@ -1721,14 +1721,19 @@ export function AttackPhase({
         /*  Tutorial overlay  */
         .atk-tutorial {
           position: absolute; inset: 0; z-index: 50;
-          background: rgba(5,11,22,0.78); backdrop-filter: blur(3px);
+          background:
+            linear-gradient(180deg, rgba(255,255,255,.055), transparent 34%),
+            #030509;
+          backdrop-filter: blur(3px) grayscale(1);
           display: flex; flex-direction: column; align-items: center;
           justify-content: center; gap: 14px; padding: 24px;
+          color: #fff;
         }
         .atk-tutorial__title {
           font: 900 clamp(32px,10vw,56px) 'Barlow Condensed', sans-serif;
-          letter-spacing: .2em; color: #FFB800;
-          text-shadow: 0 0 32px rgba(255,184,0,.6); text-transform: uppercase;
+          letter-spacing: .18em; color: #fff;
+          text-shadow: 0 0 24px rgba(255,255,255,.28); text-transform: uppercase;
+          text-align: center;
         }
         .atk-tutorial__instruction {
           font: 600 clamp(13px,4vw,17px) 'Barlow Condensed', sans-serif;
@@ -1745,10 +1750,10 @@ export function AttackPhase({
         }
         .atk-tutorial__btn {
           margin-top: 8px; min-height: 50px; padding: 0 28px; border-radius: 14px;
-          border: 0; background: linear-gradient(90deg,#2bff9a,#1cd6c4 55%,#16a8ff);
-          color: #031209; font: 900 16px 'Barlow Condensed', sans-serif;
+          border: 1.5px solid rgba(255,255,255,.86); background: rgba(255,255,255,.92);
+          color: #030509; font: 900 16px 'Barlow Condensed', sans-serif;
           letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
-          box-shadow: 0 10px 26px rgba(43,255,154,.28), inset 0 1px 0 rgba(255,255,255,.35);
+          box-shadow: 0 12px 28px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.65);
           transition: transform .12s ease;
         }
         .atk-tutorial__btn:active { transform: scale(.97); }
@@ -1760,17 +1765,17 @@ export function AttackPhase({
           min-height: 34px;
           padding: 0 13px;
           border-radius: 999px;
-          border: 1px solid rgba(43,255,154,.52);
-          background: rgba(2,8,16,.68);
-          color: #2bff9a;
+          border: 1px solid rgba(255,255,255,.62);
+          background: rgba(3,5,9,.74);
+          color: #fff;
           font: 900 11px 'Barlow Condensed', sans-serif;
           letter-spacing: .12em;
           text-transform: uppercase;
-          box-shadow: 0 0 18px rgba(43,255,154,.16);
+          box-shadow: 0 0 18px rgba(255,255,255,.1);
           backdrop-filter: blur(8px);
           cursor: pointer;
         }
-        .atk-tutorial__comment { display:grid; grid-template-columns:50px minmax(0,1fr); align-items:center; gap:10px; width:min(86vw,340px); padding:8px 10px; border:1px solid rgba(43,255,154,.28); border-left:3px solid #2bff9a; border-radius:14px; background:rgba(2,8,16,.58); color:#fff; font:800 13px 'Barlow Condensed',sans-serif; letter-spacing:.04em; text-align:left; }
+        .atk-tutorial__comment { display:grid; grid-template-columns:50px minmax(0,1fr); align-items:center; gap:10px; width:min(86vw,340px); padding:8px 10px; border:1px solid rgba(255,255,255,.22); border-left:3px solid #fff; border-radius:14px; background:rgba(255,255,255,.06); color:#fff; font:800 13px 'Barlow Condensed',sans-serif; letter-spacing:.04em; text-align:left; }
         .atk-tutorial__avatar { width:50px; height:58px; display:grid; place-items:center; overflow:visible; }
         .atk-tutorial__avatar .atk-kawaii { width:48px; height:60px; filter:drop-shadow(0 8px 10px rgba(0,0,0,.45)); animation:battleOrbFloat .72s ease-in-out infinite alternate; }
         .atk-dribble-demo { position:relative; width:min(86vw,340px); height:min(46vh,330px); min-height:292px; overflow:hidden; border:1px solid rgba(43,255,154,.26); border-radius:18px; background:linear-gradient(180deg,#07351d 0%,#0a2518 100%); box-shadow:inset 0 0 28px rgba(255,255,255,.06),0 18px 36px rgba(0,0,0,.34); perspective:520px; }
@@ -2614,12 +2619,12 @@ export function AttackPhase({
       {/*  Tutorial overlay  */}
       {showDribbleTutorial && !tutorialDone && preCountdownNum === null && (
         <div className="atk-tutorial">
-          <div className="atk-tutorial__title">DRIBBLE RUSH</div>
+          <div className="atk-tutorial__title">TUTORIEL ATTAQUE</div>
           <div className="atk-tutorial__comment">
             <div className="atk-tutorial__avatar">
               <KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="ready" />
             </div>
-            <span><b>{playerLastName(attackerName)}</b> est en forme. Il se lance dans une percée de la défense.</span>
+            <span><b>Tutoriel.</b> Glisse entre les portes, saute les rangées et ramasse les pouvoirs avant le tir.</span>
           </div>
           {showDribbleDemo ? (
           <div className="atk-dribble-demo" aria-hidden="true">
@@ -2653,7 +2658,7 @@ export function AttackPhase({
           </div>
           ) : (
             <button type="button" className="atk-tutorial-open" onClick={() => { sfx.click(); setShowDribbleDemo(true) }}>
-              Voir tuto
+              Voir tutoriel
             </button>
           )}
           <div className="atk-dribble-demo__bonus-tip"><span>Ramasse les pouvoirs : ils affichent leur effet</span><div className="atk-dribble-demo__bonus-icons"><span className="atk-dribble-demo__bonus-item"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--boot" aria-hidden="true"><BonusPowerIcon kind="boots" /></span><small>Bouclier</small></span><span className="atk-dribble-demo__bonus-item"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--wide" aria-hidden="true"><BonusPowerIcon kind="wide" /></span><small>Portes larges</small></span><span className="atk-dribble-demo__bonus-item"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--shot" aria-label="Tir facile"><BonusPowerIcon kind="shot" /></span><small>Tir facile</small></span><span className="atk-dribble-demo__bonus-item"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--blast" aria-hidden="true"><BonusPowerIcon kind="blast" /></span><small>Super attaquant</small></span></div></div>
@@ -2662,7 +2667,7 @@ export function AttackPhase({
             className="atk-tutorial__btn"
             onClick={startTutorialCountdown}
           >
-            OK  Jouer !
+            OK - Jouer
           </button>
         </div>
       )}
@@ -2954,7 +2959,7 @@ export function AttackPhase({
               </div>
               ) : (
                 <button type="button" className="atk-tutorial-open" onClick={() => { sfx.click(); setShowShotDemo(true) }}>
-                  Voir tuto
+                  Voir tutoriel
                 </button>
               )}
               <div className="atk-shot-tutorial__text">

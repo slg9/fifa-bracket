@@ -571,18 +571,18 @@ const [hitFreeze, setHitFreeze] = useState(false)
         .gs-penalty-kicker__name { padding:4px 9px; border-radius:999px; background:rgba(2,8,16,.62); border:1px solid rgba(255,255,255,.12); font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.13em; text-transform:uppercase; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .gs-penalty-countdown { position:absolute; inset:0; z-index:35; display:grid; place-items:center; pointer-events:none; }
         .gs-penalty-countdown span { display:grid; place-items:center; width:118px; aspect-ratio:1; border-radius:50%; color:#fff; background:radial-gradient(circle,rgba(2,8,16,.86) 0 58%,transparent 60%),conic-gradient(#FFB800 0 80%,rgba(255,255,255,.14) 80%); box-shadow:0 0 42px rgba(255,184,0,.32); font:900 52px 'Barlow Condensed',sans-serif; letter-spacing:.12em; animation:gsPenaltyCount .72s ease-out both; }
-        .gs-tutorial-open { position:absolute; z-index:41; top:max(76px, calc(env(safe-area-inset-top) + 56px)); right:12px; padding:9px 13px; border-radius:999px; border:1px solid rgba(43,255,154,.55); background:rgba(3,14,18,.74); color:#2bff9a; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-transform:uppercase; box-shadow:0 0 18px rgba(43,255,154,.18); backdrop-filter:blur(8px); cursor:pointer; }
+        .gs-tutorial-open { position:absolute; z-index:41; top:max(76px, calc(env(safe-area-inset-top) + 56px)); right:12px; padding:9px 13px; border-radius:999px; border:1px solid rgba(255,255,255,.62); background:rgba(3,5,9,.74); color:#fff; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-transform:uppercase; box-shadow:0 0 18px rgba(255,255,255,.1); backdrop-filter:blur(8px); cursor:pointer; }
         .gs-tutorial-open:active { transform:scale(.96); }
-        .gs-tutorial { position:absolute; inset:0; z-index:42; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:11px; padding:22px 20px; text-align:center; background:rgba(3,7,14,.9); backdrop-filter:blur(4px); color:#fff; }
-        .gs-tutorial__title { font:900 clamp(30px,9vw,48px) 'Barlow Condensed',sans-serif; color:#FF4455; letter-spacing:.18em; text-transform:uppercase; text-shadow:0 0 28px rgba(255,68,85,.58); }
-        .gs-tutorial__comment { display:grid; grid-template-columns:58px minmax(0,1fr); align-items:center; gap:10px; width:min(86vw,340px); padding:9px 11px; border:1px solid rgba(255,68,85,.32); border-left:3px solid #FF4455; border-radius:14px; background:rgba(2,8,16,.64); box-shadow:0 0 28px rgba(255,68,85,.12); text-align:left; }
+        .gs-tutorial { position:absolute; inset:0; z-index:42; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:11px; padding:22px 20px; text-align:center; background:linear-gradient(180deg, rgba(255,255,255,.055), transparent 34%), #030509; backdrop-filter:blur(4px) grayscale(1); color:#fff; }
+        .gs-tutorial__title { font:900 clamp(30px,9vw,48px) 'Barlow Condensed',sans-serif; color:#fff; letter-spacing:.16em; text-transform:uppercase; text-align:center; text-shadow:0 0 24px rgba(255,255,255,.28); }
+        .gs-tutorial__comment { display:grid; grid-template-columns:58px minmax(0,1fr); align-items:center; gap:10px; width:min(86vw,340px); padding:9px 11px; border:1px solid rgba(255,255,255,.22); border-left:3px solid #fff; border-radius:14px; background:rgba(255,255,255,.06); box-shadow:0 14px 28px rgba(0,0,0,.28); text-align:left; }
         .gs-tutorial__avatar { width:58px; height:64px; display:grid; place-items:center; overflow:visible; filter:drop-shadow(0 8px 12px rgba(0,0,0,.42)); animation:gsKickerPulse .7s ease-in-out infinite alternate; }
         .gs-tutorial__comment p { margin:0; color:#fff; font:800 clamp(13px,3.8vw,16px) 'Barlow Condensed',sans-serif; line-height:1.3; letter-spacing:.04em; }
-        .gs-tutorial__comment strong { color:#FFB800; text-shadow:0 0 12px rgba(255,184,0,.42); }
-        .gs-tutorial__text { max-width:340px; padding:10px 12px; border-left:3px solid #FF4455; background:rgba(10,21,38,.82); color:rgba(255,255,255,.9); font:800 clamp(13px,3.8vw,16px) 'Barlow Condensed',sans-serif; line-height:1.32; letter-spacing:.05em; }
+        .gs-tutorial__comment strong { color:#fff; text-shadow:0 0 12px rgba(255,255,255,.28); }
+        .gs-tutorial__text { max-width:340px; padding:10px 12px; border-left:3px solid #fff; background:rgba(255,255,255,.06); color:rgba(255,255,255,.9); font:800 clamp(13px,3.8vw,16px) 'Barlow Condensed',sans-serif; line-height:1.32; letter-spacing:.05em; }
         .gs-tutorial__text strong { font-weight:950; color:#fff; text-shadow:0 0 12px rgba(255,255,255,.32); }
         .gs-tutorial__sub { max-width:300px; color:rgba(255,255,255,.62); font:800 clamp(11px,3.4vw,13px) 'Barlow Condensed',sans-serif; line-height:1.25; letter-spacing:.07em; }
-        .gs-tutorial__demo { position:relative; width:min(78vw,270px); height:142px; border-radius:18px; overflow:hidden; border:1px solid rgba(255,255,255,.14); background:linear-gradient(180deg,#092417,#0b3a1d 58%,#101827); box-shadow:0 16px 36px rgba(0,0,0,.34), inset 0 0 30px rgba(43,255,154,.06); }
+        .gs-tutorial__demo { position:relative; width:min(78vw,270px); height:142px; border-radius:18px; overflow:hidden; border:1px solid rgba(255,255,255,.2); background:linear-gradient(180deg,#10131a,#05070b 58%,#0f1117); box-shadow:0 16px 36px rgba(0,0,0,.34), inset 0 0 30px rgba(255,255,255,.04); }
         .gs-tutorial__demo:before { content:''; position:absolute; left:8%; right:8%; bottom:22%; height:3px; background:rgba(255,68,85,.68); box-shadow:0 0 14px rgba(255,68,85,.75); }
         .gs-demo-ball { position:absolute; top:18%; width:30px; height:30px; border-radius:50%; background:#f7f9fc; border:3px solid #101827; box-shadow:0 0 14px rgba(255,184,0,.7); animation:gsDemoBall 2.55s linear infinite; }
         .gs-demo-ball:before { content:''; position:absolute; inset:6px; border-radius:inherit; background:radial-gradient(circle at 34% 34%,#fff 0 22%,#d9e0ea 24% 100%); }
@@ -595,7 +595,7 @@ const [hitFreeze, setHitFreeze] = useState(false)
         .gs-demo-finger svg { width:100%; height:100%; overflow:visible; }
         .gs-demo-slash { position:absolute; right:30px; top:13px; width:0; height:7px; border-radius:999px; background:linear-gradient(90deg,rgba(43,255,154,.08),rgba(43,255,154,.88),#2bff9a); box-shadow:0 0 16px rgba(43,255,154,.9); transform-origin:100% 50%; transform:rotate(-8deg); opacity:0; animation:gsDemoSlash 2.55s linear infinite; }
         .gs-tutorial__actions { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:4px; }
-        .gs-tutorial__btn { min-height:50px; padding:0 30px; border-radius:14px; border:0; background:linear-gradient(90deg,#2bff9a,#1cd6c4 55%,#16a8ff); color:#031209; font:900 16px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-transform:uppercase; cursor:pointer; box-shadow:0 10px 26px rgba(43,255,154,.28), inset 0 1px 0 rgba(255,255,255,.35); transition:transform .12s ease; }
+        .gs-tutorial__btn { min-height:50px; padding:0 30px; border-radius:14px; border:1.5px solid rgba(255,255,255,.86); background:rgba(255,255,255,.92); color:#030509; font:900 16px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-transform:uppercase; cursor:pointer; box-shadow:0 12px 28px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.65); transition:transform .12s ease; }
         .gs-tutorial__btn:active { transform:scale(.97); }
         .gs-tutorial__btn.is-retry { border:1.5px solid rgba(255,184,0,.86); background:rgba(255,184,0,.1); color:#FFB800; box-shadow:0 0 24px rgba(255,184,0,.24); }
         .gs-tutorial-countdown { position:absolute; inset:0; z-index:43; display:grid; place-items:center; background:rgba(3,7,14,.74); backdrop-filter:blur(2px); pointer-events:none; }
@@ -655,7 +655,7 @@ const [hitFreeze, setHitFreeze] = useState(false)
 
       {showGoalSaveTutorial && !tutorialDone && tutorialCountdown === null ? (
         <div className="gs-tutorial">
-          <div className="gs-tutorial__title">{isSuddenDeath ? 'PENALTY' : 'ATTENTION !'}</div>
+          <div className="gs-tutorial__title">{isSuddenDeath ? 'TUTORIEL PENALTY' : 'TUTORIEL ARRET'}</div>
           <div className="gs-tutorial__comment">
             <div className="gs-tutorial__avatar" aria-hidden="true">
               <KawaiiSprite
@@ -681,7 +681,7 @@ const [hitFreeze, setHitFreeze] = useState(false)
             </div>
           ) : (
             <button type="button" className="gs-tutorial-open" onClick={() => { sfx.click(); setShowGoalSaveDemo(true) }}>
-              Voir tuto
+              Voir tutoriel
             </button>
           )}
           {!roundIntroComment ? (
@@ -691,7 +691,7 @@ const [hitFreeze, setHitFreeze] = useState(false)
           ) : null}
           <div className="gs-tutorial__actions">
             {onRetry ? <button type="button" className="gs-tutorial__btn is-retry" onClick={onRetry}>{retryLabel ?? 'Réessayer la phase'}</button> : null}
-            <button type="button" className="gs-tutorial__btn" onClick={startGoalSaveTutorial}>{startLabel ?? 'Je défends !'}</button>
+            <button type="button" className="gs-tutorial__btn" onClick={startGoalSaveTutorial}>{startLabel ?? 'OK - Jouer'}</button>
           </div>
         </div>
       ) : null}
