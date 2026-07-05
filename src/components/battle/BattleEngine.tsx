@@ -315,6 +315,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const [roundScorer, setRoundScorer] = useState<BattleScorer | null>(null)
   const [matchScorers, setMatchScorers] = useState<BattleScorer[]>([])
   const [drawPreview, setDrawPreview] = useState<BattleRoundType[]>(() => [...STANDARD_ROUNDS])
+  const [drawHasStarted, setDrawHasStarted] = useState(false)
   const [isDrawingRounds, setIsDrawingRounds] = useState(false)
   const [drawComplete, setDrawComplete] = useState(false)
   const [drawRevealActive, setDrawRevealActive] = useState(false)
@@ -357,7 +358,10 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const launchRoundDraw = () => {
     if (isDrawingRounds) return
     drawStartedRef.current = true
-    setDrawRevealActive(false)
+    setDrawHasStarted(true)
+    setDrawRevealActive(true)
+    window.setTimeout(() => setDrawRevealActive(false), 980)
+    sfx.rouletteReveal()
     sfx.battle()
     const finalRounds = drawRoundSequence()
     setDrawPreview(drawRoundSequence())
@@ -384,19 +388,6 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
       }, 650)
     }, 1750)
   }
-
-  useEffect(() => {
-    if (state.phase !== 'draw' || drawStartedRef.current || drawComplete || isDrawingRounds) return
-    setDrawRevealActive(true)
-    sfx.rouletteReveal()
-    const revealTimer = window.setTimeout(() => setDrawRevealActive(false), 980)
-    const spinTimer = window.setTimeout(launchRoundDraw, 1080)
-    return () => {
-      window.clearTimeout(revealTimer)
-      window.clearTimeout(spinTimer)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawComplete, isDrawingRounds, state.phase])
 
   // Audio
   const playerWon = displayedResult.winnerId === homeTeamId
@@ -700,6 +691,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     setCoinFlipMode('sudden_death')
     setState(makeInitialState(homeTeamId, awayTeamId, skipIntro, selectedDifficulty))
     setDrawPreview([...STANDARD_ROUNDS])
+    setDrawHasStarted(false)
     setIsDrawingRounds(false)
     setDrawComplete(false)
     setDrawRevealActive(false)
@@ -807,16 +799,23 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           <strong>VS</strong>
           <span>{awayTeam?.shortName?.toUpperCase() ?? awayTeamId.toUpperCase()} <BattleFlag team={awayTeam} emoji={awayFlag || awayTeamId.slice(0, 2).toUpperCase()} /></span>
         </div>
-        <div className={`battle-draw__roulette${isDrawingRounds ? ' is-spinning' : ''}`} aria-label="Roulette des phases">
-          {drawPreview.map((round, index) => (
-            <div key={`${index}-${round}`} className={`battle-draw-slot is-${ROUND_LABELS[round].tone}`}>
-              <span className="battle-draw-slot__reel">
-                <BattlePhaseIcon type={round} />
-              </span>
-              <small>{ROUND_LABELS[round].label}</small>
-            </div>
-          ))}
-        </div>
+        {!drawHasStarted && !drawComplete ? (
+          <button type="button" className="battle-draw__launch" onClick={launchRoundDraw}>
+            Lancer le tirage
+          </button>
+        ) : null}
+        {drawHasStarted || drawComplete ? (
+          <div className={`battle-draw__roulette${isDrawingRounds ? ' is-spinning' : ''}`} aria-label="Roulette des phases">
+            {drawPreview.map((round, index) => (
+              <div key={`${index}-${round}`} className={`battle-draw-slot is-${ROUND_LABELS[round].tone}`}>
+                <span className="battle-draw-slot__reel">
+                  <BattlePhaseIcon type={round} />
+                </span>
+                <small>{ROUND_LABELS[round].label}</small>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {drawComplete ? (
           <div className="battle-draw__result" aria-live="polite">
             <span>Ce match va etre compose de</span>
@@ -830,10 +829,10 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         {drawComplete ? (
           <div className="battle-draw__actions">
             <button type="button" className="battle-draw__reroll" onClick={() => { sfx.click(); setDrawComplete(false); drawStartedRef.current = false; launchRoundDraw() }}>
-              Relancer la roue
+              Relancer le tirage
             </button>
             <button type="button" className="battle-draw__cta" onClick={() => { sfx.click(); setState((current) => ({ ...current, phase: 'playing' })) }}>
-              Continuer
+              Jouer
             </button>
           </div>
         ) : null}

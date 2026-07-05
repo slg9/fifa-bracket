@@ -1238,6 +1238,7 @@ export function AttackPhase({
 
       const isFeverActive = now < feverUntilRef.current
       const isSlowmoActive = now < slowmoUntilRef.current
+      const superAttackerNow = now < superAttackerUntilRef.current
       const playerSpeed = PLAYER_SPEED * (flowRef.current >= POWER_SHOT_FLOW_THRESHOLD ? 1.05 : 1) * (isFeverActive ? 1.12 : 1)
       const dashActiveNow = now < dashUntilRef.current
       const rouletteActiveNow = now < rouletteUntilRef.current
@@ -1268,7 +1269,7 @@ export function AttackPhase({
       }
 
       const progress = gdCheckedRef.current / Math.max(1, cfg.waveCount)
-      const speed = cfg.gdSpeed * (1 + progress * cfg.difficultyRamp) * (isSlowmoActive ? 0.68 : 1)
+      const speed = cfg.gdSpeed * (1 + progress * cfg.difficultyRamp) * (isSlowmoActive ? 0.68 : 1) * (superAttackerNow ? 1.5 : 1)
 
       // Walls fall: update ONE container transform  GPU composited, zero layout reflow
       gdFallPctRef.current += speed * delta
@@ -1316,7 +1317,6 @@ export function AttackPhase({
         const roulette = getRouletteState(now)
         const ghostActiveNow = now < ghostUntilRef.current
 
-        const superAttackerNow = now < superAttackerUntilRef.current
         if ((superAttackerNow || blastNextWaveRef.current) && wall.type !== 'bonus_choice') {
           if (!superAttackerNow) blastNextWaveRef.current = false
           wall.passed = true

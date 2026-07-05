@@ -90,6 +90,8 @@
 .battle-draw__smoke--b { width:210px;height:92px;transform:translate(-50%,6%);animation-delay:.06s; }
 .battle-draw__smoke--c { transform:translate(-14%,-16%);animation-delay:.1s; }
 .battle-draw__roulette { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:min(100%,360px);padding:12px;border:1px solid rgba(255,184,0,.34);border-radius:18px;background:linear-gradient(180deg,rgba(255,184,0,.13),rgba(5,11,22,.86));box-shadow:0 18px 40px rgba(0,0,0,.36),inset 0 0 0 1px rgba(255,255,255,.06);transform-origin:center center; }
+.battle-draw__launch { width:min(100%,320px);height:76px;border:0;border-radius:18px;background:linear-gradient(90deg,#FFB800,#ff9a00);color:#1c1000;font:900 21px var(--battle-font-condensed);letter-spacing:.14em;text-transform:uppercase;box-shadow:0 0 34px rgba(255,184,0,.38),0 18px 42px rgba(0,0,0,.34);cursor:pointer;animation:bk-btn 2.4s ease-in-out infinite; }
+.battle-draw__launch:active { transform:translateY(2px); }
 .battle-draw.is-revealing .battle-draw__roulette { position:relative;z-index:2;animation:battleDrawRoulettePop .98s cubic-bezier(.12,1.45,.18,1) both; }
 .battle-draw.is-drawing .battle-draw__roulette { animation:battleDrawRouletteShake .2s linear infinite; }
 .battle-draw.is-complete .battle-draw__roulette { animation:battleDrawRouletteSettle .48s cubic-bezier(.16,1.2,.2,1) both; }
