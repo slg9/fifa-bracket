@@ -15,6 +15,7 @@ type AttackPhaseProps = {
   awayTeamId: string
   homeTeamPlayers?: string[]
   awayTeamPlayers?: string[]
+  homeTeamPlayerNumbers?: Record<string, number>
   playerKit?: TeamKit
   opponentKit?: TeamKit
   onRoundEnd: (isGoal: boolean, reason?: AttackEndReason, scorer?: BattleScorer) => void
@@ -186,14 +187,19 @@ function playerLastName(value: string) {
   return parts[parts.length - 1] || value
 }
 
-function buildShooterOptions(players: string[], teamId: string): BattleScorer[] {
+function buildShooterOptions(players: string[], teamId: string, playerNumbers?: Record<string, number>): BattleScorer[] {
   const uniquePlayers = Array.from(new Set(players.map((name) => name.trim()).filter(Boolean)))
   const source = uniquePlayers.length ? uniquePlayers : [`Buteur ${teamId.toUpperCase()}`]
+  const normalizedNumbers = new Map(
+    Object.entries(playerNumbers ?? {}).map(([name, number]) => [normalizePlayerName(name), number]),
+  )
 
   return source.map((name, index) => ({
     name,
     teamId,
-    number: KNOWN_PLAYER_NUMBERS[normalizePlayerName(name)] ?? FALLBACK_ATTACKER_NUMBERS[index % FALLBACK_ATTACKER_NUMBERS.length],
+    number: normalizedNumbers.get(normalizePlayerName(name))
+      ?? KNOWN_PLAYER_NUMBERS[normalizePlayerName(name)]
+      ?? FALLBACK_ATTACKER_NUMBERS[index % FALLBACK_ATTACKER_NUMBERS.length],
     controlled: true,
   }))
 }
@@ -622,6 +628,7 @@ export function AttackPhase({
   awayTeamId,
   homeTeamPlayers = [],
   awayTeamPlayers = [],
+  homeTeamPlayerNumbers,
   playerKit,
   opponentKit,
   onRoundEnd,
@@ -648,7 +655,7 @@ export function AttackPhase({
   // Utiliser tous les joueurs de l'equipe (plus de limite a 6)
   // Pour commencer par les attaquants, il faudrait avoir les roles dans les donnees
   const forwardPlayers = useMemo(() => [...homeTeamPlayers], [homeTeamPlayers])
-  const shooterOptions = useMemo(() => buildShooterOptions(forwardPlayers, homeTeamId), [homeTeamId, forwardPlayers])
+  const shooterOptions = useMemo(() => buildShooterOptions(forwardPlayers, homeTeamId, homeTeamPlayerNumbers), [homeTeamId, forwardPlayers, homeTeamPlayerNumbers])
   const [shooterIndex, setShooterIndex] = useState(0)
   const selectedShooterIndex = shooterIndex % shooterOptions.length
   const selectedShooter = shooterOptions[selectedShooterIndex] ?? shooterOptions[0]

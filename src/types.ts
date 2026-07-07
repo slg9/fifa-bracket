@@ -14,6 +14,13 @@ export type Team = {
   flagEmoji: string
   groupId: string
   players?: string[]
+  playerNumbers?: Record<string, number>
+  playerRoles?: {
+    attackers?: string[]
+    midfielders?: string[]
+    defenders?: string[]
+    keepers?: string[]
+  }
 }
 
 export type MatchStatus = 'scheduled' | 'live' | 'finished'

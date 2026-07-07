@@ -55,9 +55,27 @@ function uniquePlayerNames(players: string[] | undefined) {
   return Array.from(new Set((players ?? []).map((name) => name.trim()).filter(Boolean)))
 }
 
-function splitPlayerRoles(players: string[] | undefined) {
+function splitPlayerRoles(players: string[] | undefined, roles?: Team['playerRoles']) {
   const names = uniquePlayerNames(players)
   if (!names.length) return { attackers: [] as string[], defenders: [] as string[], keepers: [] as string[] }
+  const roleAttackers = uniquePlayerNames(roles?.attackers)
+  const roleMidfielders = uniquePlayerNames(roles?.midfielders)
+  const roleDefenders = uniquePlayerNames(roles?.defenders)
+  const roleKeepers = uniquePlayerNames(roles?.keepers)
+
+  if (roleAttackers.length || roleMidfielders.length || roleDefenders.length || roleKeepers.length) {
+    const attackers = roleAttackers.length ? roleAttackers : names.slice(-ASSUMED_ATTACKER_COUNT)
+    const keepers = roleKeepers.length ? roleKeepers : names.slice(0, ASSUMED_KEEPER_COUNT)
+    const defenders = [...roleDefenders, ...roleMidfielders].length
+      ? [...roleDefenders, ...roleMidfielders]
+      : names.filter((name) => !attackers.includes(name) && !keepers.includes(name))
+    return {
+      attackers,
+      defenders: defenders.length ? defenders : names.filter((name) => !keepers.includes(name)),
+      keepers,
+    }
+  }
+
   if (names.length <= 4) {
     return {
       attackers: names.slice(0, Math.max(1, names.length - 1)),
@@ -65,15 +83,15 @@ function splitPlayerRoles(players: string[] | undefined) {
       keepers: names.slice(-1),
     }
   }
-  const keeperStart = Math.max(1, names.length - ASSUMED_KEEPER_COUNT)
-  const attackEnd = Math.min(ASSUMED_ATTACKER_COUNT, keeperStart)
-  const attackers = names.slice(0, Math.max(1, attackEnd))
-  const defenders = names.slice(attackEnd, keeperStart)
-  const keepers = names.slice(keeperStart)
+  const keeperEnd = Math.min(ASSUMED_KEEPER_COUNT, names.length - 1)
+  const attackerStart = Math.max(keeperEnd + 1, names.length - ASSUMED_ATTACKER_COUNT)
+  const keepers = names.slice(0, keeperEnd)
+  const attackers = names.slice(attackerStart)
+  const defenders = names.slice(keeperEnd, attackerStart)
   return {
     attackers,
-    defenders: defenders.length ? defenders : names.slice(Math.max(1, keeperStart - ASSUMED_ATTACKER_COUNT), keeperStart),
-    keepers: keepers.length ? keepers : names.slice(-1),
+    defenders: defenders.length ? defenders : names.slice(keeperEnd, Math.max(keeperEnd + 1, names.length - 1)),
+    keepers: keepers.length ? keepers : names.slice(0, 1),
   }
 }
 
@@ -82,17 +100,17 @@ function pickFromPool(players: string[], fallback?: string) {
   return players[Math.floor(Math.random() * players.length)] ?? fallback
 }
 
-function pickForward(players: string[] | undefined, fallback?: string) {
-  const roles = splitPlayerRoles(players)
-  return roles.attackers[0] ?? fallback
+function pickForward(players: string[] | undefined, fallback?: string, roles?: Team['playerRoles']) {
+  const rolesSplit = splitPlayerRoles(players, roles)
+  return rolesSplit.attackers[0] ?? fallback
 }
 
-function pickDefender(players: string[] | undefined, fallback?: string) {
-  return pickFromPool(splitPlayerRoles(players).defenders, fallback)
+function pickDefender(players: string[] | undefined, fallback?: string, roles?: Team['playerRoles']) {
+  return pickFromPool(splitPlayerRoles(players, roles).defenders, fallback)
 }
 
-function pickKeeper(players: string[] | undefined, fallback?: string) {
-  return splitPlayerRoles(players).keepers.at(-1) ?? fallback
+function pickKeeper(players: string[] | undefined, fallback?: string, roles?: Team['playerRoles']) {
+  return splitPlayerRoles(players, roles).keepers[0] ?? fallback
 }
 
 type NextAction = { type: 'next'; append?: BattleRoundType; insertNext?: BattleRoundType } | { type: 'finish' } | { type: 'coin_flip' }
@@ -289,8 +307,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const awayFlag = awayTeam?.flagEmoji ?? ''
   const homeKit = useMemo(() => resolveTeamKit(homeTeam, homeTeamId), [homeTeam, homeTeamId])
   const awayKit = useMemo(() => resolveTeamKit(awayTeam, awayTeamId), [awayTeam, awayTeamId])
-  const homeRoles = useMemo(() => splitPlayerRoles(homeTeam?.players), [homeTeam?.players])
-  const awayRoles = useMemo(() => splitPlayerRoles(awayTeam?.players), [awayTeam?.players])
+  const homeRoles = useMemo(() => splitPlayerRoles(homeTeam?.players, homeTeam?.playerRoles), [homeTeam?.players, homeTeam?.playerRoles])
+  const awayRoles = useMemo(() => splitPlayerRoles(awayTeam?.players, awayTeam?.playerRoles), [awayTeam?.players, awayTeam?.playerRoles])
   const skipIntro = playerSide != null
   const skipScreens = false
   const selectedDifficulty = resolveDifficulty(match.stage, difficultySetting)
@@ -325,11 +343,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const audioVolume = useGameAudioVolume()
 
   // Pick stable player names for this match (avoid re-computing each render)
-  const homeAttackerName = useMemo(() => pickForward(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} ATT` : undefined), [homeTeam?.players, homeTeam?.shortName])
-  const awayAttackerName = useMemo(() => pickForward(awayTeam?.players, awayTeam?.shortName ? `${awayTeam.shortName} ATT` : undefined), [awayTeam?.players, awayTeam?.shortName])
-  const homeDefenderName = useMemo(() => pickDefender(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} DEF` : undefined), [homeTeam?.players, homeTeam?.shortName])
-  const homeKeeperName = useMemo(() => pickKeeper(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} GK` : undefined), [homeTeam?.players, homeTeam?.shortName])
-  const awayKeeperName = useMemo(() => pickKeeper(awayTeam?.players, awayTeam?.shortName ? `${awayTeam.shortName} GK` : undefined), [awayTeam?.players, awayTeam?.shortName])
+  const homeAttackerName = useMemo(() => pickForward(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} ATT` : undefined, homeTeam?.playerRoles), [homeTeam?.players, homeTeam?.shortName, homeTeam?.playerRoles])
+  const awayAttackerName = useMemo(() => pickForward(awayTeam?.players, awayTeam?.shortName ? `${awayTeam.shortName} ATT` : undefined, awayTeam?.playerRoles), [awayTeam?.players, awayTeam?.shortName, awayTeam?.playerRoles])
+  const homeDefenderName = useMemo(() => pickDefender(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} DEF` : undefined, homeTeam?.playerRoles), [homeTeam?.players, homeTeam?.shortName, homeTeam?.playerRoles])
+  const homeKeeperName = useMemo(() => pickKeeper(homeTeam?.players, homeTeam?.shortName ? `${homeTeam.shortName} GK` : undefined, homeTeam?.playerRoles), [homeTeam?.players, homeTeam?.shortName, homeTeam?.playerRoles])
+  const awayKeeperName = useMemo(() => pickKeeper(awayTeam?.players, awayTeam?.shortName ? `${awayTeam.shortName} GK` : undefined, awayTeam?.playerRoles), [awayTeam?.players, awayTeam?.shortName, awayTeam?.playerRoles])
 
   const currentRound = state.rounds[state.roundIndex]
   const suddenDeath = state.roundIndex >= state.suddenDeathStartIndex
@@ -882,7 +900,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
       {/* Game phases */}
       {/* Show during countdown too so the player can preview the game layout */}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'attack' && !suddenDeath
-        ? <AttackPhase key={`attack-${state.roundIndex}-${state.difficulty}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeRoles.attackers} awayTeamPlayers={awayRoles.defenders} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} shotOnly={isCounterAttackRound || retryShotOnly} shotAudioMode={isCounterAttackRound ? 'heartOnly' : undefined} shotTitle={isCounterAttackRound ? 'TIR BONUS' : retryShotOnly ? 'PHASE DE TIR' : undefined} roundIntroComment={isCounterAttackRound ? (previousRound?.type === 'fruit_ninja' ? 'Bravo ! Tu as bloqué tous les tirs. Tu gagnes un tir bonus.' : 'Bravo ! Perfect défensif. Tu gagnes un tir bonus.') : undefined} />
+        ? <AttackPhase key={`attack-${state.roundIndex}-${state.difficulty}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeRoles.attackers} homeTeamPlayerNumbers={homeTeam?.playerNumbers} awayTeamPlayers={awayRoles.defenders} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} shotOnly={isCounterAttackRound || retryShotOnly} shotAudioMode={isCounterAttackRound ? 'heartOnly' : undefined} shotTitle={isCounterAttackRound ? 'TIR BONUS' : retryShotOnly ? 'PHASE DE TIR' : undefined} roundIntroComment={isCounterAttackRound ? (previousRound?.type === 'fruit_ninja' ? 'Bravo ! Tu as bloqué tous les tirs. Tu gagnes un tir bonus.' : 'Bravo ! Perfect défensif. Tu gagnes un tir bonus.') : undefined} />
         : null}
       {state.phase === 'playing' && currentRound === 'attack' && suddenDeath
         ? <AttackPhase
@@ -891,6 +909,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
             homeTeamId={homeTeamId}
             awayTeamId={awayTeamId}
             homeTeamPlayers={homeRoles.attackers}
+            homeTeamPlayerNumbers={homeTeam?.playerNumbers}
             awayTeamPlayers={awayRoles.defenders}
             playerKit={homeKit}
             opponentKit={awayKit}
