@@ -3759,12 +3759,15 @@
 
 .brakup-outcome__panel {
   width: min(100%, 430px);
+  max-height: calc(100dvh - 28px);
   position: relative;
   z-index: 1;
   display: grid;
   justify-items: center;
   gap: 11px;
   padding: 26px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   text-align: center;
   color: #fff;
   text-shadow: 0 6px 24px rgba(0, 0, 0, .48);
@@ -3960,10 +3963,14 @@
 }
 
 .brakup-outcome__scores strong {
+  min-width: 0;
   color: #FFB800;
   font: 900 13px 'Barlow Condensed', sans-serif;
   letter-spacing: .07em;
   text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brakup-outcome__scores em {
@@ -3977,6 +3984,24 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.brakup-outcome__more {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 999px;
+  background: rgba(255,255,255,.09);
+  color: #fff;
+  font: 900 12px 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.brakup-outcome__more:active {
+  transform: scale(.96);
+}
+
 .brakup-outcome__share-copy {
   color: #fff1b8;
   font: 900 13px/1.2 'Barlow Condensed', sans-serif;

@@ -460,6 +460,7 @@ export function BrakupHub({
   const [isOutcomeCapturingShare, setIsOutcomeCapturingShare] = useState(false)
   const [outcomeNoticeKey, setOutcomeNoticeKey] = useState<string | null>(null)
   const [forcedOutcomeNotice, setForcedOutcomeNotice] = useState<OutcomeNotice | null>(null)
+  const [outcomeBreakdownExpanded, setOutcomeBreakdownExpanded] = useState(false)
   const [seenOutcomeVersion, setSeenOutcomeVersion] = useState(0)
   const [remoteSeenOutcomeKeys, setRemoteSeenOutcomeKeys] = useState<string[]>([])
   const outcomeShareRunRef = useRef(0)
@@ -1178,7 +1179,7 @@ export function BrakupHub({
   const closeOutcomeNotice = () => {
     if (outcomeNotice && !forcedOutcomeNotice) {
       const seen = new Set(readSeenOutcomeKeys())
-      seen.add(outcomeNotice.key)
+      pendingOutcomeNotices.forEach((item) => seen.add(item.key))
       const nextSeen = [...new Set([...remoteSeenOutcomeKeys, ...seen])]
       localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify(nextSeen))
       setRemoteSeenOutcomeKeys(nextSeen)
@@ -1198,6 +1199,7 @@ export function BrakupHub({
     setOutcomeSharePreviewUrl(null)
     setOutcomeSharePreviewOpen(false)
     setIsOutcomeCapturingShare(false)
+    setOutcomeBreakdownExpanded(false)
   }
 
   const showOutcomeAt = (index: number) => {
@@ -1371,6 +1373,30 @@ export function BrakupHub({
     ...(outcomeNotice?.progress.exact ? [{ label: `Score exact +${outcomeNotice.progress.exactPoints}`, tone: 'win' as const }] : []),
     ...(outcomeNotice && outcomeScorerNames.length ? [{ label: `Buteur trouve +${outcomeNotice.progress.scorerPoints}: ${outcomeScorerNames.join(', ')}`, tone: 'win' as const }] : []),
   ]
+  const outcomeScoreRows = outcomeNotice ? [
+    {
+      label: 'Vainqueur trouve',
+      detail: outcomeNotice.progress.correct ? outcomeRealWinnerLabel : null,
+      points: outcomeNotice.progress.correct ? `+${outcomeNotice.progress.stagePoints}` : '0',
+    },
+    ...(outcomeExactLabel ? [{
+      label: 'Score exact reussi',
+      detail: null,
+      points: outcomeExactLabel,
+    }] : []),
+    ...(outcomeScorerLabel ? [{
+      label: 'Buteur trouve',
+      detail: null,
+      points: outcomeScorerLabel,
+    }] : []),
+    ...(outcomeScorerNames.length ? [{
+      label: 'Scoreurs Brakup',
+      detail: null,
+      points: outcomeScorerNames.join(', '),
+    }] : []),
+  ] : []
+  const visibleOutcomeScoreRows = outcomeBreakdownExpanded ? outcomeScoreRows : outcomeScoreRows.slice(0, 2)
+  const hiddenOutcomeScoreRows = Math.max(0, outcomeScoreRows.length - visibleOutcomeScoreRows.length)
   const menuPseudo = savedProfile.pseudo || brackets.find((entry) => entry.id === activeBracketId)?.pseudo || 'Invite'
   const singleBracketEntry = currentLeaderboardEntry ?? brackets[0] ?? null
 
@@ -1381,6 +1407,7 @@ export function BrakupHub({
     setOutcomeSharePreviewUrl(null)
     setOutcomeSharePreviewOpen(false)
     setIsOutcomeCapturingShare(false)
+    setOutcomeBreakdownExpanded(false)
   }, [outcomeNotice?.key])
 
   useEffect(() => () => {
@@ -1638,11 +1665,22 @@ export function BrakupHub({
               <span>points gagnés</span>
             </div>
             <div className="brakup-outcome__scores">
-              <span>Vainqueur trouvé {outcomeNotice.progress.correct ? <em>{outcomeRealWinnerLabel}</em> : null} <strong>{outcomeNotice.progress.correct ? `+${outcomeNotice.progress.stagePoints}` : '0'}</strong></span>
-              {outcomeExactLabel ? <span>Score exact réussi <strong>{outcomeExactLabel}</strong></span> : null}
-              {outcomeScorerLabel ? <span>Buteur trouvé <strong>{outcomeScorerLabel}</strong></span> : null}
-              {outcomeScorerNames.length ? <span>Scoreurs Brakup <strong>{outcomeScorerNames.join(', ')}</strong></span> : null}
+              {visibleOutcomeScoreRows.map((row) => (
+                <span key={`${row.label}-${row.points}`}>
+                  {row.label} {row.detail ? <em>{row.detail}</em> : null}
+                  <strong>{row.points}</strong>
+                </span>
+              ))}
             </div>
+            {hiddenOutcomeScoreRows > 0 ? (
+              <button type="button" className="brakup-outcome__more" onClick={() => { sfx.tab(); setOutcomeBreakdownExpanded(true) }}>
+                Voir +{hiddenOutcomeScoreRows}
+              </button>
+            ) : outcomeBreakdownExpanded && outcomeScoreRows.length > 2 ? (
+              <button type="button" className="brakup-outcome__more" onClick={() => { sfx.tab(); setOutcomeBreakdownExpanded(false) }}>
+                Voir moins
+              </button>
+            ) : null}
             <div className="brakup-outcome__share-copy">
               {isOutcomeCapturingShare ? 'Tente ta chance avec ton prono.' : 'Envoie ton prono et invite tes potes à tenter le leur.'}
             </div>
