@@ -37,7 +37,7 @@ export async function loadLiveSnapshot(): Promise<LiveSnapshot | null> {
 }
 
 export async function syncLiveSnapshot(): Promise<LiveSnapshot> {
-  const response = await fetch('/api/fifa-sync', { cache: 'no-store' })
+  const response = await fetch('/api/fifa-sync')
 
   if (!response.ok) {
     throw new Error('Synchronisation live indisponible.')

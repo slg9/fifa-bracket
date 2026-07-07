@@ -2151,13 +2151,20 @@ function App() {
 
   // Silent background sync — no spinner, no error banner
   const silentSyncRef = useRef<() => void>(() => {})
+  const syncInFlightRef = useRef(false)
   useEffect(() => {
     silentSyncRef.current = async () => {
+      if (syncInFlightRef.current) return
+      if (document.visibilityState === 'hidden') return
+
+      syncInFlightRef.current = true
       try {
         const snapshot = await requestLiveSync()
         setLiveSource((current) => mergeLiveSnapshot(current, snapshot))
       } catch {
         // network hiccup — keep current data
+      } finally {
+        syncInFlightRef.current = false
       }
     }
   })
@@ -2167,8 +2174,8 @@ function App() {
     if (!seed) return null
     const now = Date.now()
 
-    // Any live match → poll every 20s (Jina latency ~2-3s, avoid overlap)
-    if (liveSource.matches.some((m) => m.status === 'live' || isLiveNow(m.kickoffIso))) return 20_000
+    // Any live match -> poll every 2 min; the API also has a short shared cache.
+    if (liveSource.matches.some((m) => m.status === 'live' || isLiveNow(m.kickoffIso))) return 2 * 60_000
 
     // Find closest upcoming kickoff (from live snapshot which has kickoffIso)
     const msToNext = liveSource.matches
@@ -2178,15 +2185,15 @@ function App() {
       .sort((a, b) => a - b)[0]
 
     if (msToNext !== undefined) {
-      if (msToNext < 15 * 60_000)  return 60_000        // < 15 min → 1 min
-      if (msToNext < 2 * 3600_000) return 2 * 60_000    // < 2h    → 2 min
+      if (msToNext < 15 * 60_000) return 3 * 60_000
+      if (msToNext < 2 * 3600_000) return 10 * 60_000
     }
 
-    // Match day but nothing imminent → 5 min
+    // Match day but nothing imminent -> 15 min
     if (liveSource.matches.some((match) => {
       const seedMatch = seed.matches.find((candidate) => candidate.id === match.id)
       return seedMatch ? isMatchToday({ ...seedMatch, kickoffIso: match.kickoffIso }) : false
-    })) return 5 * 60_000
+    })) return 15 * 60_000
 
     return null // no relevant match → no polling
   }, [seed, liveSource.matches])
