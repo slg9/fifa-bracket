@@ -8,7 +8,7 @@ import BracketChallenge from './challenge/BracketChallenge'
 import Leaderboard from './challenge/Leaderboard'
 import LoginEntry from './challenge/LoginEntry'
 import ProfileSettings from './challenge/ProfileSettings'
-import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
+import { loadLiveSnapshot, loadSeed, fetchMatchStats, fetchOdds } from './lib/data'
 import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import { alternateLanguageHref, getCurrentLocale, isChallengeRoute, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
@@ -28,7 +28,6 @@ import {
 import type {
   ChallengeEntry,
   GroupMatch,
-  LiveSnapshot,
   KnockoutEntrant,
   MatchOverride,
   MatchPrediction,
@@ -50,22 +49,6 @@ type LiveState = {
   standings: RankedStandingRow[]
   predictions: MatchPrediction[]
   topScorers?: Array<{ name: string; teamCode: string; goals: number }>
-}
-
-function mergeLiveSnapshot(current: LiveState, snapshot: LiveSnapshot): LiveState {
-  const hasMatches = snapshot.matches.length > 0
-  const hasStandings = snapshot.standings.length > 0
-  const extractionFailed = !hasMatches && !hasStandings
-
-  return {
-    syncedAt: extractionFailed ? current.syncedAt : snapshot.syncedAt,
-    source: extractionFailed ? current.source : snapshot.source,
-    warnings: extractionFailed ? [] : snapshot.warnings,
-    matches: hasMatches ? snapshot.matches : current.matches,
-    standings: hasStandings ? snapshot.standings : current.standings,
-    predictions: snapshot.predictions?.length ? snapshot.predictions : current.predictions,
-    topScorers: snapshot.topScorers?.length ? snapshot.topScorers : current.topScorers,
-  }
 }
 
 function hasRenderableScore(match: Pick<GroupMatch, 'homeScore' | 'awayScore'>): boolean {
@@ -297,12 +280,6 @@ function formatDayLabel(dateKey: string): string {
     day: 'numeric',
     month: 'long',
   }).format(date)
-}
-
-function isLiveNow(kickoffIso: string | null | undefined): boolean {
-  if (!kickoffIso) return false
-  const elapsed = Date.now() - new Date(kickoffIso).getTime()
-  return elapsed >= 0 && elapsed < 130 * 60 * 1000
 }
 
 // If the scraper still marks a match as 'scheduled' but kickoff time has passed,
@@ -1834,7 +1811,6 @@ function App() {
       sharedBracket: Boolean(sharedBracketId),
     })
   }, [adminMode, challengeBoardMode, challengeMode, publicPseudo, sharedBracketId, simulatorMode])
-  const initialSyncBaselineRef = useRef<string | null>(null)
   const previousCompleteBonusRef = useRef(0)
   const completeBonusArmedRef = useRef(false)
   const challengeLoginFlowRef = useRef<'existing' | 'new'>('existing')
@@ -1936,16 +1912,7 @@ function App() {
           })
         }
         setLoading(false)
-        setInitialDayModalLoading(true)
-        initialSyncBaselineRef.current = staticSnapshot?.syncedAt ?? null
-
-        // Then fetch fresh scores from FIFA.com in background
-        requestLiveSync().then((liveSnapshot) => {
-          if (!active) return
-          setLiveSource((current) => mergeLiveSnapshot(current, liveSnapshot))
-        }).catch(() => {
-          // Sync failed — static data already shown, nothing to do
-        })
+        setInitialDayModalLoading(false)
 
         // Fetch odds in background (cached 2h at CDN edge)
         fetchOdds().then((odds) => {
@@ -2118,23 +2085,6 @@ function App() {
   }, [publicBracketsLoaded, sidePanel])
 
   useEffect(() => {
-    if (!initialDayModalLoading) {
-      return
-    }
-
-    if (liveSource.syncedAt && liveSource.syncedAt !== initialSyncBaselineRef.current) {
-      setInitialDayModalLoading(false)
-      return
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setInitialDayModalLoading(false)
-    }, 8000)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [initialDayModalLoading, liveSource.syncedAt])
-
-  useEffect(() => {
     if (challengeMode) return
     if (!showDayModal && !matchModalGroupId && !matchStatsModal) return
 
@@ -2148,62 +2098,6 @@ function App() {
       document.body.style.overscrollBehavior = previousOverscroll
     }
   }, [challengeMode, showDayModal, matchModalGroupId, matchStatsModal])
-
-  // Silent background sync — no spinner, no error banner
-  const silentSyncRef = useRef<() => void>(() => {})
-  const syncInFlightRef = useRef(false)
-  useEffect(() => {
-    silentSyncRef.current = async () => {
-      if (syncInFlightRef.current) return
-      if (document.visibilityState === 'hidden') return
-
-      syncInFlightRef.current = true
-      try {
-        const snapshot = await requestLiveSync()
-        setLiveSource((current) => mergeLiveSnapshot(current, snapshot))
-      } catch {
-        // network hiccup — keep current data
-      } finally {
-        syncInFlightRef.current = false
-      }
-    }
-  })
-
-  // Compute how often to poll based on match schedule
-  const pollingInterval = useMemo(() => {
-    if (!seed) return null
-    const now = Date.now()
-
-    // Any live match -> poll every 2 min; the API also has a short shared cache.
-    if (liveSource.matches.some((m) => m.status === 'live' || isLiveNow(m.kickoffIso))) return 2 * 60_000
-
-    // Find closest upcoming kickoff (from live snapshot which has kickoffIso)
-    const msToNext = liveSource.matches
-      .filter((m) => m.kickoffIso && m.status === 'scheduled')
-      .map((m) => new Date(m.kickoffIso!).getTime() - now)
-      .filter((d) => d > 0)
-      .sort((a, b) => a - b)[0]
-
-    if (msToNext !== undefined) {
-      if (msToNext < 15 * 60_000) return 3 * 60_000
-      if (msToNext < 2 * 3600_000) return 10 * 60_000
-    }
-
-    // Match day but nothing imminent -> 15 min
-    if (liveSource.matches.some((match) => {
-      const seedMatch = seed.matches.find((candidate) => candidate.id === match.id)
-      return seedMatch ? isMatchToday({ ...seedMatch, kickoffIso: match.kickoffIso }) : false
-    })) return 15 * 60_000
-
-    return null // no relevant match → no polling
-  }, [seed, liveSource.matches])
-
-  // Start / restart polling whenever the interval changes
-  useEffect(() => {
-    if (!pollingInterval) return
-    const id = setInterval(() => silentSyncRef.current(), pollingInterval)
-    return () => clearInterval(id)
-  }, [pollingInterval])
 
   // Tick every 30s to keep live-minute display fresh between polls
   useEffect(() => {
