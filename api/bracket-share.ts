@@ -22,6 +22,8 @@ const MAX_DATA_URL_BYTES = 8 * 1024 * 1024
 const memoryShares = new Map<string, PublicBracketShare>()
 const memoryImages = new Map<string, Buffer>()
 
+class ValidationError extends Error {}
+
 function parseBody(req: ApiRequest): Record<string, unknown> {
   if (typeof req.body === 'string') return JSON.parse(req.body) as Record<string, unknown>
   return (req.body ?? {}) as Record<string, unknown>
@@ -54,10 +56,10 @@ function escapeHtml(value: string) {
 
 function dataUrlToPngBuffer(dataUrl: string) {
   const match = dataUrl.match(/^data:image\/png;base64,([a-zA-Z0-9+/=]+)$/)
-  if (!match) throw new Error('Image PNG invalide.')
+  if (!match) throw new ValidationError('Image PNG invalide.')
   const buffer = Buffer.from(match[1], 'base64')
   if (buffer.byteLength <= 0 || buffer.byteLength > MAX_DATA_URL_BYTES) {
-    throw new Error('Image trop lourde pour le partage.')
+    throw new ValidationError('Image trop lourde pour le partage.')
   }
   return buffer
 }
@@ -220,6 +222,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const imageUrl = `${origin}/api/bracket-share?id=${encodeURIComponent(share.id)}&image=1`
     sendHtml(res, share, shareUrl, imageUrl, origin)
   } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(400).json({ error: error.message })
+      return
+    }
     res.status(500).json({ error: error instanceof Error ? error.message : 'Partage indisponible.' })
   }
 }

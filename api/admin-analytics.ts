@@ -275,10 +275,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const action = String(body.action ?? '')
 
     if (action === 'track') {
-      const store = await readStore()
-      mergeSession(store, body, req)
-      await writeStore(store)
-      res.status(200).json({ data: { ok: true } })
+      try {
+        const store = await readStore()
+        mergeSession(store, body, req)
+        await writeStore(store)
+        res.status(200).json({ data: { ok: true } })
+      } catch (trackError) {
+        console.warn('[analytics] track ignored:', trackError instanceof Error ? trackError.message : trackError)
+        res.status(200).json({ data: { ok: false } })
+      }
       return
     }
 
