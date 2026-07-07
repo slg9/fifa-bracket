@@ -8,7 +8,7 @@ import BracketChallenge from './challenge/BracketChallenge'
 import Leaderboard from './challenge/Leaderboard'
 import LoginEntry from './challenge/LoginEntry'
 import ProfileSettings from './challenge/ProfileSettings'
-import { loadLiveSnapshot, loadSeed, fetchMatchStats, fetchOdds } from './lib/data'
+import { loadLiveSnapshot, loadSeed, syncLiveSnapshot as requestLiveSync, fetchMatchStats, fetchOdds } from './lib/data'
 import type { MatchEventsData, MatchOdds, OddsSnapshot } from './lib/data'
 import { alternateLanguageHref, getCurrentLocale, isChallengeRoute, localizedChallengeHref, useAppI18n } from './lib/i18n'
 import { formatKnockoutDateTime, knockoutKickoffById } from './lib/knockoutSchedule'
@@ -28,6 +28,7 @@ import {
 import type {
   ChallengeEntry,
   GroupMatch,
+  LiveSnapshot,
   KnockoutEntrant,
   MatchOverride,
   MatchPrediction,
@@ -49,6 +50,22 @@ type LiveState = {
   standings: RankedStandingRow[]
   predictions: MatchPrediction[]
   topScorers?: Array<{ name: string; teamCode: string; goals: number }>
+}
+
+function mergeLiveSnapshot(current: LiveState, snapshot: LiveSnapshot): LiveState {
+  const hasMatches = snapshot.matches.length > 0
+  const hasStandings = snapshot.standings.length > 0
+  const extractionFailed = !hasMatches && !hasStandings
+
+  return {
+    syncedAt: extractionFailed ? current.syncedAt : snapshot.syncedAt,
+    source: extractionFailed ? current.source : snapshot.source,
+    warnings: extractionFailed ? [] : snapshot.warnings,
+    matches: hasMatches ? snapshot.matches : current.matches,
+    standings: hasStandings ? snapshot.standings : current.standings,
+    predictions: snapshot.predictions?.length ? snapshot.predictions : current.predictions,
+    topScorers: snapshot.topScorers?.length ? snapshot.topScorers : current.topScorers,
+  }
 }
 
 function hasRenderableScore(match: Pick<GroupMatch, 'homeScore' | 'awayScore'>): boolean {
@@ -1913,6 +1930,14 @@ function App() {
         }
         setLoading(false)
         setInitialDayModalLoading(false)
+
+        // One fresh FIFA pull on page entry, without background polling afterward.
+        requestLiveSync().then((liveSnapshot) => {
+          if (!active) return
+          setLiveSource((current) => mergeLiveSnapshot(current, liveSnapshot))
+        }).catch(() => {
+          // Static data is already shown; keep it if the fresh pull fails.
+        })
 
         // Fetch odds in background (cached 2h at CDN edge)
         fetchOdds().then((odds) => {
