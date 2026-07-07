@@ -817,12 +817,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           <strong>VS</strong>
           <span>{awayTeam?.shortName?.toUpperCase() ?? awayTeamId.toUpperCase()} <BattleFlag team={awayTeam} emoji={awayFlag || awayTeamId.slice(0, 2).toUpperCase()} /></span>
         </div>
-        {!drawHasStarted && !drawComplete ? (
-          <button type="button" className="battle-draw__launch" onClick={launchRoundDraw}>
-            Lancer le tirage
-          </button>
-        ) : null}
-        {drawHasStarted || drawComplete ? (
+        <div className="battle-draw__machine">
           <div className={`battle-draw__roulette${isDrawingRounds ? ' is-spinning' : ''}`} aria-label="Roulette des phases">
             {drawPreview.map((round, index) => (
               <div key={`${index}-${round}`} className={`battle-draw-slot is-${ROUND_LABELS[round].tone}`}>
@@ -833,6 +828,16 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
               </div>
             ))}
           </div>
+          <button type="button" className="battle-draw__lever" onClick={launchRoundDraw} disabled={isDrawingRounds || drawComplete} aria-label="Actionner le levier du tirage">
+            <i className="battle-draw__lever-stick" />
+            <i className="battle-draw__lever-ball" />
+            <i className="battle-draw__lever-base" />
+          </button>
+        </div>
+        {!drawHasStarted && !drawComplete ? (
+          <button type="button" className="battle-draw__launch" onClick={launchRoundDraw}>
+            Lancer le tirage
+          </button>
         ) : null}
         {drawComplete ? (
           <div className="battle-draw__result" aria-live="polite">

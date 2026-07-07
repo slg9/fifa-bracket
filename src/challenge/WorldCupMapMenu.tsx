@@ -517,21 +517,6 @@ function LevelEntryScreen({
   onShowBracket?: () => void
   onShare?: () => void
 }) {
-  const leverTimerRef = useRef<number | null>(null)
-  const [leverPulling, setLeverPulling] = useState(false)
-
-  useEffect(() => () => {
-    if (leverTimerRef.current !== null) window.clearTimeout(leverTimerRef.current)
-  }, [])
-
-  useEffect(() => {
-    setLeverPulling(false)
-    if (leverTimerRef.current !== null) {
-      window.clearTimeout(leverTimerRef.current)
-      leverTimerRef.current = null
-    }
-  }, [node?.id, open])
-
   if (!open || !node) return null
 
   const canSimulate = Boolean(node.homeTeam && node.awayTeam && onSimulate)
@@ -568,16 +553,6 @@ function LevelEntryScreen({
         ? 'Ton vainqueur est deja choisi.'
         : 'Touche une equipe.'
   const showStatusHint = node.status === 'locked'
-  const triggerCasinoPlay = () => {
-    if (!selectedWinnerTeam || leverPulling) return
-    sfx.pick()
-    setLeverPulling(true)
-    if (leverTimerRef.current !== null) window.clearTimeout(leverTimerRef.current)
-    leverTimerRef.current = window.setTimeout(() => {
-      leverTimerRef.current = null
-      onPlay(node.id, selectedWinnerTeam.id)
-    }, 620)
-  }
 
   return (
     <div className="wcmap-entry" role="dialog" aria-modal="true">
@@ -669,32 +644,13 @@ function LevelEntryScreen({
         ) : null}
 
         {canPlaySelectedWinner ? (
-          <div className={`wcmap-entry__casino${leverPulling ? ' is-pulling' : ''}`}>
-            <div className="wcmap-entry__casino-wheel" aria-hidden="true">
-              <span><TeamFlag team={node.homeTeam} /></span>
-              <b>VS</b>
-              <span><TeamFlag team={node.awayTeam} /></span>
-            </div>
-            <button
-              type="button"
-              className="wcmap-entry__lever"
-              onClick={triggerCasinoPlay}
-              disabled={leverPulling}
-              aria-label="Lancer la roulette"
-            >
-              <span className="wcmap-entry__lever-stick" />
-              <span className="wcmap-entry__lever-ball" />
-              <span className="wcmap-entry__lever-base" />
-            </button>
-            <button
-              type="button"
-              className="wcmap-entry__play is-invite"
-              onClick={triggerCasinoPlay}
-              disabled={leverPulling}
-            >
-              {leverPulling ? 'Roulette...' : `Jouer avec ${selectedWinnerTeam?.shortName || selectedWinnerTeam?.name}`}
-            </button>
-          </div>
+          <button
+            type="button"
+            className="wcmap-entry__play is-invite"
+            onClick={() => selectedWinnerTeam && onPlay(node.id, selectedWinnerTeam.id)}
+          >
+            Jouer avec {selectedWinnerTeam?.shortName || selectedWinnerTeam?.name}
+          </button>
         ) : null}
 
         <div className="wcmap-entry__teams">
