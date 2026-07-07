@@ -42,6 +42,8 @@ const DIALOGUE_STEPS: DialogueStep[] = [
   },
 ]
 
+export const CHALLENGE_DIALOGUE_IMAGES = DIALOGUE_STEPS.map((step) => step.image)
+
 export function ChallengeSplash({ onPlay, locale = 'fr' }: ChallengeSplashProps) {
   const [dialogueStarted, setDialogueStarted] = useState(false)
   const [stepIndex, setStepIndex] = useState(0)

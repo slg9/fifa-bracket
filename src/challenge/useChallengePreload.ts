@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { CHALLENGE_DIALOGUE_IMAGES } from './ChallengeSplash'
 
 const CHALLENGE_ASSETS = [
   '/brakup-loader.svg',
   '/brakup-logo.png',
   '/challenge-splash.png',
   '/challenge-splash-wide.png',
+  ...CHALLENGE_DIALOGUE_IMAGES,
   '/audio/kickoff-carnival.mp3',
   '/audio/clutch-chance.mp3',
   '/audio/goal-line-panic.mp3',
