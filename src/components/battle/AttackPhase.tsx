@@ -1715,7 +1715,7 @@ export function AttackPhase({
       Math.min(gdWallsDisplay.length, firstPendingGdWaveIndex + DRIBBLE_RENDER_LOOKAHEAD),
     )
     : gdWallsDisplay
-  const shotTutorialComment = roundIntroComment ?? `${selectedShooter.name} est prêt. Choisis ta zone, puis frappe quand la jauge passe au vert.`
+  const shotTutorialComment = roundIntroComment ?? `${selectedShooter.name} est prêt. Choisis ta zone, puis frappe quand la jauge blanche passe sur le vert.`
 
   return (
     <section
@@ -3027,7 +3027,7 @@ export function AttackPhase({
               <div className="atk-shot-tutorial__text">
                 <span className="atk-shot-step atk-shot-step--hold">Maintiens le <b>ballon</b></span>
                 <span className="atk-shot-step atk-shot-step--aim">Ajuste le <b>lancer</b></span>
-                <span className="atk-shot-step atk-shot-step--release">Relâche dans la <b>zone verte</b></span>
+                <span className="atk-shot-step atk-shot-step--release">Relâche quand la <b>jauge blanche</b> passe sur le vert</span>
                 <span className="atk-shot-warning">Attention au gardien</span>
               </div>
               <button type="button" className="atk-shot-tutorial__btn" onClick={() => { sfx.click(); markBattleTutorialSeen('attack-shot'); setShowShotTutorial(false); setShotTutorialDone(true) }}>
