@@ -2162,6 +2162,7 @@ export function AttackPhase({
         .atk-slalom-defender.is-mobile { animation: atkRunnerBob .42s ease-in-out infinite alternate, atkDefenderPatrol var(--atk-defender-duration,.9s) ease-in-out var(--atk-defender-delay,0s) infinite alternate; }
         .atk-slalom-defender.is-tackle { animation: atkTackle .62s ease-in-out infinite alternate; }
         .atk-slalom-defender.is-sliding { transform:translate(-50%,-50%) rotate(-68deg) scale(1.04);filter:drop-shadow(0 8px 10px rgba(0,0,0,.45));animation:atkSlideSkid .38s ease-in-out infinite alternate; }
+        .atk-slalom-defender.is-sliding.is-mobile { animation:atkSlideSkid .38s ease-in-out infinite alternate, atkDefenderPatrol var(--atk-defender-duration,.9s) ease-in-out var(--atk-defender-delay,0s) infinite alternate; }
         .atk-slalom-defender.is-press,.atk-slalom-defender.is-diagonal { filter:drop-shadow(0 0 14px rgba(25,211,255,.34)) drop-shadow(0 10px 12px rgba(0,0,0,.44)); }
         .atk-slalom-defender.is-bonus_guard { filter:drop-shadow(0 0 14px rgba(255,184,0,.48)) drop-shadow(0 10px 12px rgba(0,0,0,.44)); }
         .atk-slalom-defender::before { content:''; position:absolute; left:50%; top:-20px; width:3px; height:34px; transform:translateX(-50%); border-radius:999px; background:linear-gradient(rgba(255,255,255,.18), transparent); }
