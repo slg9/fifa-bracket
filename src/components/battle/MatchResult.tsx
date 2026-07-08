@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { BattleDifficulty, BattleResult } from '../../types'
 import { publishResultShare } from '../../lib/challengeData'
-import { blobToDataUrl, shareLink } from '../../challenge/shareImage'
+import { blobToDataUrl, blobToShareFile, shareFile, shareLink } from '../../challenge/shareImage'
 import { renderResultShareCanvas } from '../../challenge/shareCanvas'
 import '../../challenge/challenge.css'
 
@@ -42,6 +42,7 @@ function RestartIcon() {
 export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTeamName, awayTeamName, homeFlag, awayFlag, ownerPseudo, difficulty, onContinue, onRestart }: MatchResultProps) {
   const [shareStatus, setShareStatus] = useState<'idle' | 'working' | 'ready' | 'done' | 'error'>('idle')
   const [preparedShareUrl, setPreparedShareUrl] = useState<string | null>(null)
+  const [preparedShareBlob, setPreparedShareBlob] = useState<Blob | null>(null)
   const [sharePreviewUrl, setSharePreviewUrl] = useState<string | null>(null)
   const [sharePreviewOpen, setSharePreviewOpen] = useState(false)
   const [showRoundDetails, setShowRoundDetails] = useState(false)
@@ -63,6 +64,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
   useEffect(() => {
     setShareStatus('idle')
     setPreparedShareUrl(null)
+    setPreparedShareBlob(null)
     if (sharePreviewUrl) URL.revokeObjectURL(sharePreviewUrl)
     setSharePreviewUrl(null)
     setSharePreviewOpen(false)
@@ -76,11 +78,19 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
     if (preparedShareUrl) {
       setShareStatus('working')
       try {
-        await shareLink({
-          title: 'Brakup Challenge',
-          text: shareText,
-          url: preparedShareUrl,
-        })
+        if (preparedShareBlob) {
+          await shareFile(blobToShareFile(preparedShareBlob, 'brakup-result.png'), {
+            title: 'Brakup Challenge',
+            text: `${shareText}\n${preparedShareUrl}`,
+            url: preparedShareUrl,
+          })
+        } else {
+          await shareLink({
+            title: 'Brakup Challenge',
+            text: shareText,
+            url: preparedShareUrl,
+          })
+        }
         setSharePreviewOpen(false)
         setShareStatus('done')
       } catch (error) {
@@ -129,6 +139,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
       setSharePreviewUrl(URL.createObjectURL(blob))
       setSharePreviewOpen(true)
       setPreparedShareUrl(published.shareUrl)
+      setPreparedShareBlob(blob)
       setShareStatus('ready')
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {

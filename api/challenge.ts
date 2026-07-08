@@ -248,6 +248,7 @@ function brakupEmailTemplate(params: {
   const ctaLabel = escapeHtml(params.ctaLabel)
   const footerNote = escapeHtml(params.footerNote)
   const code = params.code ? escapeHtml(params.code) : null
+  const codeBlock = code ? `<div style="margin:0 0 18px;padding:18px 20px;border:1px solid rgba(43,255,154,.45);border-radius:16px;background:#07192b;text-align:center;"><div style="color:#8795aa;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;">Code de connexion</div><div style="color:#ffffff;font-family:'Courier New',monospace;font-size:34px;font-weight:900;letter-spacing:.22em;">${code}</div></div>` : ''
 
   return `<!doctype html>
 <html lang="fr">
@@ -257,6 +258,7 @@ function brakupEmailTemplate(params: {
     <title>${title}</title>
   </head>
   <body style="margin:0;background:#050712;color:#eef3ff;font-family:Arial,Helvetica,sans-serif;">
+    ${code ? `<div style="padding:14px 18px;background:#07192b;color:#ffffff;font-size:20px;font-weight:900;text-align:center;">${code} est ton code Brakup</div>` : ''}
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#050712;padding:24px 12px;">
       <tr>
         <td align="center">
@@ -268,11 +270,11 @@ function brakupEmailTemplate(params: {
             </tr>
             <tr>
               <td style="padding:28px 32px 34px;">
+                ${codeBlock}
                 <div style="color:#2bff9a;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;margin-bottom:10px;">${eyebrow}</div>
                 <h1 style="margin:0 0 14px;color:#ffffff;font-size:34px;line-height:1.05;font-weight:900;">${title}</h1>
                 <p style="margin:0 0 16px;color:#c9d3e6;font-size:17px;line-height:1.55;">${intro}</p>
                 <p style="margin:0 0 22px;color:#9aa8c0;font-size:15px;line-height:1.65;">${body}</p>
-                ${code ? `<div style="margin:22px 0;padding:18px 20px;border:1px solid rgba(43,255,154,.35);border-radius:16px;background:#07192b;text-align:center;"><div style="color:#8795aa;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;">Code de connexion</div><div style="color:#ffffff;font-family:'Courier New',monospace;font-size:34px;font-weight:900;letter-spacing:.22em;">${code}</div></div>` : ''}
                 <table role="presentation" cellspacing="0" cellpadding="0" style="margin:26px 0 22px;">
                   <tr>
                     <td style="border-radius:999px;background:#2bff9a;">
@@ -294,6 +296,19 @@ function brakupEmailTemplate(params: {
 </html>`
 }
 
+function brakupEmailText(params: { title: string; intro: string; body: string; ctaUrl: string; footerNote: string; code?: string }) {
+  return [
+    params.code ? `${params.code} est ton code Brakup` : params.title,
+    '',
+    params.intro,
+    params.body,
+    '',
+    params.ctaUrl,
+    '',
+    params.footerNote,
+  ].filter(Boolean).join('\n')
+}
+
 async function sendMagicLink(email: string, token: string, otp?: string): Promise<boolean> {
   if (!process.env.RESEND_API_KEY) {
     console.warn('[brakup] RESEND_API_KEY absent, lien magique non envoyé.')
@@ -310,13 +325,23 @@ async function sendMagicLink(email: string, token: string, otp?: string): Promis
     body: JSON.stringify({
       from: RESEND_FROM_EMAIL,
       to: email,
-      subject: 'Ton acces Brakup est pret',
+      subject: otp ? `${otp} est ton code Brakup` : 'Ton acces Brakup est pret',
       html: brakupEmailTemplate({
         eyebrow: 'Lien magique',
         title: 'Ton bracket t attend',
         intro: 'Ton acces Brakup est pret. Ouvre ce lien sur ton appareil pour retrouver ton bracket, ton score et ta progression.',
         body: 'Chaque choix compte: vainqueur, score exact, buteurs et bonus de match. Reviens sur la carte, joue tes affiches et grimpe au classement.',
         ctaLabel: 'Ouvrir Brakup',
+        ctaUrl: linkUrl,
+        code: otp,
+        footerNote: otp
+          ? 'Le lien reste valable 30 jours. Le code expire dans 15 minutes. Si tu n as pas demande cet email, tu peux simplement l ignorer.'
+          : 'Ce lien reste valable 30 jours. Si tu n as pas demande cet email, tu peux simplement l ignorer.',
+      }),
+      text: brakupEmailText({
+        title: 'Ton bracket t attend',
+        intro: 'Ton acces Brakup est pret. Ouvre ce lien sur ton appareil pour retrouver ton bracket, ton score et ta progression.',
+        body: 'Chaque choix compte: vainqueur, score exact, buteurs et bonus de match. Reviens sur la carte, joue tes affiches et grimpe au classement.',
         ctaUrl: linkUrl,
         code: otp,
         footerNote: otp
@@ -343,13 +368,21 @@ async function sendOTPEmail(email: string, pseudo: string, otp: string, origin: 
     body: JSON.stringify({
       from: RESEND_FROM_EMAIL,
       to: email,
-      subject: `Ton code OTP Brakup pour ${pseudo}`,
+      subject: `${otp} est ton code Brakup`,
       html: brakupEmailTemplate({
         eyebrow: 'Code de connexion',
         title: `Retour sur la pelouse, ${pseudo}`,
         intro: 'Utilise ce code pour reconnecter ton compte Brakup et recuperer ton bracket sur cet appareil.',
         body: 'Ton parcours reprend ou tu l avais laisse: pronostics, scores, buteurs et leaderboard. A toi de jouer juste.',
         ctaLabel: 'Entrer mon code',
+        ctaUrl: otpUrl,
+        code: otp,
+        footerNote: 'Ce code expire dans 15 minutes. Si tu n as pas demande cet email, tu peux simplement l ignorer.',
+      }),
+      text: brakupEmailText({
+        title: `Retour sur la pelouse, ${pseudo}`,
+        intro: 'Utilise ce code pour reconnecter ton compte Brakup et recuperer ton bracket sur cet appareil.',
+        body: 'Ton parcours reprend ou tu l avais laisse: pronostics, scores, buteurs et leaderboard. A toi de jouer juste.',
         ctaUrl: otpUrl,
         code: otp,
         footerNote: 'Ce code expire dans 15 minutes. Si tu n as pas demande cet email, tu peux simplement l ignorer.',

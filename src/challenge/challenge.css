@@ -3766,7 +3766,7 @@
   justify-items: center;
   gap: 11px;
   padding: 26px 20px;
-  overflow-y: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
   text-align: center;
   color: #fff;
@@ -3859,9 +3859,9 @@
 }
 
 .brakup-outcome__logo {
-  width: min(220px, 58vw);
+  width: min(170px, 44vw);
   height: auto;
-  margin-bottom: 2px;
+  margin-bottom: 0;
   filter: drop-shadow(0 0 26px rgba(168, 85, 247, .5));
   animation: outcomePop .48s .1s cubic-bezier(.2, 1.35, .32, 1) both;
 }
@@ -3869,7 +3869,7 @@
 .brakup-outcome__boom {
   position: relative;
   color: #2bff9a;
-  font: 900 clamp(46px, 16vw, 86px)/.78 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  font: 900 clamp(42px, 13vw, 74px)/.78 'Barlow Condensed', 'Arial Narrow', sans-serif;
   letter-spacing: .04em;
   text-transform: uppercase;
   transform: rotate(-4deg);
@@ -3929,7 +3929,7 @@
 
 .brakup-outcome__points strong {
   color: #FFB800;
-  font: 900 clamp(62px, 20vw, 110px)/.78 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  font: 900 clamp(54px, 16vw, 86px)/.78 'Barlow Condensed', 'Arial Narrow', sans-serif;
   letter-spacing: .02em;
   text-shadow: 0 0 30px rgba(255, 184, 0, .72), 4px 4px 0 rgba(0, 0, 0, .38);
 }
@@ -3941,11 +3941,24 @@
   text-transform: uppercase;
 }
 
+.brakup-outcome__breakdown {
+  width: 100%;
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  max-height: min(30dvh, 260px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 3px;
+  animation: outcomePop .5s .56s both;
+}
+
 .brakup-outcome__scores {
   width: 100%;
   display: grid;
   gap: 7px;
-  animation: outcomePop .5s .56s both;
 }
 
 .brakup-outcome__scores span {
@@ -4008,6 +4021,18 @@
   letter-spacing: .08em;
   text-transform: uppercase;
   animation: outcomePop .5s .64s both;
+}
+
+.brakup-outcome__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  background: linear-gradient(180deg, rgba(5,11,22,0), rgba(5,11,22,.88) 18%, rgba(5,11,22,.96));
 }
 
 .brakup-outcome__slider {

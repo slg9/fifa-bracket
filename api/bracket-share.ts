@@ -113,16 +113,19 @@ function sendHtml(res: ApiResponse, share: PublicBracketShare, shareUrl: string,
   <meta property="og:description" content="${escapeHtml(description)}" />
   <meta property="og:url" content="${escapeHtml(shareUrl)}" />
   <meta property="og:image" content="${escapeHtml(imageUrl)}" />
+  <meta property="og:image:secure_url" content="${escapeHtml(imageUrl)}" />
   <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="${escapeHtml(title)}" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapeHtml(title)}" />
   <meta name="twitter:description" content="${escapeHtml(description)}" />
   <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />
-  <meta http-equiv="refresh" content="0;url=${escapeHtml(appUrl)}" />
+  <meta name="twitter:image:alt" content="${escapeHtml(title)}" />
 </head>
 <body>
   <a href="${escapeHtml(appUrl)}">Ouvrir le bracket</a>
-  <script>location.replace(${JSON.stringify(appUrl)})</script>
 </body>
 </html>`
   res.status(200)

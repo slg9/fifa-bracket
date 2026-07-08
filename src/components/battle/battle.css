@@ -133,21 +133,15 @@
 .battle-draw__speech-icon.is-massive { color:#FF4455; }
 
 /* ——— Casino cabinet ——— */
-/*
-  Layout: lever hangs 58px to the right outside the cabinet-wrap.
-  To keep lever within the viewport we:
-    • limit wrap_width so (wrap + 58px) fits in 100%  → max wrap = 100% - 58px, capped at 258px
-    • center the (wrap+lever) unit: margin-left = (100% - wrap - 58px) / 2
-  The speech bubble (112px + 12px gap = 124px) is positioned absolutely on the right
-  and overlaps this area only during the intro phase.
-*/
 .battle-draw__cabinet-wrap {
   position:relative;
-  align-self:flex-start;
-  width:min(calc(100% - 58px), 258px);
-  margin-left:max(0px, calc((100% - 316px) / 2));
+  align-self:center;
+  box-sizing:border-box;
+  width:min(94vw, 318px);
+  padding-right:44px;
+  margin-inline:auto;
 }
-.battle-draw__cabinet { position:relative;width:100%;padding:12px 14px 18px;border-radius:30px 30px 20px 20px;background:linear-gradient(180deg,#28344d 0%,#1a2338 14%,#111a2c 42%,#0a1120 76%,#0e1728 100%);border:2px solid rgba(255,184,0,.5);box-shadow:0 28px 64px rgba(0,0,0,.62),inset 0 3px 0 rgba(255,255,255,.16),inset 6px 0 12px rgba(255,255,255,.05),inset -6px 0 14px rgba(0,0,0,.55),0 0 50px rgba(255,184,0,.1); }
+.battle-draw__cabinet { position:relative;box-sizing:border-box;width:100%;padding:12px 14px 18px;border-radius:30px 30px 20px 20px;background:linear-gradient(180deg,#28344d 0%,#1a2338 14%,#111a2c 42%,#0a1120 76%,#0e1728 100%);border:2px solid rgba(255,184,0,.5);box-shadow:0 28px 64px rgba(0,0,0,.62),inset 0 3px 0 rgba(255,255,255,.16),inset 6px 0 12px rgba(255,255,255,.05),inset -6px 0 14px rgba(0,0,0,.55),0 0 50px rgba(255,184,0,.1); }
 .battle-draw__cabinet.is-spinning { animation:cabinetShake .12s linear infinite; }
 
 /* Marquee */
@@ -195,18 +189,18 @@
 /* Coin tray */
 .battle-draw__coin-tray { margin:16px 30px 0;height:20px;border-radius:5px 5px 10px 10px;background:linear-gradient(180deg,#02060c,#0a1018);box-shadow:inset 0 6px 12px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.05); }
 
-/* Chrome lever — hangs 58px outside the cabinet-wrap's right edge */
-.battle-draw__lever-mount { position:absolute;right:-58px;top:50%;transform:translateY(-50%);width:66px;height:220px;pointer-events:none;z-index:5; }
-.battle-draw__lever-housing { position:absolute;left:-8px;top:50%;transform:translateY(-50%);width:46px;height:92px;border-radius:13px;background:linear-gradient(90deg,#080d16,#333d52 46%,#0c1220 78%,#060a12);box-shadow:inset 0 2px 0 rgba(255,255,255,.14),inset 0 -9px 15px rgba(0,0,0,.7),0 12px 22px rgba(0,0,0,.6); }
-.battle-draw__lever-bolt { position:absolute;left:-2px;width:6px;height:6px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#cfd6df,#5c636f 60%,#2b303a); }
-.battle-draw__lever-bolt--top { top:calc(50% - 30px); }
-.battle-draw__lever-bolt--bot { top:calc(50% + 24px); }
-.battle-draw__lever-hub { position:absolute;left:2px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:50%;background:radial-gradient(circle at 36% 28%,#f6f9fc,#aab2be 48%,#2f3644);box-shadow:0 5px 10px rgba(0,0,0,.6),inset 0 0 0 3px rgba(0,0,0,.3),inset 0 0 0 6px rgba(255,255,255,.24); }
-.battle-draw__lever-center-bolt { position:absolute;left:16px;top:calc(50% - 5px);width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 34% 30%,#ffffff,#6b7280 58%,#262b34);box-shadow:0 1px 2px rgba(0,0,0,.5);z-index:2; }
-.battle-draw__lever-btn { position:absolute;left:3px;bottom:50%;width:36px;height:150px;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transform-origin:50% 100%; }
+/* Chrome lever */
+.battle-draw__lever-mount { position:absolute;right:0;top:50%;transform:translateY(-50%);width:48px;height:178px;pointer-events:none;z-index:5; }
+.battle-draw__lever-housing { position:absolute;left:1px;top:50%;transform:translateY(-50%);width:34px;height:78px;border-radius:12px;background:linear-gradient(90deg,#080d16,#333d52 46%,#0c1220 78%,#060a12);box-shadow:inset 0 2px 0 rgba(255,255,255,.14),inset 0 -9px 15px rgba(0,0,0,.7),0 12px 22px rgba(0,0,0,.6); }
+.battle-draw__lever-bolt { position:absolute;left:8px;width:5px;height:5px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#cfd6df,#5c636f 60%,#2b303a); }
+.battle-draw__lever-bolt--top { top:calc(50% - 25px); }
+.battle-draw__lever-bolt--bot { top:calc(50% + 20px); }
+.battle-draw__lever-hub { position:absolute;left:4px;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 36% 28%,#f6f9fc,#aab2be 48%,#2f3644);box-shadow:0 5px 10px rgba(0,0,0,.6),inset 0 0 0 3px rgba(0,0,0,.3),inset 0 0 0 6px rgba(255,255,255,.24); }
+.battle-draw__lever-center-bolt { position:absolute;left:14px;top:calc(50% - 4px);width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 34% 30%,#ffffff,#6b7280 58%,#262b34);box-shadow:0 1px 2px rgba(0,0,0,.5);z-index:2; }
+.battle-draw__lever-btn { position:absolute;left:5px;bottom:50%;width:28px;height:118px;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transform-origin:50% 100%; }
 .battle-draw__lever-btn:disabled { cursor:wait;opacity:.8; }
-.battle-draw__lever-stick { position:absolute;left:50%;bottom:0;width:10px;height:150px;transform:translateX(-50%);border-radius:99px;background:linear-gradient(90deg,#3a404b,#f4f7fb 38%,#c6ccd6 60%,#4a505b);box-shadow:0 0 0 1px rgba(255,255,255,.18),0 5px 10px rgba(0,0,0,.5); }
-.battle-draw__lever-ball { position:absolute;left:50%;top:-11px;width:38px;height:38px;border-radius:50%;transform:translateX(-50%);background:radial-gradient(circle at 34% 26%,#fff7d4 0 12%,#ff5568 13% 46%,#c8121f 74%,#5a0308);box-shadow:inset 0 3px 0 rgba(255,255,255,.55),inset 0 -9px 13px rgba(0,0,0,.45),0 0 24px rgba(255,68,85,.6),0 10px 16px rgba(0,0,0,.55); }
+.battle-draw__lever-stick { position:absolute;left:50%;bottom:0;width:8px;height:118px;transform:translateX(-50%);border-radius:99px;background:linear-gradient(90deg,#3a404b,#f4f7fb 38%,#c6ccd6 60%,#4a505b);box-shadow:0 0 0 1px rgba(255,255,255,.18),0 5px 10px rgba(0,0,0,.5); }
+.battle-draw__lever-ball { position:absolute;left:50%;top:-10px;width:31px;height:31px;border-radius:50%;transform:translateX(-50%);background:radial-gradient(circle at 34% 26%,#fff7d4 0 12%,#ff5568 13% 46%,#c8121f 74%,#5a0308);box-shadow:inset 0 3px 0 rgba(255,255,255,.55),inset 0 -9px 13px rgba(0,0,0,.45),0 0 18px rgba(255,68,85,.5),0 10px 16px rgba(0,0,0,.55); }
 
 /* Hint & status */
 .battle-draw__hint { display:flex;align-items:center;gap:9px;margin-top:2px;font:800 12px var(--battle-font-condensed);letter-spacing:.14em;text-transform:uppercase;color:#9fb0c4; }
@@ -673,17 +667,25 @@
   background: #FF4455;
 }
 
-/* Pause button */
+/* Menu button */
 .battle-pause-btn {
-  position: absolute; top: max(116px, calc(env(safe-area-inset-top) + 104px)); right: 12px; z-index: 150;
-  width: 36px; height: 36px; border-radius: 50%;
-  border: 1.5px solid rgba(255,255,255,.2);
-  background: rgba(5,11,22,.7); backdrop-filter: blur(4px);
-  color: rgba(255,255,255,.7); font-size: 18px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: border-color .15s, color .15s;
+  position: absolute; top: max(12px, calc(env(safe-area-inset-top) + 10px)); right: 12px; z-index: 170;
+  min-width: 72px; height: 38px; padding: 0 12px; border-radius: 12px;
+  border: 1.5px solid rgba(255,255,255,.24);
+  background: rgba(5,11,22,.82); backdrop-filter: blur(8px);
+  color: rgba(255,255,255,.86); font: 900 11px var(--battle-font-condensed);
+  letter-spacing: .13em; text-transform: uppercase;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; transition: border-color .15s, color .15s, background .15s;
 }
-.battle-pause-btn:hover { border-color: rgba(255,255,255,.5); color: #fff; }
+.battle-pause-btn:hover { border-color: rgba(255,255,255,.5); color: #fff; background: rgba(5,11,22,.92); }
+.battle-pause-btn__icon { position:relative; width:16px; height:12px; flex:0 0 auto; }
+.battle-pause-btn__icon::before,
+.battle-pause-btn__icon::after,
+.battle-pause-btn__icon i { content:""; position:absolute; left:0; width:100%; height:2px; border-radius:999px; background:currentColor; }
+.battle-pause-btn__icon::before { top:0; }
+.battle-pause-btn__icon i { top:5px; }
+.battle-pause-btn__icon::after { bottom:0; }
 
 /* ── Pause modal ─────────────────────────────────────────── */
 .battle-pause-modal {

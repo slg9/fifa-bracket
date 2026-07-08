@@ -17,7 +17,7 @@ import LoginEntry from './LoginEntry'
 import Leaderboard from './Leaderboard'
 import MyBrackets from './MyBrackets'
 import ProfileSettings from './ProfileSettings'
-import { blobToDataUrl, shareLink } from './shareImage'
+import { blobToDataUrl, blobToShareFile, shareFile, shareLink } from './shareImage'
 import { renderResultShareCanvas } from './shareCanvas'
 import { sfx } from '../lib/sfx'
 import { evaluateMatchProgress, formatScore, summarizeProgress, teamLabel, type OfficialScore, type RealScorer } from './progress'
@@ -455,6 +455,7 @@ export function BrakupHub({
   const [loadingBrackets, setLoadingBrackets] = useState(Boolean(accessToken))
   const [outcomeShareStatus, setOutcomeShareStatus] = useState<'idle' | 'working' | 'ready' | 'done' | 'error'>('idle')
   const [outcomeShareUrl, setOutcomeShareUrl] = useState<string | null>(null)
+  const [outcomeShareBlob, setOutcomeShareBlob] = useState<Blob | null>(null)
   const [outcomeSharePreviewUrl, setOutcomeSharePreviewUrl] = useState<string | null>(null)
   const [outcomeSharePreviewOpen, setOutcomeSharePreviewOpen] = useState(false)
   const [isOutcomeCapturingShare, setIsOutcomeCapturingShare] = useState(false)
@@ -1039,6 +1040,7 @@ export function BrakupHub({
     setForcedOutcomeNotice(null)
     setOutcomeShareStatus('idle')
     setOutcomeShareUrl(null)
+    setOutcomeShareBlob(null)
     if (outcomeSharePreviewUrl) URL.revokeObjectURL(outcomeSharePreviewUrl)
     setOutcomeSharePreviewUrl(null)
     setOutcomeSharePreviewOpen(false)
@@ -1195,6 +1197,7 @@ export function BrakupHub({
     setOutcomeNoticeKey(null)
     setOutcomeShareStatus('idle')
     setOutcomeShareUrl(null)
+    setOutcomeShareBlob(null)
     if (outcomeSharePreviewUrl) URL.revokeObjectURL(outcomeSharePreviewUrl)
     setOutcomeSharePreviewUrl(null)
     setOutcomeSharePreviewOpen(false)
@@ -1244,15 +1247,28 @@ export function BrakupHub({
     if (outcomeShareUrl) {
       setOutcomeShareStatus('working')
       try {
-        await withTimeout(
-          shareLink({
-            title: 'Brakup Challenge',
-            text: buildOutcomeShareText(),
-            url: outcomeShareUrl,
-          }),
-          SHARE_BUILD_TIMEOUT_MS,
-          'Partage trop long. Retente dans quelques secondes.',
-        )
+        const shareText = buildOutcomeShareText()
+        if (outcomeShareBlob) {
+          await withTimeout(
+            shareFile(blobToShareFile(outcomeShareBlob, 'brakup-result.png'), {
+              title: 'Brakup Challenge',
+              text: `${shareText}\n${outcomeShareUrl}`,
+              url: outcomeShareUrl,
+            }),
+            SHARE_BUILD_TIMEOUT_MS,
+            'Partage trop long. Retente dans quelques secondes.',
+          )
+        } else {
+          await withTimeout(
+            shareLink({
+              title: 'Brakup Challenge',
+              text: shareText,
+              url: outcomeShareUrl,
+            }),
+            SHARE_BUILD_TIMEOUT_MS,
+            'Partage trop long. Retente dans quelques secondes.',
+          )
+        }
         setOutcomeSharePreviewOpen(false)
         setOutcomeShareStatus('done')
       } catch (error) {
@@ -1312,6 +1328,7 @@ export function BrakupHub({
       setOutcomeSharePreviewUrl(URL.createObjectURL(blob))
       setOutcomeSharePreviewOpen(true)
       setOutcomeShareUrl(published.shareUrl)
+      setOutcomeShareBlob(blob)
       setOutcomeShareStatus('ready')
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
@@ -1403,6 +1420,7 @@ export function BrakupHub({
   useEffect(() => {
     setOutcomeShareStatus('idle')
     setOutcomeShareUrl(null)
+    setOutcomeShareBlob(null)
     if (outcomeSharePreviewUrl) URL.revokeObjectURL(outcomeSharePreviewUrl)
     setOutcomeSharePreviewUrl(null)
     setOutcomeSharePreviewOpen(false)
@@ -1664,40 +1682,44 @@ export function BrakupHub({
               <strong>+{outcomeBreakdownTotal}</strong>
               <span>points gagnés</span>
             </div>
-            <div className="brakup-outcome__scores">
-              {visibleOutcomeScoreRows.map((row) => (
-                <span key={`${row.label}-${row.points}`}>
-                  {row.label} {row.detail ? <em>{row.detail}</em> : null}
-                  <strong>{row.points}</strong>
-                </span>
-              ))}
-            </div>
-            {hiddenOutcomeScoreRows > 0 ? (
-              <button type="button" className="brakup-outcome__more" onClick={() => { sfx.tab(); setOutcomeBreakdownExpanded(true) }}>
-                Voir +{hiddenOutcomeScoreRows}
-              </button>
-            ) : outcomeBreakdownExpanded && outcomeScoreRows.length > 2 ? (
-              <button type="button" className="brakup-outcome__more" onClick={() => { sfx.tab(); setOutcomeBreakdownExpanded(false) }}>
-                Voir moins
-              </button>
-            ) : null}
-            <div className="brakup-outcome__share-copy">
-              {isOutcomeCapturingShare ? 'Tente ta chance avec ton prono.' : 'Envoie ton prono et invite tes potes à tenter le leur.'}
-            </div>
-            <button type="button" className="brakup-share-button" onClick={() => { sfx.click(); outcomeSharePreviewUrl ? setOutcomeSharePreviewOpen(true) : void handleOutcomeShare() }} disabled={outcomeShareStatus === 'working'}>
-              {outcomeShareStatus === 'working' ? 'Préparation...' : outcomeShareStatus === 'ready' ? 'Voir le visuel' : "Partager l'image"}
-            </button>
-            {outcomeShareStatus === 'ready' ? <small className="brakup-share-feedback">Image prête. Ouvre le visuel pour partager.</small> : null}
-            {outcomeShareStatus === 'done' ? <small className="brakup-share-feedback">Partage lancé.</small> : null}
-            {outcomeShareStatus === 'error' ? <small className="brakup-share-feedback is-error">Partage indisponible. Retente.</small> : null}
-            {!forcedOutcomeNotice && pendingOutcomeNotices.length > 1 ? (
-              <div className="brakup-outcome__slider" aria-label="Resultats non vus">
-                <button type="button" onClick={() => { sfx.tab(); showOutcomeAt((outcomeNoticeIndex - 1 + pendingOutcomeNotices.length) % pendingOutcomeNotices.length) }}>‹</button>
-                <span>{outcomeNoticeIndex + 1} / {pendingOutcomeNotices.length}</span>
-                <button type="button" onClick={() => { sfx.tab(); showOutcomeAt((outcomeNoticeIndex + 1) % pendingOutcomeNotices.length) }}>›</button>
+            <div className="brakup-outcome__breakdown">
+              <div className="brakup-outcome__scores">
+                {visibleOutcomeScoreRows.map((row) => (
+                  <span key={`${row.label}-${row.points}`}>
+                    {row.label} {row.detail ? <em>{row.detail}</em> : null}
+                    <strong>{row.points}</strong>
+                  </span>
+                ))}
               </div>
-            ) : null}
-            <button type="button" className="brakup-button" onClick={() => { sfx.click(); closeOutcomeNotice() }}>Continuer</button>
+              {hiddenOutcomeScoreRows > 0 ? (
+                <button type="button" className="brakup-outcome__more" onClick={() => { sfx.tab(); setOutcomeBreakdownExpanded(true) }}>
+                  Voir +{hiddenOutcomeScoreRows}
+                </button>
+              ) : outcomeBreakdownExpanded && outcomeScoreRows.length > 2 ? (
+                <button type="button" className="brakup-outcome__more" onClick={() => { sfx.tab(); setOutcomeBreakdownExpanded(false) }}>
+                  Voir moins
+                </button>
+              ) : null}
+            </div>
+            <div className="brakup-outcome__actions">
+              <div className="brakup-outcome__share-copy">
+                {isOutcomeCapturingShare ? 'Tente ta chance avec ton prono.' : 'Envoie ton prono et invite tes potes à tenter le leur.'}
+              </div>
+              <button type="button" className="brakup-share-button" onClick={() => { sfx.click(); outcomeSharePreviewUrl ? setOutcomeSharePreviewOpen(true) : void handleOutcomeShare() }} disabled={outcomeShareStatus === 'working'}>
+                {outcomeShareStatus === 'working' ? 'Préparation...' : outcomeShareStatus === 'ready' ? 'Voir le visuel' : "Partager l'image"}
+              </button>
+              {outcomeShareStatus === 'ready' ? <small className="brakup-share-feedback">Image prête. Ouvre le visuel pour partager.</small> : null}
+              {outcomeShareStatus === 'done' ? <small className="brakup-share-feedback">Partage lancé.</small> : null}
+              {outcomeShareStatus === 'error' ? <small className="brakup-share-feedback is-error">Partage indisponible. Retente.</small> : null}
+              {!forcedOutcomeNotice && pendingOutcomeNotices.length > 1 ? (
+                <div className="brakup-outcome__slider" aria-label="Resultats non vus">
+                  <button type="button" onClick={() => { sfx.tab(); showOutcomeAt((outcomeNoticeIndex - 1 + pendingOutcomeNotices.length) % pendingOutcomeNotices.length) }}>‹</button>
+                  <span>{outcomeNoticeIndex + 1} / {pendingOutcomeNotices.length}</span>
+                  <button type="button" onClick={() => { sfx.tab(); showOutcomeAt((outcomeNoticeIndex + 1) % pendingOutcomeNotices.length) }}>›</button>
+                </div>
+              ) : null}
+              <button type="button" className="brakup-button" onClick={() => { sfx.click(); closeOutcomeNotice() }}>Continuer</button>
+            </div>
           </div>
           {(outcomeShareStatus === 'working' || (outcomeSharePreviewUrl && outcomeSharePreviewOpen)) ? (
             <div className="brakup-share-preview" role="dialog" aria-modal="true">

@@ -1181,8 +1181,11 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           type="button"
           className="battle-pause-btn"
           onClick={() => { sfx.click(); setIsPaused(true) }}
-          aria-label="Pause"
-        >⏸</button>
+          aria-label="Menu"
+        >
+          <span className="battle-pause-btn__icon" aria-hidden="true"><i /></span>
+          <span>Menu</span>
+        </button>
       ) : null}
 
       {/* Pause modal */}

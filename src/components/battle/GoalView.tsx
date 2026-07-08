@@ -363,13 +363,14 @@ export function GoalView({
   const renderKeeperAt = (position: number, opacity: number, ghostIndex?: number) => {
     const x = interpolate(keeperBottom.left, keeperBottom.right, position / 100)
     const orientation = motion.direction === 1 ? -1 : 1
+    const isGhost = ghostIndex !== undefined
     return (
       <g
         key={ghostIndex ?? 'keeper'}
-        className={`goal-keeper-position${ghostIndex === undefined ? ' is-current' : ' is-ghost'}`}
+        className={`goal-keeper-position${isGhost ? ' is-ghost' : ' is-current'}`}
         opacity={opacity}
         transform={`translate(${x} ${keeperSvgY}) scale(${keeperScale})`}
-        style={{ transitionDuration: `${transitionMs}ms` }}
+        style={isGhost ? { transitionDuration: `${transitionMs}ms` } : undefined}
       >
         <g className="goal-keeper-orientation" transform={`scale(${orientation} 1)`}>
           <Goalkeeper color={goalkeeperColor} secondaryColor={goalkeeperSecondaryColor} saving={ghostIndex === undefined && saving} saveAngle={saveAngle} />
@@ -546,12 +547,15 @@ export function GoalView({
         .goal-keeper-position {
           transform-box: fill-box;
           transform-origin: center;
-          transition-property: transform;
-          transition-timing-function: linear;
           filter: drop-shadow(0 12px 16px rgba(0,0,0,.36));
+        }
+        .goal-keeper-position.is-current {
+          transition: none;
         }
         .goal-keeper-position.is-ghost {
           opacity: .18;
+          transition-property: transform;
+          transition-timing-function: linear;
         }
         .goal-keeper-orientation {
           transform-box: fill-box;
