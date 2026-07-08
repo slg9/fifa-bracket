@@ -4885,12 +4885,17 @@
 
 .float-panel__body {
   padding: 10px 12px 14px;
+  max-height: min(62vh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .float-groups,
 .float-results {
   display: grid;
   gap: 10px;
+  max-height: inherit;
 }
 
 .float-group {

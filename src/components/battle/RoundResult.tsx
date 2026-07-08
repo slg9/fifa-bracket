@@ -50,13 +50,6 @@ const CONCEDE_ENCOURAGEMENTS = [
   'Coup dur, mais la séquence suivante arrive.',
   "Le match avance, chaque round compte.",
 ]
-const MISS_CALLS = [
-  "Zut alors, c'était tout proche !",
-  'Pas loin du tout ! Il manquait un rien.',
-  'Le geste était bon, la finition a filé de peu.',
-  'Quelle occasion... le cadre était à deux doigts.',
-  'Ça se joue à presque rien sur cette frappe.',
-]
 const MISS_ENCOURAGEMENTS = [
   'Occasion manquée, on regarde la suite.',
   'Le mouvement était là - il faut finir le travail.',
@@ -119,13 +112,13 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
       return { accent: '#FF4455', main: 'Ballon perdu.', sub: 'Tu peux rejouer cette attaque ou tenter le Goal Save.' }
     }
     if (outcome === 'miss') {
-      const sub = scorerName ? `${scorerName} rate sa frappe. ${pick(MISS_ENCOURAGEMENTS)}` : pick(MISS_ENCOURAGEMENTS)
-      return { accent: '#8794a7', main: pick(MISS_CALLS), sub }
+      const sub = scorerName ? `${scorerName} rate sa frappe. Tu n'as pas lache le ballon au bon moment. ${pick(MISS_ENCOURAGEMENTS)}` : `Tu n'as pas lache le ballon au bon moment. ${pick(MISS_ENCOURAGEMENTS)}`
+      return { accent: '#8794a7', main: 'Timing manque.', sub }
     }
     if (outcome === 'saved') {
-      const keeper = keeperName ? `${keeperName} sort le grand jeu !` : 'Parade monumentale !'
+      const keeper = 'Aie, le gardien a intercepte la balle malgre ton super tir.'
       const sub = scorerName
-        ? `${scorerName} bute sur le gardien. ${nextPhaseHint}`
+        ? `${scorerName} avait bien frappe. ${nextPhaseHint}`
         : `${opponentName ? `${opponentName} va devoir s'y reprendre.` : "L'attaque adverse est repoussée."} ${nextPhaseHint}`
       return { accent: '#2bff9a', main: keeper, sub }
     }
@@ -181,6 +174,10 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         .rr-commentary{z-index:6;position:relative;max-width:320px;display:grid;gap:8px;margin-top:4px;padding:14px 16px;border-left:3px solid var(--rr-accent, rgba(255,255,255,.35));border-radius:0 12px 12px 0;background:rgba(10,21,38,.86);animation:commentaryIn .3s both}
         .rr-commentary__main{font:700 clamp(14px,4vw,17px) 'Barlow Condensed',sans-serif;color:#fff;line-height:1.35}
         .rr-commentary__sub{font:500 clamp(11px,3.5vw,13px) 'Barlow',sans-serif;color:rgba(255,255,255,.58);line-height:1.45}
+        .rr-shot-gauge{z-index:6;position:relative;width:min(260px,78vw);display:grid;gap:6px;margin-top:8px;color:rgba(255,255,255,.72);font:900 10px 'Barlow Condensed',sans-serif;letter-spacing:.13em;text-align:center;text-transform:uppercase}
+        .rr-shot-gauge__track{position:relative;height:13px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden;border:1px solid rgba(255,255,255,.12)}
+        .rr-shot-gauge__green{position:absolute;left:42%;top:0;bottom:0;width:24%;background:#2bff9a;box-shadow:0 0 16px rgba(43,255,154,.72)}
+        .rr-shot-gauge__cursor{position:absolute;top:-4px;bottom:-4px;left:0;width:8px;border-radius:999px;background:#fff;box-shadow:0 0 12px rgba(255,255,255,.9);animation:rrGaugeStop 1.05s cubic-bezier(.2,.88,.22,1) both}
         .rr-actions{z-index:6;position:relative;display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:14px}
         .rr-continue-btn,.rr-retry-btn{padding:11px 24px;border-radius:12px;font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.12em;cursor:pointer}
         .rr-continue-btn{border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.07);color:#fff;animation:bk-btn 2s ease-in-out infinite}
@@ -208,6 +205,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         }
         @keyframes rrRetryGold{from{filter:brightness(.92);box-shadow:0 0 14px rgba(255,184,0,.26)}to{filter:brightness(1.25);box-shadow:0 0 34px rgba(255,184,0,.72)}}
         @keyframes rrKeeperDance{from{transform:translateY(5px) rotate(-4deg) scale(1)}to{transform:translateY(-8px) rotate(4deg) scale(1.04)}}
+        @keyframes rrGaugeStop{0%{left:4%}34%{left:94%}68%{left:18%}100%{left:54%}}
       `}</style>
 
       {(outcome === 'goal' || outcome === 'defense_perfect') ? (
@@ -294,6 +292,16 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
         <div className="rr-commentary" style={{ ['--rr-accent' as string]: commentary.accent }}>
           <div className="rr-commentary__main">{commentary.main}</div>
           <div className="rr-commentary__sub">{commentary.sub}</div>
+        </div>
+      ) : null}
+
+      {outcome === 'miss' && roundType === 'attack' ? (
+        <div className="rr-shot-gauge" aria-hidden="true">
+          <span>Relache quand le curseur est dans le vert</span>
+          <div className="rr-shot-gauge__track">
+            <i className="rr-shot-gauge__green" />
+            <i className="rr-shot-gauge__cursor" />
+          </div>
         </div>
       ) : null}
 

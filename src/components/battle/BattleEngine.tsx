@@ -340,10 +340,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const [drawRevealActive, setDrawRevealActive] = useState(false)
   const [drawLockedReels, setDrawLockedReels] = useState<[boolean, boolean, boolean]>([false, false, false])
   const [leverPulling, setLeverPulling] = useState(false)
-  // One-time explanation screen shown before the draw machine (persisted via localStorage)
-  const [drawIntroSeen, setDrawIntroSeen] = useState(() => {
-    try { return localStorage.getItem('bk-draw-intro-v1') === '1' } catch { return false }
-  })
+  const [drawIntroSeen, setDrawIntroSeen] = useState(false)
   const [drawExplainChars, setDrawExplainChars] = useState(0)
   const [bonusAttackIndexes, setBonusAttackIndexes] = useState<Set<number>>(() => new Set())
   const drawStartedRef = useRef(false)
@@ -352,7 +349,6 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const handleDrawIntroContinue = () => {
     sfx.start()
     setDrawIntroSeen(true)
-    try { localStorage.setItem('bk-draw-intro-v1', '1') } catch { /* ignore */ }
   }
   const drawExplainDone = drawExplainChars >= DRAW_EXPLAIN_TEXT.length
   const drawExplainTyped = DRAW_EXPLAIN_TEXT.slice(0, drawExplainChars)

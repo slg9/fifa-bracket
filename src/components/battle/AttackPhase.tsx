@@ -41,6 +41,15 @@ const KEEPER_CFG = {
   hard: { speed: 3.1, amplitudeX: 43, amplitudeY: 25, saveRadiusX: 22, saveRadiusY: 28 },
 }
 
+function shouldUseLiteBattleMode() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+  const nav = navigator as Navigator & { deviceMemory?: number; hardwareConcurrency?: number }
+  const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
+  const smallScreen = Math.min(window.innerWidth, window.innerHeight) <= 520
+  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+  return reducedMotion || (coarsePointer && smallScreen && ((nav.deviceMemory ?? 4) <= 3 || (nav.hardwareConcurrency ?? 4) <= 4))
+}
+
 function keeperCoversTarget(
   target: { x: number; y: number },
   keeper: { x: number; y: number },
@@ -640,7 +649,31 @@ export function AttackPhase({
   roundIntroComment,
   showControls = false,
 }: AttackPhaseProps) {
-  const cfg = ATTACK_CFG[difficulty]
+  const liteMode = useMemo(() => shouldUseLiteBattleMode(), [])
+  const cfg = useMemo(() => {
+    const base = ATTACK_CFG[difficulty]
+    if (!liteMode) return base
+    return {
+      ...base,
+      waveCount: Math.max(18, Math.round(base.waveCount * 0.58)),
+      gdSpeed: base.gdSpeed * 0.82,
+      spacing: base.spacing + 8,
+      gaugeGreenPx: base.gaugeGreenPx + 12,
+      gaugeSpeed: base.gaugeSpeed * 0.78,
+    }
+  }, [difficulty, liteMode])
+  const keeperCfg = useMemo(() => {
+    const base = KEEPER_CFG[difficulty]
+    if (!liteMode) return base
+    return {
+      ...base,
+      speed: base.speed * 0.78,
+      amplitudeX: base.amplitudeX * 0.82,
+      amplitudeY: base.amplitudeY * 0.82,
+      saveRadiusX: Math.max(16, base.saveRadiusX - 2),
+      saveRadiusY: Math.max(22, base.saveRadiusY - 2),
+    }
+  }, [difficulty, liteMode])
   const slalomSeedRef = useRef(`${homeTeamId}-${awayTeamId}-${difficulty}-${Date.now()}-${Math.random()}`)
   const playerJerseyColor = playerKit?.primary ?? '#2bff9a'
   const playerAccentColor = playerKit?.secondary ?? '#0b1422'
@@ -1447,7 +1480,6 @@ export function AttackPhase({
 
       shotTime += delta
 
-      const keeperCfg = KEEPER_CFG[difficulty]
       const keeperSpeedMultiplier = shotBonusRef.current.slowKeeper > 0 || flowRef.current >= POWER_SHOT_FLOW_THRESHOLD ? 0.85 : 1
       const keeperSpeed = keeperCfg.speed * keeperSpeedMultiplier
       const kx = Math.max(8, Math.min(92,
@@ -1477,7 +1509,7 @@ export function AttackPhase({
 
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [phase, showShotIntro, shooterSelectionDone, shotTutorialDone, cfg.gaugeSpeed, difficulty, finish])
+  }, [phase, showShotIntro, shooterSelectionDone, shotTutorialDone, cfg.gaugeSpeed, keeperCfg, finish])
 
   const isGoalTargetInsideFrame = (target: { x: number; y: number }) => (
     target.x >= 0 && target.x <= 100 && target.y >= 0 && target.y <= 100
@@ -1542,7 +1574,6 @@ export function AttackPhase({
     const inGreen = cursor >= greenL && cursor <= greenR
 
     const at = aimCursorRef.current ?? { x: 50, y: 50 }
-    const keeperCfg = KEEPER_CFG[difficulty]
     const saveRadiusMultiplier = shotBonusRef.current.powerShot ? 0.9 : 1
     const targetInsideFrame = isGoalTargetInsideFrame(at)
     const keeperBlocking = inGreen && targetInsideFrame && keeperCoversTarget(
@@ -1562,14 +1593,14 @@ export function AttackPhase({
     window.setTimeout(() => {
       if (!inGreen || !targetInsideFrame) {
         setBallFlight({ id: Date.now(), target: missTarget, state: 'miss', duration: FLIGHT_MS })
-        window.setTimeout(() => setResultLabel('RATE !'), FLIGHT_MS)
+        window.setTimeout(() => setResultLabel("RATE !|Tu n'as pas lache le ballon au bon moment."), FLIGHT_MS)
         window.setTimeout(() => finish(false, 'miss', selectedShooterRef.current), FLIGHT_MS + 700)
         return
       }
 
       if (keeperBlocking) {
         setBallFlight({ id: Date.now(), target: aimTarget, state: 'saved', duration: FLIGHT_MS })
-        window.setTimeout(() => setResultLabel('ARRETE !'), FLIGHT_MS)
+        window.setTimeout(() => setResultLabel('ARRETE !|Aie, le gardien a intercepte la balle malgre ton super tir.'), FLIGHT_MS)
         window.setTimeout(() => finish(false, 'saved', selectedShooterRef.current), FLIGHT_MS + 800)
         return
       }
@@ -1688,7 +1719,7 @@ export function AttackPhase({
 
   return (
     <section
-      className={`atk-root is-${phase}${superAttackerActive ? ' is-super-attacker' : ''}${activeBonusFx ? ` is-bonus-${activeBonusFx}` : ''}` }
+      className={`atk-root is-${phase}${liteMode ? ' is-lite' : ''}${superAttackerActive ? ' is-super-attacker' : ''}${activeBonusFx ? ` is-bonus-${activeBonusFx}` : ''}` }
       ref={containerRef}
       style={{ touchAction: 'none', userSelect: 'none' }}
       onPointerMove={(e) => {
@@ -1735,6 +1766,29 @@ export function AttackPhase({
           display: flex; flex-direction: column; align-items: center;
           justify-content: center; gap: 14px; padding: 24px;
           color: #fff;
+        }
+        .atk-root.is-lite * {
+          text-shadow: none !important;
+          filter: none !important;
+          box-shadow: none !important;
+        }
+        .atk-root.is-lite .atk-slalom-defender,
+        .atk-root.is-lite .atk-slalom-gate,
+        .atk-root.is-lite .atk-bonus-orb,
+        .atk-root.is-lite .atk-control-ghost,
+        .atk-root.is-lite .atk-shot-demo__keeper,
+        .atk-root.is-lite .atk-shot-joystick__base {
+          animation-duration: 1.8s !important;
+          animation-iteration-count: 1 !important;
+        }
+        .atk-root.is-lite .atk-bonus-field-fx,
+        .atk-root.is-lite .atk-bonus-flash,
+        .atk-root.is-lite .atk-gd-stripe-overlay,
+        .atk-root.is-lite .atk-control-ghost {
+          display: none !important;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .atk-root * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
         }
         .atk-tutorial__title {
           font: 900 clamp(32px,10vw,56px) 'Barlow Condensed', sans-serif;
@@ -3022,10 +3076,12 @@ export function AttackPhase({
 
           {/* Result overlay */}
           {resultLabel && (
-            <div className="atk-result-overlay" style={{ color: resultLabel === 'BUT !' ? '#2bff9a' : resultLabel === 'ARRETE !' ? '#FFB800' : '#FF4455' }}>
-              <span>{resultLabel}</span>
+            <div className="atk-result-overlay" style={{ color: resultLabel.startsWith('BUT !') ? '#2bff9a' : resultLabel.startsWith('ARRETE !') ? '#FFB800' : '#FF4455' }}>
+              <span>{resultLabel.split('|')[0]}</span>
               <small>
-                {resultLabel === 'BUT !'
+                {resultLabel.includes('|')
+                  ? resultLabel.split('|')[1]
+                  : resultLabel === 'BUT !'
                   ? `${selectedShooter.name} marque`
                   : resultLabel === 'ARRETE !'
                     ? `${selectedShooter.name} tombe sur le gardien`
