@@ -116,17 +116,22 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
       return { accent: '#8794a7', main: 'Timing manque.', sub }
     }
     if (outcome === 'saved') {
-      const keeper = 'Aie, le gardien a intercepte la balle malgre ton super tir.'
-      const sub = scorerName
-        ? `${scorerName} avait bien frappe. ${nextPhaseHint}`
-        : `${opponentName ? `${opponentName} va devoir s'y reprendre.` : "L'attaque adverse est repoussée."} ${nextPhaseHint}`
+      if (roundType === 'attack') {
+        const keeper = 'Aie, le gardien a intercepte la balle malgre ton super tir.'
+        const sub = scorerName
+          ? `${scorerName} avait bien frappe. ${nextPhaseHint}`
+          : `${opponentName ? `${opponentName} va devoir s'y reprendre.` : "L'attaque adverse est repoussée."} ${nextPhaseHint}`
+        return { accent: '#2bff9a', main: keeper, sub }
+      }
+      const keeper = keeperName ? `${keeperName} sort la frappe !` : 'Ton gardien sort la frappe !'
+      const sub = `${opponentName ? `${opponentName} est stoppé.` : "L'attaque adverse est repoussée."} ${nextPhaseHint}`
       return { accent: '#2bff9a', main: keeper, sub }
     }
     if (outcome === 'defense_perfect') {
       return { accent: '#2bff9a', main: 'Tu as bloqué tous les tirs !', sub: `Tu gagnes un tir bonus. ${nextPhaseHint}` }
     }
     return null
-  }, [keeperName, nextPhaseHint, opponentName, outcome, scorerName])
+  }, [keeperName, nextPhaseHint, opponentName, outcome, roundType, scorerName])
 
   const showButton = roundResultNeedsClick(outcome)
   const retryLabel = retryLabelFor(roundType, outcome)
