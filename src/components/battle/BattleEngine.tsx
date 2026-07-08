@@ -118,6 +118,7 @@ type NextAction = { type: 'next'; append?: BattleRoundType; insertNext?: BattleR
 const DRAW_ROUND_COUNT = 3
 const DRAW_POOL: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
 const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
+const DRAW_EXPLAIN_TEXT = "La machine va tirer 3 phases au hasard pour ce match.\nAttaque, Défense ou Tirs massifs — chaque séquence est unique.\nTire le levier !"
 const MAX_SUDDEN_DEATH_ROUNDS = 4 // 2 full attack+defense cycles before forcing a result
 
 const ROUND_LABELS: Record<BattleRoundType, { short: string; label: string; tone: string }> = {
@@ -337,8 +338,34 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const [isDrawingRounds, setIsDrawingRounds] = useState(false)
   const [drawComplete, setDrawComplete] = useState(false)
   const [drawRevealActive, setDrawRevealActive] = useState(false)
+  const [drawLockedReels, setDrawLockedReels] = useState<[boolean, boolean, boolean]>([false, false, false])
+  const [leverPulling, setLeverPulling] = useState(false)
+  // One-time explanation screen shown before the draw machine (persisted via localStorage)
+  const [drawIntroSeen, setDrawIntroSeen] = useState(() => {
+    try { return localStorage.getItem('bk-draw-intro-v1') === '1' } catch { return false }
+  })
+  const [drawExplainChars, setDrawExplainChars] = useState(0)
   const [bonusAttackIndexes, setBonusAttackIndexes] = useState<Set<number>>(() => new Set())
   const drawStartedRef = useRef(false)
+  const drawLockedRef = useRef<[boolean, boolean, boolean]>([false, false, false])
+
+  const handleDrawIntroContinue = () => {
+    sfx.start()
+    setDrawIntroSeen(true)
+    try { localStorage.setItem('bk-draw-intro-v1', '1') } catch { /* ignore */ }
+  }
+  const drawExplainDone = drawExplainChars >= DRAW_EXPLAIN_TEXT.length
+  const drawExplainTyped = DRAW_EXPLAIN_TEXT.slice(0, drawExplainChars)
+
+  useEffect(() => {
+    if (drawIntroSeen || drawExplainDone || state.phase !== 'draw') return
+    const id = window.setTimeout(() => {
+      setDrawExplainChars((c) => Math.min(DRAW_EXPLAIN_TEXT.length, c + 2))
+      sfx.dialogueBlip()
+    }, 28)
+    return () => window.clearTimeout(id)
+  }, [drawIntroSeen, drawExplainDone, state.phase, drawExplainChars])
+
   const audioMuted = useGameMuted()
   const audioVolume = useGameAudioVolume()
 
@@ -379,32 +406,50 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     setDrawHasStarted(true)
     setDrawRevealActive(true)
     window.setTimeout(() => setDrawRevealActive(false), 980)
+
+    // Lever pull animation
+    setLeverPulling(true)
+    window.setTimeout(() => setLeverPulling(false), 380)
+
     sfx.rouletteReveal()
     sfx.battle()
+
     const finalRounds = drawRoundSequence()
-    setDrawPreview(drawRoundSequence())
+    drawLockedRef.current = [false, false, false]
+    setDrawLockedReels([false, false, false])
     setIsDrawingRounds(true)
     setDrawComplete(false)
     sfx.rouletteTick()
+
     const shuffle = window.setInterval(() => {
-      setDrawPreview(drawRoundSequence())
+      const locked = drawLockedRef.current
+      setDrawPreview(prev => prev.map((r, i) => locked[i] ? r : DRAW_POOL[Math.floor(Math.random() * DRAW_POOL.length)]) as BattleRoundType[])
       sfx.rouletteTick()
-    }, 110)
-    window.setTimeout(() => {
-      window.clearInterval(shuffle)
-      setDrawPreview(finalRounds)
-      sfx.rouletteStop()
-      setState((current) => ({
-        ...current,
-        rounds: finalRounds,
-        suddenDeathStartIndex: finalRounds.length,
-        roundIndex: 0,
-      }))
+    }, 90)
+
+    ;([1200, 1650, 2100] as const).forEach((ms, i) => {
       window.setTimeout(() => {
-        setIsDrawingRounds(false)
-        setDrawComplete(true)
-      }, 650)
-    }, 1750)
+        const newLocked = [...drawLockedRef.current] as [boolean, boolean, boolean]
+        newLocked[i] = true
+        drawLockedRef.current = newLocked
+        setDrawLockedReels([...newLocked])
+        setDrawPreview(prev => prev.map((r, idx) => idx === i ? finalRounds[idx] : r) as BattleRoundType[])
+        sfx.rouletteStop()
+        if (i === 2) {
+          window.clearInterval(shuffle)
+          setState(current => ({
+            ...current,
+            rounds: finalRounds,
+            suddenDeathStartIndex: finalRounds.length,
+            roundIndex: 0,
+          }))
+          window.setTimeout(() => {
+            setIsDrawingRounds(false)
+            setDrawComplete(true)
+          }, 460)
+        }
+      }, ms)
+    })
   }
 
   // Audio
@@ -803,7 +848,56 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         </div>
       </section> : null}
 
-      {state.phase === 'draw' ? <section className={`battle-draw${drawRevealActive ? ' is-revealing' : ''}${isDrawingRounds ? ' is-drawing' : ''}${drawComplete ? ' is-complete' : ''}`}>
+      {/* Pre-draw explanation dialogue — shown only once ever */}
+      {state.phase === 'draw' && !drawIntroSeen ? (
+        <section className="battle-draw-explain">
+          {/* Background image — very transparent so image is visible */}
+          <div className="battle-draw-explain__bg" aria-hidden="true">
+            <img src="/challenge-splash-explain.png" className="battle-draw-explain__bg-img" alt="" />
+            <div className="battle-draw-explain__bg-overlay" />
+          </div>
+
+          {/* Speech bubble at top — reuses challenge splash dialogue CSS */}
+          <div className="splash-dialogue battle-draw-explain__dialogue">
+            <div className="splash-dialogue__box" role="dialog" aria-live="polite">
+              <div className="splash-dialogue__head">
+                <span>Machine de tirage</span>
+              </div>
+              <p>
+                {drawExplainTyped.split('\n').map((line, i, arr) => (
+                  <span key={i}>
+                    {line}
+                    {i < arr.length - 1 ? <br /> : null}
+                  </span>
+                ))}
+                {!drawExplainDone ? <i className="splash-dialogue__cursor" aria-hidden="true" /> : null}
+              </p>
+              {drawExplainDone ? (
+                <div className="battle-draw-explain__icons">
+                  {DRAW_POOL.map((type, i) => (
+                    <div key={i} className={`battle-draw-explain__icon-item is-${ROUND_LABELS[type].tone}`}>
+                      <BattlePhaseIcon type={type} />
+                      <small>{ROUND_LABELS[type].label}</small>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {drawExplainDone ? (
+                <button type="button" className="splash-dialogue__next is-final" onClick={handleDrawIntroContinue}>
+                  Lancer le tirage
+                </button>
+              ) : (
+                <button type="button" className="splash-dialogue__skip" onClick={() => setDrawExplainChars(DRAW_EXPLAIN_TEXT.length)}>
+                  Afficher
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Draw cabinet — shown after explanation is dismissed */}
+      {state.phase === 'draw' && drawIntroSeen ? <section className={`battle-draw${drawRevealActive ? ' is-revealing' : ''}${isDrawingRounds ? ' is-drawing' : ''}${drawComplete ? ' is-complete' : ''}`}>
         <div className="battle-draw__meta">{match.stage} - {match.label}</div>
         {drawRevealActive ? (
           <div className="battle-draw__reveal" aria-hidden="true">
@@ -817,45 +911,111 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           <strong>VS</strong>
           <span>{awayTeam?.shortName?.toUpperCase() ?? awayTeamId.toUpperCase()} <BattleFlag team={awayTeam} emoji={awayFlag || awayTeamId.slice(0, 2).toUpperCase()} /></span>
         </div>
-        <div className="battle-draw__machine">
-          <div className={`battle-draw__roulette${isDrawingRounds ? ' is-spinning' : ''}`} aria-label="Roulette des phases">
-            {drawPreview.map((round, index) => (
-              <div key={`${index}-${round}`} className={`battle-draw-slot is-${ROUND_LABELS[round].tone}`}>
-                <span className="battle-draw-slot__reel">
-                  <BattlePhaseIcon type={round} />
-                </span>
-                <small>{ROUND_LABELS[round].label}</small>
-              </div>
-            ))}
-          </div>
-          <button type="button" className="battle-draw__lever" onClick={launchRoundDraw} disabled={isDrawingRounds || drawComplete} aria-label="Actionner le levier du tirage">
-            <i className="battle-draw__lever-stick" />
-            <i className="battle-draw__lever-ball" />
-            <i className="battle-draw__lever-base" />
-          </button>
-        </div>
-        {!drawHasStarted && !drawComplete ? (
-          <button type="button" className="battle-draw__launch" onClick={launchRoundDraw}>
-            Lancer le tirage
-          </button>
-        ) : null}
-        {drawComplete ? (
-          <div className="battle-draw__result" aria-live="polite">
-            <span>Ce match va etre compose de</span>
-            <div>
-              {drawPreview.map((round, index) => (
-                <b key={`${index}-${round}`}>{ROUND_LABELS[round].label}</b>
+
+        {/* Casino cabinet — contained so lever never overflows */}
+        <div className="battle-draw__cabinet-wrap">
+          <div className={`battle-draw__cabinet${isDrawingRounds ? ' is-spinning' : ''}`}>
+            {/* Gold marquee */}
+            <div className="battle-draw__marquee">
+              <div className="battle-draw__marquee-gloss" />
+              <div className="battle-draw__marquee-title">Tirage du match</div>
+            </div>
+
+            {/* Bulb strip */}
+            <div className="battle-draw__bulbs" aria-hidden="true">
+              {(['gold','neon','gold','red','gold','neon'] as const).map((color, i) => (
+                <i key={i} className={`battle-draw__bulb battle-draw__bulb--${color}`} style={{ animationDelay: `${i * 0.16}s` }} />
               ))}
             </div>
+
+            {/* Reel assembly */}
+            <div className="battle-draw__reels">
+              <div className="battle-draw__reel-frame battle-draw__reel-frame--left" />
+              <div className="battle-draw__reel-window" aria-label="Roulette des phases">
+                {drawPreview.map((round, index) => {
+                  const order: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
+                  const pos = order.indexOf(round)
+                  const topType = order[(pos + 2) % 3]
+                  const botType = order[(pos + 1) % 3]
+                  const isSpin = isDrawingRounds && !drawLockedReels[index]
+                  const isLocking = drawLockedReels[index] && isDrawingRounds
+                  return (
+                    <div key={index} className={`battle-draw__reel-col is-${ROUND_LABELS[round].tone}`}>
+                      <div className={`battle-draw__reel-inner${isSpin ? ' is-spinning' : ''}${isLocking ? ' is-locking' : ''}`}>
+                        <span className="battle-draw__reel-ghost">
+                          <BattlePhaseIcon type={topType} />
+                        </span>
+                        <span className="battle-draw__reel-main">
+                          <BattlePhaseIcon type={round} />
+                        </span>
+                        <span className="battle-draw__reel-ghost">
+                          <BattlePhaseIcon type={botType} />
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+                <div className="battle-draw__reel-gradient" aria-hidden="true" />
+                <div className="battle-draw__reel-payline" aria-hidden="true" />
+              </div>
+              <div className="battle-draw__reel-frame battle-draw__reel-frame--right" />
+            </div>
+
+            {/* Phase labels */}
+            <div className="battle-draw__phase-labels">
+              {drawPreview.map((round, index) => (
+                <span key={index} className={`battle-draw__phase-label is-${ROUND_LABELS[round].tone}`}>
+                  {ROUND_LABELS[round].label}
+                </span>
+              ))}
+            </div>
+
+            {/* Coin tray */}
+            <div className="battle-draw__coin-tray" aria-hidden="true" />
+          </div>
+
+          {/* Chrome lever — positioned inside the wrap so it never overflows */}
+          <div className="battle-draw__lever-mount" aria-hidden="true">
+            <div className="battle-draw__lever-housing" />
+            <div className="battle-draw__lever-bolt battle-draw__lever-bolt--top" />
+            <div className="battle-draw__lever-bolt battle-draw__lever-bolt--bot" />
+            <div className="battle-draw__lever-hub" />
+            <div className="battle-draw__lever-center-bolt" />
+            <button
+              type="button"
+              className="battle-draw__lever-btn"
+              style={{
+                transform: `rotate(${leverPulling ? 88 : 24}deg)`,
+                transition: leverPulling ? 'transform .3s cubic-bezier(.2,.9,.2,1)' : 'transform .5s cubic-bezier(.3,1.3,.4,1)',
+              }}
+              onClick={launchRoundDraw}
+              disabled={isDrawingRounds}
+              aria-label="Tirer le levier pour lancer le tirage"
+            >
+              <span className="battle-draw__lever-stick" />
+              <span className="battle-draw__lever-ball" />
+            </button>
+          </div>
+        </div>
+
+        {/* Status hint */}
+        {!drawHasStarted && !drawComplete ? (
+          <div className="battle-draw__hint">
+            Tire le levier pour lancer le tirage <span className="battle-draw__hint-arrow">→</span>
           </div>
         ) : null}
+        {isDrawingRounds ? (
+          <div className="battle-draw__spinning-label">Tirage en cours…</div>
+        ) : null}
+
+        {/* Actions after draw */}
         {drawComplete ? (
           <div className="battle-draw__actions">
-            <button type="button" className="battle-draw__reroll" onClick={() => { sfx.click(); setDrawComplete(false); drawStartedRef.current = false; launchRoundDraw() }}>
-              Relancer le tirage
-            </button>
             <button type="button" className="battle-draw__cta" onClick={() => { sfx.click(); setState((current) => ({ ...current, phase: 'playing' })) }}>
-              Jouer
+              Jouer ⚽
+            </button>
+            <button type="button" className="battle-draw__reroll" onClick={() => { sfx.click(); setDrawComplete(false); drawStartedRef.current = false; launchRoundDraw() }}>
+              Relancer le tirage <span>→</span>
             </button>
           </div>
         ) : null}
