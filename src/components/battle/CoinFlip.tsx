@@ -14,7 +14,7 @@ type CoinFlipProps = {
 const SIM_COMMENTS = [
   'Match tranche par une sequence folle en fin de rencontre.',
   'La simulation donne un vainqueur net apres un gros duel tactique.',
-  'Le rythme s emballe et une equipe finit par faire craquer la defense.',
+  "Le rythme s'emballe et une équipe finit par faire craquer la défense.",
   'Scenario serre, mais le dernier temps fort fait basculer le match.',
   'Le sort du match se joue sur quelques details et une frappe decisive.',
 ]
@@ -186,7 +186,7 @@ export function CoinFlip({ homeTeamName, awayTeamName, homeFlag, awayFlag, homeT
 
       {phase === 'spinning' && (
         <p className="battle-coin-flip__message">
-          {mode === 'simulation' ? <><b>Simulation du match</b> — Le moteur lance un scenario express.<br /><b>Un vainqueur sera designe.</b></> : <><b>Mort subite</b> — Après une bataille acharnée sans vainqueur,<br />le hasard décide. <b>On tire à pile ou face !</b></>}
+          {mode === 'simulation' ? <><b>Simulation du match</b> — Le moteur lance un scénario express.<br /><b>Un vainqueur sera désigné.</b></> : <><b>Mort subite</b> — Après une bataille acharnée sans vainqueur,<br />le hasard décide. <b>On tire à pile ou face !</b></>}
         </p>
       )}
 

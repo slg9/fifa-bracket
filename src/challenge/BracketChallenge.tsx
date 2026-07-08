@@ -376,18 +376,18 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   {progress.played ? (
                     <>
                       <span className={`bkm-progress__badge${progress.correct ? ' is-correct' : ' is-wrong'}`}>
-                        {progress.correct ? `★ +${progress.points}` : '! rate'}
+                        {progress.correct ? `★ +${progress.points}` : '! raté'}
                       </span>
                       {progress.exact ? <span className="bkm-progress__exact">◎ exact +{progress.exactPoints}</span> : null}
                       <span>R {formatScore(progress.realScore)} · J {formatScore(progress.playedScore)}</span>
                     </>
                   ) : predictionState === 'correct' ? (
-                    <span className="bkm-progress__badge is-correct">Prono reussi</span>
+                    <span className="bkm-progress__badge is-correct">Prono réussi</span>
                   ) : predictionState === 'wrong' ? (
-                    <span className="bkm-progress__badge is-wrong">Prono rate</span>
+                    <span className="bkm-progress__badge is-wrong">Prono raté</span>
                   ) : isPlayed ? (
                     <>
-                      <span className="bkm-progress__badge is-official">Brakup joue</span>
+                    <span className="bkm-progress__badge is-official">Brakup joué</span>
                       <span>J {formatScore(progress.playedScore)}</span>
                     </>
                   ) : userPickId ? (
@@ -395,7 +395,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
                   ) : selectedWinnerId ? (
                     <span className="bkm-progress__badge is-official">Vainqueur affiche</span>
                   ) : (
-                    <span className="bkm-progress__badge is-empty">Non joue</span>
+                    <span className="bkm-progress__badge is-empty">Non joué</span>
                   )}
                 </footer>
               </article>
@@ -452,7 +452,7 @@ export function BracketChallenge({ matches, teamsById, picks, onPick, onPlay, br
           <div className="brakup-email brakup-confirm">
             <h2 id="brakup-cancel-pick-title">Annuler ce choix ?</h2>
             <p>
-              Tu as deja joue ce match avec {cancelWarning.teamLabel}. Annuler ce choix supprimera aussi le score Brakup et les donnees de jeu liees a ce match.
+              Tu as déjà joué ce match avec {cancelWarning.teamLabel}. Annuler ce choix supprimera aussi le score Brakup et les données de jeu liées à ce match.
             </p>
             <div className="brakup-email__actions">
               <button type="button" className="brakup-button brakup-button--ghost" onClick={() => setCancelWarning(null)}>Garder</button>

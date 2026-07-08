@@ -129,7 +129,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
         cta: 'Tente ta chance avec ton prono.',
       })
       const published = await publishResultShare({
-        title: playerWon ? `Victoire Brakup - ${matchLabel}` : `Resultat Brakup - ${matchLabel}`,
+        title: playerWon ? `Victoire Brakup - ${matchLabel}` : `Résultat Brakup - ${matchLabel}`,
         description: shareText,
         redirectUrl: `${window.location.origin}/challenge`,
         imageDataUrl: await blobToDataUrl(blob),
@@ -317,7 +317,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
                   <strong>Brakup loading</strong>
                   <span>Construction du visuel</span>
                   <span>On prepare tout</span>
-                  <span>Derniere passe</span>
+                  <span>Dernière passe</span>
                 </div>
               )}
             </div>

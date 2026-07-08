@@ -88,7 +88,7 @@ const DRIBBLE_RENDER_LOOKAHEAD = 12
 
 const GD_COMMENTS = [
   'Beau dribble !', 'Petit pont !', 'Il passe !', 'Quel crochet !',
-  'Magnifique !', 'Bien joue !', 'En pleine course !', 'PASSE !',
+  'Magnifique !', 'Bien joué !', 'En pleine course !', 'PASSE !',
 ]
 
 const GAUGE_TRACK_PX = 260
@@ -685,7 +685,7 @@ export function AttackPhase({
   const opponentTextColor = opponentKit?.text ?? '#ffffff'
   const isSuddenDeathShot = shotTitle === 'TIR DE MORT SUBITE'
 
-  // Utiliser tous les joueurs de l'equipe (plus de limite a 6)
+  // Utiliser tous les joueurs de l'équipe (plus de limite à 6)
   // Pour commencer par les attaquants, il faudrait avoir les roles dans les donnees
   const forwardPlayers = useMemo(() => [...homeTeamPlayers], [homeTeamPlayers])
   const shooterOptions = useMemo(() => buildShooterOptions(forwardPlayers, homeTeamId, homeTeamPlayerNumbers), [homeTeamId, forwardPlayers, homeTeamPlayerNumbers])
@@ -1593,14 +1593,14 @@ export function AttackPhase({
     window.setTimeout(() => {
       if (!inGreen || !targetInsideFrame) {
         setBallFlight({ id: Date.now(), target: missTarget, state: 'miss', duration: FLIGHT_MS })
-        window.setTimeout(() => setResultLabel("RATE !|Tu n'as pas lache le ballon au bon moment."), FLIGHT_MS)
+        window.setTimeout(() => setResultLabel("RATÉ !|Tu n'as pas lâché le ballon au bon moment."), FLIGHT_MS)
         window.setTimeout(() => finish(false, 'miss', selectedShooterRef.current), FLIGHT_MS + 700)
         return
       }
 
       if (keeperBlocking) {
         setBallFlight({ id: Date.now(), target: aimTarget, state: 'saved', duration: FLIGHT_MS })
-        window.setTimeout(() => setResultLabel('ARRETE !|Aie, le gardien a intercepte la balle malgre ton super tir.'), FLIGHT_MS)
+        window.setTimeout(() => setResultLabel('ARRÊT !|Aïe, le gardien a intercepté la balle malgré ton super tir.'), FLIGHT_MS)
         window.setTimeout(() => finish(false, 'saved', selectedShooterRef.current), FLIGHT_MS + 800)
         return
       }
@@ -1795,6 +1795,14 @@ export function AttackPhase({
           letter-spacing: .18em; color: #fff;
           text-shadow: 0 0 24px rgba(255,255,255,.28); text-transform: uppercase;
           text-align: center;
+        }
+        .atk-tutorial__label,
+        .atk-shot-tutorial__label {
+          color: rgba(255,255,255,.72);
+          font: 900 12px 'Barlow Condensed', sans-serif;
+          letter-spacing: .18em;
+          text-transform: uppercase;
+          text-shadow: 0 0 12px rgba(43,255,154,.32);
         }
         .atk-tutorial__instruction {
           font: 600 clamp(13px,4vw,17px) 'Barlow Condensed', sans-serif;
@@ -2681,13 +2689,14 @@ export function AttackPhase({
       {/*  Tutorial overlay  */}
       {showDribbleTutorial && !tutorialDone && preCountdownNum === null && (
         <div className="atk-tutorial">
-          <div className="atk-tutorial__title">TUTORIEL ATTAQUE</div>
+          <div className="atk-tutorial__title">ATTAQUE</div>
           <div className="atk-tutorial__comment">
             <div className="atk-tutorial__avatar">
               <KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="ready" />
             </div>
             <span><b>Tutoriel.</b> Glisse entre les portes, saute les rangées et ramasse les pouvoirs avant le tir.</span>
           </div>
+          <div className="atk-tutorial__label">Tutoriel attaque</div>
           {showDribbleDemo ? (
           <div className="atk-dribble-demo" aria-hidden="true">
             <div className="atk-dribble-demo__row atk-dribble-demo__row--gate-a">
@@ -2994,8 +3003,9 @@ export function AttackPhase({
           ) : null}
           {showShotTutorial && !shotTutorialDone && !ballFlight && !resultLabel ? (
             <div className="atk-shot-tutorial">
-              <div className="atk-shot-tutorial__title">{shotTitle ?? 'PHASE DE TIR'}</div>
+              <div className="atk-shot-tutorial__title">{shotTitle ?? 'TIR'}</div>
               <div className="atk-shot-tutorial__comment"><div className="atk-shot-tutorial__avatar"><KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer /></div><span>{shotTutorialComment}</span></div>
+              <div className="atk-shot-tutorial__label">Tutoriel tir</div>
               {showShotDemo ? (
               <div className="atk-shot-demo" aria-hidden="true">
                 <div className="atk-shot-demo__goal"><div className="atk-shot-demo__keeper"><KawaiiFootballer label="GK" jerseyColor="#FF4455" accentColor="#FFB800" shortsColor="#2b0508" textColor="#ffffff" motion="ready" /></div></div>
@@ -3077,14 +3087,14 @@ export function AttackPhase({
 
           {/* Result overlay */}
           {resultLabel && (
-            <div className="atk-result-overlay" style={{ color: resultLabel.startsWith('BUT !') ? '#2bff9a' : resultLabel.startsWith('ARRETE !') ? '#FFB800' : '#FF4455' }}>
+            <div className="atk-result-overlay" style={{ color: resultLabel.startsWith('BUT !') ? '#2bff9a' : resultLabel.startsWith('ARRÊT !') ? '#FFB800' : '#FF4455' }}>
               <span>{resultLabel.split('|')[0]}</span>
               <small>
                 {resultLabel.includes('|')
                   ? resultLabel.split('|')[1]
                   : resultLabel === 'BUT !'
                   ? `${selectedShooter.name} marque`
-                  : resultLabel === 'ARRETE !'
+                  : resultLabel === 'ARRÊT !'
                     ? `${selectedShooter.name} tombe sur le gardien`
                     : `${selectedShooter.name} rate sa frappe`}
               </small>

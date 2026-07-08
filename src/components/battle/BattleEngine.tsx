@@ -118,12 +118,14 @@ type NextAction = { type: 'next'; append?: BattleRoundType; insertNext?: BattleR
 const DRAW_ROUND_COUNT = 3
 const DRAW_POOL: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
 const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
-const DRAW_EXPLAIN_TEXT = "La machine va tirer 3 phases au hasard pour ce match.\nAttaque, Défense ou Tirs massifs — chaque séquence est unique.\nTire le levier !"
+const SUDDEN_DEATH_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'attack', 'defense']
+const DRAW_JACKPOT_CHANCE = 0.07
+const DRAW_EXPLAIN_TEXT = "La machine va tirer 3 phases au hasard pour ce match.\nSi les 3 symboles sont identiques : jackpot, mort subite !\nSinon, tu peux relancer une seule fois."
 const MAX_SUDDEN_DEATH_ROUNDS = 4 // 2 full attack+defense cycles before forcing a result
 
 const ROUND_LABELS: Record<BattleRoundType, { short: string; label: string; tone: string }> = {
   attack: { short: 'ATT', label: 'Attaque', tone: 'attack' },
-  defense: { short: 'DEF', label: 'Defense', tone: 'defense' },
+  defense: { short: 'DEF', label: 'Défense', tone: 'defense' },
   fruit_ninja: { short: 'TM', label: 'Tirs massifs', tone: 'massive' },
 }
 
@@ -154,7 +156,20 @@ function entrantId(match: KnockoutMatch, side: 'home' | 'away') {
 }
 
 function drawRoundSequence(): BattleRoundType[] {
-  return Array.from({ length: DRAW_ROUND_COUNT }, () => DRAW_POOL[Math.floor(Math.random() * DRAW_POOL.length)])
+  if (Math.random() < DRAW_JACKPOT_CHANCE) {
+    const jackpotRound = DRAW_POOL[Math.floor(Math.random() * DRAW_POOL.length)]
+    return Array.from({ length: DRAW_ROUND_COUNT }, () => jackpotRound)
+  }
+
+  let rounds = Array.from({ length: DRAW_ROUND_COUNT }, () => DRAW_POOL[Math.floor(Math.random() * DRAW_POOL.length)])
+  while (isDrawJackpot(rounds)) {
+    rounds = Array.from({ length: DRAW_ROUND_COUNT }, () => DRAW_POOL[Math.floor(Math.random() * DRAW_POOL.length)])
+  }
+  return rounds
+}
+
+function isDrawJackpot(rounds: BattleRoundType[]) {
+  return rounds.length === DRAW_ROUND_COUNT && rounds.every((round) => round === rounds[0])
 }
 
 function makeInitialState(homeTeamId: string, awayTeamId: string, skipIntro: boolean, difficulty: BattleDifficulty): BattleMatchState {
@@ -338,6 +353,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const [isDrawingRounds, setIsDrawingRounds] = useState(false)
   const [drawComplete, setDrawComplete] = useState(false)
   const [drawRevealActive, setDrawRevealActive] = useState(false)
+  const [drawJackpot, setDrawJackpot] = useState(false)
+  const [drawRerollUsed, setDrawRerollUsed] = useState(false)
   const [drawLockedReels, setDrawLockedReels] = useState<[boolean, boolean, boolean]>([false, false, false])
   const [leverPulling, setLeverPulling] = useState(false)
   const [drawIntroSeen, setDrawIntroSeen] = useState(false)
@@ -396,8 +413,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     setState((current) => ({ ...current, phase: 'playing' }))
   }
 
-  const launchRoundDraw = () => {
-    if (isDrawingRounds) return
+  const launchRoundDraw = (force = false) => {
+    if (isDrawingRounds || (drawHasStarted && !force)) return
     drawStartedRef.current = true
     setDrawHasStarted(true)
     setDrawRevealActive(true)
@@ -411,10 +428,13 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     sfx.battle()
 
     const finalRounds = drawRoundSequence()
+    const jackpot = isDrawJackpot(finalRounds)
+    const playableRounds = jackpot ? SUDDEN_DEATH_ROUNDS : finalRounds
     drawLockedRef.current = [false, false, false]
     setDrawLockedReels([false, false, false])
     setIsDrawingRounds(true)
     setDrawComplete(false)
+    setDrawJackpot(false)
     sfx.rouletteTick()
 
     const shuffle = window.setInterval(() => {
@@ -435,17 +455,26 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           window.clearInterval(shuffle)
           setState(current => ({
             ...current,
-            rounds: finalRounds,
-            suddenDeathStartIndex: finalRounds.length,
+            rounds: playableRounds,
+            suddenDeathStartIndex: jackpot ? 0 : finalRounds.length,
             roundIndex: 0,
           }))
           window.setTimeout(() => {
+            setDrawJackpot(jackpot)
             setIsDrawingRounds(false)
             setDrawComplete(true)
           }, 460)
         }
       }, ms)
     })
+  }
+
+  const rerollRoundDraw = () => {
+    if (drawRerollUsed || drawJackpot || isDrawingRounds) return
+    sfx.click()
+    setDrawRerollUsed(true)
+    setDrawComplete(false)
+    launchRoundDraw(true)
   }
 
   // Audio
@@ -754,6 +783,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     setIsDrawingRounds(false)
     setDrawComplete(false)
     setDrawRevealActive(false)
+    setDrawJackpot(false)
+    setDrawRerollUsed(false)
     setBonusAttackIndexes(new Set())
     drawStartedRef.current = false
   }
@@ -780,7 +811,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     <div className="battle-engine" role="dialog" aria-modal="true" aria-label={`Combat ${match.label}`} onContextMenu={(e) => e.preventDefault()}>
 
       {/* Persistent score pill: same compact format as the pre-battle screen */}
-      {state.phase !== 'intro' && state.phase !== 'match_result' ? (
+      {state.phase !== 'intro' && state.phase !== 'draw' && state.phase !== 'match_result' ? (
         <>
         <div className="battle-score-strip battle-score-pill" aria-label="Score">
           <span className="battle-score-strip__flag"><BattleFlag team={homeTeam} emoji={homeFlag || homeTeam?.shortName?.slice(0, 2).toUpperCase() || homeTeamId.slice(0, 2).toUpperCase()} /></span>
@@ -792,7 +823,9 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         <div className={`battle-difficulty-pill is-${state.difficulty}`} aria-label={`Difficulte ${DIFFICULTY_META[state.difficulty].label}`}>
           <span>{DIFFICULTY_META[state.difficulty].short}</span>
         </div>
-        {suddenDeath ? <SuddenDeathShootout history={history} currentIndex={state.roundIndex} currentRound={currentRound} phase={state.phase} suddenDeathStartIndex={state.suddenDeathStartIndex} /> : <BattleProgressRail rounds={state.rounds} currentIndex={state.roundIndex} phase={state.phase} suddenDeathStartIndex={state.suddenDeathStartIndex} />}
+        {suddenDeath
+          ? <SuddenDeathShootout history={history} currentIndex={state.roundIndex} currentRound={currentRound} phase={state.phase} suddenDeathStartIndex={state.suddenDeathStartIndex} />
+          : <BattleProgressRail rounds={state.rounds} currentIndex={state.roundIndex} phase={state.phase} suddenDeathStartIndex={state.suddenDeathStartIndex} />}
         </>
       ) : null}
 
@@ -893,7 +926,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
       ) : null}
 
       {/* Draw cabinet — shown after explanation is dismissed */}
-      {state.phase === 'draw' && drawIntroSeen ? <section className={`battle-draw${drawRevealActive ? ' is-revealing' : ''}${isDrawingRounds ? ' is-drawing' : ''}${drawComplete ? ' is-complete' : ''}`}>
+      {state.phase === 'draw' && drawIntroSeen ? <section className={`battle-draw${drawRevealActive ? ' is-revealing' : ''}${isDrawingRounds ? ' is-drawing' : ''}${drawComplete ? ' is-complete' : ''}${drawJackpot ? ' is-jackpot' : ''}`}>
         <div className="battle-draw__meta">{match.stage} - {match.label}</div>
         {drawRevealActive ? (
           <div className="battle-draw__reveal" aria-hidden="true">
@@ -984,8 +1017,8 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
                 transform: `rotate(${leverPulling ? 88 : 24}deg)`,
                 transition: leverPulling ? 'transform .3s cubic-bezier(.2,.9,.2,1)' : 'transform .5s cubic-bezier(.3,1.3,.4,1)',
               }}
-              onClick={launchRoundDraw}
-              disabled={isDrawingRounds}
+              onClick={() => launchRoundDraw()}
+              disabled={isDrawingRounds || drawHasStarted}
               aria-label="Tirer le levier pour lancer le tirage"
             >
               <span className="battle-draw__lever-stick" />
@@ -1003,16 +1036,26 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         {isDrawingRounds ? (
           <div className="battle-draw__spinning-label">Tirage en cours…</div>
         ) : null}
+        {drawComplete && drawJackpot ? (
+          <div className="battle-draw__jackpot" role="status">
+            <strong>JACKPOT</strong>
+            <span>Mort subite ! Pas de relance.</span>
+          </div>
+        ) : null}
 
         {/* Actions after draw */}
         {drawComplete ? (
           <div className="battle-draw__actions">
             <button type="button" className="battle-draw__cta" onClick={() => { sfx.click(); setState((current) => ({ ...current, phase: 'playing' })) }}>
-              Jouer ⚽
+              {drawJackpot ? 'Jouer la mort subite' : 'Jouer ⚽'}
             </button>
-            <button type="button" className="battle-draw__reroll" onClick={() => { sfx.click(); setDrawComplete(false); drawStartedRef.current = false; launchRoundDraw() }}>
-              Relancer le tirage <span>→</span>
-            </button>
+            {!drawJackpot && !drawRerollUsed ? (
+              <button type="button" className="battle-draw__reroll" onClick={rerollRoundDraw}>
+                Relancer le tirage <span>1/1</span>
+              </button>
+            ) : !drawJackpot ? (
+              <div className="battle-draw__reroll-note">Relance utilisée</div>
+            ) : null}
           </div>
         ) : null}
       </section> : null}
@@ -1024,7 +1067,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
             ? highlightPlayerName(commentaryData.text, commentaryData.tokens[0])
             : currentRound === 'attack'
               ? isCounterAttackRound
-                ? previousRound?.type === 'fruit_ninja' ? <><b>Bravo !</b> Tu as bloqué tous les tirs. Tu gagnes un tir bonus !</> : <><b>Bravo !</b> Perfect défensif. Tu gagnes un tir bonus !</>
+                ? previousRound?.type === 'fruit_ninja' ? <><b>Bravo !</b> Tu as bloqué tous les tirs. Tu gagnes un tir bonus !</> : <><b>Bravo !</b> Défense parfaite. Tu gagnes un tir bonus !</>
                 : <><b>{roundStartCommentaryPlayer ?? homeTeam?.name ?? homeTeamId}</b> part en slalom - passe les portes vertes puis arme la frappe !</>
               : currentRound === 'defense'
                 ? isSuddenGoalSave
@@ -1054,14 +1097,14 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           <g transform="translate(98 130)"><circle r="13" fill="#f4f7ff" stroke="#0b1422" strokeWidth="1"/><path d="M0 -7 l6.7 4.9 -2.5 7.9 -8.4 0 -2.5 -7.9z" fill="#0b1422"/></g>
         </svg>
         <button type="button" className="battle-round-start__ready" onClick={() => { sfx.click(); startRoundCountdown() }}>
-          {currentRound === 'attack' ? isCounterAttackRound ? 'Pret ? Tir bonus ! >' : "Pret ? Joue l'attaque >" : currentRound === 'defense' ? isSuddenGoalSave ? 'Pret ? Goal save ! >' : 'Pret ? Defends ! >' : 'Pret ? Tirs massifs ! >'}
+          {currentRound === 'attack' ? isCounterAttackRound ? 'Prêt ? Tir bonus ! >' : "Prêt ? Joue l'attaque >" : currentRound === 'defense' ? isSuddenGoalSave ? 'Prêt ? Goal save ! >' : 'Prêt ? Défends ! >' : 'Prêt ? Tirs massifs ! >'}
         </button>
       </section> : null}
 
       {/* Game phases */}
       {/* Show during countdown too so the player can preview the game layout */}
       {(state.phase === 'playing' || state.phase === 'countdown') && currentRound === 'attack' && !suddenDeath
-        ? <AttackPhase key={`attack-${state.roundIndex}-${state.difficulty}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeRoles.attackers} homeTeamPlayerNumbers={homeTeam?.playerNumbers} awayTeamPlayers={awayRoles.defenders} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} shotOnly={isCounterAttackRound || retryShotOnly} shotAudioMode={isCounterAttackRound ? 'heartOnly' : undefined} shotTitle={isCounterAttackRound ? 'TIR BONUS' : retryShotOnly ? 'PHASE DE TIR' : undefined} roundIntroComment={isCounterAttackRound ? (previousRound?.type === 'fruit_ninja' ? 'Bravo ! Tu as bloqué tous les tirs. Tu gagnes un tir bonus.' : 'Bravo ! Perfect défensif. Tu gagnes un tir bonus.') : undefined} />
+        ? <AttackPhase key={`attack-${state.roundIndex}-${state.difficulty}`} difficulty={state.difficulty} homeTeamId={homeTeamId} awayTeamId={awayTeamId} homeTeamPlayers={homeRoles.attackers} homeTeamPlayerNumbers={homeTeam?.playerNumbers} awayTeamPlayers={awayRoles.defenders} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} isPaused={isPaused || state.phase === 'countdown'} onAudioOverride={setAudioOverride} showControls={showControls} shotOnly={isCounterAttackRound || retryShotOnly} shotAudioMode={isCounterAttackRound ? 'heartOnly' : undefined} shotTitle={isCounterAttackRound ? 'TIR BONUS' : retryShotOnly ? 'PHASE DE TIR' : undefined} roundIntroComment={isCounterAttackRound ? (previousRound?.type === 'fruit_ninja' ? 'Bravo ! Tu as bloqué tous les tirs. Tu gagnes un tir bonus.' : 'Bravo ! Défense parfaite. Tu gagnes un tir bonus.') : undefined} />
         : null}
       {state.phase === 'playing' && currentRound === 'attack' && suddenDeath
         ? <AttackPhase

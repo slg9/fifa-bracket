@@ -322,8 +322,8 @@ function ChallengeGuidePage({ locale, onBackToGame }: { locale: Locale; onBackTo
         <p className="brakup-seo-content__eyebrow">Challenge Coupe du Monde 2026</p>
         <h1 id="challenge-guide-title">Comment jouer au Brakup Challenge</h1>
         <p>
-          Brakup est un jeu de prediction Coupe du Monde 2026 pense pour jouer entre amis :
-          cree ton bracket, predis les scores, lance des mini-jeux foot arcade et grimpe au classement.
+          Brakup est un jeu de prédiction Coupe du Monde 2026 pensé pour jouer entre amis :
+          crée ton bracket, prédis les scores, lance des mini-jeux foot arcade et grimpe au classement.
         </p>
         <div className="brakup-seo-content__grid">
           <article>
@@ -331,23 +331,23 @@ function ChallengeGuidePage({ locale, onBackToGame }: { locale: Locale; onBackTo
             <p>Ouvre la carte, selectionne le match disponible, choisis ton camp puis lance le mini-jeu pour confirmer ton prono.</p>
           </article>
           <article>
-            <h2>Cree ton bracket Coupe du Monde</h2>
-            <p>Resous chaque phase finale, sauvegarde ton bracket avec un pseudo et reviens quand les vrais resultats mettent ton score a jour.</p>
+            <h2>Crée ton bracket Coupe du Monde</h2>
+            <p>Résous chaque phase finale, sauvegarde ton bracket avec un pseudo et reviens quand les vrais résultats mettent ton score à jour.</p>
           </article>
           <article>
             <h2>Marque des points</h2>
-            <p>Tu marques des points avec les bons vainqueurs, les scores exacts, les buteurs et les bonus de serie gagnes dans le mode Brakup.</p>
+            <p>Tu marques des points avec les bons vainqueurs, les scores exacts, les buteurs et les bonus de série gagnés dans le mode Brakup.</p>
           </article>
           <article>
             <h2>Joue sans compte</h2>
-            <p>Tu peux preparer un bracket local, puis le synchroniser ensuite pour publier ton score et te comparer aux autres joueurs.</p>
+            <p>Tu peux préparer un bracket local, puis le synchroniser ensuite pour publier ton score et te comparer aux autres joueurs.</p>
           </article>
         </div>
         <div className="brakup-seo-content__faq" aria-label="FAQ Coupe du Monde 2026 Challenge">
           <h2>FAQ Coupe du Monde 2026 Challenge</h2>
           <details open>
             <summary>Qu'est-ce que le Brakup Challenge ?</summary>
-            <p>Un challenge de pronostic foot qui melange bracket Coupe du Monde, mini-jeux arcade et classement entre joueurs.</p>
+            <p>Un challenge de pronostic foot qui mélange bracket Coupe du Monde, mini-jeux arcade et classement entre joueurs.</p>
           </details>
           <details>
             <summary>Peut-on partager son challenge avec ses amis ?</summary>
@@ -1208,6 +1208,7 @@ export function BrakupHub({
   const showOutcomeAt = (index: number) => {
     const next = pendingOutcomeNotices[index]
     if (!next) return
+    setOutcomeBreakdownExpanded(false)
     setOutcomeNoticeKey(next.key)
   }
 
@@ -1216,7 +1217,7 @@ export function BrakupHub({
   const buildOutcomeShareText = () => {
     if (!outcomeNotice) return `Viens tenter ton bracket Brakup.`
     const parts: string[] = []
-    if (outcomeNotice.progress.correct) parts.push("J'ai reussi le bon prono")
+    if (outcomeNotice.progress.correct) parts.push("J'ai réussi le bon prono")
     if (outcomeNotice.progress.exact) parts.push("j'ai trouve le score exact")
     if (outcomeNotice.progress.scorerHits.length > 0) {
       const scorerLabel = outcomeNotice.progress.scorerHits.length === 1
@@ -1302,7 +1303,7 @@ export function BrakupHub({
           headline: outcomeHeadline,
           subline: `${outcomeNotice.match.label} - reel ${formatScore(outcomeNotice.progress.realScore)} - ton pari ${formatScore(outcomeNotice.progress.playedScore)}`,
           messageLines: outcomeShareMessageLines,
-          pointsLabel: `+${outcomeBreakdownTotal} points gagnes`,
+          pointsLabel: `+${outcomeBreakdownTotal} points gagnés`,
           rows: outcomeShareRows,
           cta: 'Tente ta chance avec ton prono.',
         }),
@@ -1367,7 +1368,7 @@ export function BrakupHub({
   const outcomeHasPoints = outcomeBreakdownTotal > 0
   const outcomeIsPartial = Boolean(outcomeNotice && !outcomeNotice.progress.correct && outcomeHasPoints)
   const outcomeBoomLabel = outcomeNotice?.progress.correct ? 'PRONO OK' : outcomeIsPartial ? 'BONUS OK' : 'PRONO RATE'
-  const outcomeHeadline = outcomeNotice?.progress.correct ? 'Points gagnes' : outcomeIsPartial ? 'Bonus gagne' : 'Rien gagne'
+  const outcomeHeadline = outcomeNotice?.progress.correct ? 'Points gagnés' : outcomeIsPartial ? 'Bonus gagné' : 'Rien gagné'
   const outcomeMatchLabel = outcomeNotice?.match.label ?? 'Match Brakup'
   const outcomeHomeTeam = outcomeNotice?.match.home.kind === 'team' ? teamsById.get(outcomeNotice.match.home.teamId) : undefined
   const outcomeAwayTeam = outcomeNotice?.match.away.kind === 'team' ? teamsById.get(outcomeNotice.match.away.teamId) : undefined
@@ -1397,7 +1398,7 @@ export function BrakupHub({
       points: outcomeNotice.progress.correct ? `+${outcomeNotice.progress.stagePoints}` : '0',
     },
     ...(outcomeExactLabel ? [{
-      label: 'Score exact reussi',
+      label: 'Score exact réussi',
       detail: null,
       points: outcomeExactLabel,
     }] : []),
@@ -1412,8 +1413,6 @@ export function BrakupHub({
       points: outcomeScorerNames.join(', '),
     }] : []),
   ] : []
-  const visibleOutcomeScoreRows = outcomeBreakdownExpanded ? outcomeScoreRows : outcomeScoreRows.slice(0, 2)
-  const hiddenOutcomeScoreRows = Math.max(0, outcomeScoreRows.length - visibleOutcomeScoreRows.length)
   const menuPseudo = savedProfile.pseudo || brackets.find((entry) => entry.id === activeBracketId)?.pseudo || 'Invite'
   const singleBracketEntry = currentLeaderboardEntry ?? brackets[0] ?? null
 
@@ -1682,23 +1681,24 @@ export function BrakupHub({
               <strong>+{outcomeBreakdownTotal}</strong>
               <span>points gagnés</span>
             </div>
-            <div className="brakup-outcome__breakdown">
-              <div className="brakup-outcome__scores">
-                {visibleOutcomeScoreRows.map((row) => (
-                  <span key={`${row.label}-${row.points}`}>
-                    {row.label} {row.detail ? <em>{row.detail}</em> : null}
-                    <strong>{row.points}</strong>
-                  </span>
-                ))}
-              </div>
-              {hiddenOutcomeScoreRows > 0 ? (
-                <button type="button" className="brakup-outcome__more" onClick={() => { sfx.tab(); setOutcomeBreakdownExpanded(true) }}>
-                  Voir +{hiddenOutcomeScoreRows}
-                </button>
-              ) : outcomeBreakdownExpanded && outcomeScoreRows.length > 2 ? (
-                <button type="button" className="brakup-outcome__more" onClick={() => { sfx.tab(); setOutcomeBreakdownExpanded(false) }}>
-                  Voir moins
-                </button>
+            <div className={`brakup-outcome__breakdown${outcomeBreakdownExpanded ? ' is-open' : ''}`}>
+              <button
+                type="button"
+                className="brakup-outcome__more"
+                aria-expanded={outcomeBreakdownExpanded}
+                onClick={() => { sfx.tab(); setOutcomeBreakdownExpanded((expanded) => !expanded) }}
+              >
+                {outcomeBreakdownExpanded ? 'Masquer les details' : `Details des points (${outcomeScoreRows.length})`}
+              </button>
+              {outcomeBreakdownExpanded ? (
+                <div className="brakup-outcome__scores">
+                  {outcomeScoreRows.map((row) => (
+                    <span key={`${row.label}-${row.points}`}>
+                      {row.label} {row.detail ? <em>{row.detail}</em> : null}
+                      <strong>{row.points}</strong>
+                    </span>
+                  ))}
+                </div>
               ) : null}
             </div>
             <div className="brakup-outcome__actions">
@@ -1712,7 +1712,7 @@ export function BrakupHub({
               {outcomeShareStatus === 'done' ? <small className="brakup-share-feedback">Partage lancé.</small> : null}
               {outcomeShareStatus === 'error' ? <small className="brakup-share-feedback is-error">Partage indisponible. Retente.</small> : null}
               {!forcedOutcomeNotice && pendingOutcomeNotices.length > 1 ? (
-                <div className="brakup-outcome__slider" aria-label="Resultats non vus">
+                <div className="brakup-outcome__slider" aria-label="Résultats non vus">
                   <button type="button" onClick={() => { sfx.tab(); showOutcomeAt((outcomeNoticeIndex - 1 + pendingOutcomeNotices.length) % pendingOutcomeNotices.length) }}>‹</button>
                   <span>{outcomeNoticeIndex + 1} / {pendingOutcomeNotices.length}</span>
                   <button type="button" onClick={() => { sfx.tab(); showOutcomeAt((outcomeNoticeIndex + 1) % pendingOutcomeNotices.length) }}>›</button>
@@ -1737,7 +1737,7 @@ export function BrakupHub({
                       <strong>Brakup loading</strong>
                       <span>Construction du visuel</span>
                       <span>On prepare tout</span>
-                      <span>Derniere passe</span>
+                      <span>Dernière passe</span>
                     </div>
                   )}
                 </div>

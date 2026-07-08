@@ -124,15 +124,15 @@ function getRoundShort(match: KnockoutMatch) {
 function getStatusHint(status: NodeStatus) {
   switch (status) {
     case 'closed':
-      return 'Resultat officiel connu. Rejoue le scenario pour le fun et pour marquer les points du prono.'
+      return 'Résultat officiel connu. Rejoue le scénario pour le fun et pour marquer les points du prono.'
     case 'completed':
-      return 'Match joue. Touche une equipe pour rejouer avec ce camp.'
+      return 'Match joué. Touche une équipe pour rejouer avec ce camp.'
     case 'picked':
-      return 'Choix vainqueur enregistre. Confirme ton prono en gagnant ce match.'
+      return 'Choix vainqueur enregistré. Confirme ton prono en gagnant ce match.'
     case 'live':
-      return 'Choisis une equipe pour lancer le match.'
+      return 'Choisis une équipe pour lancer le match.'
     case 'available':
-      return 'Choisis une equipe pour lancer le match.'
+      return 'Choisis une équipe pour lancer le match.'
     default:
       return 'Termine les matchs précédents pour débloquer.'
   }
@@ -379,7 +379,7 @@ function MatchNode({
       ? {
           className: 'is-incomplete is-empty',
           label: <MapStageIcon kind="missing" />,
-          title: 'Resultat officiel connu, aucun prono joue',
+          title: 'Résultat officiel connu, aucun prono joué',
         }
       : officialPending
         ? {
@@ -544,14 +544,14 @@ function LevelEntryScreen({
       ? 'Rejouer ce match'
       : hasPreselectedWinner
         ? 'Confirme ton prono'
-        : 'Choisis une equipe'
+        : 'Choisis une équipe'
   const actionHint = isClosed
     ? 'Rejoue avec un camp.'
     : canReplayPlayedMatch
-      ? 'Touche une equipe.'
+      ? 'Touche une équipe.'
       : hasPreselectedWinner
         ? 'Ton vainqueur est deja choisi.'
-        : 'Touche une equipe.'
+        : 'Touche une équipe.'
   const showStatusHint = node.status === 'locked'
 
   return (
@@ -614,14 +614,14 @@ function LevelEntryScreen({
               <div className="wcmap-entry__result-meta">
                 {node.progress.played ? (
                   <div className={`wcmap-entry__verdict${node.progress.correct ? ' is-correct' : ' is-wrong'}`}>
-                    <strong>{node.progress.correct ? 'Prono reussi' : 'Prono rate'}</strong>
+                    <strong>{node.progress.correct ? 'Prono réussi' : 'Prono raté'}</strong>
                     {node.progress.exact ? <em>Score exact +{node.progress.exactPoints}</em> : null}
                     {node.progress.scorerHits.length ? <em>Buteur +{node.progress.scorerPoints}</em> : null}
                   </div>
                 ) : officialPending ? (
                   <div className="wcmap-entry__verdict is-pending">
                     <strong>Officiel en attente</strong>
-                    <span>Jeu sauvegarde</span>
+                    <span>Jeu sauvegardé</span>
                   </div>
                 ) : null}
                 {scorers.length ? <BrakupScorersToggle scorers={scorers} /> : null}

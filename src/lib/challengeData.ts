@@ -335,7 +335,7 @@ export async function publishResultShare(payload: {
     body: JSON.stringify({
       kind: 'result',
       pseudo: payload.pseudo ?? 'Brakup',
-      bracketName: 'Resultat Brakup',
+      bracketName: 'Résultat Brakup',
       title: payload.title,
       description: payload.description,
       redirectUrl: payload.redirectUrl,

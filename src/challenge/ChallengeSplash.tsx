@@ -94,9 +94,6 @@ export function ChallengeSplash({ onPlay, locale = 'fr' }: ChallengeSplashProps)
     <div className={`splash${leaving ? ' is-leaving' : ''}${dialogueStarted ? ` is-dialogue splash--step-${stepIndex + 1}` : ''}`}>
       <div className="splash__frame">
         <div className="splash__bg" />
-        <a className="splash__close" href="/" aria-label={locale === 'en' ? 'Back to home' : "Retour à l'accueil"}>
-          x
-        </a>
         {!dialogueStarted ? (
           <div className="splash__content">
             <button type="button" className="splash__cta" onClick={startDialogue}>

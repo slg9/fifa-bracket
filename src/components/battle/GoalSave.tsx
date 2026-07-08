@@ -575,6 +575,7 @@ const [hitFreeze, setHitFreeze] = useState(false)
         .gs-tutorial-open:active { transform:scale(.96); }
         .gs-tutorial { position:absolute; inset:0; z-index:42; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:11px; padding:22px 20px; text-align:center; background:linear-gradient(180deg, rgba(255,255,255,.055), transparent 34%), #030509; backdrop-filter:blur(4px) grayscale(1); color:#fff; }
         .gs-tutorial__title { font:900 clamp(30px,9vw,48px) 'Barlow Condensed',sans-serif; color:#fff; letter-spacing:.16em; text-transform:uppercase; text-align:center; text-shadow:0 0 24px rgba(255,255,255,.28); }
+        .gs-tutorial__label { color:rgba(255,255,255,.72); font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.18em; text-transform:uppercase; text-shadow:0 0 12px rgba(43,255,154,.32); }
         .gs-tutorial__comment { display:grid; grid-template-columns:58px minmax(0,1fr); align-items:center; gap:10px; width:min(86vw,340px); padding:9px 11px; border:1px solid rgba(255,255,255,.22); border-left:3px solid #fff; border-radius:14px; background:rgba(255,255,255,.06); box-shadow:0 14px 28px rgba(0,0,0,.28); text-align:left; }
         .gs-tutorial__avatar { width:58px; height:64px; display:grid; place-items:center; overflow:visible; filter:drop-shadow(0 8px 12px rgba(0,0,0,.42)); animation:gsKickerPulse .7s ease-in-out infinite alternate; }
         .gs-tutorial__comment p { margin:0; color:#fff; font:800 clamp(13px,3.8vw,16px) 'Barlow Condensed',sans-serif; line-height:1.3; letter-spacing:.04em; }
@@ -655,7 +656,7 @@ const [hitFreeze, setHitFreeze] = useState(false)
 
       {showGoalSaveTutorial && !tutorialDone && tutorialCountdown === null ? (
         <div className="gs-tutorial">
-          <div className="gs-tutorial__title">{isSuddenDeath ? 'TUTORIEL PENALTY' : 'TUTORIEL ARRET'}</div>
+          <div className="gs-tutorial__title">{isSuddenDeath ? 'PENALTY' : 'ARRET'}</div>
           <div className="gs-tutorial__comment">
             <div className="gs-tutorial__avatar" aria-hidden="true">
               <KawaiiSprite
@@ -674,6 +675,7 @@ const [hitFreeze, setHitFreeze] = useState(false)
             </div>
             <p>{roundIntroComment ?? (isSuddenDeath ? <><strong>{keeperLabel}</strong>, prépare-toi pour le penalty. Swipe le ballon avant la cage.</> : <><strong>{keeperLabel}</strong>, {ballCount} attaquant{ballCount>1?'s':''} {ballCount>1?'ont':'a'} franchi la ligne rouge{alertNamesLabel&&<> : <strong>{alertNamesLabel}</strong></>}. Swipe les ballons avant la cage.</>)}</p>
           </div>
+          <div className="gs-tutorial__label">{isSuddenDeath ? 'Tutoriel penalty' : 'Tutoriel arrêt'}</div>
           {showGoalSaveDemo ? (
             <div className="gs-tutorial__demo" aria-hidden="true">
               {[0,1,2].slice(0, Math.min(3, ballCount)).map((i)=><i key={i} className={`gs-demo-ball gs-demo-ball--${i+1}`}><span /></i>)}

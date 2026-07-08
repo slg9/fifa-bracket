@@ -28,25 +28,6 @@
   padding-bottom: max(48px, env(safe-area-inset-bottom));
   width: 100%;
 }
-.splash__close {
-  position: absolute;
-  z-index: 3;
-  top: max(14px, env(safe-area-inset-top));
-  right: 14px;
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.26);
-  background: rgba(5,11,22,.58);
-  color: #fff;
-  font: 900 28px/1 'Barlow Condensed', sans-serif;
-  text-decoration: none;
-  box-shadow: 0 0 22px rgba(255,184,0,.22);
-  backdrop-filter: blur(10px);
-}
-.splash__close:active { transform: scale(.94) }
 /* Pulsing play button — neon premium */
 .splash__cta {
   position: relative;
@@ -3764,8 +3745,8 @@
   z-index: 1;
   display: grid;
   justify-items: center;
-  gap: 11px;
-  padding: 26px 20px;
+  gap: 10px;
+  padding: 22px 20px;
   overflow: hidden;
   overscroll-behavior: contain;
   text-align: center;
@@ -3947,12 +3928,17 @@
   display: grid;
   gap: 8px;
   justify-items: center;
-  max-height: min(30dvh, 260px);
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding-right: 3px;
   animation: outcomePop .5s .56s both;
+}
+
+.brakup-outcome__breakdown.is-open {
+  max-height: min(25dvh, 210px);
+  overflow-y: auto;
+  padding-right: 3px;
 }
 
 .brakup-outcome__scores {

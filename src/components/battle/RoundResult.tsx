@@ -62,7 +62,7 @@ function pick<T>(arr: T[]): T {
 
 function phaseLabel(roundType: BattleRoundType) {
   if (roundType === 'attack') return "Phase d'attaque"
-  if (roundType === 'defense') return 'Phase defense'
+  if (roundType === 'defense') return 'Phase défense'
   return 'Tirs massifs'
 }
 
@@ -112,14 +112,14 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
       return { accent: '#FF4455', main: 'Ballon perdu.', sub: 'Tu peux rejouer cette attaque ou tenter le Goal Save.' }
     }
     if (outcome === 'miss') {
-      const sub = scorerName ? `${scorerName} rate sa frappe. Tu n'as pas lache le ballon au bon moment. ${pick(MISS_ENCOURAGEMENTS)}` : `Tu n'as pas lache le ballon au bon moment. ${pick(MISS_ENCOURAGEMENTS)}`
-      return { accent: '#8794a7', main: 'Timing manque.', sub }
+      const sub = scorerName ? `${scorerName} rate sa frappe. Tu n'as pas lâché le ballon au bon moment. ${pick(MISS_ENCOURAGEMENTS)}` : `Tu n'as pas lâché le ballon au bon moment. ${pick(MISS_ENCOURAGEMENTS)}`
+      return { accent: '#8794a7', main: 'Timing manqué.', sub }
     }
     if (outcome === 'saved') {
       if (roundType === 'attack') {
-        const keeper = 'Aie, le gardien a intercepte la balle malgre ton super tir.'
+        const keeper = 'Aïe, le gardien a intercepté la balle malgré ton super tir.'
         const sub = scorerName
-          ? `${scorerName} avait bien frappe. ${nextPhaseHint}`
+          ? `${scorerName} avait bien frappé. ${nextPhaseHint}`
           : `${opponentName ? `${opponentName} va devoir s'y reprendre.` : "L'attaque adverse est repoussée."} ${nextPhaseHint}`
         return { accent: '#2bff9a', main: keeper, sub }
       }
@@ -302,7 +302,7 @@ export function RoundResult({ outcome, roundType, playerScore, opponentScore, ho
 
       {outcome === 'miss' && roundType === 'attack' ? (
         <div className="rr-shot-gauge" aria-hidden="true">
-          <span>Relache quand le curseur est dans le vert</span>
+          <span>Relâche quand le curseur est dans le vert</span>
           <div className="rr-shot-gauge__track">
             <i className="rr-shot-gauge__green" />
             <i className="rr-shot-gauge__cursor" />
