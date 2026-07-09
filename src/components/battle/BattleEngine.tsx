@@ -119,14 +119,23 @@ const DRAW_ROUND_COUNT = 3
 const DRAW_POOL: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
 const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
 const SUDDEN_DEATH_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'attack', 'defense']
-const DRAW_JACKPOT_CHANCE = 0.07
-const DRAW_EXPLAIN_TEXT = "La machine va tirer 3 phases au hasard pour ce match.\nSi les 3 symboles sont identiques : jackpot, mort subite !\nSinon, tu peux relancer une seule fois."
+const DRAW_EXPLAIN_TEXT = "La machine tire 3 symboles au hasard.\n3 symboles differents : ordre du match aleatoire.\n2 symboles identiques : mort subite (rare), avec une seule relance.\n3 symboles identiques : mode hasard (tres rare), avec une seule relance."
 const MAX_SUDDEN_DEATH_ROUNDS = 4 // 2 full attack+defense cycles before forcing a result
+// Weighted draw: the uniform 3-reel draw made sudden death land ~67% of the time
+const DRAW_SUDDEN_DEATH_CHANCE = 0.15
+const DRAW_COIN_FLIP_CHANCE = 0.05
+type DrawOutcome = 'normal' | 'sudden_death' | 'coin_flip'
 
 const ROUND_LABELS: Record<BattleRoundType, { short: string; label: string; tone: string }> = {
   attack: { short: 'ATT', label: 'Attaque', tone: 'attack' },
   defense: { short: 'DEF', label: 'Défense', tone: 'defense' },
-  fruit_ninja: { short: 'TM', label: 'Tirs massifs', tone: 'massive' },
+  fruit_ninja: { short: 'TM', label: 'Tir massif', tone: 'massive' },
+}
+
+const DRAW_ORDER_MESSAGES: Record<BattleRoundType, string> = {
+  attack: "Ok, on commence par l'attaque. Chauffe tes crampons !",
+  defense: "Attention, ça démarre en défense. Protège bien ta surface !",
+  fruit_ninja: "On ouvre sur une rafale de tirs à bloquer. T'es prêt ?",
 }
 
 const DIFFICULTY_META: Record<BattleDifficulty, { label: string; short: string }> = {
@@ -155,21 +164,33 @@ function entrantId(match: KnockoutMatch, side: 'home' | 'away') {
   return entrant.kind === 'team' ? entrant.teamId : side
 }
 
-function drawRoundSequence(): BattleRoundType[] {
-  if (Math.random() < DRAW_JACKPOT_CHANCE) {
-    const jackpotRound = DRAW_POOL[Math.floor(Math.random() * DRAW_POOL.length)]
-    return Array.from({ length: DRAW_ROUND_COUNT }, () => jackpotRound)
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items]
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
   }
-
-  let rounds = Array.from({ length: DRAW_ROUND_COUNT }, () => DRAW_POOL[Math.floor(Math.random() * DRAW_POOL.length)])
-  while (isDrawJackpot(rounds)) {
-    rounds = Array.from({ length: DRAW_ROUND_COUNT }, () => DRAW_POOL[Math.floor(Math.random() * DRAW_POOL.length)])
-  }
-  return rounds
+  return copy
 }
 
-function isDrawJackpot(rounds: BattleRoundType[]) {
-  return rounds.length === DRAW_ROUND_COUNT && rounds.every((round) => round === rounds[0])
+function drawRoundSequence(): BattleRoundType[] {
+  const roll = Math.random()
+  if (roll < DRAW_COIN_FLIP_CHANCE) {
+    const type = DRAW_POOL[Math.floor(Math.random() * DRAW_POOL.length)]
+    return Array.from({ length: DRAW_ROUND_COUNT }, () => type)
+  }
+  if (roll < DRAW_COIN_FLIP_CHANCE + DRAW_SUDDEN_DEATH_CHANCE) {
+    const [doubled, single] = shuffled(DRAW_POOL)
+    return shuffled([doubled, doubled, single])
+  }
+  return shuffled(DRAW_POOL)
+}
+
+function drawOutcome(rounds: BattleRoundType[]): DrawOutcome {
+  const uniqueCount = new Set(rounds).size
+  if (uniqueCount === 1) return 'coin_flip'
+  if (uniqueCount === 2) return 'sudden_death'
+  return 'normal'
 }
 
 function makeInitialState(homeTeamId: string, awayTeamId: string, skipIntro: boolean, difficulty: BattleDifficulty): BattleMatchState {
@@ -354,6 +375,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const [drawComplete, setDrawComplete] = useState(false)
   const [drawRevealActive, setDrawRevealActive] = useState(false)
   const [drawJackpot, setDrawJackpot] = useState(false)
+  const [drawResultMode, setDrawResultMode] = useState<DrawOutcome>('normal')
   const [drawRerollUsed, setDrawRerollUsed] = useState(false)
   const [drawLockedReels, setDrawLockedReels] = useState<[boolean, boolean, boolean]>([false, false, false])
   const [leverPulling, setLeverPulling] = useState(false)
@@ -428,13 +450,16 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     sfx.battle()
 
     const finalRounds = drawRoundSequence()
-    const jackpot = isDrawJackpot(finalRounds)
-    const playableRounds = jackpot ? SUDDEN_DEATH_ROUNDS : finalRounds
+    const outcome = drawOutcome(finalRounds)
+    const suddenDeathDraw = outcome === 'sudden_death'
+    const coinFlipDraw = outcome === 'coin_flip'
+    const playableRounds = suddenDeathDraw ? SUDDEN_DEATH_ROUNDS : finalRounds
     drawLockedRef.current = [false, false, false]
     setDrawLockedReels([false, false, false])
     setIsDrawingRounds(true)
     setDrawComplete(false)
     setDrawJackpot(false)
+    setDrawResultMode('normal')
     sfx.rouletteTick()
 
     const shuffle = window.setInterval(() => {
@@ -456,11 +481,12 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           setState(current => ({
             ...current,
             rounds: playableRounds,
-            suddenDeathStartIndex: jackpot ? 0 : finalRounds.length,
+            suddenDeathStartIndex: suddenDeathDraw ? 0 : finalRounds.length,
             roundIndex: 0,
           }))
           window.setTimeout(() => {
-            setDrawJackpot(jackpot)
+            setDrawJackpot(suddenDeathDraw || coinFlipDraw)
+            setDrawResultMode(outcome)
             setIsDrawingRounds(false)
             setDrawComplete(true)
           }, 460)
@@ -470,7 +496,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   }
 
   const rerollRoundDraw = () => {
-    if (drawRerollUsed || drawJackpot || isDrawingRounds) return
+    if (drawRerollUsed || drawResultMode === 'normal' || isDrawingRounds) return
     sfx.click()
     setDrawRerollUsed(true)
     setDrawComplete(false)
@@ -784,6 +810,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     setDrawComplete(false)
     setDrawRevealActive(false)
     setDrawJackpot(false)
+    setDrawResultMode('normal')
     setDrawRerollUsed(false)
     setBonusAttackIndexes(new Set())
     drawStartedRef.current = false
@@ -1038,22 +1065,37 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
         ) : null}
         {drawComplete && drawJackpot ? (
           <div className="battle-draw__jackpot" role="status">
-            <strong>JACKPOT</strong>
-            <span>Mort subite ! Pas de relance.</span>
+            <strong>{drawResultMode === 'coin_flip' ? 'HASARD' : 'MORT SUBITE'}</strong>
+            <span>{drawResultMode === 'coin_flip' ? '3 symboles ! Le coin decide le gagnant.' : "2 symboles ! Ouille, c'est la mort subite."}</span>
           </div>
+        ) : null}
+        {drawComplete && drawResultMode === 'normal' ? (
+          <div className="battle-draw__order-note" role="status">{DRAW_ORDER_MESSAGES[state.rounds[0]]}</div>
         ) : null}
 
         {/* Actions after draw */}
         {drawComplete ? (
           <div className="battle-draw__actions">
-            <button type="button" className="battle-draw__cta" onClick={() => { sfx.click(); setState((current) => ({ ...current, phase: 'playing' })) }}>
-              {drawJackpot ? 'Jouer la mort subite' : 'Jouer ⚽'}
+            <button
+              type="button"
+              className="battle-draw__cta"
+              onClick={() => {
+                sfx.click()
+                if (drawResultMode === 'coin_flip') {
+                  setCoinFlipMode('simulation')
+                  setState((current) => ({ ...current, phase: 'coin_flip' }))
+                } else {
+                  setState((current) => ({ ...current, phase: 'playing' }))
+                }
+              }}
+            >
+              {drawResultMode === 'coin_flip' ? 'Lancer le hasard' : drawResultMode === 'sudden_death' ? 'Jouer la mort subite' : 'Jouer ⚽'}
             </button>
-            {!drawJackpot && !drawRerollUsed ? (
+            {drawResultMode !== 'normal' && !drawRerollUsed ? (
               <button type="button" className="battle-draw__reroll" onClick={rerollRoundDraw}>
-                Relancer le tirage <span>1/1</span>
+                {drawResultMode === 'coin_flip' ? 'Relancer pour eviter le hasard' : 'Relancer pour eviter la mort subite'} <span>1/1</span>
               </button>
-            ) : !drawJackpot ? (
+            ) : drawResultMode !== 'normal' ? (
               <div className="battle-draw__reroll-note">Relance utilisée</div>
             ) : null}
           </div>

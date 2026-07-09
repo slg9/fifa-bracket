@@ -717,6 +717,7 @@ export function WorldCupMapMenu({
   const introPanTimerRef = useRef<number | null>(null)
   const introAnimatingRef = useRef(false)
   const introRevealRef = useRef<number | null>(null)
+  const introRevealClearTimerRef = useRef<number | null>(null)
   const introRevealedSoundRef = useRef<Set<string>>(new Set())
   const lastStadiumRevealSfxRef = useRef(0)
   const dragRef = useRef<{ px: number; py: number; ox: number; oy: number; lastY: number; lastT: number; vy: number } | null>(null)
@@ -764,10 +765,14 @@ export function WorldCupMapMenu({
   }
 
   const stopPanMotion = () => {
-    const wasIntroAnimating = introAnimatingRef.current || introRevealRef.current !== null
+    const wasIntroAnimating = introAnimatingRef.current || introRevealRef.current !== null || introRevealClearTimerRef.current !== null
     if (introPanTimerRef.current !== null) {
       window.clearTimeout(introPanTimerRef.current)
       introPanTimerRef.current = null
+    }
+    if (introRevealClearTimerRef.current !== null) {
+      window.clearTimeout(introRevealClearTimerRef.current)
+      introRevealClearTimerRef.current = null
     }
     if (momentumRef.current !== null) {
       cancelAnimationFrame(momentumRef.current)
@@ -856,6 +861,10 @@ export function WorldCupMapMenu({
     stopPanMotion()
     introPanDoneRef.current = true
     introAnimatingRef.current = true
+    if (introRevealClearTimerRef.current !== null) {
+      window.clearTimeout(introRevealClearTimerRef.current)
+      introRevealClearTimerRef.current = null
+    }
     panFocusRef.current = node.id
     introRevealedSoundRef.current.clear()
     lastStadiumRevealSfxRef.current = 0
@@ -880,8 +889,12 @@ export function WorldCupMapMenu({
         introRevealRef.current = null
         introAnimatingRef.current = false
         setIntroEntering(false)
-        setIntroRevealY(null)
+        setIntroRevealY(revealEndY)
         focusMapImmediately(node)
+        introRevealClearTimerRef.current = window.setTimeout(() => {
+          introRevealClearTimerRef.current = null
+          setIntroRevealY(null)
+        }, 180)
       }
     }
 
@@ -945,6 +958,7 @@ export function WorldCupMapMenu({
 
   useEffect(() => {
     if (introRevealY == null) return
+    if (!introAnimatingRef.current) return
     const visibleNodes = nodes.filter((node) => node.y >= introRevealY - INTRO_REVEAL_MARGIN)
     const newlyVisible = visibleNodes.filter((node) => !introRevealedSoundRef.current.has(node.id))
     if (!newlyVisible.length) return
