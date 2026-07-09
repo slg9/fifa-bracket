@@ -5,6 +5,7 @@ import { playTrack } from '../lib/useGameAudio'
 
 interface ChallengeSplashProps {
   onPlay: () => void
+  skipDialogue?: boolean
   locale?: Locale
 }
 
@@ -44,7 +45,7 @@ const DIALOGUE_STEPS: DialogueStep[] = [
 
 export const CHALLENGE_DIALOGUE_IMAGES = DIALOGUE_STEPS.map((step) => step.image)
 
-export function ChallengeSplash({ onPlay, locale = 'fr' }: ChallengeSplashProps) {
+export function ChallengeSplash({ onPlay, skipDialogue = false, locale = 'fr' }: ChallengeSplashProps) {
   const [dialogueStarted, setDialogueStarted] = useState(false)
   const [stepIndex, setStepIndex] = useState(0)
   const [visibleChars, setVisibleChars] = useState(0)
@@ -72,6 +73,11 @@ export function ChallengeSplash({ onPlay, locale = 'fr' }: ChallengeSplashProps)
     if (dialogueStarted || leaving) return
     sfx.start()
     playTrack('/audio/kickoff-carnival.mp3')
+    if (skipDialogue) {
+      setLeaving(true)
+      window.setTimeout(onPlay, 560)
+      return
+    }
     setDialogueStarted(true)
   }
 

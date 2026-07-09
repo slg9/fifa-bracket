@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
+import { useMemo, useState } from 'react'
 
 type AdminEvent = {
   id?: string
@@ -94,6 +95,7 @@ function payloadPreview(payload: Record<string, unknown> | undefined) {
 export function AdminDashboard() {
   const [token, setToken] = useState(() => window.localStorage.getItem('brakup:admin-token') ?? '')
   const [draftToken, setDraftToken] = useState(token)
+  const [authenticated, setAuthenticated] = useState(false)
   const [summary, setSummary] = useState<AdminSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -104,7 +106,7 @@ export function AdminDashboard() {
     [selectedSessionId, summary],
   )
 
-  async function load() {
+  async function load(tokenOverride = token) {
     setLoading(true)
     setError(null)
     try {
@@ -112,30 +114,72 @@ export function AdminDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(tokenOverride ? { Authorization: `Bearer ${tokenOverride}` } : {}),
         },
         body: JSON.stringify({ action: 'summary' }),
       })
       const payload = await response.json() as { data?: AdminSummary; error?: string }
       if (!response.ok || !payload.data) throw new Error(payload.error ?? 'Dashboard indisponible.')
       setSummary(payload.data)
+      setAuthenticated(true)
       setSelectedSessionId((current) => current ?? payload.data?.sessions[0]?.sessionId ?? null)
+      return true
     } catch (caught) {
+      setAuthenticated(false)
+      setSummary(null)
       setError(caught instanceof Error ? caught.message : 'Dashboard indisponible.')
+      return false
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    void load()
-    const interval = window.setInterval(() => void load(), 30000)
-    return () => window.clearInterval(interval)
-  }, [token])
+  async function handleLogin(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault()
+    const nextToken = draftToken.trim()
+    if (!nextToken) {
+      setError('Token admin requis.')
+      return
+    }
+    const ok = await load(nextToken)
+    if (!ok) return
+    window.localStorage.setItem('brakup:admin-token', nextToken)
+    setToken(nextToken)
+  }
 
-  function saveToken() {
-    window.localStorage.setItem('brakup:admin-token', draftToken)
-    setToken(draftToken)
+  function logout() {
+    window.localStorage.removeItem('brakup:admin-token')
+    setToken('')
+    setDraftToken('')
+    setAuthenticated(false)
+    setSummary(null)
+    setSelectedSessionId(null)
+    setError(null)
+  }
+
+  if (!authenticated) {
+    return (
+      <main className="admin-login">
+        <section className="admin-login__panel" aria-labelledby="admin-login-title">
+          <span>Brakup Admin</span>
+          <h1 id="admin-login-title">Connexion admin</h1>
+          <p>Entre le token admin pour acceder au dashboard analytics.</p>
+          <form className="admin-login__form" onSubmit={handleLogin}>
+            <input
+              type="password"
+              value={draftToken}
+              onChange={(event) => setDraftToken(event.target.value)}
+              placeholder="Token admin"
+              aria-label="Token admin"
+              autoComplete="current-password"
+              autoFocus
+            />
+            <button type="submit" disabled={loading}>{loading ? 'Verification...' : 'Entrer'}</button>
+          </form>
+          {error ? <div className="admin-login__error">{error}</div> : null}
+        </section>
+      </main>
+    )
   }
 
   return (
@@ -147,15 +191,8 @@ export function AdminDashboard() {
           <p>Sessions, invités, profils créés, actions de jeu et infos navigateur.</p>
         </div>
         <div className="admin-dash__auth">
-          <input
-            type="password"
-            value={draftToken}
-            onChange={(event) => setDraftToken(event.target.value)}
-            placeholder="Token admin"
-            aria-label="Token admin"
-          />
-          <button type="button" onClick={saveToken}>Connecter</button>
           <button type="button" onClick={() => void load()} disabled={loading}>{loading ? '...' : 'Refresh'}</button>
+          <button type="button" onClick={logout}>Deconnecter</button>
         </div>
       </header>
 

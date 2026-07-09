@@ -55,7 +55,7 @@ const OFFICIAL_RESULTS_STORAGE_KEY = 'brakup:official-results'
 const OFFICIAL_SCORES_STORAGE_KEY = 'brakup:official-scores'
 const SEEN_OUTCOMES_STORAGE_KEY = 'brakup:seen-outcomes'
 const SKIP_SPLASH_STORAGE_KEY = 'brakup:skip-splash-once'
-const SPLASH_SEEN_STORAGE_KEY = 'brakup:splash-seen'
+const SPLASH_DIALOGUE_SEEN_STORAGE_KEY = 'brakup:splash-seen'
 const HAD_ACCOUNT_KEY = 'brakup:hadAccount'
 const SCORERS_STORAGE_KEY = 'brakup:scorers'
 const CLASSIC_SIMULATION_STORAGE_KEY = 'fifabracket:simulation'
@@ -237,7 +237,6 @@ function readInitialShowSplash() {
   const params = new URLSearchParams(window.location.search)
   if (params.has('skipSplash')) return false
   try {
-    if (window.localStorage.getItem(SPLASH_SEEN_STORAGE_KEY) === 'true') return false
     if (window.sessionStorage.getItem(SKIP_SPLASH_STORAGE_KEY) === 'true') {
       window.sessionStorage.removeItem(SKIP_SPLASH_STORAGE_KEY)
       return false
@@ -248,9 +247,17 @@ function readInitialShowSplash() {
   return true
 }
 
-function markSplashSeen() {
+function readInitialSplashDialogueSeen() {
   try {
-    window.localStorage.setItem(SPLASH_SEEN_STORAGE_KEY, 'true')
+    return window.localStorage.getItem(SPLASH_DIALOGUE_SEEN_STORAGE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function markSplashDialogueSeen() {
+  try {
+    window.localStorage.setItem(SPLASH_DIALOGUE_SEEN_STORAGE_KEY, 'true')
   } catch {
     // Ignore storage failures; the session can still continue to the map.
   }
@@ -397,6 +404,7 @@ export function BrakupHub({
 }: BrakupHubProps) {
   const [view, setView] = useState<HubView>(readInitialView)
   const [showSplash, setShowSplash] = useState(readInitialShowSplash)
+  const [splashDialogueSeen, setSplashDialogueSeen] = useState(readInitialSplashDialogueSeen)
   const [showBracket, setShowBracket] = useState(false)
   const [activeMatchId, setActiveMatchId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('match'))
   const [simulatedMatchId, setSimulatedMatchId] = useState<string | null>(null)
@@ -1469,7 +1477,7 @@ export function BrakupHub({
   return (
     <div className={`brakup-shell${view === 'challenge' ? ' brakup-shell--map-only' : ''}${view === 'board' ? ' brakup-shell--board-page' : ''}${view === 'guide' ? ' brakup-shell--guide-page' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
       {view === 'challenge' && showSplash && !challengePreload.ready ? <ChallengeLoading progress={challengePreload.progress} /> : null}
-      {view === 'challenge' && showSplash && challengePreload.ready ? <ChallengeSplash locale={locale} onPlay={() => { markSplashSeen(); setShowSplash(false) }} /> : null}
+      {view === 'challenge' && showSplash && challengePreload.ready ? <ChallengeSplash locale={locale} skipDialogue={splashDialogueSeen} onPlay={() => { markSplashDialogueSeen(); setSplashDialogueSeen(true); setShowSplash(false) }} /> : null}
       {view !== 'guide' ? <header className="brakup-topbar">
         <button type="button" className="brakup-brand" onClick={() => { sfx.tab(); returnToMap() }}><img src="/favicon-512.png" alt="" className="brakup-brand__ico" /><div><strong>BRAKUP</strong><small>World Cup Challenge</small></div></button>
         <nav>

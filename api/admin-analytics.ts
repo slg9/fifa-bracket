@@ -76,6 +76,10 @@ const MAX_SESSIONS = 1200
 const MAX_ACTIONS_PER_SESSION = 80
 const memoryStore: AnalyticsStore = { updatedAt: new Date(0).toISOString(), sessions: [] }
 
+function emptyStore(): AnalyticsStore {
+  return { updatedAt: new Date(0).toISOString(), sessions: [] }
+}
+
 function header(req: ApiRequest, name: string) {
   const value = req.headers[name.toLowerCase()] ?? req.headers[name]
   return Array.isArray(value) ? value[0] : value
@@ -155,16 +159,35 @@ function sanitizeEvents(input: unknown): Array<AnalyticsEvent & { at: string }> 
   })
 }
 
+function sanitizeStore(input: unknown): AnalyticsStore {
+  if (!input || typeof input !== 'object') return emptyStore()
+  const source = input as Partial<AnalyticsStore>
+  return {
+    updatedAt: cleanText(source.updatedAt, 40) || new Date(0).toISOString(),
+    sessions: Array.isArray(source.sessions) ? source.sessions.filter((session): session is AnalyticsSession => {
+      if (!session || typeof session !== 'object') return false
+      const candidate = session as Partial<AnalyticsSession>
+      return Boolean(candidate.sessionId && candidate.visitorId && candidate.profile && candidate.network && Array.isArray(candidate.lastActions))
+    }) : [],
+  }
+}
+
 async function readStore(): Promise<AnalyticsStore> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return memoryStore
-  const result = await get(STORE_PATH, {
-    access: BLOB_ACCESS,
-    token: process.env.BLOB_READ_WRITE_TOKEN,
-    useCache: false,
-  })
-  if (!result || result.statusCode !== 200 || !result.stream) return { updatedAt: new Date(0).toISOString(), sessions: [] }
-  const text = await new Response(result.stream).text()
-  return text.trim() ? JSON.parse(text) as AnalyticsStore : { updatedAt: new Date(0).toISOString(), sessions: [] }
+  try {
+    const result = await get(STORE_PATH, {
+      access: BLOB_ACCESS,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+      useCache: false,
+    })
+    if (!result || result.statusCode !== 200 || !result.stream) return emptyStore()
+    const text = await new Response(result.stream).text()
+    return text.trim() ? sanitizeStore(JSON.parse(text)) : emptyStore()
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : ''
+    if (message.includes('not found') || message.includes('no such') || message.includes('invalid json')) return emptyStore()
+    throw error
+  }
 }
 
 async function writeStore(store: AnalyticsStore) {

@@ -302,7 +302,8 @@
 
 .def-float-actions {
   position: absolute;
-  right: max(8px, env(safe-area-inset-right));
+  left: max(8px, env(safe-area-inset-left));
+  right: auto;
   top: 50%;
   transform: translateY(-50%);
   z-index: 30;
@@ -382,6 +383,10 @@
 
 .def-float-action.is-charging {
   animation: ready .26s infinite alternate;
+}
+
+.def-float-action.is-ready {
+  animation: ready .42s infinite alternate;
 }
 /* ——— Desktop: mobile-first shell centré avec fond ambiance ——— */
 /* Countdown: circular, centered, non-blocking over the live game screen */

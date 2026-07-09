@@ -19,14 +19,12 @@ const VISITOR_KEY = 'brakup:analytics-visitor'
 const SESSION_KEY = 'brakup:analytics-session'
 const ENDPOINT = '/api/admin-analytics'
 const FLUSH_INTERVAL_MS = 15000
-const HEARTBEAT_INTERVAL_MS = 20000
 const MAX_QUEUE = 60
 
 let initialized = false
 let queue: AnalyticsEvent[] = []
 let currentSurface = 'app'
 let flushTimer: number | null = null
-let heartbeatTimer: number | null = null
 let profile: AnalyticsProfile = {}
 let unsubscribeProfile: (() => void) | null = null
 
@@ -167,12 +165,6 @@ export function initAnalytics(surface: string) {
   }, surface)
 
   flushTimer = window.setInterval(() => flushAnalytics(), FLUSH_INTERVAL_MS)
-  heartbeatTimer = window.setInterval(() => {
-    trackAnalytics('heartbeat', {
-      visible: document.visibilityState === 'visible',
-    })
-  }, HEARTBEAT_INTERVAL_MS)
-
   document.addEventListener('visibilitychange', () => {
     trackAnalytics('visibility', { state: document.visibilityState })
     if (document.visibilityState === 'hidden') flushAnalytics(true)
@@ -189,10 +181,8 @@ export function initAnalytics(surface: string) {
 
 export function stopAnalytics() {
   if (flushTimer) window.clearInterval(flushTimer)
-  if (heartbeatTimer) window.clearInterval(heartbeatTimer)
   unsubscribeProfile?.()
   flushTimer = null
-  heartbeatTimer = null
   unsubscribeProfile = null
   initialized = false
   flushAnalytics(true)
