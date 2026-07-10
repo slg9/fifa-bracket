@@ -84,6 +84,7 @@ export async function submitBracket(entry: Partial<ChallengeEntry> & { email: st
       submittedAt: entry.submittedAt ?? null,
       breakdown: entry.breakdown ?? current?.breakdown ?? {},
       battleBonuses: entry.battleBonuses ?? current?.battleBonuses ?? 0,
+      battleBonusesByMatch: entry.battleBonusesByMatch ?? current?.battleBonusesByMatch ?? {},
       createdAt: current?.createdAt ?? new Date().toISOString(),
     }
     saveLocalEntries(current ? entries.map((item) => item.id === next.id ? next : item) : [...entries, next])

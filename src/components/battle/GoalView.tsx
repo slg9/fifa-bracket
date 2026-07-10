@@ -224,7 +224,7 @@ export function GoalView({
       }
     }))
     return () => cancelAnimationFrame(frame)
-  }, [keeperX, keeperYProp])
+  }, [keeperX])
 
   useEffect(() => {
     if (!ballFlight) {

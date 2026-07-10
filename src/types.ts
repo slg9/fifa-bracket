@@ -170,6 +170,7 @@ export interface ChallengeEntry {
   submittedAt: string | null
   breakdown: ChallengeBreakdown
   battleBonuses: number
+  battleBonusesByMatch?: Record<string, number>
   createdAt: string
 }
 

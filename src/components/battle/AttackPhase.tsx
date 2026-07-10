@@ -9,6 +9,21 @@ import KawaiiSprite, { KAWAII_SPRITE_CSS } from './KawaiiSprite'
 
 export type AttackEndReason = 'goal' | 'saved' | 'miss' | 'intercepted' | 'timeout'
 
+export type SurvivalDribbleStats = {
+  waves: number
+  combo: number
+  bonusesUsed: number
+  goldenBalls: number
+  score: number
+}
+
+export type ShotPrecisionBonus = {
+  label: string
+  multiplier: number
+  points: number
+  tone: 'top-corner' | 'post-corner' | 'bar' | 'center' | 'clean'
+}
+
 type AttackPhaseProps = {
   difficulty: BattleDifficulty
   homeTeamId: string
@@ -24,14 +39,24 @@ type AttackPhaseProps = {
   shotOnly?: boolean
   shotAudioMode?: 'normal' | 'heartOnly'
   shotTitle?: string
+  shotGoalCount?: number
+  shotMultiplierTotal?: number
+  onShotPrecisionBonus?: (bonus: ShotPrecisionBonus) => void
   roundIntroComment?: string
   showControls?: boolean
+  fixedShooterName?: string | null
+  rememberedShooterName?: string | null
+  skipShotShooterSelect?: boolean
+  skipShotTutorial?: boolean
+  onGameplayStart?: () => void
+  survivalDribbleOnly?: boolean
+  onSurvivalDribbleScore?: (stats: SurvivalDribbleStats) => void
 }
 
 //  Config 
 const ATTACK_CFG = {
   easy:   { waveCount: 36, gateWidth: 42, narrowGateWidth: 32, gdSpeed: 28, difficultyRamp: 0.34, spacing: 42, gaugeGreenPx: 42, gaugeSpeed: 0.78 },
-  medium: { waveCount: 44, gateWidth: 36, narrowGateWidth: 28, gdSpeed: 35, difficultyRamp: 0.52, spacing: 40, gaugeGreenPx: 38, gaugeSpeed: 0.96 },
+  medium: { waveCount: 48, gateWidth: 35, narrowGateWidth: 27, gdSpeed: 39, difficultyRamp: 0.84, spacing: 36, gaugeGreenPx: 37, gaugeSpeed: 1.04 },
   hard:   { waveCount: 52, gateWidth: 31, narrowGateWidth: 24, gdSpeed: 41, difficultyRamp: 0.74, spacing: 37, gaugeGreenPx: 33, gaugeSpeed: 1.34 },
 }
 
@@ -63,22 +88,42 @@ function keeperCoversTarget(
   return nx * nx + ny * ny <= 1
 }
 
+function shotPrecisionBonusForTarget(target: { x: number; y: number }): ShotPrecisionBonus {
+  const distanceToCenter = Math.hypot(target.x - 50, target.y - 50)
+  const inTopCorner = target.y <= 20 && (target.x <= 20 || target.x >= 80)
+  const nearPostCorner = target.y <= 58 && (target.x <= 10 || target.x >= 90)
+  const underBar = target.y <= 9 && target.x >= 28 && target.x <= 72
+  const deadCenter = distanceToCenter <= 7
+
+  if (inTopCorner) return { label: 'LUCARNE', multiplier: 2.5, points: 420, tone: 'top-corner' }
+  if (nearPostCorner) return { label: 'COIN DU POTEAU', multiplier: 2, points: 320, tone: 'post-corner' }
+  if (underBar) return { label: 'SOUS LA BARRE', multiplier: 1.8, points: 260, tone: 'bar' }
+  if (deadCenter) return { label: 'PLEIN CENTRE', multiplier: 1.6, points: 220, tone: 'center' }
+  return { label: 'TIR MILLIMÉTRÉ', multiplier: 1.2, points: 140, tone: 'clean' }
+}
+
+function formatShotMultiplier(value: number) {
+  return value.toFixed(1).replace('.', ',')
+}
+
 const SLALOM_CENTERS = [18, 30, 42, 50, 58, 70, 82]
 const GD_PLAYER_Y   = 80
+const GD_MIN_X = 8
+const GD_MAX_X = 92
 const WALL_FIRST_Y  = -12
 const PLAYER_SPEED  = 60
-const JUMP_DURATION = 620
-const JUMP_ACTIVE_START = 110
-const JUMP_ACTIVE_END = 500
+const JUMP_DURATION = 780
+const JUMP_ACTIVE_START = 0
+const JUMP_ACTIVE_END = 700
 const DASH_DISTANCE = 18
 const DASH_DURATION = 210
 const DASH_COOLDOWN = 620
-const ROULETTE_DURATION = 820
-const ROULETTE_ACTIVE_START = 90
-const ROULETTE_ACTIVE_END = 720
+const ROULETTE_DURATION = 980
+const ROULETTE_ACTIVE_START = 0
+const ROULETTE_ACTIVE_END = 900
 const ROULETTE_COOLDOWN = 760
+const POWER_DOUBLE_TAP_MS = 320
 const FEVER_DURATION = 3600
-const SUPER_ATTACKER_DURATION = 4300
 const POWER_SHOT_FLOW_THRESHOLD = 92
 const ATTACK_MAX_LIVES = 3
 const ATTACK_GHOST_DURATION = 1550
@@ -111,9 +156,10 @@ const KNOWN_PLAYER_NUMBERS: Record<string, number> = {
   'cyle larin': 17,
 }
 
-type SlalomWaveType = 'gate' | 'narrow_gate' | 'slide_wall' | 'double_slide_wall' | 'diagonal_press' | 'moving_gate' | 'bonus_choice' | 'combo_gate_slide' | 'roulette_wall'
-type BonusKind = 'coin' | 'boots' | 'whistle' | 'slowmo' | 'wide' | 'blast'
+type SlalomWaveType = 'gate' | 'narrow_gate' | 'slide_wall' | 'double_slide_wall' | 'diagonal_press' | 'moving_gate'
+type BonusKind = 'coin' | 'boots' | 'whistle' | 'slowmo' | 'wide' | 'blast' | 'roulette'
 type DribbleQuality = 'clean' | 'perfect'
+type SlalomStaticObstacleKind = 'cone' | 'hurdle' | 'wall' | 'mannequin'
 
 type SlalomDefender = {
   id: string
@@ -126,28 +172,82 @@ type SlalomDefender = {
   moveDelay?: number
 }
 
+type SlalomStaticObstacle = {
+  id: string
+  kind: SlalomStaticObstacleKind
+  x: number
+  width: number
+  yOffset: number
+  requiresJump?: boolean
+}
+
 type SlalomWave = {
   id: string
   worldY: number
   type: SlalomWaveType
   gateCenterX: number
   gateWidth: number
-  bonusGateCenterX?: number
-  bonusGateWidth?: number
   defenders: SlalomDefender[]
+  obstacles: SlalomStaticObstacle[]
   passed: boolean
+  idealPassed?: boolean
+  rewardCollected?: boolean
+  rewardBallCount?: number
+  rewardBalls?: Array<{ id: string; x: number; yOffset: number; collected: boolean }>
+  rewardPattern?: 'horizontal' | 'vertical' | 'diagonal-left' | 'diagonal-right'
   checked: boolean
   failed?: boolean
   superBlasted?: boolean
   requiresJump?: boolean
-  requiresRoulette?: boolean
-  hasBonus?: boolean
-  bonusKind?: BonusKind
-  bonusCollected?: boolean
   allowsJump?: boolean
   moveAmplitude?: number
   moveFrequency?: number
   movePhase?: number
+}
+
+type SlalomBonusPickup = {
+  id: string
+  worldY: number
+  x: number
+  width: number
+  bonusKind: BonusKind
+  collected: boolean
+  checked: boolean
+}
+
+type SlalomSpringPickup = {
+  id: string
+  worldY: number
+  x: number
+  width: number
+  collected: boolean
+  checked: boolean
+}
+
+type StoredBonusPower = {
+  id: string
+  kind: BonusKind
+}
+
+function buildRewardBalls(waveId: string, center: number, gateWidth: number, count: number, pattern: NonNullable<SlalomWave['rewardPattern']>) {
+  const safeCount = Math.max(1, count)
+  const xStep = pattern === 'vertical' ? 0 : Math.max(7, Math.min(10, gateWidth / Math.max(3, safeCount)))
+  const yStep = 13
+  return Array.from({ length: safeCount }, (_, index) => {
+    const offset = index - (safeCount - 1) / 2
+    const xOffset = pattern === 'vertical' ? 0 : offset * xStep
+    const yOffset =
+      pattern === 'horizontal' ? offset * yStep
+      : pattern === 'diagonal-left' ? offset * yStep
+      : pattern === 'diagonal-right' ? -offset * yStep
+      : offset * yStep
+    return {
+      id: `${waveId}-reward-${index}`,
+      x: Math.max(12, Math.min(88, center + xOffset)),
+      yOffset,
+      collected: false,
+    }
+  })
 }
 
 function hashString(str: string): number {
@@ -230,45 +330,41 @@ function pickGateCenter(rng: () => number, previous: number[], difficulty: Battl
 }
 
 function waveWeights(difficulty: BattleDifficulty): Array<[SlalomWaveType, number]> {
-  if (difficulty === 'easy') return [['gate', 32], ['narrow_gate', 17], ['slide_wall', 14], ['diagonal_press', 9], ['bonus_choice', 18], ['moving_gate', 6], ['roulette_wall', 4]]
-  if (difficulty === 'medium') return [['gate', 20], ['narrow_gate', 17], ['slide_wall', 13], ['double_slide_wall', 9], ['diagonal_press', 15], ['bonus_choice', 16], ['moving_gate', 9], ['combo_gate_slide', 6], ['roulette_wall', 7]]
-  return [['gate', 13], ['narrow_gate', 15], ['slide_wall', 15], ['double_slide_wall', 11], ['diagonal_press', 17], ['bonus_choice', 16], ['moving_gate', 11], ['combo_gate_slide', 7], ['roulette_wall', 8]]
+  if (difficulty === 'easy') return [['gate', 40], ['narrow_gate', 22], ['slide_wall', 18], ['diagonal_press', 12], ['moving_gate', 8]]
+  if (difficulty === 'medium') return [['gate', 25], ['narrow_gate', 21], ['slide_wall', 19], ['double_slide_wall', 11], ['diagonal_press', 19], ['moving_gate', 13]]
+  return [['gate', 17], ['narrow_gate', 19], ['slide_wall', 22], ['double_slide_wall', 13], ['diagonal_press', 21], ['moving_gate', 14]]
 }
 
 function pickWaveType(rng: () => number, difficulty: BattleDifficulty, previous: SlalomWaveType[], index: number): SlalomWaveType {
   const scripted: SlalomWaveType[][] = [
-    ['gate', 'bonus_choice', 'slide_wall'],
+    ['gate', 'narrow_gate', 'slide_wall'],
     ['narrow_gate', 'moving_gate', 'gate'],
     ['gate', 'slide_wall', 'diagonal_press'],
-    ['bonus_choice', 'narrow_gate', 'moving_gate'],
-    ['slide_wall', 'narrow_gate', 'combo_gate_slide'],
+    ['gate', 'narrow_gate', 'moving_gate'],
+    ['slide_wall', 'narrow_gate', 'diagonal_press'],
   ]
   if (index > 2 && rng() < 0.34) return scripted[Math.floor(rng() * scripted.length)][index % 3]
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const type = pickWeighted(rng, waveWeights(difficulty))
     const last = previous[previous.length - 1]
     const before = previous[previous.length - 2]
-    const recentEvade = [last, before].some((item) => item === 'slide_wall' || item === 'double_slide_wall' || item === 'combo_gate_slide' || item === 'roulette_wall')
+    const recentEvade = [last, before].some((item) => item === 'slide_wall' || item === 'double_slide_wall')
     if (last === type && before === type) continue
-    if ((type === 'combo_gate_slide' || type === 'double_slide_wall') && last === type) continue
-    if ((type === 'slide_wall' || type === 'double_slide_wall' || type === 'combo_gate_slide' || type === 'roulette_wall') && recentEvade) continue
-    if (difficulty === 'easy' && (type === 'double_slide_wall' || type === 'combo_gate_slide')) continue
-    if (difficulty === 'easy' && type === 'combo_gate_slide') continue
-    if (difficulty === 'medium' && type === 'combo_gate_slide' && rng() < 0.35) continue
-    if (type === 'roulette_wall' && index < 3) continue
+    if (type === 'double_slide_wall' && last === type) continue
+    if ((type === 'slide_wall' || type === 'double_slide_wall') && recentEvade) continue
+    if (difficulty === 'easy' && type === 'double_slide_wall') continue
     return type
   }
   return 'gate'
 }
 
-function makeGateDefenders(i: number, center: number, gateWidth: number, players: string[], type: SlalomWaveType, rng: () => number, bonusGate?: { center: number; width: number }): SlalomDefender[] {
+function makeGateDefenders(i: number, center: number, gateWidth: number, players: string[], type: SlalomWaveType, rng: () => number): SlalomDefender[] {
   const half = gateWidth / 2
   const yJitter = (index: number) => [-16, 10, -3][index % 3] + Math.round((rng() - 0.5) * 5)
   const gates = [{ left: center - half, right: center + half }]
-  if (bonusGate) gates.push({ left: bonusGate.center - bonusGate.width / 2, right: bonusGate.center + bonusGate.width / 2 })
   gates.sort((a, b) => a.left - b.left)
 
-  const gateSafetyMargin = type === 'narrow_gate' || type === 'combo_gate_slide' ? 5 : 6
+  const gateSafetyMargin = type === 'narrow_gate' ? 5 : 6
   const segments: Array<{ left: number; right: number; side: 'left' | 'right' | 'middle' }> = []
   let cursor = 7
   for (let gateIndex = 0; gateIndex < gates.length; gateIndex += 1) {
@@ -344,7 +440,7 @@ function makeGateDefenders(i: number, center: number, gateWidth: number, players
       x,
       yOffset: yJitter(index),
       label: defenderLabel(players, i * 3 + index, String([4, 5, 6][(i + index) % 3])),
-      variant: type === 'combo_gate_slide' && index === 1 ? 'sliding' : type === 'diagonal_press' || type === 'moving_gate' || index === 1 ? 'press' : 'normal',
+      variant: type === 'diagonal_press' || type === 'moving_gate' || index === 1 ? 'press' : 'normal',
       moveAmplitude,
       moveDuration: 0.72 + rng() * 0.42,
       moveDelay: index * -0.18 - rng() * 0.24,
@@ -352,17 +448,63 @@ function makeGateDefenders(i: number, center: number, gateWidth: number, players
   })
 }
 
-function makeSlideDefenders(i: number, players: string[], doubleLine: boolean): SlalomDefender[] {
-  return [{
-    id: `${i}-slide-0`,
-    x: 50,
-    yOffset: 0,
-    label: defenderLabel(players, i * 3, doubleLine ? '4' : '2'),
-    variant: 'sliding' as const,
-    moveAmplitude: doubleLine ? 42 : 38,
-    moveDuration: doubleLine ? 0.68 : 0.72,
-    moveDelay: -0.08,
-  }]
+function makeStaticObstacles(
+  i: number,
+  type: SlalomWaveType,
+  center: number,
+  defenders: SlalomDefender[],
+  rng: () => number,
+  difficulty: BattleDifficulty,
+): SlalomStaticObstacle[] {
+  const obstacles: SlalomStaticObstacle[] = []
+  const addObstacle = (kind: SlalomStaticObstacleKind, x: number, width: number, yOffset: number, requiresJump = false) => {
+    const halfWidth = width / 2
+    const overlapsDefender = (candidateX: number) => defenders.some((defender) => {
+      const defenderRadius = defender.variant === 'press' ? 11 : 9
+      const patrol = defender.moveAmplitude ?? 0
+      return Math.abs(candidateX - defender.x) <= halfWidth + defenderRadius + patrol
+    })
+    const candidates = [
+      x,
+      x < 50 ? x + 18 : x - 18,
+      100 - x,
+      x < 50 ? x + 28 : x - 28,
+    ].map((candidate) => Math.max(10, Math.min(90, candidate)))
+    const resolvedX = candidates.find((candidate) => !overlapsDefender(candidate))
+    if (resolvedX == null) return
+    obstacles.push({
+      id: `${i}-obstacle-${obstacles.length}`,
+      kind,
+      x: resolvedX,
+      width,
+      yOffset,
+      requiresJump,
+    })
+  }
+
+  if (type === 'slide_wall' || type === 'double_slide_wall') {
+    addObstacle('hurdle', 50, type === 'double_slide_wall' ? 62 : 48, -2, true)
+    if (type === 'double_slide_wall') addObstacle('hurdle', 50, 56, 22, true)
+    return obstacles
+  }
+
+  const coneSide = center < 50 ? 78 : 22
+  if (type === 'gate') {
+    if (difficulty !== 'easy' && rng() < 0.42) addObstacle('cone', coneSide, 8, 0)
+  } else if (type === 'narrow_gate') {
+    addObstacle('cone', coneSide, 8, 0)
+  }
+
+  if (type === 'diagonal_press') {
+    addObstacle('mannequin', center < 50 ? 82 : 18, 15, -8)
+  } else if (type === 'moving_gate') {
+    addObstacle('wall', center < 50 ? 78 : 22, 24, 0)
+  } else if (difficulty !== 'easy' && rng() < 0.34) {
+    const kind = rng() < 0.5 ? 'wall' : 'mannequin'
+    addObstacle(kind, center < 50 ? 82 : 18, kind === 'wall' ? 24 : 15, -6)
+  }
+
+  return obstacles
 }
 
 function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: string; players: string[] }): SlalomWave[] {
@@ -375,61 +517,65 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
 
   for (let i = 0; i < cfg.waveCount; i += 1) {
     const progress = i / Math.max(1, cfg.waveCount - 1)
-    const bonusEvery = params.difficulty === 'easy' ? 7 : params.difficulty === 'medium' ? 6 : 6
-    const forceBonus = i > 2 && i < cfg.waveCount - 2 && i % bonusEvery === 1
-    const forceRoulette = i === 4 || (params.difficulty !== 'easy' && i > 7 && i % 7 === 4)
     const forceDiagonal = i > 3 && params.difficulty !== 'easy' && i % 6 === 3
-    const rawType = forceRoulette ? 'roulette_wall' : forceBonus ? 'bonus_choice' : forceDiagonal ? 'diagonal_press' : pickWaveType(rng, params.difficulty, types, i)
-    const recentEvade = types.slice(-2).some((item) => item === 'slide_wall' || item === 'double_slide_wall' || item === 'combo_gate_slide' || item === 'roulette_wall')
-    const rawNeedsEvade = rawType === 'slide_wall' || rawType === 'double_slide_wall' || rawType === 'combo_gate_slide' || rawType === 'roulette_wall'
+    const rawType = forceDiagonal ? 'diagonal_press' : pickWaveType(rng, params.difficulty, types, i)
+    const recentEvade = types.slice(-2).some((item) => item === 'slide_wall' || item === 'double_slide_wall')
+    const rawNeedsEvade = rawType === 'slide_wall' || rawType === 'double_slide_wall'
     const type = i < 2 && rawType !== 'gate' && rawType !== 'narrow_gate'
       ? 'gate'
       : rawNeedsEvade && recentEvade
-        ? (forceBonus ? 'bonus_choice' : rng() < 0.45 ? 'narrow_gate' : 'gate')
+        ? (rng() < 0.45 ? 'narrow_gate' : 'gate')
         : rawType
     const center = pickGateCenter(rng, centers, params.difficulty)
     centers.push(center)
     types.push(type)
 
     const isSlide = type === 'slide_wall' || type === 'double_slide_wall'
-    const isRoulette = type === 'roulette_wall'
-    const isNarrow = type === 'narrow_gate' || type === 'combo_gate_slide'
-    const isBonus = type === 'bonus_choice'
+    const isNarrow = type === 'narrow_gate'
     const isMoving = type === 'moving_gate'
-    const gateWidth = isBonus ? cfg.gateWidth + 2 : isNarrow ? cfg.narrowGateWidth : cfg.gateWidth + (progress < 0.25 ? 2 : 0)
-    const spacing = cfg.spacing + (type === 'double_slide_wall' ? 16 : type === 'slide_wall' ? 12 : type === 'combo_gate_slide' ? 18 : type === 'roulette_wall' ? 18 : 0) + (recentEvade ? 10 : 0)
+    const gateWidth = isNarrow ? cfg.narrowGateWidth : cfg.gateWidth + (progress < 0.25 ? 2 : 0)
+    const spacing = cfg.spacing + (type === 'double_slide_wall' ? 16 : type === 'slide_wall' ? 12 : 0) + (recentEvade ? 10 : 0)
     const worldY = nextWorldY
     nextWorldY -= spacing
     const moveAmplitude = isMoving ? (params.difficulty === 'hard' ? 11 + rng() * 5 : params.difficulty === 'medium' ? 8 + rng() * 5 : 5 + rng() * 4) : 0
     const safeCenter = Math.max(16 + moveAmplitude, Math.min(84 - moveAmplitude, center))
-    const bonusDirection = safeCenter < 50 ? 1 : -1
-    const minBonusGap = gateWidth / 2 + Math.max(14, cfg.narrowGateWidth - 2) / 2 + 18
-    const bonusGateCenterX = isBonus ? Math.max(18, Math.min(82, safeCenter + bonusDirection * (minBonusGap + rng() * 6))) : undefined
-    const bonusGateWidth = isBonus ? Math.max(16, cfg.narrowGateWidth - 2) : undefined
-    const bonusPool: BonusKind[] = ['coin', 'boots', 'whistle', 'slowmo', 'wide', 'blast', 'blast']
-    const bonusKind = isBonus ? bonusPool[Math.floor(rng() * bonusPool.length)] : undefined
     const defenders = isSlide
-      ? makeSlideDefenders(i, params.players, type === 'double_slide_wall')
-      : isRoulette
-        ? makeSlideDefenders(i, params.players, true).map((defender) => ({ ...defender, id: `${i}-roulette-0`, variant: 'press' as const, moveAmplitude: 38, moveDuration: 0.7 }))
-        : makeGateDefenders(i, safeCenter, gateWidth, params.players, type, rng, bonusGateCenterX != null && bonusGateWidth != null ? { center: bonusGateCenterX, width: bonusGateWidth } : undefined)
+      ? []
+      : makeGateDefenders(i, safeCenter, gateWidth, params.players, type, rng)
+    const obstacles = makeStaticObstacles(i, type, safeCenter, defenders, rng, params.difficulty)
+    const rewardBallCount = isSlide ? (type === 'double_slide_wall' ? 4 : 3) : 2 + Math.floor(rng() * (params.difficulty === 'easy' ? 2 : 3))
+    const rewardPattern = isSlide ? 'vertical' : (['vertical', 'diagonal-left', 'diagonal-right'] as const)[Math.floor(rng() * 3)]
+    const waveId = `wave-${i}`
+    const rewardBalls = isSlide ? Array.from({ length: rewardBallCount }, (_, ballIndex) => {
+      const offset = ballIndex - (rewardBallCount - 1) / 2
+      return {
+        id: `${waveId}-jump-reward-${ballIndex}`,
+        x: Math.max(22, Math.min(78, 50 + offset * 6)),
+        yOffset: -34 - ballIndex * 12,
+        collected: false,
+      }
+    }) : buildRewardBalls(waveId, safeCenter, gateWidth, rewardBallCount, rewardPattern).filter((ball) => {
+      const overlapsObstacle = obstacles.some((obstacle) => Math.abs(ball.x - obstacle.x) <= obstacle.width / 2 + 9)
+      const overlapsDefender = defenders.some((defender) => Math.abs(ball.x - defender.x) <= (defender.moveAmplitude ?? 0) + 11)
+      return !overlapsObstacle && !overlapsDefender
+    })
 
     waves.push({
-      id: `wave-${i}`,
+      id: waveId,
       worldY,
       type,
       gateCenterX: safeCenter,
       gateWidth,
-      bonusGateCenterX,
-      bonusGateWidth,
       defenders,
+      obstacles,
       passed: false,
+      idealPassed: false,
+      rewardCollected: false,
+      rewardBallCount: rewardBalls.length,
+      rewardBalls,
+      rewardPattern,
       checked: false,
-      requiresJump: isSlide || type === 'combo_gate_slide',
-      requiresRoulette: isRoulette,
-      hasBonus: isBonus,
-      bonusKind,
-      bonusCollected: false,
+      requiresJump: isSlide,
       allowsJump: false,
       moveAmplitude,
       moveFrequency: isMoving ? 0.9 + rng() * 0.48 : 0,
@@ -439,16 +585,97 @@ function generateSlalomWaves(params: { difficulty: BattleDifficulty; seed: strin
   return waves
 }
 
+function addSurvivalPressure(wave: SlalomWave, index: number, passedCount: number) {
+  if (wave.type === 'slide_wall' || wave.type === 'double_slide_wall') return wave
+  const pressure = Math.min(1, passedCount / 90)
+  const shouldAdd = index % 3 === 0 || (pressure > 0.45 && index % 2 === 0)
+  if (!shouldAdd || wave.obstacles.length >= 3) return wave
+  const kind: SlalomStaticObstacleKind = pressure > 0.62 && index % 4 === 0 ? 'wall' : index % 2 === 0 ? 'cone' : 'mannequin'
+  const width = kind === 'wall' ? 22 : kind === 'mannequin' ? 15 : 9
+  const preferredX = wave.gateCenterX < 50 ? 82 : 18
+  const fallbackX = wave.gateCenterX < 50 ? 18 : 82
+  const x = [preferredX, fallbackX, 50].find((candidate) => {
+    const obstacleOverlap = wave.obstacles.some((obstacle) => Math.abs(candidate - obstacle.x) <= obstacle.width / 2 + width / 2 + 8)
+    const defenderOverlap = wave.defenders.some((defender) => Math.abs(candidate - defender.x) <= (defender.moveAmplitude ?? 0) + 14)
+    const rewardOverlap = wave.rewardBalls?.some((ball) => Math.abs(candidate - ball.x) <= 13)
+    return !obstacleOverlap && !defenderOverlap && !rewardOverlap
+  })
+  if (x == null) return wave
+  return {
+    ...wave,
+    obstacles: [
+      ...wave.obstacles,
+      {
+        id: `${wave.id}-survival-pressure-${index}`,
+        kind,
+        x,
+        width,
+        yOffset: index % 2 === 0 ? -8 : 8,
+      },
+    ],
+  }
+}
+
+function generateSlalomBonusPickups(waves: SlalomWave[], seed: string, difficulty: BattleDifficulty): SlalomBonusPickup[] {
+  const rng = createRng(`${seed}-bonus-pickups`)
+  const bonusEvery = difficulty === 'easy' ? 7 : 6
+  const bonusPool: BonusKind[] = ['coin', 'boots', 'whistle', 'slowmo', 'wide', 'blast', 'blast', 'roulette', 'roulette']
+  const pickups: SlalomBonusPickup[] = []
+
+  for (let i = 3; i < waves.length - 2; i += bonusEvery) {
+    const current = waves[i]
+    const next = waves[i + 1]
+    if (!current || !next) continue
+    const fromCenter = current.gateCenterX
+    const toCenter = next.gateCenterX
+    const direction = fromCenter < 50 ? 1 : -1
+    const midpoint = (fromCenter + toCenter) / 2
+    const x = Math.max(16, Math.min(84, midpoint + direction * (12 + rng() * 12)))
+    pickups.push({
+      id: `pickup-${i}`,
+      worldY: (current.worldY + next.worldY) / 2,
+      x,
+      width: difficulty === 'hard' ? 13 : 15,
+      bonusKind: bonusPool[Math.floor(rng() * bonusPool.length)],
+      collected: false,
+      checked: false,
+    })
+  }
+
+  return pickups
+}
+
+function generateSlalomSpringPickups(waves: SlalomWave[], seed: string, difficulty: BattleDifficulty): SlalomSpringPickup[] {
+  const rng = createRng(`${seed}-spring-pickups`)
+  const every = difficulty === 'easy' ? 10 : difficulty === 'medium' ? 9 : 8
+  const pickups: SlalomSpringPickup[] = []
+
+  for (let i = 5; i < waves.length - 2; i += every) {
+    const current = waves[i]
+    const next = waves[i + 1]
+    if (!current || !next) continue
+    const direction = current.gateCenterX < 50 ? -1 : 1
+    const x = Math.max(16, Math.min(84, current.gateCenterX + direction * (18 + rng() * 14)))
+    pickups.push({
+      id: `spring-${i}`,
+      worldY: (current.worldY + next.worldY) / 2,
+      x,
+      width: 16,
+      collected: false,
+      checked: false,
+    })
+  }
+
+  return pickups
+}
+
 function getWaveInstruction(wave?: SlalomWave) {
   if (wave?.type === 'slide_wall') return 'SAUTE !'
   if (wave?.type === 'double_slide_wall') return 'SAUTE !'
-  if (wave?.type === 'combo_gate_slide') return 'PASSE + SAUTE !'
-  if (wave?.type === 'roulette_wall') return 'ROULETTE !'
-  if (wave?.type === 'bonus_choice') return 'Vert sur / Dore bonus'
-  if (wave?.type === 'moving_gate') return 'Lis la porte !'
+  if (wave?.type === 'moving_gate') return 'Ballons mobiles !'
   if (wave?.type === 'diagonal_press') return 'Evite le pressing'
-  if (wave?.type === 'narrow_gate') return 'Porte serree !'
-  return 'Passe dans le vert'
+  if (wave?.type === 'narrow_gate') return 'Ballons bonus !'
+  return 'Evite les joueurs'
 }
 
 function getWaveGateCenter(wave: SlalomWave, elapsed: number) {
@@ -457,40 +684,45 @@ function getWaveGateCenter(wave: SlalomWave, elapsed: number) {
 }
 
 function getJumpTone(wave: SlalomWave, now: number, jump: { isJumping: boolean; isActive: boolean; elapsed: number }) {
-  if (wave.type !== 'slide_wall' && wave.type !== 'double_slide_wall' && wave.type !== 'combo_gate_slide') return 'INTERCEPTE !'
+  if (wave.type !== 'slide_wall' && wave.type !== 'double_slide_wall') return 'INTERCEPTE !'
   if (!jump.isJumping) return 'TACLE !'
   if (jump.elapsed < JUMP_ACTIVE_START) return 'TROP TARD !'
   if (now && jump.elapsed > JUMP_ACTIVE_END) return 'TROP TOT !'
   return 'TACLE !'
 }
 
-function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive: boolean }, elapsed: number, dashActive = false, rouletteActive = false, wideActive = false): { success: boolean; bonus?: boolean; label: string; quality?: DribbleQuality } {
+function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive: boolean }, elapsed: number, dashActive = false, rouletteActive = false, wideActive = false): { success: boolean; label: string; quality?: DribbleQuality; ideal?: boolean } {
   const halfGate = wave.gateWidth / 2 + (dashActive && isGatePassWave(wave) ? 3 : 0) + (wideActive && isGatePassWave(wave) ? 6 : 0)
   const center = getWaveGateCenter(wave, elapsed)
   const inGate = playerX >= center - halfGate && playerX <= center + halfGate
   const perfectGate = inGate && Math.abs(playerX - center) <= Math.max(3.2, wave.gateWidth * 0.16)
-  const inBonusGate = wave.bonusGateCenterX != null && wave.bonusGateWidth != null
-    ? playerX >= wave.bonusGateCenterX - wave.bonusGateWidth / 2 - (dashActive ? 2 : 0) && playerX <= wave.bonusGateCenterX + wave.bonusGateWidth / 2 + (dashActive ? 2 : 0)
-    : false
-  const perfectBonus = inBonusGate && wave.bonusGateCenterX != null && wave.bonusGateWidth != null
-    ? Math.abs(playerX - wave.bonusGateCenterX) <= Math.max(2.8, wave.bonusGateWidth * 0.16)
-    : false
-  const quality: DribbleQuality = perfectGate || perfectBonus ? 'perfect' : 'clean'
+  const quality: DribbleQuality = perfectGate ? 'perfect' : 'clean'
+  const defenderHit = wave.defenders.some((defender) => {
+    if (defender.variant === 'sliding' && jump.isActive) return false
+    const hitbox = defender.variant === 'sliding' ? 14 : defender.variant === 'press' ? 10.5 : 9
+    return Math.abs(playerX - defender.x) <= hitbox
+  })
+  const obstacleHit = wave.obstacles.some((obstacle) => {
+    if (obstacle.requiresJump && jump.isActive) return false
+    const hitbox =
+      obstacle.kind === 'cone' ? 5.9
+      : obstacle.kind === 'mannequin' ? 6.2
+      : obstacle.kind === 'wall' ? Math.max(9.5, obstacle.width * 0.39)
+      : Math.max(10.5, obstacle.width * 0.38)
+    return Math.abs(playerX - obstacle.x) <= hitbox
+  })
+  const blocked = defenderHit || obstacleHit
+  const blockLabel = defenderHit ? 'INTERCEPTE !' : 'OBSTACLE !'
+  const technicalLabel = inGate ? perfectGate ? 'BALLONS PARFAITS !' : 'BALLONS !' : 'EVITE !'
 
-  if (wave.type === 'gate') return { success: inGate, label: inGate ? perfectGate ? 'PERFECT !' : 'PASSE !' : 'INTERCEPTE !', quality }
-  if (wave.type === 'narrow_gate') return { success: inGate, label: inGate ? perfectGate ? 'PETIT PONT PARFAIT !' : 'PETIT PONT !' : 'HORS PORTE !', quality }
-  if (wave.type === 'slide_wall') return { success: jump.isActive, label: jump.isActive ? 'SAUTE !' : 'TACLE !' }
-  if (wave.type === 'double_slide_wall') return { success: jump.isActive, label: jump.isActive ? 'SAUTE !' : 'TACLE !' }
-  if (wave.type === 'diagonal_press') return { success: inGate, label: inGate ? perfectGate ? 'CROCHET PARFAIT !' : 'CROCHET !' : 'PRESSE !', quality }
-  if (wave.type === 'moving_gate') return { success: inGate, label: inGate ? perfectGate ? 'TIMING PARFAIT !' : 'BIEN LU !' : 'INTERCEPTE !', quality }
-  if (wave.type === 'bonus_choice') {
-    if (inBonusGate) return { success: true, bonus: true, label: perfectBonus ? 'BONUS PERFECT !' : 'BONUS !', quality }
-    if (inGate) return { success: true, label: perfectGate ? 'PERFECT !' : 'PASSE !', quality }
-    return { success: false, label: 'INTERCEPTE !' }
-  }
-  if (wave.type === 'combo_gate_slide') return { success: inGate && jump.isActive, label: inGate && jump.isActive ? perfectGate ? 'COMBO PERFECT !' : 'MAGNIFIQUE !' : 'TROP LENT !', quality }
-  if (wave.type === 'roulette_wall') return { success: rouletteActive, label: rouletteActive ? 'ROULETTE !' : 'DRIBBLE FORCE !' }
-  return { success: inGate, label: inGate ? perfectGate ? 'PERFECT !' : 'PASSE !' : 'INTERCEPTE !', quality }
+  if (rouletteActive) return { success: true, label: 'ROULETTE !', quality: 'perfect', ideal: true }
+  if (wave.type === 'gate') return { success: !blocked, label: blocked ? blockLabel : technicalLabel, quality, ideal: inGate }
+  if (wave.type === 'narrow_gate') return { success: !blocked, label: blocked ? blockLabel : inGate ? perfectGate ? 'BALLONS PARFAITS !' : 'BALLONS !' : 'CONTOURNE !', quality, ideal: inGate }
+  if (wave.type === 'slide_wall') return { success: !blocked, label: blocked ? jump.isActive ? 'SAUTE !' : obstacleHit ? 'HAIE !' : 'TACLE !' : jump.isActive ? 'SAUT BONUS !' : 'EVITE !', quality: jump.isActive ? 'perfect' : 'clean', ideal: jump.isActive }
+  if (wave.type === 'double_slide_wall') return { success: !blocked, label: blocked ? jump.isActive ? 'SAUTE !' : obstacleHit ? 'HAIE !' : 'TACLE !' : jump.isActive ? 'SAUT BONUS !' : 'EVITE !', quality: jump.isActive ? 'perfect' : 'clean', ideal: jump.isActive }
+  if (wave.type === 'diagonal_press') return { success: !blocked, label: blocked ? defenderHit ? 'PRESSE !' : 'OBSTACLE !' : inGate ? perfectGate ? 'BALLONS PARFAITS !' : 'BALLONS !' : 'CONTOURNE !', quality, ideal: inGate }
+  if (wave.type === 'moving_gate') return { success: !blocked, label: blocked ? blockLabel : inGate ? perfectGate ? 'BALLONS PARFAITS !' : 'BALLONS !' : 'EVITE !', quality, ideal: inGate }
+  return { success: !blocked, label: blocked ? blockLabel : technicalLabel, quality, ideal: inGate }
 }
 
 function isGatePassWave(wave: SlalomWave) {
@@ -498,21 +730,15 @@ function isGatePassWave(wave: SlalomWave) {
     || wave.type === 'narrow_gate'
     || wave.type === 'diagonal_press'
     || wave.type === 'moving_gate'
-    || wave.type === 'bonus_choice'
-    || wave.type === 'combo_gate_slide'
 }
 
-function flowGainForWave(wave: SlalomWave, bonus?: boolean) {
-  if (bonus) return 22
+function flowGainForWave(wave: SlalomWave) {
   if (wave.type === 'gate') return 8
   if (wave.type === 'narrow_gate') return 12
   if (wave.type === 'slide_wall') return 14
   if (wave.type === 'double_slide_wall') return 18
   if (wave.type === 'diagonal_press') return 14
   if (wave.type === 'moving_gate') return 16
-  if (wave.type === 'bonus_choice') return 10
-  if (wave.type === 'combo_gate_slide') return 24
-  if (wave.type === 'roulette_wall') return 20
   return 8
 }
 
@@ -619,15 +845,40 @@ function BonusPowerIcon({ kind }: { kind: BonusKind | 'shot' }) {
   if (kind === 'slowmo') {
     return <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="22" fill="rgba(168,85,247,.35)" stroke="#e7d5ff" strokeWidth="4"/><path d="M32 16v17l12 7" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 50h40" stroke="#a855f7" strokeWidth="5" strokeLinecap="round"/><path d="M17 55h30" stroke="#e7d5ff" strokeWidth="3" strokeLinecap="round"/></svg>
   }
+  if (kind === 'roulette') {
+    return <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="23" fill="rgba(255,184,0,.22)" stroke="#FFB800" strokeWidth="5"/><path d="M18 34c6-14 26-15 32-1" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round"/><path d="M48 22v12H36" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/><path d="M46 42c-8 9-24 8-30-3" fill="none" stroke="#2bff9a" strokeWidth="5" strokeLinecap="round"/><circle cx="32" cy="32" r="7" fill="#101827" stroke="#fff" strokeWidth="3"/></svg>
+  }
   return <svg viewBox="0 0 64 64"><g className="atk-dribble-demo__fire-flame"><path d="M19 42C8 27 20 18 18 7c9 5 9 13 16 18 5-8 12-12 12-23 12 10 17 23 9 39 4 1 7 4 8 8-12 7-31 8-44-7z" fill="#ff5a44"/><path d="M27 44c-5-8 1-13 0-19 6 4 6 9 11 12 3-5 7-7 7-14 7 7 9 15 3 24-6 3-14 3-21-3z" fill="#FFB800"/></g><g className="atk-dribble-demo__fire-ball"><circle cx="32" cy="38" r="14" fill="#fff" stroke="#101827" strokeWidth="4"/><path d="M20 36c8-6 16-7 24 0M25 49c5-5 10-5 15 0M32 24v28" fill="none" stroke="#101827" strokeWidth="3" strokeLinecap="round"/><path d="M18 25 10 17M47 24l8-8" stroke="#ffdf73" strokeWidth="4" strokeLinecap="round"/></g></svg>
+}
+
+function survivalDifficultyFor(wavesPassed: number): BattleDifficulty {
+  if (wavesPassed < 28) return 'easy'
+  if (wavesPassed < 78) return 'medium'
+  return 'hard'
+}
+
+function normalizeSurvivalBonusPickups(pickups: SlalomBonusPickup[]) {
+  return pickups.map((pickup) => {
+    const bonusKind = pickup.bonusKind === 'coin'
+      ? 'boots'
+      : pickup.bonusKind === 'whistle'
+        ? 'slowmo'
+        : pickup.bonusKind
+    return { ...pickup, bonusKind }
+  })
+}
+
+function scoreSurvivalDribble(stats: { waves: number; combo: number; bonusesUsed: number; goldenBalls: number }) {
+  return Math.max(0, Math.round(stats.waves * 95 + stats.goldenBalls * 22 + stats.combo * 24 - stats.bonusesUsed * 180))
 }
 
 function bonusPowerText(kind: BonusKind) {
   if (kind === 'boots') return { short: 'BOUCLIER', pickup: 'BOUCLIER - 1 ERREUR PROTEGEE', hint: 'protege 1 erreur' }
   if (kind === 'whistle') return { short: 'GARDIEN LENT', pickup: 'GARDIEN RALENTI', hint: 'gardien lent' }
   if (kind === 'slowmo') return { short: 'SLOWMO', pickup: 'SLOWMO - JEU RALENTI', hint: 'ralenti' }
-  if (kind === 'wide') return { short: 'PORTES LARGES', pickup: 'PORTES LARGES - PASSAGE AGRANDI', hint: 'rond vert = portes + larges' }
-  if (kind === 'blast') return { short: 'SUPER ATTAQUANT', pickup: 'SUPER ATTAQUANT - DEFENSE EXPLOSEE', hint: 'explose la ligne' }
+  if (kind === 'wide') return { short: 'BALLONS AIMANTES', pickup: 'BALLONS AIMANTES', hint: 'ballons +' }
+  if (kind === 'roulette') return { short: 'ROULETTE', pickup: 'ROULETTE CHARGEE', hint: 'dribble invincible' }
+  if (kind === 'blast') return { short: 'BALLON FEU', pickup: 'BALLON EN FEU CHARGE', hint: 'double tap' }
   return { short: 'TIR FACILE', pickup: 'TIR FACILE - ZONE VERTE +', hint: 'zone verte +' }
 }
 //  Component 
@@ -646,8 +897,18 @@ export function AttackPhase({
   shotOnly = false,
   shotAudioMode = 'normal',
   shotTitle,
+  shotGoalCount,
+  shotMultiplierTotal,
+  onShotPrecisionBonus,
   roundIntroComment,
   showControls = false,
+  fixedShooterName = null,
+  rememberedShooterName = null,
+  skipShotShooterSelect = false,
+  skipShotTutorial = false,
+  onGameplayStart,
+  survivalDribbleOnly = false,
+  onSurvivalDribbleScore,
 }: AttackPhaseProps) {
   const liteMode = useMemo(() => shouldUseLiteBattleMode(), [])
   const cfg = useMemo(() => {
@@ -685,12 +946,14 @@ export function AttackPhase({
   const opponentTextColor = opponentKit?.text ?? '#ffffff'
   const isSuddenDeathShot = shotTitle === 'TIR DE MORT SUBITE'
 
-  // Utiliser tous les joueurs de l'équipe (plus de limite à 6)
-  // Pour commencer par les attaquants, il faudrait avoir les roles dans les donnees
+  // Utiliser tous les joueurs de l'?quipe (plus de limite ? 6)
+  // Pour commencer par les attaquants, il faudrait avoir les rôles dans les données
   const forwardPlayers = useMemo(() => [...homeTeamPlayers], [homeTeamPlayers])
   const shooterOptions = useMemo(() => buildShooterOptions(forwardPlayers, homeTeamId, homeTeamPlayerNumbers), [homeTeamId, forwardPlayers, homeTeamPlayerNumbers])
-  const [shooterIndex, setShooterIndex] = useState(0)
-  const selectedShooterIndex = shooterIndex % shooterOptions.length
+  const rememberedShooterIndex = rememberedShooterName ? shooterOptions.findIndex((shooter) => shooter.name === rememberedShooterName) : -1
+  const [shooterIndex, setShooterIndex] = useState(() => Math.max(0, rememberedShooterIndex))
+  const fixedShooterIndex = fixedShooterName ? shooterOptions.findIndex((shooter) => shooter.name === fixedShooterName) : -1
+  const selectedShooterIndex = fixedShooterIndex >= 0 ? fixedShooterIndex : shooterIndex % shooterOptions.length
   const selectedShooter = shooterOptions[selectedShooterIndex] ?? shooterOptions[0]
   const selectedShooterRef = useRef<BattleScorer>(selectedShooter)
   selectedShooterRef.current = selectedShooter
@@ -710,9 +973,13 @@ export function AttackPhase({
 
   //  GD phase state (display only) 
   const [gdWallsDisplay, setGdWallsDisplay] = useState<SlalomWave[]>([])
+  const [gdBonusPickupsDisplay, setGdBonusPickupsDisplay] = useState<SlalomBonusPickup[]>([])
+  const [gdSpringPickupsDisplay, setGdSpringPickupsDisplay] = useState<SlalomSpringPickup[]>([])
   const [gdJumping, setGdJumping]     = useState(false)
+  const [gdSpringJumping, setGdSpringJumping] = useState(false)
   const [gdComment, setGdComment]     = useState<string | null>(null)
   const [gdFlash, setGdFlash]         = useState(false)
+  const [gdHitReact, setGdHitReact]   = useState(false)
   const [showShotIntro, setShowShotIntro] = useState(false)
 
   //  GD phase refs (RAF + direct DOM) 
@@ -722,6 +989,11 @@ export function AttackPhase({
   const wallContainerRef = useRef<HTMLDivElement>(null)
   const playerElRef      = useRef<HTMLDivElement>(null)
   const gdWallsRef      = useRef<SlalomWave[]>([])
+  const gdBonusPickupsRef = useRef<SlalomBonusPickup[]>([])
+  const gdSpringPickupsRef = useRef<SlalomSpringPickup[]>([])
+  const springSkipWaveIdRef = useRef<string | null>(null)
+  const springJumpTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const storedBonusPowersRef = useRef<StoredBonusPower[]>([])
   const isJumpingRef    = useRef(false)
   const jumpStartedAtRef = useRef<number | null>(null)
   const dashUntilRef     = useRef(0)
@@ -729,6 +1001,7 @@ export function AttackPhase({
   const dashDirectionRef = useRef<1 | -1>(1)
   const dashTargetXRef = useRef<number | null>(null)
   const gdPointerRef = useRef<{ id: number | null; x: number; y: number; dragging: boolean }>({ id: null, x: 0, y: 0, dragging: false })
+  const lastGdTapAtRef = useRef(0)
   const rouletteUntilRef = useRef(0)
   const rouletteCooldownUntilRef = useRef(0)
   const rouletteStartedAtRef = useRef<number | null>(null)
@@ -736,6 +1009,7 @@ export function AttackPhase({
   const slowmoUntilRef = useRef(0)
   const wideGateUntilRef = useRef(0)
   const blastNextWaveRef = useRef(false)
+  const fireballChargesRef = useRef(0)
   const superAttackerUntilRef = useRef(0)
   const attackLivesRef = useRef(ATTACK_MAX_LIVES)
   const ghostUntilRef = useRef(0)
@@ -752,6 +1026,10 @@ export function AttackPhase({
   const feverUntilRef  = useRef(0)
   const flowRef        = useRef(0)
   const shotBonusRef   = useRef({ widerGreen: 0, slowKeeper: 0, powerShot: false })
+  const survivalWaveBatchRef = useRef(0)
+  const survivalBonusesUsedRef = useRef(0)
+  const goldenBallsRef = useRef(0)
+  const antiCampRef = useRef({ lastX: 50, stableMs: 0, lastInjectAt: 0 })
   const bonusAuraTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const wideGateTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const bonusFxTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
@@ -761,14 +1039,43 @@ export function AttackPhase({
   const [bonusAuraActive, setBonusAuraActive] = useState(false)
   const [wideGateActive, setWideGateActive] = useState(false)
   const [activeBonusFx, setActiveBonusFx] = useState<BonusKind | null>(null)
+  const [storedBonusPowers, setStoredBonusPowers] = useState<StoredBonusPower[]>([])
   const [superAttackerActive, setSuperAttackerActive] = useState(false)
+  const [fireballCharges, setFireballCharges] = useState(0)
+  const [goldenBalls, setGoldenBalls] = useState(0)
   const [dashActive, setDashActive] = useState(false)
   const [rouletteActive, setRouletteActive] = useState(false)
   const [attackLives, setAttackLives] = useState(ATTACK_MAX_LIVES)
   const [ghostActive, setGhostActive] = useState(false)
   const [powerupLabel, setPowerupLabel] = useState<string | null>(null)
-  const [perfectStreak, setPerfectStreak] = useState(0)
+  const [, setPerfectStreak] = useState(0)
   const [feverActive, setFeverActive] = useState(false)
+  const gameplayStartedRef = useRef(false)
+
+  const finishSpringJump = useCallback(() => {
+    isJumpingRef.current = false
+    jumpStartedAtRef.current = null
+    setGdJumping(false)
+    setGdSpringJumping(false)
+    if (springJumpTimeoutRef.current) {
+      window.clearTimeout(springJumpTimeoutRef.current)
+      springJumpTimeoutRef.current = null
+    }
+  }, [])
+
+  const publishSurvivalDribbleScore = useCallback(() => {
+    if (!survivalDribbleOnly) return
+    const stats = {
+      waves: gdCheckedRef.current,
+      combo: maxComboRef.current,
+      bonusesUsed: survivalBonusesUsedRef.current,
+      goldenBalls: goldenBallsRef.current,
+    }
+    onSurvivalDribbleScore?.({
+      ...stats,
+      score: scoreSurvivalDribble(stats),
+    })
+  }, [onSurvivalDribbleScore, survivalDribbleOnly])
 
   const startTutorialCountdown = useCallback(() => {
     sfx.click()
@@ -806,8 +1113,9 @@ export function AttackPhase({
   const hasAimedTargetRef = useRef(false)
   const aimStartRef = useRef<{ x: number; y: number } | null>(null)
   const [shotAimWarning, setShotAimWarning] = useState(false)
-  const [shooterSelectionDone, setShooterSelectionDone] = useState(false)
-  const [shotTutorialDone, setShotTutorialDone] = useState(false)
+  const [shooterSelectionDone, setShooterSelectionDone] = useState(() => shotOnly && skipShotShooterSelect)
+  const [shotTutorialDone, setShotTutorialDone] = useState(() => shotOnly && skipShotTutorial)
+  const [showRememberedShooterChoice, setShowRememberedShooterChoice] = useState(() => shotOnly && rememberedShooterIndex >= 0 && !skipShotShooterSelect)
   const [showShotTutorial, setShowShotTutorial] = useState(true)
   const [showShotDemo, setShowShotDemo] = useState(() => !hasSeenBattleTutorial('attack-shot'))
   const [shotJoystick, setShotJoystick] = useState<{
@@ -817,6 +1125,14 @@ export function AttackPhase({
     angle: number
     power: number
   } | null>(null)
+
+  useEffect(() => {
+    const gdReady = phase === 'gd' && tutorialDone && countdownDone && !showShotIntro && !showDribbleTutorial && preCountdownNum === null
+    const shotReady = phase === 'shot' && shotTutorialDone && shooterSelectionDone && !showShotIntro
+    if (gameplayStartedRef.current || (!gdReady && !shotReady)) return
+    gameplayStartedRef.current = true
+    onGameplayStart?.()
+  }, [countdownDone, onGameplayStart, phase, preCountdownNum, shooterSelectionDone, shotTutorialDone, showDribbleTutorial, showShotIntro, tutorialDone])
   const aimWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const shotFiredRef = useRef(false)
   const shotGameRef  = useRef<HTMLDivElement>(null)
@@ -825,10 +1141,12 @@ export function AttackPhase({
   // Keeper (oscillates in shot phase)
   const [keeperX, setKeeperX] = useState(50)
   const keeperXRef            = useRef(50)
+  const keeperRenderXRef      = useRef(50)
 
   // Keeper Y (vertical movement)
   const [keeperY, setKeeperY] = useState(70)
   const keeperYRef            = useRef(70)
+  const keeperRenderYRef      = useRef(70)
 
   // Ball flight animation (shot phase)
   const [ballFlight, setBallFlight] = useState<BallFlight | null>(null)
@@ -837,9 +1155,11 @@ export function AttackPhase({
   const gaugeCursorRef   = useRef(0)
   const gaugeTimeRef     = useRef(0)
   const gaugeGreenLeft   = useRef(0)    // 0..1 position of green zone left edge
+  const lastKeeperRenderAtRef = useRef(0)
 
   // Result
   const [resultLabel, setResultLabel] = useState<string | null>(null)
+  const [shotPrecisionBonus, setShotPrecisionBonus] = useState<ShotPrecisionBonus | null>(null)
 
   // Direct DOM refs for performance-critical shot phase elements
   const gaugeCursorElRef = useRef<HTMLDivElement>(null)
@@ -872,21 +1192,44 @@ export function AttackPhase({
     const defaultAim = { x: 50, y: 30 }
     aimCursorRef.current = defaultAim
     setAimCursorPos(defaultAim)
-    setShooterSelectionDone(false)
-    setShotTutorialDone(false)
-    setShowShotTutorial(true)
+    setShooterSelectionDone(skipShotShooterSelect)
+    setShowRememberedShooterChoice(rememberedShooterIndex >= 0 && !skipShotShooterSelect)
+    setShotTutorialDone(skipShotTutorial || rememberedShooterIndex >= 0)
+    setShowShotTutorial(!(skipShotTutorial || rememberedShooterIndex >= 0))
     setShowShotDemo(!hasSeenBattleTutorial('attack-shot'))
     gaugeGreenLeft.current = 0.34
-  }, [shotOnly])
+  }, [rememberedShooterIndex, shotOnly, skipShotShooterSelect, skipShotTutorial])
+
+  useEffect(() => {
+    if (!shotOnly) return
+    if (fixedShooterIndex >= 0) setShooterIndex(fixedShooterIndex)
+    else if (rememberedShooterIndex >= 0) setShooterIndex(rememberedShooterIndex)
+    if (skipShotShooterSelect) setShooterSelectionDone(true)
+    else if (rememberedShooterIndex >= 0) setShowRememberedShooterChoice(true)
+    if (skipShotTutorial || rememberedShooterIndex >= 0) {
+      setShotTutorialDone(true)
+      setShowShotTutorial(false)
+    }
+  }, [fixedShooterIndex, rememberedShooterIndex, shotOnly, skipShotShooterSelect, skipShotTutorial])
 
   // Build slalom waves.
   useEffect(() => {
     if (shotOnly) return
-    const waves = generateSlalomWaves({ difficulty, seed: slalomSeedRef.current, players: awayTeamPlayers })
+    const generatedWaves = generateSlalomWaves({ difficulty, seed: slalomSeedRef.current, players: awayTeamPlayers })
+    const waves = generatedWaves
+    const generatedPickups = generateSlalomBonusPickups(waves, slalomSeedRef.current, difficulty)
+    const generatedSprings = generateSlalomSpringPickups(waves, slalomSeedRef.current, difficulty)
+    const pickups = survivalDribbleOnly ? normalizeSurvivalBonusPickups(generatedPickups) : generatedPickups
     gdFallPctRef.current = 0
     gdCheckedRef.current = 0
     gdElapsedRef.current = 0
+    survivalWaveBatchRef.current = 0
+    survivalBonusesUsedRef.current = 0
+    goldenBallsRef.current = 0
+    antiCampRef.current = { lastX: 50, stableMs: 0, lastInjectAt: 0 }
     gdWallsRef.current = waves
+    gdBonusPickupsRef.current = pickups
+    gdSpringPickupsRef.current = generatedSprings
     crowdCueRef.current.clear()
     slalomCompletePendingRef.current = false
     slalomCompleteWorldYRef.current = null
@@ -904,6 +1247,13 @@ export function AttackPhase({
     shieldChargesRef.current = 0
     slowmoUntilRef.current = 0
     wideGateUntilRef.current = 0
+    fireballChargesRef.current = 0
+    storedBonusPowersRef.current = []
+    springSkipWaveIdRef.current = null
+    if (springJumpTimeoutRef.current) {
+      window.clearTimeout(springJumpTimeoutRef.current)
+      springJumpTimeoutRef.current = null
+    }
     if (wideGateTimeoutRef.current) {
       window.clearTimeout(wideGateTimeoutRef.current)
       wideGateTimeoutRef.current = null
@@ -914,15 +1264,19 @@ export function AttackPhase({
       bonusFxTimeoutRef.current = null
     }
     setActiveBonusFx(null)
+    setStoredBonusPowers([])
     blastNextWaveRef.current = false
     superAttackerUntilRef.current = 0
     attackLivesRef.current = ATTACK_MAX_LIVES
     ghostUntilRef.current = 0
     shotBonusRef.current = { widerGreen: 0, slowKeeper: 0, powerShot: false }
+    publishSurvivalDribbleScore()
     setComboDisplay(0)
     setFlow(0)
     setBonusFlash(false)
     setSuperAttackerActive(false)
+    setFireballCharges(0)
+    setGoldenBalls(0)
     setDashActive(false)
     setRouletteActive(false)
     setAttackLives(ATTACK_MAX_LIVES)
@@ -930,9 +1284,85 @@ export function AttackPhase({
     setPowerupLabel(null)
     setPerfectStreak(0)
     setFeverActive(false)
+    setGdSpringJumping(false)
     setGdWallsDisplay([...waves])
+    setGdBonusPickupsDisplay([...pickups])
+    setGdSpringPickupsDisplay([...generatedSprings])
+    setGdHitReact(false)
     if (wallContainerRef.current) wallContainerRef.current.style.transform = 'translateY(0%)'
-  }, [awayTeamPlayers, difficulty, shotOnly])
+  }, [awayTeamPlayers, difficulty, publishSurvivalDribbleScore, shotOnly, survivalDribbleOnly])
+
+  const extendSurvivalDribbleWavesIfNeeded = useCallback(() => {
+    if (!survivalDribbleOnly) return
+    const walls = gdWallsRef.current
+    const remaining = walls.length - gdCheckedRef.current
+    if (!walls.length || remaining > DRIBBLE_RENDER_LOOKAHEAD + 18) return
+
+    const batch = survivalWaveBatchRef.current + 1
+    survivalWaveBatchRef.current = batch
+    const nextDifficulty = survivalDifficultyFor(gdCheckedRef.current)
+    const generated = generateSlalomWaves({
+      difficulty: nextDifficulty,
+      seed: `${slalomSeedRef.current}-survival-${batch}-${gdCheckedRef.current}`,
+      players: awayTeamPlayers,
+    })
+    const generatedPickups = normalizeSurvivalBonusPickups(generateSlalomBonusPickups(
+      generated,
+      `${slalomSeedRef.current}-survival-${batch}-${gdCheckedRef.current}`,
+      nextDifficulty,
+    ))
+    const generatedSprings = generateSlalomSpringPickups(
+      generated,
+      `${slalomSeedRef.current}-survival-${batch}-${gdCheckedRef.current}`,
+      nextDifficulty,
+    )
+    const firstWorldY = generated[0]?.worldY ?? WALL_FIRST_Y
+    const minWorldY = Math.min(...walls.map((wall) => wall.worldY))
+    const offset = minWorldY - ATTACK_CFG[nextDifficulty].spacing - 18 - firstWorldY
+    const extra = generated.map((wave, index) => ({
+      ...wave,
+      id: `${wave.id}-survival-${batch}-${index}`,
+      worldY: wave.worldY + offset,
+      passed: false,
+      checked: false,
+      failed: false,
+      superBlasted: false,
+      defenders: wave.defenders.map((defender) => ({
+        ...defender,
+        id: `${defender.id}-survival-${batch}-${index}`,
+      })),
+      obstacles: wave.obstacles.map((obstacle) => ({
+        ...obstacle,
+        id: `${obstacle.id}-survival-${batch}-${index}`,
+      })),
+      rewardCollected: false,
+      rewardBalls: wave.rewardBalls?.map((ball, ballIndex) => ({
+        ...ball,
+        id: `${wave.id}-survival-${batch}-${index}-reward-${ballIndex}`,
+        collected: false,
+      })),
+    })).map((wave, index) => addSurvivalPressure(wave, index, gdCheckedRef.current))
+    const extraPickups = generatedPickups.map((pickup, index) => ({
+      ...pickup,
+      id: `${pickup.id}-survival-${batch}-${index}`,
+      worldY: pickup.worldY + offset,
+      collected: false,
+      checked: false,
+    }))
+    const extraSprings = generatedSprings.map((pickup, index) => ({
+      ...pickup,
+      id: `${pickup.id}-survival-${batch}-${index}`,
+      worldY: pickup.worldY + offset,
+      collected: false,
+      checked: false,
+    }))
+    gdWallsRef.current = [...walls, ...extra]
+    gdBonusPickupsRef.current = [...gdBonusPickupsRef.current, ...extraPickups]
+    gdSpringPickupsRef.current = [...gdSpringPickupsRef.current, ...extraSprings]
+    setGdWallsDisplay([...gdWallsRef.current])
+    setGdBonusPickupsDisplay([...gdBonusPickupsRef.current])
+    setGdSpringPickupsDisplay([...gdSpringPickupsRef.current])
+  }, [awayTeamPlayers, survivalDribbleOnly])
 
   //  Cache container rect (avoids getBoundingClientRect in hot pointer path) 
   useEffect(() => {
@@ -990,106 +1420,197 @@ export function AttackPhase({
       bonusFxTimeoutRef.current = null
     }, durationMs)
   }, [])
-  const registerDribbleSuccess = useCallback((wave: SlalomWave, outcome: { bonus?: boolean; label: string; quality?: DribbleQuality }) => {
-    const comboIncrement = outcome.bonus ? 2 : 1
-    comboRef.current += comboIncrement
+
+  const collectGoldenBallsForWave = useCallback((wave: SlalomWave) => {
+    if (wave.rewardCollected || !isGatePassWave(wave)) return 0
+    wave.rewardCollected = true
+    return 0
+  }, [])
+
+  const registerDribbleSuccess = useCallback((wave: SlalomWave, outcome: { label: string; quality?: DribbleQuality; ideal?: boolean }) => {
+    if (outcome.ideal) wave.idealPassed = true
+    const collectedBalls = outcome.ideal ? collectGoldenBallsForWave(wave) : 0
+    comboRef.current += 1
     maxComboRef.current = Math.max(maxComboRef.current, comboRef.current)
     setComboDisplay(comboRef.current)
+    if (collectedBalls > 0) {
+      sfx.bonusCoin()
+      setGdComment(`+${collectedBalls} BALLONS DORÉS`)
+    }
 
     if (outcome.quality === 'perfect') {
       perfectStreakRef.current += 1
       setPerfectStreak(perfectStreakRef.current)
-      shotBonusRef.current.widerGreen += 0.35
+      if (!survivalDribbleOnly) shotBonusRef.current.widerGreen += 0.35
       if (perfectStreakRef.current > 0 && perfectStreakRef.current % 3 === 0) {
         feverUntilRef.current = performance.now() + FEVER_DURATION
-        shotBonusRef.current.widerGreen += 1
-        shotBonusRef.current.slowKeeper += 1
+        if (!survivalDribbleOnly) {
+          shotBonusRef.current.widerGreen += 1
+          shotBonusRef.current.slowKeeper += 1
+        }
         setFeverActive(true)
-        setPowerupLabel('FEVER MODE')
+        setGdComment('FEVER MODE')
         window.setTimeout(() => setFeverActive(false), FEVER_DURATION)
-        window.setTimeout(() => setPowerupLabel(null), 1250)
       }
-    } else if (!outcome.bonus) {
+    } else {
       perfectStreakRef.current = 0
       setPerfectStreak(0)
     }
 
     const qualityGain = outcome.quality === 'perfect' ? 6 : 0
     const feverGain = performance.now() < feverUntilRef.current ? 3 : 0
-    const nextFlow = Math.min(100, flowRef.current + flowGainForWave(wave, outcome.bonus) + qualityGain + feverGain)
+    const nextFlow = Math.min(100, flowRef.current + flowGainForWave(wave) + qualityGain + feverGain)
     const wasBelowMax = flowRef.current < 100
     flowRef.current = nextFlow
     setFlow(nextFlow)
 
-    if (outcome.bonus) {
-      wave.bonusCollected = true
-      const bonusKind = wave.bonusKind ?? 'coin'
-      const bonusText = bonusPowerText(bonusKind)
-      let auraDuration = 1400
-      if (bonusKind === 'coin') {
-        sfx.bonusCoin()
-        shotBonusRef.current.widerGreen += 1
-        setPowerupLabel(bonusText.pickup)
-      } else if (bonusKind === 'boots') {
-        sfx.bonusCoin()
-        shieldChargesRef.current = Math.min(2, shieldChargesRef.current + 1)
-        shotBonusRef.current.widerGreen += 0.5
-        setPowerupLabel(bonusText.pickup)
-        auraDuration = 4200
-      } else if (bonusKind === 'whistle') {
-        sfx.whistle()
-        shotBonusRef.current.slowKeeper += 1
-        setPowerupLabel(bonusText.pickup)
-        auraDuration = 2600
-      } else if (bonusKind === 'slowmo') {
-        sfx.slowmo()
-        slowmoUntilRef.current = performance.now() + 3600
-        shotBonusRef.current.slowKeeper += 0.5
-        setPowerupLabel(bonusText.pickup)
-        auraDuration = 3600
-      } else if (bonusKind === 'wide') {
-        wideGateUntilRef.current = performance.now() + 4200
-        if (wideGateTimeoutRef.current) window.clearTimeout(wideGateTimeoutRef.current)
-        setWideGateActive(true)
-        wideGateTimeoutRef.current = window.setTimeout(() => {
-          setWideGateActive(false)
-          wideGateTimeoutRef.current = null
-        }, 4200)
-        sfx.wideGate()
-        shotBonusRef.current.widerGreen += 0.75
-        setPowerupLabel(bonusText.pickup)
-        auraDuration = 4200
-      } else {
-        sfx.blastPower()
-        const now = performance.now()
-        blastNextWaveRef.current = false
-        superAttackerUntilRef.current = now + SUPER_ATTACKER_DURATION
-        shotBonusRef.current.widerGreen += 0.35
-        setSuperAttackerActive(true)
-        window.setTimeout(() => {
-          if (performance.now() >= superAttackerUntilRef.current) setSuperAttackerActive(false)
-        }, SUPER_ATTACKER_DURATION + 60)
-        setPowerupLabel(bonusText.pickup)
-        auraDuration = SUPER_ATTACKER_DURATION
-      }
-      activateBonusAura(auraDuration)
-      activateBonusFieldFx(bonusKind, auraDuration)
-      setBonusFlash(true)
-      window.setTimeout(() => setBonusFlash(false), 420)
-      window.setTimeout(() => setPowerupLabel(null), 1150)
-    }
-    if (nextFlow >= 70 && shotBonusRef.current.slowKeeper === 0) {
+    if (!survivalDribbleOnly && nextFlow >= 70 && shotBonusRef.current.slowKeeper === 0) {
       shotBonusRef.current.slowKeeper = 1
     }
 
-    if (((nextFlow >= 100 && wasBelowMax) || comboRef.current >= cfg.waveCount) && !shotBonusRef.current.powerShot) {
+    if (!survivalDribbleOnly && ((nextFlow >= 100 && wasBelowMax) || comboRef.current >= cfg.waveCount) && !shotBonusRef.current.powerShot) {
       shotBonusRef.current.powerShot = true
       sfx.powerShot()
-      setPowerupLabel('TIR BOOSTE CHARGE')
+      setGdComment('TIR BOOSTE CHARGE')
       activateBonusFieldFx('coin', 1300)
-      window.setTimeout(() => setPowerupLabel(null), 1250)
     }
-  }, [activateBonusAura, activateBonusFieldFx, cfg.waveCount])
+  }, [activateBonusFieldFx, cfg.waveCount, collectGoldenBallsForWave, survivalDribbleOnly])
+
+  const registerSilentDribblePass = useCallback(() => {
+    comboRef.current = 0
+    perfectStreakRef.current = 0
+    setComboDisplay(0)
+    setPerfectStreak(0)
+    if (commentTimerRef.current) {
+      clearTimeout(commentTimerRef.current)
+      commentTimerRef.current = null
+    }
+    setGdComment(null)
+  }, [])
+
+  const activateBonusKind = useCallback((bonusKind: BonusKind) => {
+    const bonusText = bonusPowerText(bonusKind)
+    let auraDuration = 1400
+
+    if (bonusKind === 'coin') {
+      sfx.bonusCoin()
+      if (!survivalDribbleOnly) shotBonusRef.current.widerGreen += 1
+      setGdComment(bonusText.pickup)
+    } else if (bonusKind === 'boots') {
+      sfx.bonusCoin()
+      shieldChargesRef.current = Math.min(2, shieldChargesRef.current + 1)
+      if (!survivalDribbleOnly) shotBonusRef.current.widerGreen += 0.5
+      setGdComment(bonusText.pickup)
+      auraDuration = 4200
+    } else if (bonusKind === 'whistle') {
+      sfx.whistle()
+      if (!survivalDribbleOnly) shotBonusRef.current.slowKeeper += 1
+      setGdComment(bonusText.pickup)
+      auraDuration = 2600
+    } else if (bonusKind === 'slowmo') {
+      sfx.slowmo()
+      slowmoUntilRef.current = performance.now() + 3600
+      if (!survivalDribbleOnly) shotBonusRef.current.slowKeeper += 0.5
+      setGdComment(bonusText.pickup)
+      auraDuration = 3600
+    } else if (bonusKind === 'wide') {
+      wideGateUntilRef.current = performance.now() + 4200
+      if (wideGateTimeoutRef.current) window.clearTimeout(wideGateTimeoutRef.current)
+      setWideGateActive(true)
+      wideGateTimeoutRef.current = window.setTimeout(() => {
+        setWideGateActive(false)
+        wideGateTimeoutRef.current = null
+      }, 4200)
+      sfx.wideGate()
+      if (!survivalDribbleOnly) shotBonusRef.current.widerGreen += 0.75
+      setGdComment(bonusText.pickup)
+      auraDuration = 4200
+    } else if (bonusKind === 'roulette') {
+      const now = performance.now()
+      rouletteStartedAtRef.current = now
+      rouletteUntilRef.current = now + ROULETTE_DURATION
+      rouletteCooldownUntilRef.current = now + ROULETTE_COOLDOWN * 0.45
+      sfx.jump()
+      setRouletteActive(true)
+      setGdComment('ROULETTE DRIBBLE')
+      window.setTimeout(() => {
+        rouletteStartedAtRef.current = null
+        setRouletteActive(false)
+      }, ROULETTE_DURATION)
+      auraDuration = ROULETTE_DURATION
+    } else {
+      blastNextWaveRef.current = true
+      setSuperAttackerActive(true)
+      sfx.blastPower()
+      setGdComment('BALLON EN FEU LANCE')
+      window.setTimeout(() => setSuperAttackerActive(false), 1200)
+      auraDuration = 1200
+    }
+
+    flowRef.current = Math.min(100, flowRef.current + 8)
+    setFlow(flowRef.current)
+    activateBonusAura(auraDuration)
+    activateBonusFieldFx(bonusKind, auraDuration)
+    setBonusFlash(true)
+    setGdComment(bonusPowerText(bonusKind).short)
+    if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
+    commentTimerRef.current = setTimeout(() => setGdComment(null), 760)
+    window.setTimeout(() => setBonusFlash(false), 420)
+  }, [activateBonusAura, activateBonusFieldFx, survivalDribbleOnly])
+
+  const activateStoredBonusPower = useCallback((id?: string) => {
+    const powers = storedBonusPowersRef.current
+    const index = id ? powers.findIndex((power) => power.id === id) : 0
+    if (index < 0) return false
+    const [power] = powers.splice(index, 1)
+    storedBonusPowersRef.current = [...powers]
+    setStoredBonusPowers([...storedBonusPowersRef.current])
+    activateBonusKind(power.kind)
+    return true
+  }, [activateBonusKind])
+
+  const collectBonusPickup = useCallback((pickup: SlalomBonusPickup) => {
+    if (pickup.collected) return
+    pickup.collected = true
+    pickup.checked = true
+    if (survivalDribbleOnly) survivalBonusesUsedRef.current += 1
+
+    const nextPowers = [
+      { id: `${pickup.id}-stored-${Date.now()}`, kind: pickup.bonusKind },
+    ]
+    storedBonusPowersRef.current = nextPowers
+    setStoredBonusPowers(nextPowers)
+
+    sfx.bonusCoin()
+    setBonusFlash(true)
+    setGdComment('CAISSE EXPLOSEE !')
+    setPowerupLabel(`NOUVEAU BONUS : ${bonusPowerText(pickup.bonusKind).pickup}`)
+    if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
+    commentTimerRef.current = setTimeout(() => setGdComment(null), 760)
+    window.setTimeout(() => setBonusFlash(false), 420)
+    window.setTimeout(() => setPowerupLabel(null), 1250)
+  }, [survivalDribbleOnly])
+
+  const collectSpringPickup = useCallback((pickup: SlalomSpringPickup) => {
+    if (pickup.collected) return
+    pickup.collected = true
+    pickup.checked = true
+    const nextWave = gdWallsRef.current.find((wave) => !wave.checked && wave.worldY < pickup.worldY)
+    springSkipWaveIdRef.current = nextWave?.id ?? null
+    jumpStartedAtRef.current = performance.now()
+    isJumpingRef.current = true
+    setGdJumping(true)
+    setGdSpringJumping(true)
+    sfx.jump()
+    window.setTimeout(() => sfx.bonusCoin(), 80)
+    setGdComment('TREMPLIN !')
+    if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
+    commentTimerRef.current = setTimeout(() => setGdComment(null), 820)
+    if (springJumpTimeoutRef.current) window.clearTimeout(springJumpTimeoutRef.current)
+    springJumpTimeoutRef.current = window.setTimeout(() => {
+      finishSpringJump()
+    }, 2600)
+  }, [finishSpringJump])
 
   function getJumpState(now: number) {
     const startedAt = jumpStartedAtRef.current
@@ -1113,6 +1634,13 @@ export function AttackPhase({
   }
 
   const absorbDribbleHit = useCallback((label: string) => {
+    playGameSound('/audio/ball-kick.mp3', { volume: 1, kind: 'sfx' })
+    sfx.tackle()
+    window.setTimeout(() => sfx.tackle(), 38)
+    window.setTimeout(() => sfx.error(), 86)
+    setGdHitReact(false)
+    window.setTimeout(() => setGdHitReact(true), 0)
+    window.setTimeout(() => setGdHitReact(false), 560)
     if (shieldChargesRef.current > 0) {
       shieldChargesRef.current -= 1
       ghostUntilRef.current = performance.now() + ATTACK_GHOST_DURATION
@@ -1156,7 +1684,7 @@ export function AttackPhase({
   }
 
   const moveDribblePlayerTo = (nextX: number) => {
-    gdPlayerXRef.current = Math.max(3, Math.min(97, nextX))
+    gdPlayerXRef.current = Math.max(GD_MIN_X, Math.min(GD_MAX_X, nextX))
     if (playerElRef.current) {
       const width = gameWidthRef.current || containerRectRef.current.width
       const x = (gdPlayerXRef.current / 100) * width - 29
@@ -1167,14 +1695,7 @@ export function AttackPhase({
 
   const getEvadeTargetX = (wave?: SlalomWave) => {
     if (!wave || !isGatePassWave(wave)) return null
-    const gateCenter = getWaveGateCenter(wave, gdElapsedRef.current)
-    if (wave.bonusGateCenterX != null && wave.bonusGateWidth != null) {
-      const playerX = gdPlayerXRef.current
-      const regularDistance = Math.abs(playerX - gateCenter)
-      const bonusDistance = Math.abs(playerX - wave.bonusGateCenterX)
-      return bonusDistance + 5 < regularDistance ? wave.bonusGateCenterX : gateCenter
-    }
-    return gateCenter
+    return getWaveGateCenter(wave, gdElapsedRef.current)
   }
 
   const handleDash = (direction?: -1 | 1, targetX?: number | null) => {
@@ -1196,7 +1717,7 @@ export function AttackPhase({
     moveDribblePlayerTo(nextX)
     sfx.jump()
     setDashActive(true)
-    setGdComment(hasTarget ? 'VERS LA PORTE !' : now < feverUntilRef.current ? 'FEVER DASH !' : 'ESQUIVE !')
+    setGdComment(hasTarget ? 'VERS LES BALLONS !' : now < feverUntilRef.current ? 'FEVER DASH !' : 'ESQUIVE !')
     if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
     commentTimerRef.current = setTimeout(() => setGdComment(null), 520)
     window.setTimeout(() => {
@@ -1205,44 +1726,146 @@ export function AttackPhase({
     }, DASH_DURATION)
   }
 
-  const handleRoulette = () => {
+  const handleRandomEvade = (wave?: SlalomWave) => {
+    const options = [
+      () => handleDash(undefined, getEvadeTargetX(wave)),
+      () => handleJump(),
+    ]
+    options[Math.floor(Math.random() * options.length)]?.()
+  }
+
+  const handleManualRoulette = () => {
     const now = performance.now()
-    if (now < rouletteCooldownUntilRef.current) return
+    if (now < rouletteCooldownUntilRef.current) return false
     rouletteStartedAtRef.current = now
     rouletteUntilRef.current = now + ROULETTE_DURATION
-    rouletteCooldownUntilRef.current = now + (now < feverUntilRef.current ? ROULETTE_COOLDOWN * 0.62 : ROULETTE_COOLDOWN)
+    rouletteCooldownUntilRef.current = now + ROULETTE_COOLDOWN
     sfx.jump()
     setRouletteActive(true)
     setGdComment('ROULETTE !')
     if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
-    commentTimerRef.current = setTimeout(() => setGdComment(null), 560)
+    commentTimerRef.current = setTimeout(() => setGdComment(null), 620)
     window.setTimeout(() => {
       rouletteStartedAtRef.current = null
       setRouletteActive(false)
     }, ROULETTE_DURATION)
+    return true
+  }
+
+  const shouldRouletteNextWave = (wave?: SlalomWave) => Boolean(
+    wave
+    && !wave.requiresJump
+    && (wave.defenders.length > 0 || wave.obstacles.some((obstacle) => !obstacle.requiresJump))
+  )
+
+  const getNextActionWave = () => {
+    const fall = gdFallPctRef.current
+    const immediateWave = gdWallsRef.current
+      .filter((wave) => !wave.checked)
+      .map((wave) => ({ wave, screenY: wave.worldY + fall }))
+      .filter(({ screenY }) => screenY > GD_PLAYER_Y - 86 && screenY < GD_PLAYER_Y + 22)
+      .sort((a, b) => b.screenY - a.screenY)[0]?.wave
+    if (immediateWave) return immediateWave
+    return gdWallsRef.current.find((wave) => !wave.checked)
+  }
+
+  const activateFireballPower = () => {
+    if (fireballChargesRef.current <= 0) return false
+    fireballChargesRef.current = Math.max(0, fireballChargesRef.current - 1)
+    setFireballCharges(fireballChargesRef.current)
+    blastNextWaveRef.current = true
+    setSuperAttackerActive(true)
+    sfx.blastPower()
+    setGdComment('BALLON EN FEU !')
+    activateBonusFieldFx('blast', 1200)
+    if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
+    commentTimerRef.current = setTimeout(() => setGdComment(null), 780)
+    window.setTimeout(() => setSuperAttackerActive(false), 1200)
+    return true
+  }
+
+  const activateDoubleTapPower = () => {
+    if (activateStoredBonusPower()) return true
+    if (activateFireballPower()) return true
+    return false
   }
 
   const handleEvade = () => {
-    const nextWave = gdWallsRef.current.find((wave) => !wave.checked)
-    if (nextWave?.requiresRoulette) {
-      handleRoulette()
-      return
-    }
+    const nextWave = getNextActionWave()
     if (nextWave?.requiresJump) {
       handleJump()
       return
     }
-    handleDash(undefined, getEvadeTargetX(nextWave))
+    if (shouldRouletteNextWave(nextWave) && handleManualRoulette()) return
+    handleRandomEvade(nextWave)
   }
+
+  const handleTapAction = () => {
+    const now = performance.now()
+    const isDoubleTap = now - lastGdTapAtRef.current <= POWER_DOUBLE_TAP_MS
+    lastGdTapAtRef.current = now
+    if (isDoubleTap && activateDoubleTapPower()) return
+    handleEvade()
+  }
+
+  const injectAntiCampObstacle = useCallback((walls: SlalomWave[], fall: number, playerX: number, deltaMs: number, now: number) => {
+    const camp = antiCampRef.current
+    const nearEdge = playerX <= GD_MIN_X + 3.5 || playerX >= GD_MAX_X - 3.5
+    const stable = Math.abs(playerX - camp.lastX) <= 2.4
+    camp.stableMs = stable ? camp.stableMs + deltaMs : 0
+    camp.lastX = playerX
+
+    if (!nearEdge && camp.stableMs < 950) return false
+    if (now - camp.lastInjectAt < 850) return false
+
+    const target = walls.find((wave) => {
+      const screenY = wave.worldY + fall
+      const isSlide = wave.type === 'slide_wall' || wave.type === 'double_slide_wall'
+      return !wave.checked
+        && !isSlide
+        && screenY > -46
+        && screenY < 24
+        && !wave.obstacles.some((obstacle) => obstacle.id.includes('anti-camp'))
+    })
+    if (!target) return false
+
+    const baseX = nearEdge
+      ? playerX < 50 ? 10.5 : 89.5
+      : Math.max(13, Math.min(87, playerX))
+    const candidates = [
+      baseX,
+      baseX < 50 ? baseX + 19 : baseX - 19,
+      baseX < 50 ? baseX + 32 : baseX - 32,
+      50,
+    ].map((value) => Math.max(10, Math.min(90, value)))
+    const resolvedX = candidates.find((candidate) => {
+      const defenderOverlap = target.defenders.some((defender) => Math.abs(candidate - defender.x) <= (defender.moveAmplitude ?? 0) + 18)
+      const obstacleOverlap = target.obstacles.some((obstacle) => Math.abs(candidate - obstacle.x) <= obstacle.width / 2 + 16)
+      const rewardOverlap = target.rewardBalls?.some((ball) => !ball.collected && Math.abs(candidate - ball.x) <= 12)
+      return !defenderOverlap && !obstacleOverlap && !rewardOverlap
+    })
+    if (resolvedX == null) return false
+
+    target.obstacles.push({
+      id: `${target.id}-anti-camp-${Math.round(now)}`,
+      kind: nearEdge ? 'cone' : 'cone',
+      x: resolvedX,
+      width: 10,
+      yOffset: 0,
+    })
+    camp.lastInjectAt = now
+    return true
+  }, [])
 
   //  Keyboard handler 
   useEffect(() => {
     if (!tutorialDone || !countdownDone) return
     const onDown = (e: KeyboardEvent) => {
+      if (e.repeat) return
       if (e.key === 'ArrowLeft')  { keysRef.current.left  = true; e.preventDefault() }
       if (e.key === 'ArrowRight') { keysRef.current.right = true; e.preventDefault() }
-      if (e.key === ' ')          { handleEvade(); e.preventDefault() }
-      if (e.key === 'Shift')      { handleEvade(); e.preventDefault() }
+      if (e.key === ' ' || e.code === 'Space' || e.key === 'Spacebar') { handleTapAction(); e.preventDefault() }
+      if (e.key === 'Shift')      { handleTapAction(); e.preventDefault() }
     }
     const onUp = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft')  keysRef.current.left  = false
@@ -1285,20 +1908,20 @@ export function AttackPhase({
 
       // Move player X via keyboard  direct DOM, no React re-render
       if (keysRef.current.left) {
-        gdPlayerXRef.current = Math.max(3, gdPlayerXRef.current - playerSpeed * delta)
+        gdPlayerXRef.current = Math.max(GD_MIN_X, gdPlayerXRef.current - playerSpeed * delta)
       }
       if (keysRef.current.right) {
-        gdPlayerXRef.current = Math.min(97, gdPlayerXRef.current + playerSpeed * delta)
+        gdPlayerXRef.current = Math.min(GD_MAX_X, gdPlayerXRef.current + playerSpeed * delta)
       }
       if (dashActiveNow) {
         const dashTarget = dashTargetXRef.current
         if (dashTarget != null) {
           const diff = dashTarget - gdPlayerXRef.current
           const step = Math.sign(diff) * Math.min(Math.abs(diff), 88 * delta)
-          gdPlayerXRef.current = Math.max(3, Math.min(97, gdPlayerXRef.current + step))
+          gdPlayerXRef.current = Math.max(GD_MIN_X, Math.min(GD_MAX_X, gdPlayerXRef.current + step))
           if (Math.abs(diff) <= 0.8) dashTargetXRef.current = null
         } else {
-          gdPlayerXRef.current = Math.max(3, Math.min(97, gdPlayerXRef.current + dashDirectionRef.current * 48 * delta))
+          gdPlayerXRef.current = Math.max(GD_MIN_X, Math.min(GD_MAX_X, gdPlayerXRef.current + dashDirectionRef.current * 48 * delta))
         }
       }
       if (playerElRef.current) {
@@ -1308,8 +1931,11 @@ export function AttackPhase({
         playerElRef.current.style.setProperty('--atk-player-x', `${x}px`)
       }
 
-      const progress = gdCheckedRef.current / Math.max(1, cfg.waveCount)
-      const speed = cfg.gdSpeed * (1 + progress * cfg.difficultyRamp) * (isSlowmoActive ? 0.68 : 1) * (superAttackerNow ? 1.5 : 1)
+      const progress = survivalDribbleOnly
+        ? Math.min(3.1, gdCheckedRef.current / 34)
+        : gdCheckedRef.current / Math.max(1, cfg.waveCount)
+      const survivalEnduranceSpeed = survivalDribbleOnly ? 1 + Math.min(2.25, gdCheckedRef.current * 0.014 + gdElapsedRef.current * 0.006) : 1
+      const speed = cfg.gdSpeed * (1 + progress * cfg.difficultyRamp) * survivalEnduranceSpeed * (isSlowmoActive ? 0.68 : 1) * (superAttackerNow ? 1.5 : 1)
 
       // Walls fall: update ONE container transform  GPU composited, zero layout reflow
       gdFallPctRef.current += speed * delta
@@ -1318,10 +1944,48 @@ export function AttackPhase({
       }
 
       // Collision / pass check  fire once per wall when it reaches player Y
+      if (survivalDribbleOnly) extendSurvivalDribbleWavesIfNeeded()
       const walls   = gdWallsRef.current
+      const pickups = gdBonusPickupsRef.current
+      const springs = gdSpringPickupsRef.current
       const playerX = gdPlayerXRef.current
       const fall    = gdFallPctRef.current
+      const antiCampChanged = injectAntiCampObstacle(walls, fall, playerX, delta * 1000, now)
+      if (antiCampChanged) setGdWallsDisplay([...gdWallsRef.current])
+      let pickupsChanged = false
+      for (const pickup of pickups) {
+        if (pickup.checked) continue
+        const pickupScreenY = pickup.worldY + fall
+        if (pickupScreenY < GD_PLAYER_Y - 5) continue
+        pickup.checked = true
+        if (Math.abs(playerX - pickup.x) <= pickup.width / 2) {
+          collectBonusPickup(pickup)
+        }
+        pickupsChanged = true
+      }
+      if (pickupsChanged) {
+        publishSurvivalDribbleScore()
+        setGdBonusPickupsDisplay([...gdBonusPickupsRef.current])
+      }
+      let springsChanged = false
+      for (const pickup of springs) {
+        if (pickup.checked) continue
+        const pickupScreenY = pickup.worldY + fall
+        if (pickupScreenY < GD_PLAYER_Y - 5) continue
+        pickup.checked = true
+        if (Math.abs(playerX - pickup.x) <= pickup.width / 2 + 4) {
+          collectSpringPickup(pickup)
+        }
+        springsChanged = true
+      }
+      if (springsChanged) {
+        setGdSpringPickupsDisplay([...gdSpringPickupsRef.current])
+      }
       const markSlalomCompleteIfNeeded = (wall: SlalomWave) => {
+        if (survivalDribbleOnly) {
+          extendSurvivalDribbleWavesIfNeeded()
+          return
+        }
         if (slalomCompletePendingRef.current || gdCheckedRef.current < walls.length) return
         slalomCompletePendingRef.current = true
         slalomCompleteWorldYRef.current = wall.worldY
@@ -1340,10 +2004,36 @@ export function AttackPhase({
       }
       for (let i = 0; i < walls.length; i++) {
         const wall = walls[i]
-        if (wall.checked) continue
         // Wall screen Y = worldY + fall (worldY is negative  starts above screen)
         const screenY = wall.worldY + fall
-        const isJumpCue = wall.type === 'slide_wall' || wall.type === 'double_slide_wall' || wall.type === 'combo_gate_slide'
+        let rewardBallCollected = false
+        const rewardJump = getJumpState(now)
+        if (wall.rewardBalls?.length) {
+          wall.rewardBalls.forEach((ball) => {
+            if (ball.collected) return
+            const ballScreenY = screenY + ball.yOffset
+            const canCollectJumpBall = !wall.requiresJump || rewardJump.isActive
+            const xRange = wall.requiresJump ? 10.5 : 6.2
+            const inYRange = wall.requiresJump
+              ? ballScreenY >= GD_PLAYER_Y - 82 && ballScreenY <= GD_PLAYER_Y - 18
+              : Math.abs(ballScreenY - GD_PLAYER_Y) <= 9
+            if (canCollectJumpBall && Math.abs(playerX - ball.x) <= xRange && inYRange) {
+              ball.collected = true
+              rewardBallCollected = true
+              goldenBallsRef.current += 1
+            }
+          })
+        }
+        if (rewardBallCollected) {
+          sfx.bonusCoin()
+          setGoldenBalls(goldenBallsRef.current)
+          const collectedOnWave = wall.rewardBalls?.filter((ball) => ball.collected).length ?? 1
+          setGdComment(wall.requiresJump ? `SAUT +${collectedOnWave} BALLONS !` : `+${collectedOnWave} BALLON${collectedOnWave > 1 ? 'S' : ''} DORÉ${collectedOnWave > 1 ? 'S' : ''}`)
+          publishSurvivalDribbleScore()
+          setGdWallsDisplay([...gdWallsRef.current])
+        }
+        if (wall.checked) continue
+        const isJumpCue = wall.type === 'slide_wall' || wall.type === 'double_slide_wall'
         if (isJumpCue && screenY > -4 && !crowdCueRef.current.has(wall.id)) {
           crowdCueRef.current.add(wall.id)
           playGameSound('/audio/crowd.mp3', { volume: 0.78, kind: 'ambience' })
@@ -1357,15 +2047,35 @@ export function AttackPhase({
         const roulette = getRouletteState(now)
         const ghostActiveNow = now < ghostUntilRef.current
 
-        if ((superAttackerNow || blastNextWaveRef.current) && wall.type !== 'bonus_choice') {
+        if (springSkipWaveIdRef.current === wall.id) {
+          springSkipWaveIdRef.current = null
+          wall.passed = true
+          wall.idealPassed = true
+          registerDribbleSuccess(wall, { label: 'SAUT GÉANT !', quality: 'perfect', ideal: true })
+          gdCheckedRef.current++
+          publishSurvivalDribbleScore()
+          setGdWallsDisplay([...gdWallsRef.current])
+          setGdComment('SAUT GÉANT !')
+          if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
+          commentTimerRef.current = setTimeout(() => setGdComment(null), 760)
+          if (springJumpTimeoutRef.current) window.clearTimeout(springJumpTimeoutRef.current)
+          springJumpTimeoutRef.current = window.setTimeout(() => {
+            finishSpringJump()
+          }, 560)
+          markSlalomCompleteIfNeeded(wall)
+          continue
+        }
+
+        if (superAttackerNow || blastNextWaveRef.current) {
           if (!superAttackerNow) blastNextWaveRef.current = false
           wall.passed = true
           wall.superBlasted = true
-          registerDribbleSuccess(wall, { label: 'EXPLOSION !', quality: 'perfect' })
+          registerDribbleSuccess(wall, { label: 'EXPLOSION !', quality: 'perfect', ideal: true })
           gdCheckedRef.current++
+          publishSurvivalDribbleScore()
           setGdWallsDisplay([...gdWallsRef.current])
           sfx.kamikaze()
-          setGdComment(superAttackerNow ? 'SUPER ATTAQUANT !' : 'RANGEE EXPLOSEE !')
+          setGdComment(superAttackerNow ? 'BALLON EN FEU !' : 'RANGÉE EXPLOSÉE !')
           if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
           commentTimerRef.current = setTimeout(() => setGdComment(null), 760)
           markSlalomCompleteIfNeeded(wall)
@@ -1376,17 +2086,28 @@ export function AttackPhase({
 
         if (outcome.success || ghostActiveNow) {
           wall.passed = true
-          registerDribbleSuccess(wall, ghostActiveNow && !outcome.success ? { label: 'GHOST !' } : outcome)
-          if (isGatePassWave(wall)) sfx.gatePass()
+          const rewardedPass = Boolean(outcome.ideal || (ghostActiveNow && !outcome.success))
+          if (rewardedPass) {
+            registerDribbleSuccess(wall, ghostActiveNow && !outcome.success ? { label: 'GHOST !' } : outcome)
+          } else {
+            registerSilentDribblePass()
+          }
+          if (rewardedPass && isGatePassWave(wall)) sfx.gatePass()
           gdCheckedRef.current++
+          publishSurvivalDribbleScore()
           setGdWallsDisplay([...gdWallsRef.current])
-          const comboLabel = outcome.quality === 'perfect'
-            ? perfectStreakRef.current >= 3 ? `PERFECT x${perfectStreakRef.current}` : 'PERFECT !'
-            : comboRef.current >= 10 ? 'INARRETABLE !' : comboRef.current >= 7 ? 'FLOW !' : comboRef.current >= 5 ? 'DRIBBLE FOU !' : comboRef.current >= 3 ? 'CROCHET !' : outcome.label
-          const comment = outcome.bonus ? bonusPowerText(wall.bonusKind ?? 'coin').short : comboLabel || GD_COMMENTS[Math.floor(Math.random() * GD_COMMENTS.length)]
-          setGdComment(comment)
-          if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
-          commentTimerRef.current = setTimeout(() => setGdComment(null), 800)
+          if (rewardedPass) {
+            const jumpRewardCount = wall.requiresJump ? (wall.rewardBalls?.filter((ball) => ball.collected).length ?? 0) : 0
+            const comboLabel = jumpRewardCount > 0
+              ? `SAUT +${jumpRewardCount}`
+              : outcome.quality === 'perfect'
+              ? comboRef.current >= 10 ? 'INARRETABLE !' : comboRef.current >= 7 ? 'FLOW !' : comboRef.current >= 5 ? 'DRIBBLE FOU !' : comboRef.current >= 3 ? 'CROCHET !' : outcome.label
+              : comboRef.current >= 10 ? 'INARRETABLE !' : comboRef.current >= 7 ? 'FLOW !' : comboRef.current >= 5 ? 'DRIBBLE FOU !' : comboRef.current >= 3 ? 'CROCHET !' : outcome.label
+            const comment = comboLabel || GD_COMMENTS[Math.floor(Math.random() * GD_COMMENTS.length)]
+            setGdComment(comment)
+            if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
+            commentTimerRef.current = setTimeout(() => setGdComment(null), 800)
+          }
 
           markSlalomCompleteIfNeeded(wall)
         } else {
@@ -1394,6 +2115,7 @@ export function AttackPhase({
           setGdWallsDisplay([...gdWallsRef.current])
           const nextLives = absorbDribbleHit(outcome.label || getJumpTone(wall, now, jump))
           gdCheckedRef.current++
+          publishSurvivalDribbleScore()
           markSlalomCompleteIfNeeded(wall)
           if (nextLives <= 0) {
             setTimeout(() => finish(false, 'intercepted'), 420)
@@ -1402,7 +2124,7 @@ export function AttackPhase({
         }
       }
 
-      if (slalomCompletePendingRef.current && slalomCompleteWorldYRef.current != null) {
+      if (!survivalDribbleOnly && slalomCompletePendingRef.current && slalomCompleteWorldYRef.current != null) {
         const finalScreenY = slalomCompleteWorldYRef.current + gdFallPctRef.current
         if (finalScreenY >= GD_PLAYER_Y + 26) {
           slalomCompletePendingRef.current = false
@@ -1416,7 +2138,7 @@ export function AttackPhase({
 
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [phase, tutorialDone, countdownDone, showShotIntro, cfg.gdSpeed, cfg.difficultyRamp, cfg.waveCount, finish, registerDribbleSuccess, absorbDribbleHit])
+  }, [phase, tutorialDone, countdownDone, showShotIntro, cfg.gdSpeed, cfg.difficultyRamp, cfg.waveCount, finish, registerDribbleSuccess, registerSilentDribblePass, collectBonusPickup, collectSpringPickup, absorbDribbleHit, survivalDribbleOnly, extendSurvivalDribbleWavesIfNeeded, publishSurvivalDribbleScore, injectAntiCampObstacle, finishSpringJump])
 
   //  Pointer move for GD: desktop follows cursor, touch keeps drag-only control.
   const handleGdPointerMove = (e: React.PointerEvent<HTMLElement>) => {
@@ -1430,7 +2152,7 @@ export function AttackPhase({
     }
     const { left, width } = containerRectRef.current
     if (!width) return
-    gdPlayerXRef.current = Math.max(3, Math.min(97, ((e.clientX - left) / width) * 100))
+    gdPlayerXRef.current = Math.max(GD_MIN_X, Math.min(GD_MAX_X, ((e.clientX - left) / width) * 100))
     if (playerElRef.current) {
       const x = (gdPlayerXRef.current / 100) * (gameWidthRef.current || width) - 29
       playerElRef.current.style.transform = `translateX(${x}px)`
@@ -1451,8 +2173,7 @@ export function AttackPhase({
     gdPointerRef.current = { id: null, x: 0, y: 0, dragging: false }
     try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* noop */ }
     if (!wasTap || phaseRef.current !== 'gd' || endedRef.current) return
-    const nextWave = gdWallsRef.current.find((wave) => !wave.checked)
-    if (nextWave?.requiresRoulette || nextWave?.requiresJump) handleEvade()
+    handleTapAction()
   }
 
   const handleGdPointerCancel = (e?: React.PointerEvent<HTMLElement>) => {
@@ -1467,6 +2188,15 @@ export function AttackPhase({
     if (phase !== 'shot' || showShotIntro || !shooterSelectionDone || !shotTutorialDone) return
     shotFiredRef.current = false
     gaugeTimeRef.current = 0
+    gaugeCursorRef.current = 0
+    keeperXRef.current = 50
+    keeperYRef.current = 70
+    keeperRenderXRef.current = 50
+    keeperRenderYRef.current = 70
+    lastKeeperRenderAtRef.current = 0
+    setKeeperX(50)
+    setKeeperY(70)
+    if (gaugeCursorElRef.current) gaugeCursorElRef.current.style.left = '0%'
     let frame = 0
     let prev: number | null = null
     let shotTime = 0
@@ -1492,8 +2222,16 @@ export function AttackPhase({
       ))
       keeperXRef.current = kx
       keeperYRef.current = ky
-      setKeeperX(kx)
-      setKeeperY(ky)
+      if (
+        now - lastKeeperRenderAtRef.current >= 33
+        && (Math.abs(kx - keeperRenderXRef.current) >= 0.45 || Math.abs(ky - keeperRenderYRef.current) >= 0.45)
+      ) {
+        lastKeeperRenderAtRef.current = now
+        keeperRenderXRef.current = kx
+        keeperRenderYRef.current = ky
+        setKeeperX(kx)
+        setKeeperY(ky)
+      }
 
       // Gauge oscillates  direct DOM, no React re-render
       gaugeTimeRef.current += delta
@@ -1509,7 +2247,7 @@ export function AttackPhase({
 
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [phase, showShotIntro, shooterSelectionDone, shotTutorialDone, cfg.gaugeSpeed, keeperCfg, finish])
+  }, [phase, showShotIntro, shooterSelectionDone, shotTutorialDone, cfg.gaugeSpeed, keeperCfg])
 
   const isGoalTargetInsideFrame = (target: { x: number; y: number }) => (
     target.x >= 0 && target.x <= 100 && target.y >= 0 && target.y <= 100
@@ -1566,6 +2304,7 @@ export function AttackPhase({
 
     shotFiredRef.current = true
     setShotJoystick(null)
+    setShotPrecisionBonus(null)
     playGameSound('/audio/ball-kick.mp3', { volume: 0.9 })
 
     const cursor = gaugeCursorRef.current
@@ -1593,20 +2332,25 @@ export function AttackPhase({
     window.setTimeout(() => {
       if (!inGreen || !targetInsideFrame) {
         setBallFlight({ id: Date.now(), target: missTarget, state: 'miss', duration: FLIGHT_MS })
-        window.setTimeout(() => setResultLabel("RATÉ !|Tu n'as pas lâché le ballon au bon moment."), FLIGHT_MS)
+        window.setTimeout(() => setResultLabel("RAT\u00c9 !|Tu n'as pas l\u00e2ch\u00e9 le ballon au bon moment."), FLIGHT_MS)
         window.setTimeout(() => finish(false, 'miss', selectedShooterRef.current), FLIGHT_MS + 700)
         return
       }
 
       if (keeperBlocking) {
         setBallFlight({ id: Date.now(), target: aimTarget, state: 'saved', duration: FLIGHT_MS })
-        window.setTimeout(() => setResultLabel('ARRÊT !|Aïe, le gardien a intercepté la balle malgré ton super tir.'), FLIGHT_MS)
+        window.setTimeout(() => setResultLabel('ARR\u00caT !|A\u00efe, le gardien a intercept\u00e9 la balle malgr\u00e9 ton super tir.'), FLIGHT_MS)
         window.setTimeout(() => finish(false, 'saved', selectedShooterRef.current), FLIGHT_MS + 800)
         return
       }
 
+      const precisionBonus = shotPrecisionBonusForTarget(at)
+      onShotPrecisionBonus?.(precisionBonus)
       setBallFlight({ id: Date.now(), target: aimTarget, state: 'goal', duration: FLIGHT_MS })
-      window.setTimeout(() => setResultLabel('BUT !'), FLIGHT_MS)
+      window.setTimeout(() => {
+        setShotPrecisionBonus(precisionBonus)
+        setResultLabel(`BUT !|${precisionBonus.label} \u00b7 x${formatShotMultiplier(precisionBonus.multiplier)} \u00b7 +${precisionBonus.points}`)
+      }, FLIGHT_MS)
       window.setTimeout(() => finish(true, 'goal', selectedShooterRef.current), FLIGHT_MS + 800)
     }, KICK_DELAY_MS)
   }
@@ -1666,12 +2410,19 @@ export function AttackPhase({
 
   const changeShooter = (direction: -1 | 1) => {
     sfx.nav()
+    setShowRememberedShooterChoice(false)
     setShooterIndex((index) => (index + direction + shooterOptions.length) % shooterOptions.length)
   }
 
   const confirmShooter = () => {
     sfx.pick()
+    setShowRememberedShooterChoice(false)
     setShooterSelectionDone(true)
+  }
+
+  const changeRememberedShooter = () => {
+    sfx.nav()
+    setShowRememberedShooterChoice(false)
   }
 
   //  Transition from GD to shot 
@@ -1697,6 +2448,17 @@ export function AttackPhase({
     isAimingRef.current = false
     setBallFlight(null)
     setResultLabel(null)
+    setShotPrecisionBonus(null)
+    keeperXRef.current = 50
+    keeperYRef.current = 70
+    keeperRenderXRef.current = 50
+    keeperRenderYRef.current = 70
+    lastKeeperRenderAtRef.current = 0
+    setKeeperX(50)
+    setKeeperY(70)
+    gaugeCursorRef.current = 0
+    gaugeTimeRef.current = 0
+    if (gaugeCursorElRef.current) gaugeCursorElRef.current.style.left = '0%'
     const maxLeft = 1 - getEffectiveGaugeGreenPx() / GAUGE_TRACK_PX
     gaugeGreenLeft.current = Math.random() * maxLeft * 0.6 + 0.2
   }
@@ -1705,9 +2467,10 @@ export function AttackPhase({
   const effectiveGaugeGreenPx = getEffectiveGaugeGreenPx()
   const gaugeGreenLeftPct = gaugeGreenLeft.current * 100  // % of track
   const shotBoostReady = shotBonusRef.current.powerShot || flow >= POWER_SHOT_FLOW_THRESHOLD
+  const [resultTitle, resultDetail] = resultLabel?.split('|') ?? [null, null]
   const nextGdWave = gdWallsDisplay.find((wave) => !wave.checked)
   const gdInstruction = getWaveInstruction(nextGdWave)
-  const gdBadgeClass = nextGdWave?.type === 'slide_wall' || nextGdWave?.type === 'double_slide_wall' ? ' is-jump' : nextGdWave?.type === 'roulette_wall' ? ' is-roulette' : nextGdWave?.type === 'combo_gate_slide' ? ' is-combo' : nextGdWave?.type === 'bonus_choice' ? ' is-bonus' : nextGdWave?.moveAmplitude ? ' is-moving' : ''
+  const gdBadgeClass = nextGdWave?.type === 'slide_wall' || nextGdWave?.type === 'double_slide_wall' ? ' is-jump' : nextGdWave?.moveAmplitude ? ' is-moving' : ''
   const firstPendingGdWaveIndex = gdWallsDisplay.findIndex((wave) => !wave.checked)
   const visibleGdWalls = phase === 'gd' && firstPendingGdWaveIndex >= 0
     ? gdWallsDisplay.slice(
@@ -1715,7 +2478,31 @@ export function AttackPhase({
       Math.min(gdWallsDisplay.length, firstPendingGdWaveIndex + DRIBBLE_RENDER_LOOKAHEAD),
     )
     : gdWallsDisplay
+  const visibleMinWorldY = visibleGdWalls.length ? Math.min(...visibleGdWalls.map((wave) => wave.worldY)) - 24 : -999
+  const visibleMaxWorldY = visibleGdWalls.length ? Math.max(...visibleGdWalls.map((wave) => wave.worldY)) + 24 : 999
+  const visibleBonusPickups = phase === 'gd'
+    ? gdBonusPickupsDisplay.filter((pickup) => pickup.worldY >= visibleMinWorldY && pickup.worldY <= visibleMaxWorldY && (!pickup.checked || pickup.collected))
+    : []
+  const visibleSpringPickups = phase === 'gd'
+    ? gdSpringPickupsDisplay.filter((pickup) => pickup.worldY >= visibleMinWorldY && pickup.worldY <= visibleMaxWorldY && (!pickup.checked || pickup.collected))
+    : []
   const shotTutorialComment = roundIntroComment ?? `${selectedShooter.name} est prêt. Choisis ta zone, puis frappe quand la jauge blanche passe sur le vert.`
+  const dribbleTutorialPowers: Array<{ kind: BonusKind; label: string; className: string }> = survivalDribbleOnly
+    ? [
+      { kind: 'boots', label: 'Bouclier', className: 'atk-dribble-demo__bonus-icon--boot' },
+      { kind: 'wide', label: 'Ballons +', className: 'atk-dribble-demo__bonus-icon--wide' },
+      { kind: 'slowmo', label: 'Ralenti', className: 'atk-dribble-demo__bonus-icon--shot' },
+      { kind: 'blast', label: 'Ballon feu', className: 'atk-dribble-demo__bonus-icon--blast' },
+      { kind: 'roulette', label: 'Roulette', className: 'atk-dribble-demo__bonus-icon--wide' },
+    ]
+    : [
+      { kind: 'boots', label: 'Bouclier', className: 'atk-dribble-demo__bonus-icon--boot' },
+      { kind: 'wide', label: 'Ballons +', className: 'atk-dribble-demo__bonus-icon--wide' },
+      { kind: 'slowmo', label: 'Ralenti', className: 'atk-dribble-demo__bonus-icon--shot' },
+      { kind: 'whistle', label: 'Sifflet', className: 'atk-dribble-demo__bonus-icon--shot' },
+      { kind: 'blast', label: 'Ballon feu', className: 'atk-dribble-demo__bonus-icon--blast' },
+      { kind: 'roulette', label: 'Roulette', className: 'atk-dribble-demo__bonus-icon--wide' },
+    ]
 
   return (
     <section
@@ -1854,8 +2641,8 @@ export function AttackPhase({
         .atk-dribble-demo__row--gate-b { top:-24%; animation-name:atkDemoRowB; }
         .atk-dribble-demo__row--jump { top:-24%; animation-name:atkDemoRowC; }
         .atk-dribble-demo__row--jump-b { top:-24%; animation-name:atkDemoRowD; }
-        .atk-dribble-demo__lane { position:absolute; left:30%; top:6px; width:34%; height:48px; transform:translateX(-50%); border:3px solid #2bff9a; border-block-color:transparent; border-radius:999px; box-shadow:inset 0 0 18px rgba(43,255,154,.18),0 0 18px rgba(43,255,154,.72); }
-        .atk-dribble-demo__lane:after { content:'PORTE'; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); color:#2bff9a; font:900 10px 'Barlow Condensed'; letter-spacing:.16em; text-shadow:0 0 10px rgba(43,255,154,.9); }
+        .atk-dribble-demo__lane { position:absolute; left:30%; top:11px; width:34%; height:42px; transform:translateX(-50%); border:0; border-radius:999px; background:radial-gradient(circle at 14% 50%,#FFB800 0 8px,transparent 9px),radial-gradient(circle at 38% 50%,#FFB800 0 8px,transparent 9px),radial-gradient(circle at 62% 50%,#FFB800 0 8px,transparent 9px),radial-gradient(circle at 86% 50%,#FFB800 0 8px,transparent 9px),radial-gradient(ellipse,rgba(255,184,0,.16),transparent 68%); filter:drop-shadow(0 0 14px rgba(255,184,0,.72)); animation:atkCleatHalo .68s ease-in-out infinite alternate; }
+        .atk-dribble-demo__lane:after { content:'BALLONS'; position:absolute; left:50%; top:calc(100% + 2px); transform:translateX(-50%); color:#ffdf73; font:900 9px 'Barlow Condensed'; letter-spacing:.14em; text-shadow:0 0 10px rgba(255,184,0,.9); }
         .atk-dribble-demo__wall { position:absolute; left:4%; right:4%; top:24px; height:7px; border-radius:999px; background:linear-gradient(90deg,rgba(255,184,0,.2),rgba(255,68,85,.82),rgba(255,184,0,.2)); box-shadow:0 0 18px rgba(255,68,85,.52); }
         .atk-dribble-demo__row--jump-b .atk-dribble-demo__wall { background:linear-gradient(90deg,rgba(255,184,0,.2),rgba(255,68,85,.82),rgba(255,184,0,.2)); box-shadow:0 0 18px rgba(255,68,85,.52); }
         .atk-dribble-demo__def { position:absolute; top:0; width:42px; height:54px; transform:translateX(-50%); filter:drop-shadow(0 8px 10px rgba(0,0,0,.42)); animation:atkDemoDefBob .62s ease-in-out infinite alternate; }
@@ -1897,10 +2684,10 @@ export function AttackPhase({
         .atk-dribble-demo__tap--jump { animation:atkDemoTap 9s linear infinite 4.9s; }
         .atk-dribble-demo__tap--jump2 { animation:atkDemoTap 9s linear infinite 6.5s; }
         .atk-dribble-demo__jump-arc { display:none; }
-        .atk-dribble-demo__caption { position:absolute; left:10px; right:10px; bottom:8px; z-index:18; display:flex; justify-content:space-between; gap:6px; color:rgba(255,255,255,.78); font:900 10px 'Barlow Condensed'; letter-spacing:.08em; text-transform:uppercase; }
+        .atk-dribble-demo__caption { position:absolute; left:10px; right:10px; bottom:7px; z-index:18; display:grid; grid-template-columns:1fr; justify-items:center; gap:3px; color:rgba(255,255,255,.82); font:900 9px/1.05 'Barlow Condensed'; letter-spacing:.08em; text-transform:uppercase; text-align:center; }
         .atk-dribble-demo__caption b { color:#2bff9a; }
-        .atk-dribble-demo__bonus-tip { display:grid; grid-template-columns:1fr; justify-items:center; gap:7px; width:min(86vw,340px); color:rgba(255,255,255,.78); font:900 10px 'Barlow Condensed'; letter-spacing:.06em; text-transform:uppercase; text-align:center; }
-        .atk-dribble-demo__bonus-icons { display:grid; grid-template-columns:repeat(4,minmax(48px,62px)); align-items:start; justify-content:center; gap:10px; width:100%; }
+        .atk-dribble-demo__bonus-tip { display:grid; grid-template-columns:1fr; justify-items:center; gap:8px; width:min(86vw,340px); margin:0 auto; color:rgba(255,255,255,.82); font:900 10px 'Barlow Condensed'; letter-spacing:.06em; text-transform:uppercase; text-align:center; }
+        .atk-dribble-demo__bonus-icons { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:center; gap:9px 12px; width:100%; }
         .atk-dribble-demo__bonus-item { display:grid; justify-items:center; gap:4px; min-width:0; }
         .atk-dribble-demo__bonus-item small { max-width:64px; color:rgba(255,255,255,.76); font:900 8px/1 'Barlow Condensed'; letter-spacing:.06em; text-align:center; }
         .atk-dribble-demo__bonus-icon { width:42px; height:42px; display:grid; place-items:center; border-radius:999px; border:2px solid rgba(255,255,255,.72); background:rgba(5,11,22,.72); box-shadow:0 0 18px rgba(255,184,0,.32); animation:atkBonusOrb .46s ease-in-out infinite alternate; }
@@ -1966,9 +2753,28 @@ export function AttackPhase({
           pointer-events: none; z-index: 30; white-space: nowrap; overflow: visible;
           animation: atkCommentPop .15s ease-out both;
         }
+        .atk-row-comment.is-perfect {
+          top: 31%;
+          padding: 8px 18px 10px;
+          border-radius: 999px;
+          color: #03130b;
+          background: linear-gradient(90deg,#dfffee,#2bff9a,#b8ff6a);
+          border: 2px solid rgba(255,255,255,.86);
+          font-size: clamp(25px,9vw,54px);
+          letter-spacing: .13em;
+          text-shadow: 0 1px 0 rgba(255,255,255,.6), 0 0 22px rgba(43,255,154,.82);
+          box-shadow: 0 0 34px rgba(43,255,154,.72), 0 0 78px rgba(255,184,0,.35);
+          animation: atkPerfectDance .48s cubic-bezier(.18,1.38,.28,1) both;
+        }
         @keyframes atkCommentPop {
           from { transform: translate(-50%,-50%) scale(.7); opacity: 0; }
           to   { transform: translate(-50%,-50%) scale(1);  opacity: 1; }
+        }
+        @keyframes atkPerfectDance {
+          0% { transform: translate(-50%,-50%) scale(.48) rotate(-7deg); opacity: 0; }
+          26% { transform: translate(-50%,-50%) scale(1.2) rotate(5deg); opacity: 1; }
+          54% { transform: translate(-50%,-50%) scale(.98) rotate(-3deg); }
+          100% { transform: translate(-50%,-50%) scale(1.06) rotate(0deg); }
         }
 
 
@@ -1980,9 +2786,24 @@ export function AttackPhase({
             linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 20%),
             repeating-linear-gradient(90deg, #0a351c 0px, #0a351c 54px, #0d4223 54px, #0d4223 108px);
         }
+        .atk-gd::before {
+          content: '';
+          position: absolute;
+          inset: -120px 0;
+          pointer-events: none;
+          background:
+            repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 2px, transparent 2px 58px),
+            repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 20%);
+          opacity: .72;
+          animation: atkPitchScroll 1.35s linear infinite;
+        }
         .atk-gd::after {
           content: ''; position: absolute; inset: 0; pointer-events: none;
           background: radial-gradient(ellipse at 50% 50%, transparent 46%, rgba(2,8,10,.38) 100%);
+        }
+        @keyframes atkPitchScroll {
+          from { transform: translateY(-58px); }
+          to { transform: translateY(0); }
         }
         .atk-gd-stripe-overlay {
           position: absolute; inset: 0;
@@ -2005,25 +2826,40 @@ export function AttackPhase({
           position: absolute; inset: 0;
           width: 100%; height: 100%;
           pointer-events: none; overflow: visible;
+          display: none;
         }
         .atk-dribble-hud {
-          position: absolute; top: max(106px, calc(env(safe-area-inset-top) + 96px)); left: 14px; right: auto; width: min(270px, 72vw); z-index: 24;
+          position: absolute; top: max(62px, calc(env(safe-area-inset-top) + 50px)); left: 14px; right: auto; width: min(178px, 46vw); z-index: 24;
           display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; align-items: start;
           pointer-events: none;
         }
-        .atk-dribble-title { color:#eafff5; font:900 13px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-shadow:0 0 12px rgba(43,255,154,.42); }
-        .atk-dribble-title small { display:block; margin-top:2px; color:rgba(255,255,255,.6); font:800 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .atk-golden-counter { width:max-content; margin-top:5px; padding:4px 8px; border-radius:999px; display:flex; align-items:center; gap:6px; color:#2b1800; background:linear-gradient(180deg,#fff4a8,#FFB800); border:1px solid rgba(255,255,255,.78); font:900 13px 'JetBrains Mono',monospace; box-shadow:0 0 18px rgba(255,184,0,.46); }
+        .atk-golden-counter i { width:14px; height:14px; border-radius:50%; background:radial-gradient(circle at 34% 28%,#fff8bf 0 18%,#FFB800 19% 58%,#9a5b00 59%); box-shadow:inset 0 0 0 1px rgba(43,24,0,.34); }
         .atk-flow-bar { width:min(210px,58vw); height:7px; margin-top:7px; border-radius:999px; background:rgba(255,255,255,.13); overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
         .atk-flow-bar__fill { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#2bff9a,#b8ff6a,#ffb800); box-shadow:0 0 12px rgba(43,255,154,.52); transition:width .22s ease-out; }
         .atk-flow-bar.is-fever .atk-flow-bar__fill { background:linear-gradient(90deg,#19d3ff,#2bff9a,#ffb800,#ff5f7c); box-shadow:0 0 20px rgba(255,184,0,.72); animation:atkFeverPulse .32s ease-in-out infinite alternate; }
-        .atk-powerup-label { margin-top:5px; width:max-content; max-width:min(220px,58vw); padding:4px 8px; border-radius:999px; background:rgba(255,184,0,.16); border:1px solid rgba(255,184,0,.42); color:#ffdf73; font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-transform:uppercase; box-shadow:0 0 14px rgba(255,184,0,.24); animation:atkPowerupPop .42s ease-out both; }
+        .atk-powerup-label { position:fixed; left:50%; top:max(74px,calc(env(safe-area-inset-top) + 62px)); z-index:42; transform:translateX(-50%); width:max-content; max-width:min(310px,82vw); padding:6px 11px; border-radius:999px; text-align:center; background:linear-gradient(180deg,rgba(255,244,168,.92),rgba(255,184,0,.9)); border:1px solid rgba(255,255,255,.72); color:#2b1800; font:900 clamp(12px,3.6vw,17px) 'Barlow Condensed',sans-serif; line-height:1; letter-spacing:.08em; text-transform:uppercase; box-shadow:0 0 14px rgba(255,184,0,.45),0 8px 12px rgba(0,0,0,.22); animation:atkPowerupBanner .24s ease-out both; opacity:.94; }
+        .atk-fireball-counter { margin-top:5px; width:max-content; max-width:min(170px,42vw); padding:4px 8px; border-radius:999px; background:rgba(255,184,0,.16); border:1px solid rgba(255,184,0,.42); color:#ffdf73; font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-transform:uppercase; box-shadow:0 0 14px rgba(255,184,0,.24); animation:atkPowerupPop .42s ease-out both; }
         .atk-combo-badge { margin-top:5px; width:max-content; min-width:0; padding:4px 7px; border-radius:999px; text-align:center; color:rgba(223,255,238,.86); background:rgba(5,16,21,.52); border:1px solid rgba(43,255,154,.24); font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.1em; box-shadow:0 0 12px rgba(43,255,154,.1); opacity:.82; }
         .atk-combo-badge.is-hot { color:#201300; background:linear-gradient(180deg,#ffdc73,#ffb800); border-color:rgba(255,255,255,.48); box-shadow:0 0 22px rgba(255,184,0,.42); }
         .atk-life-badge { margin-top:5px;display:flex;gap:4px;width:max-content;padding:4px 7px;border-radius:999px;background:rgba(5,16,21,.5);border:1px solid rgba(255,255,255,.14); }
         .atk-life-badge i { width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18); }
         .atk-life-badge i.is-on { background:#FF4455;box-shadow:0 0 10px rgba(255,68,85,.72); }
-        .atk-perfect-badge { margin-top:7px; width:max-content; padding:4px 8px; border-radius:999px; color:#03131d; background:linear-gradient(90deg,#bdfcff,#2bff9a); font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; box-shadow:0 0 14px rgba(43,255,154,.38); }
+        .atk-perfect-badge { margin-top:7px; width:max-content; padding:7px 13px; border-radius:999px; color:#03131d; background:linear-gradient(90deg,#bdfcff,#2bff9a,#b8ff6a); font:900 13px 'Barlow Condensed',sans-serif; letter-spacing:.16em; box-shadow:0 0 24px rgba(43,255,154,.6),0 0 44px rgba(184,255,106,.28); animation:atkPerfectDance .48s cubic-bezier(.18,1.38,.28,1) both; }
         .atk-perfect-badge.is-fever { background:linear-gradient(90deg,#ffdf73,#ff5f7c); box-shadow:0 0 20px rgba(255,184,0,.54); animation:atkFeverPulse .36s ease-in-out infinite alternate; }
+        .atk-power-slots { position:absolute; right:10px; top:50%; transform:translateY(-50%); z-index:31; display:grid; gap:9px; pointer-events:none; }
+        .atk-power-slot { position:relative; width:58px; height:66px; border:2px solid rgba(255,255,255,.82); border-radius:14px; background:linear-gradient(180deg,#fff4a8,#FFB800 58%,#ff7a1a); box-shadow:0 0 22px rgba(255,184,0,.74),0 12px 18px rgba(0,0,0,.34); display:grid; place-items:center; padding:0; animation:atkPowerSlotBlink .48s ease-in-out infinite alternate; }
+        .atk-power-slot::before { content:''; position:absolute; inset:-8px; border:2px dashed rgba(255,216,74,.72); border-radius:18px; animation:atkBonusHalo .72s ease-out infinite; pointer-events:none; }
+        .atk-power-slot::after { content:'?'; position:absolute; left:5px; top:1px; color:rgba(32,19,0,.5); font:900 18px 'Barlow Condensed',sans-serif; }
+        .atk-power-slot__icon { position:relative; z-index:1; width:38px; height:38px; display:block; filter:drop-shadow(0 2px 2px rgba(0,0,0,.26)); }
+        .atk-power-slot__icon svg { width:100%; height:100%; display:block; overflow:visible; }
+        .atk-power-slot__tap { position:absolute; left:50%; bottom:-13px; transform:translateX(-50%); padding:2px 6px; border-radius:999px; background:#111827; color:#ffdf73; font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; box-shadow:0 0 12px rgba(255,184,0,.62); white-space:nowrap; }
+        .atk-power-slot.is-blast { background:linear-gradient(180deg,#fff4a8,#FF4455 64%,#7f0614); }
+        .atk-power-slot.is-boots { background:linear-gradient(180deg,#dff7ff,#7dd3fc); }
+        .atk-power-slot.is-slowmo { background:linear-gradient(180deg,#e7d5ff,#a855f7); }
+        .atk-power-slot.is-wide { background:linear-gradient(180deg,#d8ffba,#b8ff6a); }
+        .atk-power-slot.is-whistle { background:linear-gradient(180deg,#d8ffba,#2bff9a); }
+        .atk-power-slot.is-roulette { background:linear-gradient(180deg,#fff4a8,#FFB800 58%,#2bff9a); }
         .atk-bonus-flash { position:absolute; inset:0; z-index:23; pointer-events:none; background:radial-gradient(circle at 50% 72%, rgba(255,184,0,.34), transparent 42%); animation:atkBonusFlash .42s ease-out both; }
         .atk-bonus-field-fx { position:absolute; inset:0; z-index:4; pointer-events:none; mix-blend-mode:screen; opacity:.9; animation:atkBonusFieldFade .9s ease-out both; }
         .atk-bonus-field-fx.is-coin { background:radial-gradient(circle at 50% 70%,rgba(255,216,74,.34),transparent 30%),radial-gradient(circle at 50% 70%,rgba(255,184,0,.18),transparent 55%); }
@@ -2032,6 +2868,7 @@ export function AttackPhase({
         .atk-bonus-field-fx.is-slowmo { background:linear-gradient(180deg,rgba(168,85,247,.18),transparent 44%,rgba(168,85,247,.16)); backdrop-filter:saturate(.8); animation:atkSlowmoField .9s ease-in-out infinite alternate; }
         .atk-bonus-field-fx.is-wide { background:radial-gradient(ellipse at 50% 52%,rgba(184,255,106,.26),transparent 42%),linear-gradient(90deg,rgba(184,255,106,.14),transparent 28%,transparent 72%,rgba(184,255,106,.14)); animation:atkWideField .62s ease-in-out infinite alternate; }
         .atk-bonus-field-fx.is-blast { background:radial-gradient(circle at 50% 62%,rgba(255,184,0,.36),transparent 24%),radial-gradient(circle at 50% 62%,rgba(255,68,85,.26),transparent 48%); animation:atkBlastField .38s ease-out infinite alternate; }
+        .atk-bonus-field-fx.is-roulette { background:radial-gradient(circle at 50% 65%,rgba(255,184,0,.28),transparent 28%),conic-gradient(from 0deg at 50% 65%,transparent,rgba(43,255,154,.2),transparent,rgba(255,184,0,.24),transparent); animation:atkRouletteRing .82s ease-out infinite; }
         .atk-gd.is-bonus-boots .atk-gd-player .atk-player-inner { filter:drop-shadow(0 0 24px rgba(125,211,252,.92)); }
         .atk-gd.is-bonus-slowmo .atk-slalom-wave { filter:hue-rotate(18deg) saturate(.82); }
         .atk-gd.is-bonus-whistle .atk-slalom-defender { filter:drop-shadow(0 0 16px rgba(43,255,154,.72)) grayscale(.2); }
@@ -2066,6 +2903,11 @@ export function AttackPhase({
         .atk-gd-player .atk-kawaii { width:58px;height:70px; }
         .atk-player-shadow { position:absolute;left:50%;bottom:2px;width:42px;height:14px;border-radius:999px;background:rgba(0,0,0,.38);transform:translateX(-50%);transition:transform .12s ease-out,opacity .12s ease-out;z-index:-1; }
         .atk-gd-player--flash .atk-player-inner { filter: drop-shadow(0 0 14px rgba(255,68,85,1)); }
+        .atk-gd-player.is-hit .atk-player-inner { animation:atkPlayerHitBack .56s cubic-bezier(.16,.9,.24,1) both; filter:drop-shadow(0 0 22px rgba(255,68,85,.95)) drop-shadow(0 14px 12px rgba(0,0,0,.36)); }
+        .atk-gd-player.is-hit .atk-player-shadow { animation:atkPlayerHitShadow .56s cubic-bezier(.16,.9,.24,1) both; }
+        .atk-gd-player.is-spring-jump { z-index:22; }
+        .atk-gd-player.is-spring-jump .atk-player-inner { animation:atkSpringPlayerJump .42s cubic-bezier(.14,.88,.18,1) forwards; filter:drop-shadow(0 0 34px rgba(43,255,154,.96)) drop-shadow(0 22px 18px rgba(0,0,0,.28)); }
+        .atk-gd-player.is-spring-jump .atk-player-shadow { animation:atkSpringPlayerShadow .42s cubic-bezier(.14,.88,.18,1) forwards; }
         .atk-gd-player--pass .atk-player-inner { transform:scale(1.28);filter:drop-shadow(0 0 18px rgba(43,255,154,.65)); }
         .atk-gd-player--pass .atk-player-shadow { transform:translateX(-50%) scale(1.55);opacity:.18; }
         .atk-gd-player.is-dashing .atk-player-inner { transform:scale(1.18) skewX(-8deg); filter:drop-shadow(0 0 20px rgba(25,211,255,.82)); }
@@ -2099,6 +2941,22 @@ export function AttackPhase({
           transform:translateX(-50%) scale(1.7);
           opacity:.14;
         }
+        .atk-gd-player.is-hit .atk-player-inner,
+        .atk-gd-player.is-hit.atk-gd-player--pass .atk-player-inner,
+        .atk-gd-player.is-hit.is-spring-jump .atk-player-inner,
+        .atk-gd-player.is-hit.is-dashing .atk-player-inner,
+        .atk-gd-player.is-hit.is-bonus-aura .atk-player-inner,
+        .atk-gd-player.is-hit.is-roulette .atk-player-inner,
+        .atk-gd-player.is-hit.is-fever .atk-player-inner,
+        .atk-gd-player.is-hit.is-max-flow .atk-player-inner {
+          animation:atkPlayerHitBack .56s cubic-bezier(.16,.9,.24,1) both !important;
+          filter:drop-shadow(0 0 28px rgba(255,68,85,1)) drop-shadow(0 18px 15px rgba(0,0,0,.42)) !important;
+        }
+        .atk-gd-player.is-hit .atk-player-shadow,
+        .atk-gd-player.is-hit.atk-gd-player--pass .atk-player-shadow,
+        .atk-gd-player.is-hit.is-spring-jump .atk-player-shadow {
+          animation:atkPlayerHitShadow .56s cubic-bezier(.16,.9,.24,1) both !important;
+        }
         .atk-control-ghost { position:absolute; left:50%; bottom:max(28px,calc(env(safe-area-inset-bottom) + 18px)); z-index:18; display:grid; justify-items:center; gap:8px; width:148px; transform:translateX(-50%); pointer-events:none; opacity:.44; filter:drop-shadow(0 0 16px rgba(43,255,154,.28)); }
         .atk-control-ghost__player { width:44px; height:54px; border-radius:999px 999px 18px 18px; background:linear-gradient(180deg,rgba(43,255,154,.38),rgba(43,255,154,.12)); border:1px solid rgba(43,255,154,.42); box-shadow:inset 0 0 18px rgba(255,255,255,.12); animation:atkGhostPlayer 1.75s ease-in-out infinite; }
         .atk-control-ghost__trail { position:relative; width:132px; height:7px; border-radius:999px; background:linear-gradient(90deg,transparent,rgba(43,255,154,.72),transparent); }
@@ -2106,7 +2964,7 @@ export function AttackPhase({
 
         .atk-slalom-wave.is-moving { animation: atkWaveDrift var(--atk-wave-duration,1.4s) ease-in-out var(--atk-wave-delay,0s) infinite alternate; }
         .atk-root.is-super-attacker .atk-gd { filter:saturate(1.22) contrast(1.06); background:radial-gradient(circle at 50% 74%,rgba(255,184,0,.24),transparent 28%),linear-gradient(180deg,#020306,#06110c 55%,#0c1510); }
-        .atk-root.is-super-attacker .atk-gd::after { content:'SUPER ATTAQUANT'; position:absolute; left:50%; top:18%; transform:translateX(-50%); z-index:26; color:#FFB800; font:900 22px 'Barlow Condensed',sans-serif; letter-spacing:.2em; text-shadow:0 0 28px rgba(255,184,0,.9); pointer-events:none; animation:atkSuperFocus .34s ease-in-out infinite alternate; }
+        .atk-root.is-super-attacker .atk-gd::after { content:'BALLON EN FEU'; position:absolute; left:50%; top:18%; transform:translateX(-50%); z-index:26; color:#FFB800; font:900 22px 'Barlow Condensed',sans-serif; letter-spacing:.2em; text-shadow:0 0 28px rgba(255,184,0,.9); pointer-events:none; animation:atkSuperFocus .34s ease-in-out infinite alternate; }
         .atk-root.is-super-attacker .atk-gd-player::before { content:''; position:absolute; left:50%; top:44%; width:128px; height:150px; border-radius:999px; transform:translate(-50%,-50%); z-index:-1; pointer-events:none; background:radial-gradient(ellipse,rgba(255,216,74,.56),rgba(255,68,85,.2) 48%,transparent 72%); box-shadow:0 0 52px rgba(255,184,0,.92), inset 0 0 34px rgba(255,255,255,.24); animation:atkBonusAura .34s ease-in-out infinite alternate; }
         .atk-root.is-super-attacker .atk-player-inner { filter:drop-shadow(0 0 30px rgba(255,216,74,1)) drop-shadow(0 0 22px rgba(255,68,85,.74)); }
         .atk-slalom-wave.is-super-blasted .atk-slalom-gate,
@@ -2118,11 +2976,11 @@ export function AttackPhase({
           position: absolute;
           transform: translate(-50%, -50%);
           min-width: 94px;
-          height: 56px;
-          border: 2px solid rgba(43,255,154,.9);
-          border-radius: 999px;
-          background: radial-gradient(ellipse at center, rgba(43,255,154,.16), rgba(43,255,154,.045) 72%, transparent 100%);
-          box-shadow: 0 0 24px rgba(43,255,154,.34), inset 0 0 18px rgba(43,255,154,.18);
+          height: 66px;
+          border: 0;
+          border-radius: 18px;
+          background: linear-gradient(90deg, transparent 0 8%, rgba(43,255,154,.16) 8% 18%, transparent 18% 82%, rgba(43,255,154,.16) 82% 92%, transparent 92% 100%);
+          box-shadow: inset 0 0 0 1px rgba(43,255,154,.18);
           animation: atkGatePulse 1.2s ease-in-out infinite;
           z-index: 5;
         }
@@ -2131,41 +2989,74 @@ export function AttackPhase({
           position: absolute;
           left: 50%;
           top: 50%;
-          width: 38%;
-          min-width: 44px;
-          height: 4px;
+          width: 72%;
+          min-width: 58px;
+          height: 6px;
           border-radius: 999px;
           transform: translate(-50%,-50%);
-          background: #2bff9a;
-          box-shadow: 0 0 16px rgba(43,255,154,.85);
+          background: repeating-linear-gradient(90deg,rgba(43,255,154,.92) 0 12px,rgba(255,255,255,.8) 12px 18px);
+          box-shadow: 0 0 16px rgba(43,255,154,.65);
           opacity: .78;
         }
+        .atk-slalom-gate::after { content:''; position:absolute; left:7%; right:7%; top:50%; height:42px; transform:translateY(-50%); background:radial-gradient(circle at 0 50%,#FFB800 0 6px,transparent 7px),radial-gradient(circle at 100% 50%,#FFB800 0 6px,transparent 7px); filter:drop-shadow(0 0 10px rgba(255,184,0,.62)); }
         .atk-slalom-gate.is-passed { border-color:#b8ff6a; background:rgba(43,255,154,.2); animation: atkGatePass .42s ease-out both; }
         .atk-slalom-gate.is-failed { border-color:#FF4455; background:rgba(255,68,85,.14); box-shadow:0 0 28px rgba(255,68,85,.45); }
-        .atk-slalom-gate.is-combo { border-color:#FFB800;background:radial-gradient(ellipse at center,rgba(255,184,0,.18),rgba(43,255,154,.07) 72%,transparent);box-shadow:0 0 24px rgba(255,184,0,.3),inset 0 0 18px rgba(43,255,154,.18); }
         .atk-slalom-gate.is-narrow { height:50px; border-style:dashed; }
         .atk-slalom-gate.is-moving { border-color:#19d3ff; box-shadow:0 0 24px rgba(25,211,255,.34), inset 0 0 18px rgba(25,211,255,.14); }
         .atk-slalom-gate.is-wide-power { border-color:#b8ff6a; background:radial-gradient(ellipse at center,rgba(184,255,106,.24),rgba(43,255,154,.08) 74%,transparent); box-shadow:0 0 34px rgba(184,255,106,.52), inset 0 0 24px rgba(43,255,154,.24); animation:atkWideGatePulse .62s ease-in-out infinite alternate; }
         .atk-slalom-gate.is-wide-power::before { width:62%; background:#b8ff6a; box-shadow:0 0 20px rgba(184,255,106,.95); animation:atkWideGateBar .62s ease-in-out infinite alternate; }
-        .atk-slalom-gate.is-bonus { border-color:#FFB800; color:#2b1800; background:radial-gradient(ellipse at center,rgba(255,184,0,.28),rgba(255,184,0,.08) 72%,transparent 100%); box-shadow:0 0 30px rgba(255,184,0,.48), inset 0 0 18px rgba(255,255,255,.18); }
-        .atk-slalom-gate.is-bonus::before { background:#FFB800; box-shadow:0 0 16px rgba(255,184,0,.9); }
+        .atk-slalom-gate.is-bonus { height:72px; min-width:70px; border-radius:18px; background:none; box-shadow:none; animation:none; }
+        .atk-slalom-gate.is-bonus::before { content:'?'; left:50%; top:50%; width:54px; min-width:54px; height:54px; display:grid; place-items:center; transform:translate(-50%,-50%); border-radius:13px; background:linear-gradient(180deg,#fff4a8,#FFB800 62%,#ff7a1a); border:3px solid rgba(255,255,255,.92); color:#2b1800; font:900 36px 'Barlow Condensed',sans-serif; box-shadow:0 0 22px rgba(255,184,0,.86),0 12px 18px rgba(0,0,0,.32); animation:atkBonusOrb .46s ease-in-out infinite alternate; opacity:1; }
+        .atk-slalom-gate.is-bonus::after { content:''; position:absolute; inset:4px; border-radius:18px; border:2px dashed rgba(255,216,74,.74); background:none; animation:atkBonusHalo .72s ease-out infinite; }
         .atk-slalom-gate.is-bonus .atk-slalom-gate__label { color:#fff2bf; text-shadow:0 0 12px rgba(255,184,0,.95); }
-        .atk-bonus-orb { position:absolute; left:50%; top:-26px; transform:translateX(-50%); min-width:44px; height:44px; padding:0 7px; border-radius:999px; display:grid; place-items:center; background:linear-gradient(180deg,#fff9c7,#ffb800); color:#1e1300; font:900 11px 'Barlow Condensed',sans-serif; letter-spacing:.06em; border:3px solid rgba(255,255,255,.88); box-shadow:0 0 0 8px rgba(255,184,0,.14),0 0 34px rgba(255,184,0,.9),0 0 72px rgba(255,184,0,.44); animation:atkBonusOrb 0.46s ease-in-out infinite alternate; }
+        .atk-cleat-ring { position:absolute; inset:0; z-index:6; pointer-events:none; }
+        .atk-cleat-ring.is-jump-reward { z-index:13; }
+        .atk-cleat-ring.is-failed { filter:drop-shadow(0 0 18px rgba(255,68,85,.58)); }
+        .atk-cleat-ring__item { position:absolute; left:var(--atk-cleat-left,50%); top:var(--atk-cleat-top,0px); width:30px; height:30px; transform:translate(-50%,-50%); border-radius:999px; background:radial-gradient(circle at 32% 28%,#fff8bf 0 15%,#FFDE62 16% 35%,#FFB800 36% 70%,#9a5b00 71%); border:2px solid rgba(255,255,255,.92); box-shadow:0 0 18px rgba(255,184,0,.78),0 9px 10px rgba(0,0,0,.34),inset -5px -6px 0 rgba(68,35,0,.18); animation:atkCleatFloat .44s ease-in-out infinite alternate; animation-delay:var(--atk-cleat-delay,0ms); }
+        .atk-cleat-ring__item.is-collected { animation:atkCleatCollect .42s cubic-bezier(.12,.78,.22,1) both; }
+        .atk-cleat-ring__item::before { content:''; position:absolute; inset:5px; border-radius:50%; background:linear-gradient(45deg,transparent 0 42%,rgba(43,24,0,.5) 43% 48%,transparent 49%),linear-gradient(-45deg,transparent 0 42%,rgba(43,24,0,.38) 43% 48%,transparent 49%); opacity:.75; }
+        .atk-cleat-ring__item::after { content:''; position:absolute; left:50%; top:50%; width:9px; height:9px; transform:translate(-50%,-50%) rotate(18deg); background:rgba(43,24,0,.52); clip-path:polygon(50% 0,100% 38%,82% 100%,18% 100%,0 38%); }
+        .atk-bonus-pickup { width:var(--atk-pickup-width,15%); min-width:64px; height:76px; transform:translate(-50%,-50%); z-index:8; pointer-events:none; filter:drop-shadow(0 12px 12px rgba(0,0,0,.38)); animation:atkBonusCrateFloat .56s ease-in-out infinite alternate; }
+        .atk-bonus-pickup .atk-bonus-orb { width:58px; height:58px; min-width:58px; border-radius:13px; background:linear-gradient(180deg,#fff4a8,#FFB800 62%,#ff7a1a); border:3px solid rgba(255,255,255,.92); box-shadow:0 0 24px rgba(255,184,0,.86),0 12px 18px rgba(0,0,0,.32); }
+        .atk-bonus-pickup .atk-bonus-orb::before { inset:-12px; border-radius:16px; }
+        .atk-bonus-pickup .atk-bonus-choice-label { top:58px; font-size:10px; }
+        .atk-bonus-pickup.is-collected { animation:atkBonusPickupCollected .46s cubic-bezier(.12,.78,.22,1) both; }
+        .atk-bonus-pickup.is-collected::before,
+        .atk-bonus-pickup.is-collected::after { content:''; position:absolute; left:50%; top:50%; width:80px; height:80px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; }
+        .atk-bonus-pickup.is-collected::before { background:radial-gradient(circle,#fff 0 8%,#FFB800 9% 18%,rgba(255,68,85,.72) 19% 28%,transparent 50%); animation:atkMysteryBoxBurst .36s ease-out both; }
+        .atk-bonus-pickup.is-collected::after { background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.92) 0 12deg,transparent 12deg 28deg); animation:atkMysterySparkBurst .42s ease-out both; }
+        .atk-spring-pickup { width:var(--atk-spring-width,16%); min-width:72px; height:58px; transform:translate(-50%,-50%); z-index:8; pointer-events:none; filter:drop-shadow(0 12px 12px rgba(0,0,0,.4)); animation:atkSpringReady .52s ease-in-out infinite alternate; }
+        .atk-spring-pickup__pad { position:absolute; left:50%; top:9px; width:68px; height:16px; transform:translateX(-50%); border-radius:14px; background:linear-gradient(180deg,#dfffee,#2bff9a); border:3px solid rgba(255,255,255,.9); box-shadow:0 0 20px rgba(43,255,154,.65); }
+        .atk-spring-pickup__coil { position:absolute; left:50%; top:20px; width:46px; height:30px; transform:translateX(-50%); background:repeating-linear-gradient(180deg,transparent 0 4px,#FFB800 4px 8px,transparent 8px 12px); border-left:5px solid #FFB800; border-right:5px solid #FFB800; border-radius:10px; box-shadow:0 0 14px rgba(255,184,0,.65); }
+        .atk-spring-pickup__label { position:absolute; left:50%; top:50px; transform:translateX(-50%); color:#ffdf73; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.16em; text-shadow:0 0 12px rgba(255,184,0,.9); }
+        .atk-spring-pickup.is-collected { animation:atkSpringCollected .46s cubic-bezier(.12,.78,.22,1) both; }
+        .atk-spring-pickup.is-collected::before { content:''; position:absolute; left:50%; top:35%; width:94px; height:94px; transform:translate(-50%,-50%); border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,.95) 0 7%,rgba(43,255,154,.72) 8% 18%,rgba(255,184,0,.58) 19% 30%,transparent 58%); animation:atkSpringBurst .42s ease-out both; pointer-events:none; }
+        .atk-bonus-orb { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); min-width:30px; height:30px; padding:0 4px; border-radius:999px; display:grid; place-items:center; background:rgba(2,8,16,.82); color:#1e1300; font:900 11px 'Barlow Condensed',sans-serif; letter-spacing:.06em; border:2px solid rgba(255,255,255,.88); box-shadow:0 0 18px rgba(255,184,0,.74); animation:atkBonusOrb 0.46s ease-in-out infinite alternate; z-index:2; }
         .atk-bonus-orb::before { content:''; position:absolute; inset:-15px; border-radius:inherit; border:2px solid rgba(255,216,74,.72); box-shadow:0 0 34px rgba(255,184,0,.76), inset 0 0 24px rgba(255,255,255,.2); animation:atkBonusHalo .72s ease-out infinite; }
-        .atk-bonus-orb svg { position:relative; z-index:1; width:34px; height:34px; display:block; overflow:visible; }
+        .atk-bonus-orb svg { position:relative; z-index:1; width:24px; height:24px; display:block; overflow:visible; }
         .atk-bonus-orb.is-coin { box-shadow:0 0 22px rgba(255,216,74,.72),0 0 54px rgba(255,68,85,.34); }
         .atk-bonus-orb.is-boots { background:linear-gradient(180deg,#dff7ff,#7dd3fc); color:#031525; box-shadow:0 0 20px rgba(125,211,252,.72); }
         .atk-bonus-orb.is-whistle { background:linear-gradient(180deg,#d8ffba,#2bff9a); color:#03160c; box-shadow:0 0 20px rgba(43,255,154,.72); }
         .atk-bonus-orb.is-slowmo { background:linear-gradient(180deg,#e7d5ff,#a855f7); color:#17051f; box-shadow:0 0 20px rgba(168,85,247,.72); }
         .atk-bonus-orb.is-wide { background:linear-gradient(180deg,#d8ffba,#b8ff6a); color:#132100; box-shadow:0 0 20px rgba(184,255,106,.72); }
         .atk-bonus-orb.is-blast { background:linear-gradient(180deg,#fff4a8,#FF4455); color:#210305; box-shadow:0 0 24px rgba(255,68,85,.72); }
+        .atk-bonus-orb.is-mystery { background:linear-gradient(180deg,#fff4a8,#FFB800 62%,#ff7a1a); color:#2b1800; font:900 38px 'Barlow Condensed',sans-serif; line-height:1; box-shadow:0 0 24px rgba(255,184,0,.86),0 12px 18px rgba(0,0,0,.32); }
         .atk-bonus-choice-label { position:absolute; left:50%; top:42px; transform:translateX(-50%); color:#ffdf73; font:900 11px 'Barlow Condensed',sans-serif; letter-spacing:.14em; text-shadow:0 0 14px rgba(255,184,0,.95); white-space:nowrap; }
-        .atk-slalom-gate__label { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:1; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.16em; color:#dfffee; text-shadow:0 0 10px rgba(43,255,154,.8); }
+        .atk-slalom-gate__label { position:absolute; left:50%; top:14px; transform:translateX(-50%); z-index:1; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.16em; color:#dfffee; text-shadow:0 0 10px rgba(43,255,154,.8); }
         .atk-slide-wall { position:absolute;left:0;right:0;height:74px;top:0;transform:translateY(-50%);pointer-events:none;z-index:4; }
         .atk-slide-danger { position:absolute;left:4%;right:4%;top:50%;height:34px;transform:translateY(-50%);border-radius:999px;background:rgba(255,184,0,.14);border:1px solid rgba(255,184,0,.55);box-shadow:0 0 18px rgba(255,184,0,.28);animation:slideDangerPulse .45s ease-in-out infinite alternate; }
         .atk-slide-wall.is-failed .atk-slide-danger { background:rgba(255,68,85,.18);border-color:rgba(255,68,85,.7);box-shadow:0 0 24px rgba(255,68,85,.42); }
-        .atk-slide-wall.is-roulette .atk-slide-danger { height:46px;background:repeating-linear-gradient(90deg,rgba(255,184,0,.22) 0 18px,rgba(255,68,85,.18) 18px 36px);border-color:rgba(255,184,0,.78);box-shadow:0 0 28px rgba(255,184,0,.36); }
         .atk-slide-label { position:absolute;left:50%;top:-16px;transform:translateX(-50%);color:#FFB800;font:900 12px 'Barlow Condensed',sans-serif;letter-spacing:.13em;text-shadow:0 0 12px rgba(255,184,0,.85);white-space:nowrap; }
+        .atk-static-obstacle { position:absolute; transform:translate(-50%,-50%); z-index:7; pointer-events:none; filter:drop-shadow(0 10px 10px rgba(0,0,0,.42)); }
+        .atk-static-obstacle.is-cone { width:32px; height:42px; border-radius:8px 8px 5px 5px; background:linear-gradient(90deg,transparent 0 18%,rgba(255,255,255,.9) 18% 32%,transparent 32% 68%,rgba(255,255,255,.9) 68% 82%,transparent 82% 100%),linear-gradient(180deg,#ffdf73 0 16%,#ff7a1a 16% 75%,#9a2c00 75%); clip-path:polygon(50% 0,100% 100%,0 100%); box-shadow:0 0 18px rgba(255,122,26,.55); }
+        .atk-static-obstacle.is-cone::after { content:''; position:absolute; left:-8px; right:-8px; bottom:-7px; height:10px; border-radius:5px; background:#431707; border:1px solid rgba(255,255,255,.42); }
+        .atk-static-obstacle.is-hurdle { width:var(--atk-obstacle-width,48%); height:34px; min-width:132px; border-left:7px solid #dfffee; border-right:7px solid #dfffee; border-bottom:5px solid rgba(25,211,255,.72); border-radius:5px; }
+        .atk-static-obstacle.is-hurdle::before { content:''; position:absolute; left:-9px; right:-9px; top:7px; height:7px; border-radius:999px; background:repeating-linear-gradient(90deg,#ffffff 0 16px,#FF4455 16px 28px); box-shadow:0 0 16px rgba(255,255,255,.44); }
+        .atk-static-obstacle.is-wall { width:var(--atk-obstacle-width,20%); height:48px; min-width:70px; border-radius:9px 9px 5px 5px; background:repeating-linear-gradient(90deg,#dfffee 0 13px,#94a3b8 13px 16px,#dfffee 16px 29px); border:2px solid rgba(255,255,255,.78); box-shadow:inset 0 -9px 0 rgba(15,23,42,.24),0 0 18px rgba(125,211,252,.35); }
+        .atk-static-obstacle.is-wall::before { content:''; position:absolute; left:8px; right:8px; top:-9px; height:11px; border-radius:999px; background:#FF4455; box-shadow:0 0 12px rgba(255,68,85,.48); }
+        .atk-static-obstacle.is-mannequin { width:30px; height:58px; border-radius:17px 17px 9px 9px; background:linear-gradient(180deg,#ffdf73 0 20%,#FFB800 20% 70%,#5b2d00 70%); border:2px solid rgba(255,255,255,.82); box-shadow:0 0 18px rgba(255,184,0,.38); }
+        .atk-static-obstacle.is-mannequin::before { content:''; position:absolute; left:50%; top:-14px; width:18px; height:18px; transform:translateX(-50%); border-radius:50%; background:#ffdf73; border:2px solid rgba(255,255,255,.82); }
+        .atk-static-obstacle.is-mannequin::after { content:''; position:absolute; left:50%; bottom:-10px; width:44px; height:8px; transform:translateX(-50%); border-radius:999px; background:#291504; border:1px solid rgba(255,255,255,.42); }
         .atk-slalom-defender { position:absolute; transform:translate(-50%,-50%); z-index:9; filter:drop-shadow(0 10px 12px rgba(0,0,0,.44)); animation: atkRunnerBob .42s ease-in-out infinite alternate; }
         .atk-slalom-defender.is-mobile { animation: atkRunnerBob .42s ease-in-out infinite alternate, atkDefenderPatrol var(--atk-defender-duration,.9s) ease-in-out var(--atk-defender-delay,0s) infinite alternate; }
         .atk-slalom-defender.is-tackle { animation: atkTackle .62s ease-in-out infinite alternate; }
@@ -2182,6 +3073,7 @@ export function AttackPhase({
         .atk-kawaii--defender .atk-kawaii__leg--l { animation: atkLegL .34s ease-in-out infinite alternate; transform-origin:31px 60px; }
         .atk-kawaii--defender .atk-kawaii__leg--r { animation: atkLegR .34s ease-in-out infinite alternate; transform-origin:48px 60px; }
         .atk-pass-pop { position:absolute; left:50%; top:-48px; transform:translateX(-50%); color:#2bff9a; font:900 15px 'Barlow Condensed',sans-serif; letter-spacing:.12em; text-shadow:0 0 12px rgba(43,255,154,.8); animation: atkPassPop .55s ease-out both; white-space:nowrap; }
+        .atk-pass-pop--slide { top:-78px; padding:6px 14px; border-radius:999px; color:#03130b; background:linear-gradient(90deg,#dfffee,#2bff9a,#b8ff6a); border:2px solid rgba(255,255,255,.82); font-size:24px; box-shadow:0 0 36px rgba(43,255,154,.72); animation:atkPerfectDance .54s cubic-bezier(.18,1.38,.28,1) both; }
         @keyframes atkGatePulse { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.9} 50%{transform:translate(-50%,-50%) scale(1.06);opacity:1} }
         @keyframes atkGatePass { from{transform:translate(-50%,-50%) scale(1);opacity:1} to{transform:translate(-50%,-50%) scale(1.35);opacity:.2} }
         @keyframes atkRunnerBob { from{translate:0 -2px} to{translate:0 3px} }
@@ -2194,6 +3086,8 @@ export function AttackPhase({
         @keyframes atkLegR { from{transform:rotate(8deg)} to{transform:rotate(-6deg)} }
         @keyframes atkPassPop { from{opacity:0;transform:translate(-50%,8px) scale(.8)} 20%{opacity:1} to{opacity:0;transform:translate(-50%,-18px) scale(1.1)} }
         @keyframes atkBonusFlash { from{opacity:1; transform:scale(.92)} to{opacity:0; transform:scale(1.08)} }
+        @keyframes atkPlayerHitBack { 0%{ transform:translateY(0) scale(1); } 18%{ transform:translateY(56px) scale(.86) rotate(-8deg); } 46%{ transform:translateY(30px) scale(.94) rotate(5deg); } 72%{ transform:translateY(12px) scale(.98) rotate(-2deg); } 100%{ transform:translateY(0) scale(1) rotate(0); } }
+        @keyframes atkPlayerHitShadow { 0%{ transform:translateX(-50%) scale(1); opacity:.38; } 18%{ transform:translateX(-50%) translateY(18px) scale(1.72); opacity:.2; } 56%{ transform:translateX(-50%) translateY(8px) scale(1.32); opacity:.28; } 100%{ transform:translateX(-50%) scale(1); opacity:.38; } }
         @keyframes atkFeverPulse { from{ filter:brightness(1); } to{ filter:brightness(1.32); } }
         @keyframes atkFeverPlayer { from{ transform:scale(1.02) rotate(-1deg); } to{ transform:scale(1.1) rotate(1deg); } }
         @keyframes atkGhostBlink { from{ opacity:.36; } to{ opacity:.72; } }
@@ -2201,11 +3095,25 @@ export function AttackPhase({
         @keyframes atkRouletteRing { 0%{ opacity:0;transform:translate(-50%,-50%) scale(.35) rotate(0deg); } 22%{ opacity:.95; } 100%{ opacity:0;transform:translate(-50%,-50%) scale(1.45) rotate(420deg); } }
         @keyframes atkBonusOrb { from{ transform:translateX(-50%) translateY(0) scale(.95); } to{ transform:translateX(-50%) translateY(-4px) scale(1.08); } }
         @keyframes atkBonusHalo { from{ opacity:.95; transform:scale(.82); } to{ opacity:0; transform:scale(1.38); } }
+        @keyframes atkBonusCrateFloat { from{ transform:translate(-50%,-50%) translateY(0) rotate(-1deg); } to{ transform:translate(-50%,-50%) translateY(-5px) rotate(1deg); } }
+        @keyframes atkBonusPickupCollected { 0%{ opacity:1; transform:translate(-50%,-50%) scale(1); filter:brightness(1); } 38%{ opacity:1; transform:translate(-50%,-50%) scale(1.22) rotate(-8deg); filter:brightness(1.8); } 100%{ opacity:0; transform:translate(-50%,-92%) scale(.3) rotate(18deg); filter:blur(1px); } }
+        @keyframes atkMysteryBoxBurst { from{ opacity:.95; transform:translate(-50%,-50%) scale(.36); } to{ opacity:0; transform:translate(-50%,-50%) scale(1.6); } }
+        @keyframes atkMysterySparkBurst { from{ opacity:.95; transform:translate(-50%,-50%) scale(.3) rotate(0deg); } to{ opacity:0; transform:translate(-50%,-50%) scale(1.45) rotate(55deg); } }
+        @keyframes atkCleatFloat { from{ translate:0 2px; filter:brightness(1); } to{ translate:0 -4px; filter:brightness(1.22); } }
+        @keyframes atkCleatHalo { from{ opacity:.5; transform:translate(-50%,-50%) scale(.94); } to{ opacity:1; transform:translate(-50%,-50%) scale(1.08); } }
+        @keyframes atkCleatCollect { 0%{ opacity:1; transform:translate(-50%,-50%) scale(1); } 42%{ opacity:1; transform:translate(-50%,-50%) scale(1.22); filter:brightness(1.65); } 100%{ opacity:0; transform:translate(-50%,-82%) scale(.3); filter:blur(1px); } }
+        @keyframes atkPowerSlotBlink { from{ filter:brightness(1) saturate(1); transform:scale(1); } to{ filter:brightness(1.25) saturate(1.18); transform:scale(1.05); } }
+        @keyframes atkSpringReady { from{ transform:translate(-50%,-50%) translateY(0) scaleY(.94); } to{ transform:translate(-50%,-50%) translateY(-4px) scaleY(1.08); } }
+        @keyframes atkSpringCollected { 0%{ opacity:1; transform:translate(-50%,-50%) scale(1); } 36%{ opacity:1; transform:translate(-50%,-50%) scale(1.24,.72); filter:brightness(1.7); } 100%{ opacity:0; transform:translate(-50%,-30%) scale(.82,1.28); } }
+        @keyframes atkSpringBurst { from{ opacity:1; transform:translate(-50%,-50%) scale(.35); } to{ opacity:0; transform:translate(-50%,-50%) scale(1.75); } }
+        @keyframes atkSpringPlayerJump { 0%{ transform:translateY(0) scale(1); } 42%{ transform:translateY(-92px) scale(1.48); } 100%{ transform:translateY(-128px) scale(1.72); } }
+        @keyframes atkSpringPlayerShadow { 0%{ transform:translateX(-50%) scale(1); opacity:.36; } 100%{ transform:translateX(-50%) scale(.45); opacity:.1; } }
         @keyframes atkSuperFocus { from{ opacity:.72; scale:.98; } to{ opacity:1; scale:1.04; } }
         @keyframes atkSuperGateBlast { 0%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)} 42%{opacity:1;filter:brightness(1.8)} 100%{opacity:0;transform:translate(-50%,-120%) scale(1.65) rotate(-12deg);filter:blur(2px)} }
         @keyframes atkSuperDefenderBlast { 0%{opacity:1;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(calc(-50% + var(--atk-defender-patrol,0%) + 26px),-142%) scale(.76) rotate(24deg)} }
         @keyframes atkSuperBoom { 0%{opacity:0;scale:.62} 18%{opacity:1;scale:1.2} 100%{opacity:0;translate:0 -32px;scale:1.42} }
         @keyframes atkPowerupPop { from{ opacity:0; transform:translateY(6px) scale(.92); } to{ opacity:1; transform:none; } }
+        @keyframes atkPowerupBanner { from{ opacity:0; transform:translateX(-50%) translateY(-12px) scale(.86); } to{ opacity:1; transform:translateX(-50%) translateY(0) scale(1); } }
         @keyframes atkDashTrail { from{ opacity:.9; transform:translateX(0); } to{ opacity:0; transform:translateX(-22px); } }
         @keyframes atkJumpButtonAlert { from{ transform:translateY(0); filter:brightness(1); } to{ transform:translateY(-2px); filter:brightness(1.18); } }
         @keyframes atkGhostPlayer { 0%,100%{ transform:translateX(-42px); } 50%{ transform:translateX(42px); } }
@@ -2224,8 +3132,6 @@ export function AttackPhase({
         .atk-ctrl-btn--evade.is-danger { animation: atkJumpButtonAlert .48s ease-in-out infinite alternate; box-shadow:0 0 20px rgba(255,184,0,.58), 0 12px 26px rgba(0,0,0,.32); }
         .atk-controls__phase { grid-area:phase; min-width:112px; text-align:right; color:#2bff9a; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.14em; }
         .atk-controls__phase.is-jump { color:#FFB800; }
-        .atk-controls__phase.is-combo { color:#FF4455; }
-        .atk-controls__phase.is-roulette { color:#FFB800; text-shadow:0 0 12px rgba(255,184,0,.45); }
         .atk-controls__phase.is-moving { color:#19d3ff; }
         .atk-controls__phase.is-bonus { color:#FFB800; }
         .atk-controls__phase small { display:block; color:rgba(255,255,255,.62); font:800 10px 'Barlow Condensed',sans-serif; letter-spacing:.08em; margin-top:2px; max-width:132px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2270,6 +3176,47 @@ export function AttackPhase({
         }
         .atk-shot-game.is-sudden-shot .atk-shot-title {
           top: max(82px, calc(env(safe-area-inset-top) + 74px));
+        }
+        .atk-shot-scoreline {
+          position: absolute;
+          left: 12px;
+          bottom: max(132px, calc(env(safe-area-inset-bottom) + 118px));
+          z-index: 28;
+          width: min(132px, 34vw);
+          padding: 7px 9px;
+          border-radius: 14px;
+          border: 1px solid rgba(43,255,154,.42);
+          background: rgba(2,14,9,.68);
+          box-shadow: 0 0 24px rgba(43,255,154,.18), inset 0 1px 0 rgba(255,255,255,.14);
+          color: #2bff9a;
+          text-align: center;
+          pointer-events: none;
+          backdrop-filter: blur(8px);
+        }
+        .atk-shot-scoreline span {
+          display: block;
+          font: 900 10px 'Barlow Condensed',sans-serif;
+          letter-spacing: .16em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,.72);
+        }
+        .atk-shot-scoreline strong {
+          display: block;
+          margin-top: 1px;
+          font: 900 24px 'Barlow Condensed',sans-serif;
+          letter-spacing: .1em;
+          line-height: .95;
+          text-shadow: 0 0 16px rgba(43,255,154,.68);
+        }
+        .atk-shot-scoreline em {
+          display: block;
+          margin-top: 3px;
+          color: #FFB800;
+          font: 900 9px 'Barlow Condensed',sans-serif;
+          letter-spacing: .1em;
+          text-transform: uppercase;
+          font-style: normal;
+          text-shadow: 0 0 14px rgba(255,184,0,.5);
         }
 
         .atk-shot-shooter {
@@ -2558,6 +3505,22 @@ export function AttackPhase({
           cursor: pointer;
           box-shadow: 0 0 34px rgba(43,255,154,.32), 0 18px 38px rgba(0,0,0,.34);
         }
+        .atk-shooter-select__actions {
+          width: min(100%, 360px);
+          justify-self: center;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+        .atk-shooter-select__actions .atk-shooter-select__btn {
+          width: 100%;
+        }
+        .atk-shooter-select__btn.is-secondary {
+          background: rgba(255,255,255,.1);
+          color: #fff;
+          border: 1px solid rgba(255,255,255,.22);
+          box-shadow: 0 14px 30px rgba(0,0,0,.28);
+        }
         @keyframes atkShooterPop { from{opacity:0; transform:scale(.82)} to{opacity:1; transform:scale(1)} }
         .atk-shot-tutorial {
           position: absolute; inset: 0; z-index: 44;
@@ -2641,6 +3604,41 @@ export function AttackPhase({
           text-transform:uppercase;
           text-shadow: 0 0 18px rgba(0,0,0,.65);
         }
+        .atk-result-goals {
+          display:block;
+          padding: 5px 12px;
+          border-radius: 999px;
+          background: rgba(3,18,9,.72);
+          border: 1px solid rgba(43,255,154,.46);
+          color: #fff;
+          font: 900 clamp(14px,4vw,20px) 'Barlow Condensed',sans-serif;
+          letter-spacing: .12em;
+          text-shadow: 0 0 18px rgba(43,255,154,.58);
+        }
+        .atk-result-multiplier {
+          display:block;
+          padding: 5px 13px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,184,0,.58);
+          background: rgba(28,17,0,.76);
+          color: #FFB800;
+          font: 900 clamp(13px,3.8vw,19px) 'Barlow Condensed',sans-serif;
+          letter-spacing: .13em;
+          text-transform: uppercase;
+          text-shadow: 0 0 18px rgba(255,184,0,.62);
+          animation: atkPrecisionPulse .42s ease-in-out infinite alternate;
+        }
+        .atk-result-multiplier.is-top-corner {
+          color: #fff7b2;
+          border-color: rgba(255,247,178,.72);
+          box-shadow: 0 0 24px rgba(255,184,0,.46);
+        }
+        .atk-result-multiplier.is-center {
+          color: #bdfcff;
+          border-color: rgba(189,252,255,.58);
+          background: rgba(0,24,30,.72);
+        }
+        @keyframes atkPrecisionPulse { from{ transform:scale(.98); filter:brightness(1); } to{ transform:scale(1.04); filter:brightness(1.18); } }
         @keyframes atkResultIn { from{transform:scale(.5);opacity:0} to{transform:scale(1);opacity:1} }
 
         /*  Shot intro transition overlay  */
@@ -2694,7 +3692,7 @@ export function AttackPhase({
             <div className="atk-tutorial__avatar">
               <KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="ready" />
             </div>
-            <span><b>Tutoriel.</b> Glisse entre les portes, saute les rangées et ramasse les pouvoirs avant le tir.</span>
+            <span><b>Tutoriel.</b> Ramasse les ballons dorés, saute les haies, dribble les joueurs et garde tes pouvoirs pour le bon moment.</span>
           </div>
           <div className="atk-tutorial__label">Tutoriel attaque</div>
           {showDribbleDemo ? (
@@ -2724,15 +3722,27 @@ export function AttackPhase({
             <span className="atk-dribble-demo__player">
               <KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="run" />
             </span>
-            <span className="atk-dribble-demo__finger"><svg viewBox="0 0 36 54"><path d="M15 4c3.2 0 5.7 2.5 5.7 5.7v13.1l1.4-1.2c2.2-1.8 5.4-1.4 7.1.9l1.4 1.9c1.1 1.5 1.5 3.3 1.2 5.1l-2.1 12.3c-.7 4.1-4.2 7.1-8.4 7.1h-8.2c-3.2 0-6.1-1.8-7.6-4.6L2.7 37c-1.1-2-.4-4.5 1.6-5.6 1.8-1 4-.6 5.3.9V9.7C9.6 6.5 12.1 4 15 4z" fill="#fff" stroke="#101827" strokeWidth="2.2" strokeLinejoin="round"/><path d="M15.1 8.2v21.4M20.8 22.8v8.1M25.4 25.1v7.7" stroke="rgba(16,24,39,.46)" strokeWidth="1.7" strokeLinecap="round"/></svg><span className="atk-dribble-demo__tap atk-dribble-demo__tap--jump"></span><span className="atk-dribble-demo__tap atk-dribble-demo__tap--jump2"></span><span className="atk-dribble-demo__tap-hint atk-dribble-demo__tap-hint--jump">TAPE</span><span className="atk-dribble-demo__tap-hint atk-dribble-demo__tap-hint--jump2">TAPE</span></span>
-            <div className="atk-dribble-demo__caption"><span><b>Glisse</b> entre les portes vertes</span><span><b>Saute</b> au-dessus des rangées</span></div>
+            <span className="atk-dribble-demo__finger"><svg viewBox="0 0 36 54"><path d="M15 4c3.2 0 5.7 2.5 5.7 5.7v13.1l1.4-1.2c2.2-1.8 5.4-1.4 7.1.9l1.4 1.9c1.1 1.5 1.5 3.3 1.2 5.1l-2.1 12.3c-.7 4.1-4.2 7.1-8.4 7.1h-8.2c-3.2 0-6.1-1.8-7.6-4.6L2.7 37c-1.1-2-.4-4.5 1.6-5.6 1.8-1 4-.6 5.3.9V9.7C9.6 6.5 12.1 4 15 4z" fill="#fff" stroke="#101827" strokeWidth="2.2" strokeLinejoin="round"/><path d="M15.1 8.2v21.4M20.8 22.8v8.1M25.4 25.1v7.7" stroke="rgba(16,24,39,.46)" strokeWidth="1.7" strokeLinecap="round"/></svg><span className="atk-dribble-demo__tap atk-dribble-demo__tap--jump"></span><span className="atk-dribble-demo__tap atk-dribble-demo__tap--jump2"></span><span className="atk-dribble-demo__tap-hint atk-dribble-demo__tap-hint--jump">1 TAP</span><span className="atk-dribble-demo__tap-hint atk-dribble-demo__tap-hint--jump2">1 TAP</span></span>
+            <div className="atk-dribble-demo__caption"><span><b>1 TAP</b> saute au-dessus des haies</span><span><b>1 TAP</b> dribble les joueurs</span><span><b>DOUBLE TAP</b> utilise tes pouvoirs</span></div>
           </div>
           ) : (
             <button type="button" className="atk-tutorial-open" onClick={() => { sfx.click(); setShowDribbleDemo(true) }}>
               Voir tutoriel
             </button>
           )}
-          <div className="atk-dribble-demo__bonus-tip"><span>Ramasse les pouvoirs : ils affichent leur effet</span><div className="atk-dribble-demo__bonus-icons"><span className="atk-dribble-demo__bonus-item"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--boot" aria-hidden="true"><BonusPowerIcon kind="boots" /></span><small>Bouclier</small></span><span className="atk-dribble-demo__bonus-item"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--wide" aria-hidden="true"><BonusPowerIcon kind="wide" /></span><small>Portes larges</small></span><span className="atk-dribble-demo__bonus-item"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--shot" aria-label="Tir facile"><BonusPowerIcon kind="shot" /></span><small>Tir facile</small></span><span className="atk-dribble-demo__bonus-item"><span className="atk-dribble-demo__bonus-icon atk-dribble-demo__bonus-icon--blast" aria-hidden="true"><BonusPowerIcon kind="blast" /></span><small>Super attaquant</small></span></div></div>
+          <div className="atk-dribble-demo__bonus-tip">
+            <span>{survivalDribbleOnly ? "Mini-jeu attaque : ces pouvoirs aident à survivre, double tap pour l'utiliser" : "Boîte surprise : un seul pouvoir en stock, double tap pour l'utiliser"}</span>
+            <div className="atk-dribble-demo__bonus-icons">
+              {dribbleTutorialPowers.map((power) => (
+                <span className="atk-dribble-demo__bonus-item" key={power.kind}>
+                  <span className={`atk-dribble-demo__bonus-icon ${power.className}`} aria-label={power.label}>
+                    <BonusPowerIcon kind={power.kind} />
+                  </span>
+                  <small>{power.label}</small>
+                </span>
+              ))}
+            </div>
+          </div>
           <button
             type="button"
             className="atk-tutorial__btn"
@@ -2749,7 +3759,8 @@ export function AttackPhase({
             {preCountdownNum === 0 ? 'GO !' : preCountdownNum}
           </div>
         </div>
-      ) : null}
+      ) : null}
+
 
       {!shotOnly && showShotIntro ? (
         <div className="atk-transition" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}>
@@ -2780,16 +3791,30 @@ export function AttackPhase({
             {bonusFlash ? <div className="atk-bonus-flash" /> : null}
             <div className="atk-dribble-hud">
               <div>
-                <div className="atk-dribble-title">DRIBBLE RUSH<small>Vague {gdCheckedRef.current + 1}/{cfg.waveCount} - {gdInstruction}</small></div>
+                <div className="atk-golden-counter"><i />{goldenBalls}</div>
                 <div className={`atk-flow-bar${feverActive ? ' is-fever' : ''}`}><div className="atk-flow-bar__fill" style={{ width: `${flow}%` }} /></div>
-                {perfectStreak > 0 ? <div className={`atk-perfect-badge${feverActive ? ' is-fever' : ''}`}>{feverActive ? 'FEVER' : 'PERFECT'} x{perfectStreak}</div> : null}
                 {powerupLabel ? <div className="atk-powerup-label">{powerupLabel}</div> : null}
+                {fireballCharges > 0 ? <div className="atk-fireball-counter">BALLON EN FEU x{fireballCharges}</div> : null}
                 {comboDisplay > 0 ? <div className={`atk-combo-badge${comboDisplay >= 5 || feverActive ? ' is-hot' : ''}`}>COMBO x{comboDisplay}</div> : null}
                 <div className="atk-life-badge" aria-label={`${attackLives} vies`}>
                   {Array.from({ length: ATTACK_MAX_LIVES }, (_, index) => <i key={index} className={index < attackLives ? 'is-on' : ''} />)}
                 </div>
               </div>
             </div>
+            {storedBonusPowers.length ? (
+              <div className="atk-power-slots" aria-label="Pouvoirs disponibles">
+                {storedBonusPowers.map((power, index) => (
+                  <div
+                    key={power.id}
+                    className={`atk-power-slot is-${power.kind}${index === 0 ? ' is-ready' : ''}`}
+                    aria-label={`${bonusPowerText(power.kind).short} disponible`}
+                  >
+                    <span className="atk-power-slot__icon"><BonusPowerIcon kind={power.kind} /></span>
+                    <span className="atk-power-slot__tap">DOUBLE TAP</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
             {/* Faint pitch markings SVG */}
             <svg className="atk-gd-pitch-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -2809,13 +3834,12 @@ export function AttackPhase({
               style={{ position: 'absolute', inset: 0, willChange: 'transform', transform: 'translateY(0%)' }}
             >
               {visibleGdWalls.map((wave) => {
-                const isWideGatePower = wideGateActive && isGatePassWave(wave) && !wave.hasBonus
+                const isWideGatePower = wideGateActive && isGatePassWave(wave)
                 const visualGateWidth = isWideGatePower ? Math.min(78, wave.gateWidth + 12) : wave.gateWidth
-                const gatePxWidth = `${visualGateWidth}%`
-                const bonusGatePxWidth = wave.bonusGateWidth ? `${wave.bonusGateWidth}%` : '0%' 
                 const isSlideWave = wave.type === 'slide_wall' || wave.type === 'double_slide_wall'
-                const isComboWave = wave.type === 'combo_gate_slide'
-                const isRouletteWave = wave.type === 'roulette_wall'
+                const rewardBalls = wave.rewardBalls ?? buildRewardBalls(wave.id, wave.gateCenterX, visualGateWidth, Math.max(1, wave.rewardBallCount ?? 1), wave.rewardPattern ?? 'vertical')
+                const collectedRewardBalls = rewardBalls.filter((ball) => ball.collected).length
+                const rewardPattern = wave.rewardPattern ?? 'vertical'
                 const moveAmp = wave.moveAmplitude ?? 0
                 const moveDur = wave.moveFrequency ? `${1 / wave.moveFrequency}s` : '1.4s'
                 const moveDelay = wave.movePhase && wave.moveFrequency ? `${-(wave.movePhase / (Math.PI * 2)) / wave.moveFrequency}s` : '0s'
@@ -2832,26 +3856,35 @@ export function AttackPhase({
                 } as CSSProperties
                 return (
                   <div key={wave.id} className={`atk-slalom-wave is-${wave.type}${moveAmp ? ' is-moving' : ''}${wave.superBlasted ? ' is-super-blasted' : ''}`} style={waveMotionStyle}>
-                    {isSlideWave || isComboWave || isRouletteWave ? (
-                      <div className={`atk-slide-wall${wave.failed ? ' is-failed' : ''}${wave.passed ? ' is-passed' : ''}${isRouletteWave ? ' is-roulette' : ''}`}>
-                        <div className="atk-slide-danger" />
-                        <span className="atk-slide-label">{isRouletteWave ? 'ROULETTE OBLIGATOIRE !' : isComboWave ? 'PLACE-TOI + SAUTE !' : 'SAUTE !'}</span>
+                    {rewardBalls.length > 0 ? (
+                      <div
+                        className={`atk-cleat-ring is-${rewardPattern}${isSlideWave ? ' is-jump-reward' : ''}${wave.failed ? ' is-failed' : ''}${wave.type === 'narrow_gate' ? ' is-tight' : ''}${wave.type === 'moving_gate' ? ' is-moving' : ''}${isWideGatePower ? ' is-wide-power' : ''}`}
+                      >
+                        {rewardBalls.map((ball, index) => (
+                          <span
+                            key={ball.id}
+                            className={`atk-cleat-ring__item${ball.collected || wave.superBlasted ? ' is-collected' : ''}`}
+                            style={{
+                              '--atk-cleat-left': `${ball.x}%`,
+                              '--atk-cleat-top': `${ball.yOffset}px`,
+                              '--atk-cleat-delay': `${index * -90}ms`,
+                            } as CSSProperties}
+                          />
+                        ))}
+                        {collectedRewardBalls > 0 ? <span className="atk-pass-pop">+{collectedRewardBalls}</span> : null}
                       </div>
                     ) : null}
-                    {!isSlideWave && !isRouletteWave ? (
-                      <div className={`atk-slalom-gate${wave.passed ? ' is-passed' : ''}${wave.failed ? ' is-failed' : ''}${isComboWave ? ' is-combo' : ''}${wave.type === 'narrow_gate' ? ' is-narrow' : ''}${wave.type === 'moving_gate' ? ' is-moving' : ''}${isWideGatePower ? ' is-wide-power' : ''}`} style={{ left: `${wave.gateCenterX}%`, width: gatePxWidth }}>
-                        <span className="atk-slalom-gate__label">PASSAGE</span>
-                        {wave.passed && !wave.bonusCollected ? <span className="atk-pass-pop">PASSE !</span> : null}
-                      </div>
-                    ) : wave.passed ? <span className="atk-pass-pop atk-pass-pop--slide">SAUTE !</span> : null}
-                    {wave.hasBonus && wave.bonusGateCenterX != null && wave.bonusGateWidth != null ? (
-                      <div className={`atk-slalom-gate is-bonus${wave.bonusCollected ? ' is-passed' : ''}${wave.failed ? ' is-failed' : ''}`} style={{ left: `${wave.bonusGateCenterX}%`, width: bonusGatePxWidth }}>
-                        <span className={`atk-bonus-orb is-${wave.bonusKind ?? 'coin'}`}> <BonusPowerIcon kind={wave.bonusKind ?? 'coin'} /> </span>
-                        <span className="atk-slalom-gate__label">{bonusPowerText(wave.bonusKind ?? 'coin').short}</span>
-                        <span className="atk-bonus-choice-label">{bonusPowerText(wave.bonusKind ?? 'coin').hint}</span>
-                        {wave.bonusCollected ? <span className="atk-pass-pop">{bonusPowerText(wave.bonusKind ?? 'coin').short}</span> : null}
-                      </div>
-                    ) : null}
+                    {wave.obstacles.map((obstacle) => (
+                      <div
+                        key={obstacle.id}
+                        className={`atk-static-obstacle is-${obstacle.kind}`}
+                        style={{
+                          left: `${obstacle.x}%`,
+                          top: obstacle.yOffset,
+                          '--atk-obstacle-width': `${obstacle.width}%`,
+                        } as CSSProperties}
+                      />
+                    ))}
                     {wave.defenders.map((defender) => (
                       <div
                         key={defender.id}
@@ -2877,6 +3910,38 @@ export function AttackPhase({
                   </div>
                 )
               })}
+              {visibleBonusPickups.map((pickup) => (
+                <div
+                  key={pickup.id}
+                  className={`atk-bonus-pickup${pickup.collected ? ' is-collected' : ''}`}
+                  style={{
+                    position: 'absolute',
+                    top: `${pickup.worldY}%`,
+                    left: `${pickup.x}%`,
+                    '--atk-pickup-width': `${pickup.width}%`,
+                  } as CSSProperties}
+                >
+                  <span className="atk-bonus-orb is-mystery">?</span>
+                  <span className="atk-bonus-choice-label">MYSTERE</span>
+                  {pickup.collected ? <span className="atk-pass-pop">{bonusPowerText(pickup.bonusKind).short}</span> : null}
+                </div>
+              ))}
+              {visibleSpringPickups.map((pickup) => (
+                <div
+                  key={pickup.id}
+                  className={`atk-spring-pickup${pickup.collected ? ' is-collected' : ''}`}
+                  style={{
+                    position: 'absolute',
+                    top: `${pickup.worldY}%`,
+                    left: `${pickup.x}%`,
+                    '--atk-spring-width': `${pickup.width}%`,
+                  } as CSSProperties}
+                >
+                  <span className="atk-spring-pickup__coil" />
+                  <span className="atk-spring-pickup__pad" />
+                  <span className="atk-spring-pickup__label">BOING</span>
+                </div>
+              ))}
             </div>
 
             {/* Player token  kawaii avatar, top set in CSS, X via compositor transform */}
@@ -2885,14 +3950,16 @@ export function AttackPhase({
               className={[
                 'atk-gd-player',
                 gdJumping ? 'atk-gd-player--pass' : '',
+                gdSpringJumping ? 'is-spring-jump' : '',
                 dashActive ? 'is-dashing' : '',
                 gdFlash   ? 'atk-gd-player--flash' : '',
+                gdHitReact ? 'is-hit' : '',
                 ghostActive ? 'is-ghost' : '',
                 bonusAuraActive ? 'is-bonus-aura' : '',
                 rouletteActive ? 'is-roulette' : '',
                 flow >= 40 ? 'is-flowing' : '',
                 feverActive ? 'is-fever' : '',
-                flow >= 100 ? 'is-max-flow' : '',
+                flow >= 100 && !survivalDribbleOnly ? 'is-max-flow' : '',
               ].join(' ')}
               style={{
                 transform: `translateX(${(gdPlayerXRef.current / 100) * gameWidthRef.current - 29}px)`,
@@ -2937,6 +4004,13 @@ export function AttackPhase({
           ref={shotGameRef}
         >
           {shotTitle ? <div className="atk-shot-title">{shotTitle}</div> : null}
+          {shotGoalCount != null ? (
+            <div className="atk-shot-scoreline">
+              <span>Buts d'affilée</span>
+              <strong>{shotGoalCount}</strong>
+              {shotMultiplierTotal != null ? <em>Coef cumulé x{formatShotMultiplier(shotMultiplierTotal)}</em> : null}
+            </div>
+          ) : null}
           <GoalView
             compact
             difficulty={difficulty}
@@ -2974,11 +4048,11 @@ export function AttackPhase({
               onPointerUp={(event) => event.stopPropagation()}
             >
               <div className="atk-shooter-select__title">
-                <span>Choisis ton tireur</span>
-                <strong>TIREUR</strong>
+                <span>{showRememberedShooterChoice ? 'Tireur en mémoire' : 'Choisis ton tireur'}</span>
+                <strong>{showRememberedShooterChoice ? 'PRÊT ?' : 'TIREUR'}</strong>
               </div>
               <div className="atk-shooter-select__stage">
-                <button type="button" className="atk-shooter-select__arrow" onClick={() => changeShooter(-1)} aria-label="Tireur precedent">&lt;</button>
+                {showRememberedShooterChoice ? <span /> : <button type="button" className="atk-shooter-select__arrow" onClick={() => changeShooter(-1)} aria-label="Tireur precedent">&lt;</button>}
                 <div className="atk-shooter-select__card" key={`${selectedShooter.name}-${selectedShooter.number}`}>
                   <div className="atk-shooter-select__avatar">
                     <KawaiiFootballer
@@ -2994,11 +4068,18 @@ export function AttackPhase({
                   <h3 className="atk-shooter-select__name">{selectedShooter.name}</h3>
                   <div className="atk-shooter-select__meta">#{selectedShooter.number ?? 9} &middot; {selectedShooterIndex + 1}/{shooterOptions.length}</div>
                 </div>
-                <button type="button" className="atk-shooter-select__arrow" onClick={() => changeShooter(1)} aria-label="Tireur suivant">&gt;</button>
+                {showRememberedShooterChoice ? <span /> : <button type="button" className="atk-shooter-select__arrow" onClick={() => changeShooter(1)} aria-label="Tireur suivant">&gt;</button>}
               </div>
-              <button type="button" className="atk-shooter-select__btn" onClick={confirmShooter}>
-                Tirer
-              </button>
+              {showRememberedShooterChoice ? (
+                <div className="atk-shooter-select__actions">
+                  <button type="button" className="atk-shooter-select__btn" onClick={confirmShooter}>Jouer</button>
+                  <button type="button" className="atk-shooter-select__btn is-secondary" onClick={changeRememberedShooter}>Changer</button>
+                </div>
+              ) : (
+                <button type="button" className="atk-shooter-select__btn" onClick={confirmShooter}>
+                  Tirer
+                </button>
+              )}
             </div>
           ) : null}
           {showShotTutorial && !shotTutorialDone && !ballFlight && !resultLabel ? (
@@ -3088,13 +4169,19 @@ export function AttackPhase({
           {/* Result overlay */}
           {resultLabel && (
             <div className="atk-result-overlay" style={{ color: resultLabel.startsWith('BUT !') ? '#2bff9a' : resultLabel.startsWith('ARRÊT !') ? '#FFB800' : '#FF4455' }}>
-              <span>{resultLabel.split('|')[0]}</span>
+              <span>{resultTitle}</span>
+              {resultLabel.startsWith('BUT !') && shotGoalCount != null ? <b className="atk-result-goals">BIEN JOUÉ - BUTS x{shotGoalCount}</b> : null}
+              {resultLabel.startsWith('BUT !') && shotPrecisionBonus ? (
+                <b className={`atk-result-multiplier is-${shotPrecisionBonus.tone}`}>
+                  {shotPrecisionBonus.label} · x{formatShotMultiplier(shotPrecisionBonus.multiplier)} · +{shotPrecisionBonus.points}
+                </b>
+              ) : null}
               <small>
-                {resultLabel.includes('|')
-                  ? resultLabel.split('|')[1]
-                  : resultLabel === 'BUT !'
+                {resultDetail
+                  ? resultDetail
+                  : resultLabel.startsWith('BUT !')
                   ? `${selectedShooter.name} marque`
-                  : resultLabel === 'ARRÊT !'
+                  : resultLabel.startsWith('ARRÊT !')
                     ? `${selectedShooter.name} tombe sur le gardien`
                     : `${selectedShooter.name} rate sa frappe`}
               </small>
@@ -3108,7 +4195,7 @@ export function AttackPhase({
           <div className="atk-controls__stat">FLOW {flow}<small>Vie {attackLives}/{ATTACK_MAX_LIVES} - Combo x{comboDisplay}</small></div>
           <div className="atk-controls__buttons">
             <button type="button" className="atk-ctrl-btn" data-control="left" aria-label="Gauche" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.left = true }} onPointerUp={() => { keysRef.current.left = false }} onPointerCancel={() => { keysRef.current.left = false }} onPointerLeave={() => { keysRef.current.left = false }}>&larr;</button>
-            <button type="button" className={`atk-ctrl-btn atk-ctrl-btn--evade${gdJumping || dashActive || rouletteActive ? ' is-jumping' : ''}${nextGdWave?.requiresJump || nextGdWave?.requiresRoulette ? ' is-danger' : ''}`} data-control="jump" aria-label="Esquive" onPointerDown={(e) => { e.stopPropagation(); handleEvade() }}><b>{nextGdWave?.requiresRoulette ? 'R' : nextGdWave?.requiresJump ? '\u2191' : '\u21af'}</b>{nextGdWave?.requiresRoulette ? 'ROULETTE' : nextGdWave?.requiresJump ? 'SAUT' : 'ESQUIVE'}</button>
+            <button type="button" className={`atk-ctrl-btn atk-ctrl-btn--evade${gdJumping || dashActive || rouletteActive ? ' is-jumping' : ''}${nextGdWave?.requiresJump ? ' is-danger' : ''}`} data-control="jump" aria-label={nextGdWave?.requiresJump ? 'Saut' : shouldRouletteNextWave(nextGdWave) ? 'Dribble' : 'Action'} onPointerDown={(e) => { e.stopPropagation(); handleTapAction() }}><b>{nextGdWave?.requiresJump ? '\u2191' : shouldRouletteNextWave(nextGdWave) ? '\u21bb' : '\u21af'}</b>{nextGdWave?.requiresJump ? '1 TAP SAUT' : shouldRouletteNextWave(nextGdWave) ? '1 TAP DRIBBLE' : '1 TAP'}</button>
             <button type="button" className="atk-ctrl-btn" data-control="right" aria-label="Droite" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.right = true }} onPointerUp={() => { keysRef.current.right = false }} onPointerCancel={() => { keysRef.current.right = false }} onPointerLeave={() => { keysRef.current.right = false }}>&rarr;</button>
           </div>
           <div className={`atk-controls__phase${gdBadgeClass}`}>SLALOM<small>{gdInstruction}</small></div>
@@ -3119,3 +4206,4 @@ export function AttackPhase({
 }
 
 export default AttackPhase
+

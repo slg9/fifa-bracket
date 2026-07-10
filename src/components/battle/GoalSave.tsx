@@ -22,6 +22,9 @@ export type GoalSaveProps = {
   onRetry?: () => void
   retryLabel?: string
   startLabel?: string
+  onGameplayStart?: () => void
+  survivalMode?: boolean
+  onSurvivalStats?: (saves: number) => void
 }
 
 type BallType = 'normal' | 'fast' | 'curveLeft' | 'curveRight' | 'delayed' | 'doubleTap' | 'fake'
@@ -200,7 +203,33 @@ function makeGoalSaveBalls(ballCount: number, difficulty: BattleDifficulty, mode
   return balls
 }
 
-export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentKit, opponentName, opponentFlag, keeperName, alertNames = [], mode = 'goal_save', onAudioOverride, roundIntroComment, onRetry, retryLabel, startLabel }: GoalSaveProps) {
+function survivalDifficultyForSaves(saves: number): BattleDifficulty {
+  if (saves < 16) return 'easy'
+  if (saves < 44) return 'medium'
+  return 'hard'
+}
+
+function makeGoalSaveSurvivalBatch(saves: number, delayOffset: number, idOffset: number) {
+  const nextDifficulty = survivalDifficultyForSaves(saves)
+  const pressure = Math.min(9, 1 + Math.floor(saves / 6))
+  const count = clamp(1 + Math.floor(saves / 10), 1, 6)
+  return makeGoalSaveBalls(count, nextDifficulty, 'goal_save').map((ball, index) => {
+    const speedRamp = Math.min(0.42, saves * 0.006)
+    const type: BallType = saves > 10 && index % 4 === 1 ? 'fast' : saves > 18 && index % 3 === 2 ? (index % 2 ? 'curveLeft' : 'curveRight') : ball.type
+    return {
+      ...ball,
+      id: idOffset + index + 1,
+      wave: pressure,
+      type,
+      delay: delayOffset + 220 + index * Math.max(190, 480 - saves * 5),
+      duration: Math.max(1120, ball.duration * (1 - speedRamp)),
+      health: saves > 30 && index === 0 ? 2 : 1,
+      maxHealth: saves > 30 && index === 0 ? 2 : 1,
+    }
+  })
+}
+
+export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentKit, opponentName, opponentFlag, keeperName, alertNames = [], mode = 'goal_save', onAudioOverride, roundIntroComment, onRetry, retryLabel, startLabel, onGameplayStart, survivalMode = false, onSurvivalStats }: GoalSaveProps) {
   const cfg = GOAL_SAVE_DIFFICULTY[difficulty]
   const isPenalty = mode === 'penalty'
   const isSuddenDeath = mode === 'sudden_death'
@@ -215,7 +244,7 @@ export function GoalSave({ ballCount, difficulty, onResult, playerKit, opponentK
   const opponentAccentColor = opponentKit?.secondary ?? '#7dd3fc'
   const opponentShortsColor = opponentKit?.shorts ?? '#101827'
   const opponentTextColor = opponentKit?.text ?? '#ffffff'
-  const [balls, setBalls] = useState<Ball[]>(() => makeGoalSaveBalls(ballCount, difficulty, mode))
+  const [balls, setBalls] = useState<Ball[]>(() => survivalMode ? makeGoalSaveSurvivalBatch(0, 0, 0) : makeGoalSaveBalls(ballCount, difficulty, mode))
   const [penaltyCountdown, setPenaltyCountdown] = useState<number | null>(null)
   const [tutorialDone, setTutorialDone] = useState(false)
   const [showGoalSaveTutorial, setShowGoalSaveTutorial] = useState(true)
@@ -246,9 +275,18 @@ const [hitFreeze, setHitFreeze] = useState(false)
   const missedRef = useRef(0)
   const stoppedRef = useRef(0)
   const comboRef = useRef({ count: 0, lastAt: 0 })
+  const gameplayStartedRef = useRef(false)
+  const ballIdRef = useRef(balls.length)
 
   ballsRef.current = balls
   onResultRef.current = onResult
+
+  const appendSurvivalBatch = useCallback((delayOffset: number) => {
+    const batch = makeGoalSaveSurvivalBatch(stoppedRef.current, delayOffset, ballIdRef.current)
+    ballIdRef.current += batch.length
+    setBalls(batch)
+    ballsRef.current = batch
+  }, [])
 
   useEffect(() => {
     if (isPenalty || isSuddenDeath) {
@@ -334,8 +372,13 @@ const [hitFreeze, setHitFreeze] = useState(false)
     if (endedRef.current) return
     const complete = nextBalls.every((ball) => ball.state === 'intercepted' || ball.state === 'scored' || ball.state === 'expired')
     if (!complete) return
+    if (survivalMode && !isPenalty && !isSuddenDeath) {
+      const elapsed = performance.now() - startTimeRef.current
+      addTimer(() => appendSurvivalBatch(elapsed + 420), 0)
+      return
+    }
     resolve(true, 'SAUVE !')
-  }, [cfg.allowedMisses, resolve])
+  }, [addTimer, appendSurvivalBatch, isPenalty, isSuddenDeath, resolve, survivalMode])
 
   const missBall = useCallback((ball: Ball, point: BallPosition) => {
     if (endedRef.current) return
@@ -409,6 +452,7 @@ const [hitFreeze, setHitFreeze] = useState(false)
       if (didStop) {
         stoppedRef.current += ball.type === 'fake' ? 0 : 1
         setStoppedCount(stoppedRef.current)
+        onSurvivalStats?.(stoppedRef.current)
         addParticle(point.x, point.y, 'save')
         registerCombo(point.x, point.y)
         maybeFinishIfComplete(next)
@@ -419,10 +463,14 @@ const [hitFreeze, setHitFreeze] = useState(false)
       }
       return next
     })
-  }, [addParticle, addTimer, maybeFinishIfComplete, registerCombo, updateBalls])
+  }, [addParticle, addTimer, maybeFinishIfComplete, onSurvivalStats, registerCombo, updateBalls])
 
   useEffect(() => {
     if (!tutorialDone || penaltyCountdown !== null) return
+    if (!gameplayStartedRef.current) {
+      gameplayStartedRef.current = true
+      onGameplayStart?.()
+    }
     startTimeRef.current = performance.now()
 
     const tick = (now: number) => {
@@ -450,7 +498,7 @@ const [hitFreeze, setHitFreeze] = useState(false)
       cancelAnimationFrame(rafRef.current)
       clearManagedTimers()
     }
-  }, [clearManagedTimers, missBall, penaltyCountdown, tutorialDone, updateBalls])
+  }, [clearManagedTimers, missBall, onGameplayStart, penaltyCountdown, tutorialDone, updateBalls])
 
   const testSwipeSegment = useCallback((x1: number, y1: number, x2: number, y2: number, rect: DOMRect, velocity: number) => {
     if (!tutorialDone || penaltyCountdown !== null) return

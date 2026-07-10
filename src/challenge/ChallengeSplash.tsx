@@ -5,6 +5,7 @@ import { playTrack } from '../lib/useGameAudio'
 
 interface ChallengeSplashProps {
   onPlay: () => void
+  onMiniGames?: () => void
   skipDialogue?: boolean
   locale?: Locale
 }
@@ -45,7 +46,7 @@ const DIALOGUE_STEPS: DialogueStep[] = [
 
 export const CHALLENGE_DIALOGUE_IMAGES = DIALOGUE_STEPS.map((step) => step.image)
 
-export function ChallengeSplash({ onPlay, skipDialogue = false, locale = 'fr' }: ChallengeSplashProps) {
+export function ChallengeSplash({ onPlay, onMiniGames, skipDialogue = false, locale = 'fr' }: ChallengeSplashProps) {
   const [dialogueStarted, setDialogueStarted] = useState(false)
   const [stepIndex, setStepIndex] = useState(0)
   const [visibleChars, setVisibleChars] = useState(0)
@@ -81,6 +82,14 @@ export function ChallengeSplash({ onPlay, skipDialogue = false, locale = 'fr' }:
     setDialogueStarted(true)
   }
 
+  const openMiniGames = () => {
+    if (leaving) return
+    sfx.tab()
+    playTrack('/audio/kickoff-carnival.mp3')
+    setLeaving(true)
+    window.setTimeout(() => onMiniGames?.(), 360)
+  }
+
   const advanceDialogue = () => {
     if (!textDone) {
       setVisibleChars(fullText.length)
@@ -102,24 +111,33 @@ export function ChallengeSplash({ onPlay, skipDialogue = false, locale = 'fr' }:
         <div className="splash__bg" />
         {!dialogueStarted ? (
           <div className="splash__content">
-            <button type="button" className="splash__cta" onClick={startDialogue}>
-              <span className="splash__ring" />
-              <span className="splash__ring splash__ring--2" />
-              <span className="splash__ring splash__ring--3" />
-              <span className="splash__cta-shine" aria-hidden="true" />
-              <span className="splash__cta-inner">
-                <svg className="splash__cta-ball" viewBox="0 0 40 40" aria-hidden="true">
-                  <ellipse className="splash__cta-ball-shadow" cx="20" cy="37" rx="11" ry="2.6" fill="rgba(0,0,0,.3)" />
-                  <g className="splash__cta-ball-body">
-                    <circle cx="20" cy="20" r="15" fill="#f8fbff" stroke="#0a1a12" strokeWidth="2.4" />
-                    <path d="M20 11 L28 17 L25 26 H15 L12 17 Z" fill="#0a1a12" opacity=".88" />
-                    <path d="M20 5 V11 M28 17 L34 14 M25 26 L29 32 M15 26 L11 32 M12 17 L6 14" stroke="#0a1a12" strokeWidth="1.8" strokeLinecap="round" />
-                    <circle cx="14.5" cy="13.5" r="3.4" fill="rgba(255,255,255,.65)" />
-                  </g>
-                </svg>
-                <span className="splash__cta-label">{locale === 'en' ? 'PLAY' : 'JOUER'}</span>
-              </span>
-            </button>
+            <div className="splash__actions">
+              <button type="button" className="splash__mode-button is-primary" onClick={startDialogue}>
+                <span className="splash__mode-icon" aria-hidden="true">
+                  <svg className="splash__cta-ball" viewBox="0 0 40 40">
+                    <ellipse className="splash__cta-ball-shadow" cx="20" cy="37" rx="11" ry="2.6" fill="rgba(0,0,0,.3)" />
+                    <g className="splash__cta-ball-body">
+                      <circle cx="20" cy="20" r="15" fill="#f8fbff" stroke="#0a1a12" strokeWidth="2.4" />
+                      <path d="M20 11 L28 17 L25 26 H15 L12 17 Z" fill="#0a1a12" opacity=".88" />
+                      <path d="M20 5 V11 M28 17 L34 14 M25 26 L29 32 M15 26 L11 32 M12 17 L6 14" stroke="#0a1a12" strokeWidth="1.8" strokeLinecap="round" />
+                    </g>
+                  </svg>
+                </span>
+                <span className="splash__mode-copy">
+                  <b>{locale === 'en' ? 'World Cup' : 'Coupe du Monde'}</b>
+                  <small>{locale === 'en' ? 'Main challenge' : 'Mode principal'}</small>
+                </span>
+              </button>
+              {onMiniGames ? (
+                <button type="button" className="splash__mode-button" onClick={openMiniGames}>
+                  <span className="splash__mode-icon" aria-hidden="true">MJ</span>
+                  <span className="splash__mode-copy">
+                    <b>{locale === 'en' ? 'Mini games' : 'Mini jeux'}</b>
+                    <small>{locale === 'en' ? 'Survival modes' : 'Modes survie'}</small>
+                  </span>
+                </button>
+              ) : null}
+            </div>
             <p className="splash__sub">World Cup Challenge 2026</p>
             <p className="splash__hint">{locale === 'en' ? 'Build your bracket · Play the matches' : 'Construis ton bracket · Joue les matchs'}</p>
           </div>

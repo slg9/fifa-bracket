@@ -119,7 +119,7 @@ const DRAW_ROUND_COUNT = 3
 const DRAW_POOL: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
 const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
 const SUDDEN_DEATH_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'attack', 'defense']
-const DRAW_EXPLAIN_TEXT = "La machine tire 3 symboles au hasard.\n3 symboles differents : ordre du match aleatoire.\n2 symboles identiques : mort subite (rare), avec une seule relance.\n3 symboles identiques : mode hasard (tres rare), avec une seule relance."
+const DRAW_EXPLAIN_TEXT = "La machine tire 3 symboles au hasard.\n3 symboles diff?rents : ordre du match al?atoire.\n2 symboles identiques : mort subite (rare), avec une seule relance.\n3 symboles identiques : mode hasard (tr?s rare), avec une seule relance."
 const MAX_SUDDEN_DEATH_ROUNDS = 4 // 2 full attack+defense cycles before forcing a result
 // Weighted draw: the uniform 3-reel draw made sudden death land ~67% of the time
 const DRAW_SUDDEN_DEATH_CHANCE = 0.15
@@ -430,6 +430,9 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   }), [awayTeamId, coinFlipWinnerId, history, homeTeamId, matchScorers, state.difficulty, state.opponentScore, state.playerScore])
   const displayedResult = existingResult ?? simulatedResult ?? result
   const countdownProgress = countdownNum === 3 ? '100%' : countdownNum === 2 ? '66%' : countdownNum === 1 ? '33%' : '100%'
+  const displayedRoundType = roundOutcome === 'saved' && currentRound === 'attack' && history[state.roundIndex]?.type === 'defense'
+    ? 'defense'
+    : currentRound
 
   const startRoundCountdown = () => {
     setState((current) => ({ ...current, phase: 'playing' }))
@@ -506,6 +509,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   // Audio
   const playerWon = displayedResult.winnerId === homeTeamId
   const baseAudioSrc = (() => {
+    if (state.phase === 'draw') return AUDIO.kickoff
     if (suddenDeath && state.phase !== 'match_result' && state.phase !== 'coin_flip') return null
     if (state.phase === 'intro') return AUDIO.kickoff
     if (state.phase === 'match_result') return playerWon ? AUDIO.victory : AUDIO.defeat
@@ -523,7 +527,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   }, [existingResult, selectedDifficulty])
 
   useEffect(() => {
-    setGameMusicVolumeMultiplier(state.phase === 'intro' || state.phase === 'match_result' ? 1 : 0.42)
+    setGameMusicVolumeMultiplier(state.phase === 'intro' || state.phase === 'draw' || state.phase === 'match_result' ? 1 : 0.42)
     return () => setGameMusicVolumeMultiplier(1)
   }, [state.phase])
 
@@ -1223,13 +1227,13 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
       {state.phase === 'round_result' ? (
         <RoundResult
           outcome={roundOutcome}
-          roundType={currentRound}
+          roundType={displayedRoundType}
           playerScore={state.playerScore}
           opponentScore={state.opponentScore}
           homeFlag={homeFlag}
           awayFlag={awayFlag}
-          scorerName={roundOutcome === 'intercepted' ? roundScorer?.name : currentRound === 'attack' ? roundScorer?.name ?? homeAttackerName : undefined}
-          keeperName={currentRound === 'defense' || currentRound === 'fruit_ninja' ? homeKeeperName : awayKeeperName}
+          scorerName={roundOutcome === 'intercepted' ? roundScorer?.name : displayedRoundType === 'attack' ? roundScorer?.name ?? homeAttackerName : undefined}
+          keeperName={displayedRoundType === 'defense' || displayedRoundType === 'fruit_ninja' ? homeKeeperName : awayKeeperName}
           playerKit={homeKit}
           opponentName={awayTeam?.name}
           nextRoundType={nextRoundType}
@@ -1295,7 +1299,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
               />
               <strong>{Math.round(audioVolume * 100)}</strong>
             </label>
-            <div className="battle-pause-modal__difficulty" aria-label="Reglage difficulte">
+            <div className="battle-pause-modal__difficulty" aria-label="R?glage difficult?">
               <span>Difficulte</span>
               <strong>{difficultySettingLabel(difficultySetting, match.stage)}</strong>
               <div>

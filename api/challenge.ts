@@ -463,6 +463,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         submittedAt: input.submittedAt ?? current?.submittedAt ?? null,
         breakdown: input.breakdown ?? current?.breakdown ?? {},
         battleBonuses: Math.min(40, Math.max(0, input.battleBonuses ?? current?.battleBonuses ?? 0)),
+        battleBonusesByMatch: input.battleBonusesByMatch ?? current?.battleBonusesByMatch ?? {},
         createdAt: current?.createdAt ?? new Date().toISOString(),
       }
       const updated = [entry]

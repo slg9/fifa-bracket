@@ -37,7 +37,7 @@ export function formatKnockoutDateTime(matchId: string, fallbackDateLabel?: stri
   const schedule = knockoutKickoffById[matchId]
 
   if (!schedule) {
-    return fallbackDateLabel ? `${fallbackDateLabel} · heure a confirmer` : 'Date · heure a confirmer'
+    return fallbackDateLabel ? `${fallbackDateLabel} · heure à confirmer` : 'Date · heure à confirmer'
   }
 
   return new Intl.DateTimeFormat('fr-FR', {

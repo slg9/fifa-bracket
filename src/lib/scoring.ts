@@ -76,7 +76,10 @@ export function calculateScore(
 
   if (roundOf32Correct === 16) baseScore += 25
   if (entry.submittedAt && Date.parse(entry.submittedAt) <= EARLY_BIRD_DEADLINE) baseScore += 10
-  baseScore += Math.min(40, Math.max(0, entry.battleBonuses))
+  const battleBonusTotal = entry.battleBonusesByMatch
+    ? Object.values(entry.battleBonusesByMatch).reduce((total, bonus) => total + Math.max(0, Math.round(Number(bonus) || 0)), 0)
+    : entry.battleBonuses
+  baseScore += Math.min(40, Math.max(0, battleBonusTotal))
 
   return { score: baseScore, breakdown }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { BattleDifficulty, BattleResult } from '../../types'
+import type { BattleDifficulty, BattleResult, BattleScorer } from '../../types'
 import { publishResultShare } from '../../lib/challengeData'
 import { blobToDataUrl, blobToShareFile, shareFile, shareLink } from '../../challenge/shareImage'
 import { renderResultShareCanvas } from '../../challenge/shareCanvas'
@@ -39,6 +39,24 @@ function RestartIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v6h-6" /></svg>
 }
 
+function aggregateScorers(scorers: BattleScorer[] = []) {
+  const grouped = new Map<string, BattleScorer & { goalCount: number }>()
+  for (const scorer of scorers) {
+    const key = `${scorer.teamId}:${scorer.name.trim().toLowerCase()}`
+    const current = grouped.get(key)
+    if (current) {
+      current.goalCount += scorer.goals ?? 1
+    } else {
+      grouped.set(key, { ...scorer, goalCount: scorer.goals ?? 1 })
+    }
+  }
+  return [...grouped.values()]
+}
+
+function scorerDisplayName(scorer: BattleScorer & { goalCount: number }) {
+  return `${scorer.name}${scorer.goalCount > 1 ? ` x${scorer.goalCount}` : ''}`
+}
+
 export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTeamName, awayTeamName, homeFlag, awayFlag, ownerPseudo, difficulty, onContinue, onRestart }: MatchResultProps) {
   const [shareStatus, setShareStatus] = useState<'idle' | 'working' | 'ready' | 'done' | 'error'>('idle')
   const [preparedShareUrl, setPreparedShareUrl] = useState<string | null>(null)
@@ -51,14 +69,15 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
   const awayName = awayTeamName ?? awayTeamId
   const matchLabel = `${homeName} - ${awayName}`
   const scoreLabel = `${result.homeScore}-${result.awayScore}`
-  const scorerNames = result.scorers?.map((scorer) => scorer.name) ?? []
+  const aggregatedScorers = aggregateScorers(result.scorers)
+  const scorerNames = aggregatedScorers.map(scorerDisplayName)
   const difficultyMeta = difficulty ? DIFFICULTY_LABELS[difficulty] : null
   const shareText = playerWon
     ? `Brakup ${matchLabel}: j'ai gagné mon duel ${scoreLabel}${difficultyMeta ? ` en difficulté ${difficultyMeta.label}` : ''}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. Et toi, tu veux tenter ton prono ?`
     : `Brakup ${matchLabel}: j'ai tenté mon duel ${scoreLabel}${difficultyMeta ? ` en difficulté ${difficultyMeta.label}` : ''}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. À toi de faire mieux ?`
 
-  const shareRows = result.scorers?.length
-    ? result.scorers.slice(0, 4).map((scorer) => ({ label: `Buteur: ${scorer.name}`, tone: 'win' as const }))
+  const shareRows = aggregatedScorers.length
+    ? aggregatedScorers.slice(0, 4).map((scorer) => ({ label: `Buteur: ${scorerDisplayName(scorer)}`, tone: 'win' as const }))
     : [{ label: playerWon ? 'Duel gagné' : 'Duel joué', tone: playerWon ? 'win' as const : 'neutral' as const }]
 
   useEffect(() => {
@@ -252,7 +271,7 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
           <strong>{result.homeScore}</strong><i>-</i><strong>{result.awayScore}</strong>
           {awayFlag ? <span className="battle-match-result__score-flag">{awayFlag}</span> : null}
         </div>
-        {result.scorers?.length ? (
+        {aggregatedScorers.length ? (
           <>
             <button type="button" className="battle-match-scorers-toggle" onClick={() => setShowScorers((open) => !open)} aria-expanded={showScorers}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16" /><path d="M12 4v16" className={showScorers ? 'is-open' : ''} /></svg>
@@ -262,8 +281,8 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
               <div className="battle-match-scorers">
                 <span>Buteurs Brakup</span>
                 <div>
-                  {result.scorers.map((scorer, index) => (
-                    <b key={`${scorer.teamId}-${scorer.name}-${index}`}>#{scorer.number ?? 9} {scorer.name}</b>
+                  {aggregatedScorers.map((scorer) => (
+                    <b key={`${scorer.teamId}-${scorer.name}`}>#{scorer.number ?? 9} {scorerDisplayName(scorer)}</b>
                   ))}
                 </div>
               </div>

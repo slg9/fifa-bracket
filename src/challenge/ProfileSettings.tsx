@@ -31,15 +31,15 @@ export function ProfileSettings({ initialEmail, initialPseudo, busy = false, err
 
   return (
     <div className="brakup-dialog" role="dialog" aria-modal="true" aria-labelledby="brakup-settings-title">
-      <button type="button" className="brakup-dialog__scrim" onClick={onClose} aria-label="Fermer les parametres" />
+      <button type="button" className="brakup-dialog__scrim" onClick={onClose} aria-label="Fermer les paramètres" />
       <form className="brakup-email brakup-settings" onSubmit={(event) => { event.preventDefault(); onSubmit({ email, pseudo }) }}>
-        <h2 id="brakup-settings-title">Parametres du compte</h2>
+        <h2 id="brakup-settings-title">Paramètres du compte</h2>
         <p>Ton pseudo doit rester unique sur le leaderboard public.</p>
         <label>Email<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="toi@exemple.com" /></label>
-        <label>Pseudo<input required maxLength={40} value={pseudo} onChange={(event) => setPseudo(event.target.value)} placeholder="Le selectionneur" /></label>
-        <section className="brakup-settings__game" aria-label="Parametres du jeu">
+        <label>Pseudo<input required maxLength={40} value={pseudo} onChange={(event) => setPseudo(event.target.value)} placeholder="Le sélectionneur" /></label>
+        <section className="brakup-settings__game" aria-label="Paramètres du jeu">
           <div>
-            <strong>Difficulte du jeu</strong>
+            <strong>Difficulté du jeu</strong>
             <span>{difficultySetting === 'auto' ? 'Auto selon le stade' : difficultySetting === 'easy' ? 'Facile' : difficultySetting === 'medium' ? 'Moyen' : 'Difficile'}</span>
           </div>
           <div className="brakup-settings__difficulty">
@@ -55,11 +55,11 @@ export function ProfileSettings({ initialEmail, initialPseudo, busy = false, err
             ))}
           </div>
         </section>
-        {status && !status.hasEntries ? <p className="brakup-form-error">Aucune donnee distante trouvee pour ce compte.</p> : null}
+        {status && !status.hasEntries ? <p className="brakup-form-error">Aucune donnée distante trouvée pour ce compte.</p> : null}
         {error ? <p className="brakup-form-error">{error}</p> : null}
         <div className="brakup-email__actions">
           <button type="button" className="brakup-button brakup-button--ghost" onClick={onClose}>Retour</button>
-          <button type="submit" className="brakup-button" disabled={busy}>{busy ? 'Mise a jour…' : 'Mettre a jour'}</button>
+          <button type="submit" className="brakup-button" disabled={busy}>{busy ? 'Mise à jour…' : 'Mettre à jour'}</button>
         </div>
       </form>
     </div>

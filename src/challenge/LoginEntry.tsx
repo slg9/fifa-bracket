@@ -79,19 +79,19 @@ export function LoginEntry({
       <form className="brakup-email" onSubmit={handleSubmit}>
         <span className="brakup-eyebrow">Brakup Challenge</span>
         <h2 id="brakup-login-title">Se connecter</h2>
-        <p>{sent ? 'Entre le code recu pour continuer.' : 'Entre ton email. Si un compte existe, on te reconnecte; sinon on prepare la creation.'}</p>
+        <p>{sent ? 'Entre le code reçu pour continuer.' : 'Entre ton email. Si un compte existe, on te reconnecte; sinon on prépare la création.'}</p>
 
         {!sent || isNewUser ? (
           <label>Email<input required disabled={sent} type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="toi@exemple.com" /></label>
         ) : null}
 
         {isNewUser ? (
-          <label>Pseudo<input required maxLength={40} autoComplete="nickname" value={pseudo} onChange={(event) => updatePseudo(event.target.value)} placeholder="Le selectionneur" /></label>
+          <label>Pseudo<input required maxLength={40} autoComplete="nickname" value={pseudo} onChange={(event) => updatePseudo(event.target.value)} placeholder="Le sélectionneur" /></label>
         ) : null}
 
         {sent ? (
           <>
-            <p className="brakup-form-success">Code envoye. Ouvre le lien ou entre le code recu.</p>
+            <p className="brakup-form-success">Code envoyé. Ouvre le lien ou entre le code reçu.</p>
             <label>
               Code OTP
               <input
@@ -119,7 +119,7 @@ export function LoginEntry({
         {error ? <p className="brakup-form-error">{error}</p> : null}
         <div className="brakup-email__actions">
           <button type="button" className="brakup-button brakup-button--ghost" onClick={onCancel}>Annuler</button>
-          <button type="submit" className="brakup-button" disabled={busy || (sent && (otp.length !== 6 || (isNewUser && !pseudo.trim())))}>{busy ? 'Verification...' : sent ? 'Valider le code' : 'Recevoir mon lien'}</button>
+          <button type="submit" className="brakup-button" disabled={busy || (sent && (otp.length !== 6 || (isNewUser && !pseudo.trim())))}>{busy ? 'Vérification...' : sent ? 'Valider le code' : 'Recevoir mon lien'}</button>
         </div>
       </form>
     </div>

@@ -400,7 +400,7 @@ export async function renderResultShareCanvas(input: ResultShareCanvasInput): Pr
   } else {
     ctx.fillStyle = 'rgba(238,245,255,.8)'
     ctx.font = "900 38px 'Barlow Condensed', Arial, sans-serif"
-    ctx.fillText('Aucun bonus trouve', width / 2, panelY + panelH / 2)
+    ctx.fillText('Aucun bonus trouvé', width / 2, panelY + panelH / 2)
   }
 
   const qrSize = 132

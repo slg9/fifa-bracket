@@ -153,7 +153,7 @@ function displayTeamName(team?: Team, fallback?: string) {
 
 function formatMatchDetailDateTime(matchId: string, fallbackDateLabel: string) {
   const schedule = knockoutKickoffById[matchId]
-  if (!schedule) return `${fallbackDateLabel} · heure a confirmer`
+  if (!schedule) return `${fallbackDateLabel} · heure à confirmer`
   return new Intl.DateTimeFormat('fr-FR', {
     weekday: 'short',
     day: '2-digit',
@@ -179,15 +179,35 @@ function TeamFlag({ team, className }: { team?: Team; className?: string }) {
   return <span className={className}>{teamFlagEmoji(team)}</span>
 }
 
+function aggregateBrakupScorers(scorers: BattleScorer[] = []) {
+  const grouped = new Map<string, BattleScorer & { goalCount: number }>()
+  for (const scorer of scorers) {
+    const key = `${scorer.teamId}:${scorer.name.trim().toLowerCase()}`
+    const current = grouped.get(key)
+    if (current) {
+      current.goalCount += scorer.goals ?? 1
+    } else {
+      grouped.set(key, { ...scorer, goalCount: scorer.goals ?? 1 })
+    }
+  }
+  return [...grouped.values()]
+}
+
+function brakupScorerLabel(scorer: BattleScorer & { goalCount: number }) {
+  return `#${scorer.number ?? 9} ${scorer.name}${scorer.goalCount > 1 ? ` x${scorer.goalCount}` : ''}`
+}
+
 function BrakupScorersToggle({ scorers }: { scorers: BattleScorer[] }) {
   const [open, setOpen] = useState(false)
+  const aggregatedScorers = aggregateBrakupScorers(scorers)
+  const goalCount = aggregatedScorers.reduce((total, scorer) => total + scorer.goalCount, 0)
   return (
     <div className={`wcmap-entry__scorers${open ? ' is-open' : ''}`}>
       <button type="button" className="wcmap-entry__scorers-toggle" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
         <strong>{open ? 'Masquer buteurs' : 'Voir buteurs'}</strong>
-        <span>{scorers.length}</span>
+        <span>{goalCount}</span>
       </button>
-      {open ? <span className="wcmap-entry__scorers-list">{scorers.map((scorer) => `#${scorer.number ?? 9} ${scorer.name}`).join(' · ')}</span> : null}
+      {open ? <span className="wcmap-entry__scorers-list">{aggregatedScorers.map(brakupScorerLabel).join(' · ')}</span> : null}
     </div>
   )
 }
@@ -550,7 +570,7 @@ function LevelEntryScreen({
     : canReplayPlayedMatch
       ? 'Touche une équipe.'
       : hasPreselectedWinner
-        ? 'Ton vainqueur est deja choisi.'
+        ? 'Ton vainqueur est d?j? choisi.'
         : 'Touche une équipe.'
   const showStatusHint = node.status === 'locked'
 
@@ -568,7 +588,7 @@ function LevelEntryScreen({
 
         <div className="wcmap-entry__schedule" aria-label="Informations du match">
           <span>{formatKnockoutDateTime(node.match.id, node.match.dateLabel)}</span>
-          {schedule?.venue ? <strong>{schedule.venue}</strong> : <strong>Stade a confirmer</strong>}
+          {schedule?.venue ? <strong>{schedule.venue}</strong> : <strong>Stade à confirmer</strong>}
         </div>
 
         {showStatusHint ? <p className="wcmap-entry__hint">{getStatusHint(node.status)}</p> : null}
