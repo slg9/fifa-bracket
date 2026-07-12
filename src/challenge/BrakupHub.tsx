@@ -47,6 +47,7 @@ export interface BrakupHubProps {
   officialFinishedMatchIds?: string[]
   topScorers?: Array<{ name: string; teamCode: string; goals: number }>
   locale?: Locale
+  challengeToken?: string | null
 }
 
 type HubView = 'challenge' | 'official' | 'battle' | 'brackets' | 'board' | 'viewBracket' | 'guide' | 'arcade'
@@ -438,6 +439,7 @@ export function BrakupHub({
   officialFinishedMatchIds = [],
   topScorers = [],
   locale = 'fr',
+  challengeToken = null,
 }: BrakupHubProps) {
   const [view, setView] = useState<HubView>(readInitialView)
   const [showSplash, setShowSplash] = useState(readInitialShowSplash)
@@ -447,7 +449,7 @@ export function BrakupHub({
   const [simulatedMatchId, setSimulatedMatchId] = useState<string | null>(null)
   const [mapResetKey, setMapResetKey] = useState(0)
   const [mapDataSettling, setMapDataSettling] = useState(true)
-  const [accessToken, setAccessToken] = useState<string | null>(() => new URLSearchParams(window.location.search).get('token') ?? localStorage.getItem('brakup:token'))
+  const [accessToken, setAccessToken] = useState<string | null>(() => new URLSearchParams(window.location.search).get('token') ?? challengeToken ?? localStorage.getItem('brakup:token'))
   const [otpMode] = useState(() => new URLSearchParams(window.location.search).has('otp'))
   const [picks, setPicks] = useState<Record<string, string>>(() => {
     try {
@@ -469,6 +471,10 @@ export function BrakupHub({
   const [battleBonusesByMatch, setBattleBonusesByMatch] = useState<Record<string, number>>(() => readStorageMap<Record<string, number>>(BATTLE_BONUSES_BY_MATCH_STORAGE_KEY, {}))
   const [savedProfile, setSavedProfile] = useState<SavedProfile>(readSavedProfile)
   const [difficultySetting, setDifficultySetting] = useState<BattleDifficultySetting>(readDifficultySetting)
+
+  useEffect(() => {
+    if (challengeToken) setAccessToken(challengeToken)
+  }, [challengeToken])
   const [, setHadAccount] = useState(() => localStorage.getItem(HAD_ACCOUNT_KEY) === 'true')
   const [autosavedAt, setAutosavedAt] = useState<string | null>(() => localStorage.getItem(AUTOSAVE_STORAGE_KEY))
   const [brackets, setBrackets] = useState<ChallengeEntry[]>([])
@@ -525,7 +531,7 @@ export function BrakupHub({
       }
     }
   }, [otpMode])
-  const challengePreload = useChallengePreload()
+  const challengePreload = useChallengePreload(seed.teams)
   const audioMuted = useGameMuted()
   const audioVolume = useGameAudioVolume()
 
@@ -1606,6 +1612,7 @@ export function BrakupHub({
           difficultySetting={difficultySetting}
           onDifficultyChange={updateDifficultySetting}
           onOpenOfficial={() => navigate('official')}
+          challengeToken={accessToken}
           todayMatches={todayMatches}
         />
       ) : null}

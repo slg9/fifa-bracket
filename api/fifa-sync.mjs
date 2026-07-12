@@ -2,11 +2,14 @@ import { readFile } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildFifaLiveSnapshot } from '../scripts/fifa-sync-core.mjs'
+import { blobGetFresh, blobPut } from '../scripts/blob-cache.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const seedPath = join(__dirname, '..', 'public', 'data', 'world-cup-2026.json')
 const CACHE_MS = parsePositiveInt(process.env.FIFA_SYNC_CACHE_MS, 2 * 60_000)
 const STALE_IF_ERROR_MS = parsePositiveInt(process.env.FIFA_SYNC_STALE_IF_ERROR_MS, 30 * 60_000)
+const BLOB_STALE_IF_ERROR_MS = parsePositiveInt(process.env.FIFA_SYNC_BLOB_STALE_IF_ERROR_MS, 180 * 24 * 60 * 60_000)
+const BLOB_LIVE_KEY = 'fifa/live-snapshot.json'
 
 let memoryCache = null
 let inFlight = null
@@ -45,6 +48,7 @@ export default async function handler(_req, res) {
 
     const snapshot = await inFlight
     memoryCache = { cachedAt: Date.now(), snapshot }
+    blobPut(BLOB_LIVE_KEY, snapshot).catch(() => {})
     sendSnapshot(res, snapshot, 'MISS')
   } catch (error) {
     if (isFresh(memoryCache, STALE_IF_ERROR_MS)) {
@@ -55,6 +59,18 @@ export default async function handler(_req, res) {
           error instanceof Error ? `Sync stale: ${error.message}` : 'Sync stale.',
         ],
       }, 'STALE')
+      return
+    }
+
+    const blobCached = await blobGetFresh(BLOB_LIVE_KEY, BLOB_STALE_IF_ERROR_MS)
+    if (blobCached?.data) {
+      sendSnapshot(res, {
+        ...blobCached.data,
+        warnings: [
+          ...(Array.isArray(blobCached.data.warnings) ? blobCached.data.warnings : []),
+          error instanceof Error ? `Sync blob backup: ${error.message}` : 'Sync blob backup.',
+        ],
+      }, blobCached.stale ? 'BLOB_STALE' : 'BLOB')
       return
     }
 

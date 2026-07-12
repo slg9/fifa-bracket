@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import BattleEngine from '../components/battle/BattleEngine'
+import { getAdventureProgress, saveAdventureProgress } from '../lib/challengeData'
 import { buildKnockoutBracket, computeStandings, getBestThirdPlacedTeams, knockoutTemplates } from '../lib/tournament'
 import { sfx } from '../lib/sfx'
-import type { BattleDifficultySetting, BattleResult, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team } from '../types'
+import type { AdventureProgressEntry, AdventureScore, BattleDifficultySetting, BattleResult, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team } from '../types'
 import WorldCupMapMenu from './WorldCupMapMenu'
 
-type AdventureScore = { home: number; away: number }
 type AdventureBattle = {
   kind: 'group' | 'knockout' | 'daily'
   match: KnockoutMatch
@@ -25,6 +25,7 @@ type AdventureSave = {
   groupScores: Record<string, AdventureScore>
   knockoutScores: Record<string, AdventureScore>
   knockoutWinners: Record<string, string>
+  updatedAt: string
 }
 
 type DailyMatchResult = {
@@ -40,6 +41,7 @@ type AdventureWorldCupProps = {
   difficultySetting: BattleDifficultySetting
   onDifficultyChange: (difficulty: BattleDifficultySetting) => void
   onOpenOfficial: () => void
+  challengeToken?: string | null
   todayMatches?: TodayMatch[]
 }
 
@@ -54,10 +56,25 @@ function readAdventureSave(): AdventureSave {
       groupScores: parsed.groupScores && typeof parsed.groupScores === 'object' ? parsed.groupScores : {},
       knockoutScores: parsed.knockoutScores && typeof parsed.knockoutScores === 'object' ? parsed.knockoutScores : {},
       knockoutWinners: parsed.knockoutWinners && typeof parsed.knockoutWinners === 'object' ? parsed.knockoutWinners : {},
+      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : '1970-01-01T00:00:00.000Z',
     }
   } catch {
-    return { teamId: null, groupScores: {}, knockoutScores: {}, knockoutWinners: {} }
+    return { teamId: null, groupScores: {}, knockoutScores: {}, knockoutWinners: {}, updatedAt: '1970-01-01T00:00:00.000Z' }
   }
+}
+
+function adventureEntryToSave(entry: AdventureProgressEntry): AdventureSave {
+  return {
+    teamId: entry.teamId,
+    groupScores: entry.groupScores ?? {},
+    knockoutScores: entry.knockoutScores ?? {},
+    knockoutWinners: entry.knockoutWinners ?? {},
+    updatedAt: entry.updatedAt,
+  }
+}
+
+function touchAdventureSave(save: Omit<AdventureSave, 'updatedAt'>): AdventureSave {
+  return { ...save, updatedAt: new Date().toISOString() }
 }
 
 function readDailyResults(): Record<string, DailyMatchResult> {
@@ -311,6 +328,7 @@ export default function AdventureWorldCup({
   difficultySetting,
   onDifficultyChange,
   onOpenOfficial,
+  challengeToken = null,
   todayMatches = [],
 }: AdventureWorldCupProps) {
   const [save, setSave] = useState<AdventureSave>(readAdventureSave)
@@ -324,6 +342,10 @@ export default function AdventureWorldCup({
   const [seenNoticeKey, setSeenNoticeKey] = useState<string | null>(null)
   const [teamCarouselIndex, setTeamCarouselIndex] = useState(0)
   const [dailyResults, setDailyResults] = useState<Record<string, DailyMatchResult>>(readDailyResults)
+  const [remoteHydratedTick, setRemoteHydratedTick] = useState(0)
+  const remoteHydratedRef = useRef(!challengeToken)
+  const remoteSaveTimerRef = useRef<number | null>(null)
+  const lastRemotePayloadRef = useRef('')
   const selectedTeam = save.teamId ? teamsById.get(save.teamId) : undefined
   const sortedTeams = useMemo(
     () => [...teams].sort((a, b) => teamName(a).localeCompare(teamName(b), 'fr', { sensitivity: 'base' })),
@@ -459,12 +481,75 @@ export default function AdventureWorldCup({
   const dailyPlayedCount = todayMatches.filter((match) => dailyResults[match.id]).length
 
   useEffect(() => {
+    if (!challengeToken) {
+      remoteHydratedRef.current = true
+      return
+    }
+
+    let cancelled = false
+    remoteHydratedRef.current = false
+    getAdventureProgress(challengeToken)
+      .then((remote) => {
+        if (cancelled || !remote) return
+        const localTime = Date.parse(save.updatedAt || '1970-01-01T00:00:00.000Z') || 0
+        const remoteTime = Date.parse(remote.updatedAt || '1970-01-01T00:00:00.000Z') || 0
+        if (remoteTime > localTime) {
+          setSave(adventureEntryToSave(remote))
+          setDailyResults(remote.dailyResults ?? {})
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) {
+          remoteHydratedRef.current = true
+          setRemoteHydratedTick((current) => current + 1)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [challengeToken])
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(save))
   }, [save])
 
   useEffect(() => {
     localStorage.setItem(DAILY_RESULTS_STORAGE_KEY, JSON.stringify(dailyResults))
   }, [dailyResults])
+
+  useEffect(() => {
+    if (!challengeToken || !remoteHydratedRef.current) return
+
+    const payload = JSON.stringify({
+      teamId: save.teamId,
+      groupScores: save.groupScores,
+      knockoutScores: save.knockoutScores,
+      knockoutWinners: save.knockoutWinners,
+      dailyResults,
+    })
+    if (payload === lastRemotePayloadRef.current) return
+    lastRemotePayloadRef.current = payload
+
+    if (remoteSaveTimerRef.current !== null) window.clearTimeout(remoteSaveTimerRef.current)
+    remoteSaveTimerRef.current = window.setTimeout(() => {
+      void saveAdventureProgress(challengeToken, {
+        teamId: save.teamId,
+        groupScores: save.groupScores,
+        knockoutScores: save.knockoutScores,
+        knockoutWinners: save.knockoutWinners,
+        dailyResults,
+      }).catch(() => undefined)
+    }, 450)
+
+    return () => {
+      if (remoteSaveTimerRef.current !== null) {
+        window.clearTimeout(remoteSaveTimerRef.current)
+        remoteSaveTimerRef.current = null
+      }
+    }
+  }, [challengeToken, dailyResults, remoteHydratedTick, save.groupScores, save.knockoutScores, save.knockoutWinners, save.teamId])
 
   useEffect(() => {
     if (!save.teamId || !groupComplete) return
@@ -498,12 +583,12 @@ export default function AdventureWorldCup({
     sfx.click()
     setSimulationOpen(true)
     window.setTimeout(() => {
-      setSave({
+      setSave(touchAdventureSave({
         teamId,
         groupScores: buildInitialGroupScores(groupMatches, teamId),
         knockoutScores: {},
         knockoutWinners: {},
-      })
+      }))
       setSimulationOpen(false)
       setNotice({
         tone: 'success',
@@ -516,7 +601,7 @@ export default function AdventureWorldCup({
 
   const resetAdventure = () => {
     sfx.error()
-    setSave({ teamId: null, groupScores: {}, knockoutScores: {}, knockoutWinners: {} })
+    setSave(touchAdventureSave({ teamId: null, groupScores: {}, knockoutScores: {}, knockoutWinners: {} }))
     setBattle(null)
     setShowResetConfirm(false)
     setShowAdventureMenu(false)
@@ -586,14 +671,14 @@ export default function AdventureWorldCup({
       const nextStanding = selectedGroupId ? nextStandings[selectedGroupId]?.find((row) => row.teamId === playerTeamId) : undefined
       const movementNotice = rankMovementNotice(previousRank, nextStanding?.rank)
       setSave((current) => {
-        return {
+        return touchAdventureSave({
           ...current,
           groupScores: current.teamId === playerTeamId
             ? nextGroupScores
             : simulateGroupScoresThroughMatchday(groupMatches, current.teamId ?? playerTeamId, { ...current.groupScores, [battle.sourceId]: score }, upToMatchday),
           knockoutScores: {},
           knockoutWinners: {},
-        }
+        })
       })
       if (movementNotice) setNotice(movementNotice)
     } else {
@@ -603,7 +688,7 @@ export default function AdventureWorldCup({
       const winnerId = battle.playerSide === 'home'
         ? resolvedWinnerId
         : resolvedWinnerId === rawAwayId ? rawAwayId : rawHomeId ?? resolvedWinnerId
-      setSave((current) => ({
+      setSave((current) => touchAdventureSave({
         ...current,
         knockoutScores: {
           ...Object.fromEntries(Object.entries(current.knockoutScores).filter(([matchId]) => Number(matchId.slice(1)) < Number(battle.sourceId.slice(1)))),

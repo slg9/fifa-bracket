@@ -1,5 +1,5 @@
 import { get, list, put } from '@vercel/blob'
-import type { ChallengeEntry, SimulatorBracketEntry } from '../src/types'
+import type { AdventureProgressEntry, ChallengeEntry, SimulatorBracketEntry } from '../src/types'
 
 type ApiRequest = {
   method?: string
@@ -609,6 +609,43 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       return
     }
 
+    if (action === 'getAdventureProgress') {
+      const token = bearerToken(req) ?? String(body.token ?? '')
+      const payload = token ? await verifyToken(token) : null
+      if (!payload) {
+        res.status(401).json({ error: 'Lien expire ou invalide.' })
+        return
+      }
+      const entry = await readJson<AdventureProgressEntry | null>(`challenge/${payload.emailHash}/adventure.json`, null)
+      res.status(200).json({ data: entry })
+      return
+    }
+
+    if (action === 'saveAdventureProgress') {
+      const token = bearerToken(req) ?? String(body.token ?? '')
+      const payload = token ? await verifyToken(token) : null
+      if (!payload) {
+        res.status(401).json({ error: 'Lien expire ou invalide.' })
+        return
+      }
+      const input = (body.entry ?? {}) as Partial<AdventureProgressEntry>
+      const current = await readJson<AdventureProgressEntry | null>(`challenge/${payload.emailHash}/adventure.json`, null)
+      const now = new Date().toISOString()
+      const next: AdventureProgressEntry = {
+        emailHash: payload.emailHash,
+        teamId: typeof input.teamId === 'string' ? input.teamId : null,
+        groupScores: input.groupScores && typeof input.groupScores === 'object' ? input.groupScores : current?.groupScores ?? {},
+        knockoutScores: input.knockoutScores && typeof input.knockoutScores === 'object' ? input.knockoutScores : current?.knockoutScores ?? {},
+        knockoutWinners: input.knockoutWinners && typeof input.knockoutWinners === 'object' ? input.knockoutWinners : current?.knockoutWinners ?? {},
+        dailyResults: input.dailyResults && typeof input.dailyResults === 'object' ? input.dailyResults : current?.dailyResults ?? {},
+        createdAt: current?.createdAt ?? now,
+        updatedAt: now,
+      }
+      await writeJson(`challenge/${payload.emailHash}/adventure.json`, next)
+      res.status(200).json({ data: next })
+      return
+    }
+
     if (action === 'resend') {
       const email = String(body.email ?? '')
       if (!email.includes('@')) {
@@ -883,9 +920,19 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           updatedAt: new Date().toISOString(),
         })
       }
+      const adventurePath = `challenge/${payload.emailHash}/adventure.json`
+      const currentAdventure = await readJson<AdventureProgressEntry | null>(adventurePath, null)
+      if (currentAdventure) {
+        await writeJson(`challenge/${nextEmailHash}/adventure.json`, {
+          ...currentAdventure,
+          emailHash: nextEmailHash,
+          updatedAt: new Date().toISOString(),
+        })
+      }
       if (nextEmailHash !== payload.emailHash) {
         await writeJson(currentPath, [])
         await writeJson(simulatorPath, null)
+        await writeJson(adventurePath, null)
       }
       await rebuildLeaderboardFromStoredScores()
       const nextToken = await signToken(nextEmailHash)

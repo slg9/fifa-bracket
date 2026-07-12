@@ -189,6 +189,23 @@ export interface SimulatorBracketEntry {
   updatedAt: string
 }
 
+export type AdventureScore = { home: number; away: number }
+
+export interface AdventureProgressEntry {
+  emailHash: string
+  teamId: string | null
+  groupScores: Record<string, AdventureScore>
+  knockoutScores: Record<string, AdventureScore>
+  knockoutWinners: Record<string, string>
+  dailyResults?: Record<string, {
+    score: AdventureScore
+    playerSide: 'home' | 'away'
+    playedAt: string
+  }>
+  createdAt: string
+  updatedAt: string
+}
+
 export interface PublicBracketShare {
   id: string
   pseudo: string

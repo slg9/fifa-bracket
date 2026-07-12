@@ -2670,6 +2670,7 @@ function App() {
         officialFinishedMatchIds={challengeOfficialFinishedMatchIds}
         topScorers={liveSource.topScorers ?? []}
         locale={locale}
+        challengeToken={challengeToken}
       />
     )
   }

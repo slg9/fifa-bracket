@@ -1,4 +1,4 @@
-import type { ChallengeEntry, PublicBracketShare, SimulatorBracketEntry } from '../types'
+import type { AdventureProgressEntry, ChallengeEntry, PublicBracketShare, SimulatorBracketEntry } from '../types'
 
 async function sha256(message: string): Promise<string> {
   const msgBuffer = new TextEncoder().encode(message)
@@ -38,6 +38,7 @@ async function request<T>(action: string, body: Record<string, unknown> = {}, to
 
 const LOCAL_STORAGE_KEY = 'brakup:localBrackets'
 const LOCAL_SIMULATOR_STORAGE_KEY = 'brakup:localSimulatorBracket'
+const LOCAL_ADVENTURE_STORAGE_KEY = 'brakup:worldcup-adventure:remote-fallback:v1'
 const LOCAL_TOKEN = 'brakup-local-development-token'
 
 function localEntries(): ChallengeEntry[] {
@@ -62,6 +63,18 @@ function localSimulatorEntry(): SimulatorBracketEntry | null {
 
 function saveLocalSimulatorEntry(entry: SimulatorBracketEntry) {
   localStorage.setItem(LOCAL_SIMULATOR_STORAGE_KEY, JSON.stringify(entry))
+}
+
+function localAdventureEntry(): AdventureProgressEntry | null {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_ADVENTURE_STORAGE_KEY) ?? 'null') as AdventureProgressEntry | null
+  } catch {
+    return null
+  }
+}
+
+function saveLocalAdventureEntry(entry: AdventureProgressEntry) {
+  localStorage.setItem(LOCAL_ADVENTURE_STORAGE_KEY, JSON.stringify(entry))
 }
 
 export async function submitBracket(entry: Partial<ChallengeEntry> & { email: string }, token?: string): Promise<{ entry: ChallengeEntry; token: string }> {
@@ -299,6 +312,41 @@ export async function saveSimulatorBracket(
       updatedAt: now,
     }
     saveLocalSimulatorEntry(next)
+    return next
+  }
+}
+
+export async function getAdventureProgress(token: string): Promise<AdventureProgressEntry | null> {
+  if (import.meta.env.DEV && token === LOCAL_TOKEN) return localAdventureEntry()
+  try {
+    return await request<AdventureProgressEntry | null>('getAdventureProgress', {}, token)
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    return localAdventureEntry()
+  }
+}
+
+export async function saveAdventureProgress(
+  token: string,
+  entry: Pick<AdventureProgressEntry, 'teamId' | 'groupScores' | 'knockoutScores' | 'knockoutWinners' | 'dailyResults'>,
+): Promise<AdventureProgressEntry> {
+  try {
+    return await request<AdventureProgressEntry>('saveAdventureProgress', { entry }, token)
+  } catch (error) {
+    if (!import.meta.env.DEV) throw error
+    const current = localAdventureEntry()
+    const now = new Date().toISOString()
+    const next: AdventureProgressEntry = {
+      emailHash: current?.emailHash ?? 'local',
+      teamId: entry.teamId,
+      groupScores: entry.groupScores ?? current?.groupScores ?? {},
+      knockoutScores: entry.knockoutScores ?? current?.knockoutScores ?? {},
+      knockoutWinners: entry.knockoutWinners ?? current?.knockoutWinners ?? {},
+      dailyResults: entry.dailyResults ?? current?.dailyResults ?? {},
+      createdAt: current?.createdAt ?? now,
+      updatedAt: now,
+    }
+    saveLocalAdventureEntry(next)
     return next
   }
 }
