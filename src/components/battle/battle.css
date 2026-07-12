@@ -819,6 +819,12 @@
   color: #FFB800;
 }
 
+/* Defense: killed attackers must disappear instantly; only the burst/STOP fx remains. */
+.def-root .def-enemy.is-destroyed {
+  display: none !important;
+  animation: none !important;
+}
+
 /* ── Stadium crowd borders ───────────────────────────────── */
 .battle-crowd-borders {
   position: absolute; inset: 0; z-index: 6; pointer-events: none;
