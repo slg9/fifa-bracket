@@ -3738,9 +3738,11 @@
   inset: 0;
   z-index: 95;
   display: grid;
-  place-items: center;
-  padding: 18px;
-  overflow: hidden;
+  place-items: start center;
+  padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   background:
     linear-gradient(180deg, rgba(4, 8, 20, .12), rgba(4, 8, 20, .55)),
     url('/brakup-share-bg-brakup.png') center / cover no-repeat,
@@ -3757,14 +3759,14 @@
 
 .brakup-outcome__panel {
   width: min(100%, 430px);
-  max-height: calc(100dvh - 28px);
+  max-height: none;
   position: relative;
   z-index: 1;
   display: grid;
   justify-items: center;
   gap: 10px;
   padding: 22px 20px;
-  overflow: hidden;
+  overflow: visible;
   overscroll-behavior: contain;
   text-align: center;
   color: #fff;
@@ -5100,4 +5102,3 @@
   filter: saturate(0.8);
   transform: scale(0.92);
 }
-

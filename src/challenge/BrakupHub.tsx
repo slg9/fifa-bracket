@@ -148,8 +148,8 @@ function readSeenOutcomeKeys() {
   }
 }
 
-function outcomeStorageKey(matchId: string, winnerId: string | undefined, score?: OfficialScore) {
-  return `${matchId}:${winnerId ?? 'unknown'}:${score ? `${score.home}-${score.away}` : 'score'}`
+function outcomeStorageKey(matchId: string, winnerId: string | undefined) {
+  return `${matchId}:${winnerId ?? 'unknown'}`
 }
 
 type OutcomeNotice = {
@@ -561,7 +561,7 @@ export function BrakupHub({
     return matches
       .map((match) => {
         const progress = evaluateMatchProgress(match, picks, battleScores, realResults, officialScoreMap, scorers, realScorers)
-        const key = outcomeStorageKey(match.id, progress.realWinnerTeamId, progress.realScore)
+        const key = outcomeStorageKey(match.id, progress.realWinnerTeamId)
         return { key, match, progress }
       })
       .filter((item) => {
@@ -944,7 +944,7 @@ export function BrakupHub({
     if (officialReplay && activeMatch) {
       const replayProgress = evaluateMatchProgress(activeMatch, nextPicks, nextBattleScores, realResults, officialScoreMap, nextScorers, realScorers)
       setForcedOutcomeNotice({
-        key: `${outcomeStorageKey(activeMatch.id, replayProgress.realWinnerTeamId, replayProgress.realScore)}:replay:${Date.now()}`,
+        key: `${outcomeStorageKey(activeMatch.id, replayProgress.realWinnerTeamId)}:replay:${Date.now()}`,
         match: activeMatch,
         progress: replayProgress,
       })

@@ -583,7 +583,6 @@ function LevelEntryScreen({
         <div className="wcmap-entry__header">
           <div className="wcmap-entry__badge">{node.roundLabel.toUpperCase()}</div>
           <div className="wcmap-entry__match-num">{formatMatchDetailDateTime(node.match.id, node.match.dateLabel)}</div>
-          <button type="button" className="wcmap-entry__close" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
 
         <div className="wcmap-entry__schedule" aria-label="Informations du match">
