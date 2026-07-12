@@ -4260,6 +4260,16 @@
   box-shadow: 0 0 0 1px rgba(255,255,255,.06), 0 32px 90px rgba(0,0,0,.55);
 }
 
+@media (max-width: 699px) {
+  .splash__frame,
+  .challenge-loading__frame {
+    width: 100vw;
+    height: 100dvh;
+    aspect-ratio: auto;
+    box-shadow: none;
+  }
+}
+
 @media (min-width: 700px) {
   .splash__frame,
   .challenge-loading__frame,

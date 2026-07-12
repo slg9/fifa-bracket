@@ -1,6 +1,5 @@
-const CACHE_NAME = 'brakup-pwa-v1'
+const CACHE_NAME = 'brakup-pwa-v2'
 const APP_SHELL = [
-  '/',
   '/site.webmanifest',
   '/favicon.ico',
   '/favicon-192x192.png',
@@ -30,6 +29,36 @@ self.addEventListener('fetch', (event) => {
 
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/data/')) {
     event.respondWith(fetch(request).catch(() => caches.match(request)))
+    return
+  }
+
+  if (request.mode === 'navigate' || request.destination === 'document') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok && url.origin === self.location.origin) {
+            const copy = response.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
+          }
+          return response
+        })
+        .catch(() => caches.match(request).then((cached) => cached ?? caches.match('/'))),
+    )
+    return
+  }
+
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok && url.origin === self.location.origin) {
+            const copy = response.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
+          }
+          return response
+        })
+        .catch(() => caches.match(request)),
+    )
     return
   }
 
