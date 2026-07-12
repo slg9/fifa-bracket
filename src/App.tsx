@@ -528,7 +528,7 @@ function TeamFocusMenu({
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
-        <span>Equipe</span>
+        <span>Équipe</span>
         <b>{selectedTeam ? `${selectedTeam.flagEmoji} ${selectedTeam.name}` : 'Parcours finalistes'}</b>
         <i aria-hidden="true">v</i>
       </button>
@@ -621,7 +621,7 @@ function KnockoutTeamBadge({
   if (!team) {
     return (
       <div className="bm__team bm__team--placeholder">
-        <span className="bm__name">Equipe inconnue</span>
+        <span className="bm__name">Équipe inconnue</span>
       </div>
     )
   }
@@ -1693,7 +1693,7 @@ function getShareText(url: string) {
             <table className="standings-popup__table">
               <thead>
                 <tr>
-                  <th>Equipe</th><th>J</th><th>G</th><th>N</th><th>P</th><th>+/-</th><th>Pts</th>
+                  <th>Équipe</th><th>J</th><th>G</th><th>N</th><th>P</th><th>+/-</th><th>Pts</th>
                 </tr>
               </thead>
               <tbody>

@@ -344,8 +344,8 @@ async function sendMagicLink(email: string, token: string, otp?: string): Promis
         ctaUrl: linkUrl,
         code: otp,
         footerNote: otp
-          ? 'Le lien reste valable 30 jours. Le code expire dans 15 minutes. Si tu n as pas demande cet email, tu peux simplement l ignorer.'
-          : 'Ce lien reste valable 30 jours. Si tu n as pas demande cet email, tu peux simplement l ignorer.',
+          ? "Le lien reste valable 30 jours. Le code expire dans 15 minutes. Si tu n'as pas demandé cet email, tu peux simplement l'ignorer."
+          : "Ce lien reste valable 30 jours. Si tu n'as pas demandé cet email, tu peux simplement l'ignorer.",
       }),
       text: brakupEmailText({
         title: 'Ton bracket t attend',
@@ -354,8 +354,8 @@ async function sendMagicLink(email: string, token: string, otp?: string): Promis
         ctaUrl: linkUrl,
         code: otp,
         footerNote: otp
-          ? 'Le lien reste valable 30 jours. Le code expire dans 15 minutes. Si tu n as pas demande cet email, tu peux simplement l ignorer.'
-          : 'Ce lien reste valable 30 jours. Si tu n as pas demande cet email, tu peux simplement l ignorer.',
+          ? "Le lien reste valable 30 jours. Le code expire dans 15 minutes. Si tu n'as pas demandé cet email, tu peux simplement l'ignorer."
+          : "Ce lien reste valable 30 jours. Si tu n'as pas demandé cet email, tu peux simplement l'ignorer.",
       }),
     }),
   })
@@ -386,7 +386,7 @@ async function sendOTPEmail(email: string, pseudo: string, otp: string, origin: 
         ctaLabel: 'Entrer mon code',
         ctaUrl: otpUrl,
         code: otp,
-        footerNote: 'Ce code expire dans 15 minutes. Si tu n as pas demande cet email, tu peux simplement l ignorer.',
+        footerNote: "Ce code expire dans 15 minutes. Si tu n'as pas demandé cet email, tu peux simplement l'ignorer.",
       }),
       text: brakupEmailText({
         title: `Retour sur la pelouse, ${pseudo}`,
@@ -394,7 +394,7 @@ async function sendOTPEmail(email: string, pseudo: string, otp: string, origin: 
         body: 'Ton parcours reprend ou tu l avais laisse: pronostics, scores, buteurs et leaderboard. A toi de jouer juste.',
         ctaUrl: otpUrl,
         code: otp,
-        footerNote: 'Ce code expire dans 15 minutes. Si tu n as pas demande cet email, tu peux simplement l ignorer.',
+        footerNote: "Ce code expire dans 15 minutes. Si tu n'as pas demandé cet email, tu peux simplement l'ignorer.",
       }),
     }),
   })
@@ -541,7 +541,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const token = bearerToken(req) ?? String(body.token ?? '')
       const payload = token ? await verifyToken(token) : null
       if (!payload) {
-        res.status(401).json({ error: 'Lien expire ou invalide.' })
+        res.status(401).json({ error: 'Lien expiré ou invalide.' })
         return
       }
       const entry = await readJson<SimulatorBracketEntry | null>(`challenge/${payload.emailHash}/simulator.json`, null)
@@ -583,7 +583,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const token = bearerToken(req) ?? String(body.token ?? '')
       const payload = token ? await verifyToken(token) : null
       if (!payload) {
-        res.status(401).json({ error: 'Lien expire ou invalide.' })
+        res.status(401).json({ error: 'Lien expiré ou invalide.' })
         return
       }
       const input = (body.entry ?? {}) as Partial<SimulatorBracketEntry>
@@ -613,7 +613,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const token = bearerToken(req) ?? String(body.token ?? '')
       const payload = token ? await verifyToken(token) : null
       if (!payload) {
-        res.status(401).json({ error: 'Lien expire ou invalide.' })
+        res.status(401).json({ error: 'Lien expiré ou invalide.' })
         return
       }
       const entry = await readJson<AdventureProgressEntry | null>(`challenge/${payload.emailHash}/adventure.json`, null)
@@ -625,7 +625,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const token = bearerToken(req) ?? String(body.token ?? '')
       const payload = token ? await verifyToken(token) : null
       if (!payload) {
-        res.status(401).json({ error: 'Lien expire ou invalide.' })
+        res.status(401).json({ error: 'Lien expiré ou invalide.' })
         return
       }
       const input = (body.entry ?? {}) as Partial<AdventureProgressEntry>

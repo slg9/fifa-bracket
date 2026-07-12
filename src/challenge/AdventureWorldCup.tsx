@@ -124,7 +124,7 @@ function knockoutWinner(matchId: string, homeTeamId: string, awayTeamId: string,
 }
 
 function teamName(team?: Team) {
-  return team?.shortName || team?.name || 'Equipe'
+  return team?.shortName || team?.name || 'Équipe'
 }
 
 function teamFlagImageUrl(team?: Team) {
@@ -294,7 +294,7 @@ function simulateGroupScoresThroughMatchday(
 }
 
 function rankText(row?: RankedStandingRow) {
-  if (!row) return 'Non classe'
+  if (!row) return 'Non classé'
   return `${row.rank}e · ${row.points} pts · ${row.goalDifference >= 0 ? '+' : ''}${row.goalDifference}`
 }
 
@@ -402,7 +402,7 @@ export default function AdventureWorldCup({
     : nextKnockoutMatch
       ? { stage: nextKnockoutMatch.stage, label: `${teamName(nextKnockoutMatch.home.kind === 'team' ? teamsById.get(nextKnockoutMatch.home.teamId) : undefined)} vs ${teamName(nextKnockoutMatch.away.kind === 'team' ? teamsById.get(nextKnockoutMatch.away.teamId) : undefined)}`, tone: 'knockout' }
       : playerChampion
-        ? { stage: 'Trophee', label: 'Champion du monde', tone: 'trophy' }
+        ? { stage: 'Trophée', label: 'Champion du monde', tone: 'trophy' }
         : playerEliminated
         ? { stage: 'Fin de parcours', label: qualified ? 'Éliminé en phase finale' : `Champion simulé : ${teamName(simulatedChampion)}`, tone: 'danger' }
           : { stage: 'Objectif', label: 'Termine tes matchs de groupe', tone: 'group' }
@@ -833,7 +833,7 @@ export default function AdventureWorldCup({
           mapBadge={{
             tone: 'adventure',
             title: 'Mon aventure',
-            subtitle: `${selectedTeam?.shortName || selectedTeam?.name || 'Equipe'} · Groupe ${selectedTeam?.groupId ?? '-'} · ${groupPlayedCount}/3`,
+            subtitle: `${selectedTeam?.shortName || selectedTeam?.name || 'Équipe'} · Groupe ${selectedTeam?.groupId ?? '-'} · ${groupPlayedCount}/3`,
           }}
           topLeftButton={todayMatches.length > 0 ? {
             label: 'Matchs du jour',
