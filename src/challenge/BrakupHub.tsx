@@ -824,6 +824,9 @@ export function BrakupHub({
   }
   const handlePlay = (matchId: string, teamId?: string) => {
     trackAnalytics('challenge_play_match', { matchId, teamId, alreadyPlayed: battleScores[matchId] !== undefined }, 'challenge')
+    setOutcomeNoticeKey(null)
+    setForcedOutcomeNotice(null)
+    setOutcomeSharePreviewOpen(false)
     const m = matches.find((mx) => mx.id === matchId)
     const selectedTeamId = teamId ?? picks[matchId]
     if (selectedTeamId && m?.home.kind === 'team' && m.away.kind === 'team') {
@@ -1738,7 +1741,7 @@ export function BrakupHub({
           </div>
         </div>
       ) : null}
-      {outcomeNotice ? (
+      {view === 'challenge' && outcomeNotice ? (
         <div className={`brakup-outcome${outcomeNotice.progress.correct ? ' is-correct' : outcomeIsPartial ? ' is-partial' : ' is-wrong'}${isOutcomeCapturingShare ? ' is-share-capturing' : ''}`} role="dialog" aria-modal="true">
           <div className="brakup-outcome__panel">
             <div className="brakup-outcome__matchup" aria-label={`${outcomeHomeLabel} contre ${outcomeAwayLabel}`}>

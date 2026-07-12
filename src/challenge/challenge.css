@@ -3739,6 +3739,7 @@
   z-index: 95;
   display: grid;
   place-items: start center;
+  align-content: start;
   padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
   overflow-y: auto;
   overflow-x: hidden;
@@ -3760,6 +3761,7 @@
 .brakup-outcome__panel {
   width: min(100%, 430px);
   max-height: none;
+  min-height: min-content;
   position: relative;
   z-index: 1;
   display: grid;
@@ -3768,6 +3770,7 @@
   padding: 22px 20px;
   overflow: visible;
   overscroll-behavior: contain;
+  box-sizing: border-box;
   text-align: center;
   color: #fff;
   text-shadow: 0 6px 24px rgba(0, 0, 0, .48);
@@ -4029,15 +4032,16 @@
 }
 
 .brakup-outcome__actions {
-  position: sticky;
-  bottom: 0;
+  position: relative;
+  bottom: auto;
   z-index: 4;
   width: 100%;
   display: grid;
   justify-items: center;
   gap: 8px;
   padding-top: 8px;
-  background: linear-gradient(180deg, rgba(5,11,22,0), rgba(5,11,22,.88) 18%, rgba(5,11,22,.96));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(5,11,22,0), rgba(5,11,22,.72) 26%, rgba(5,11,22,.9));
 }
 
 .brakup-outcome__slider {
