@@ -4323,6 +4323,17 @@
   line-height: 1.2;
 }
 
+.wcmap-entry__teams.is-readonly .wcmap-entry__team,
+.wcmap-entry__teams.is-readonly .wcmap-entry__team:disabled {
+  opacity: 1;
+}
+
+.wcmap-entry__teams.is-readonly .wcmap-entry__team-flag,
+.wcmap-entry__teams.is-readonly .wcmap-entry__team-flag img {
+  opacity: 1;
+  filter: none;
+}
+
 @media (max-width: 520px) {
   .wcmap-entry__team {
     min-height: 158px;
@@ -7628,7 +7639,7 @@
 }
 
 .adventure-today-card__side:disabled:not(.is-selected) {
-  opacity: 0.42;
+  opacity: 1;
 }
 
 .adventure-today-card__side.is-selected {
