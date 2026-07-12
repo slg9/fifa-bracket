@@ -6615,22 +6615,20 @@
 @keyframes adventureSelectFade {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 @keyframes adventureSelectSheen {
   0% {
-    transform: translateX(-135%) rotate(20deg);
+    background-position: -190% 0, 0 0, 0 0;
   }
 
   100% {
-    transform: translateX(230%) rotate(20deg);
+    background-position: 260% 0, 0 0, 0 0;
   }
 }
 
@@ -6845,6 +6843,7 @@
     linear-gradient(100deg, transparent 0 36%, rgba(255, 255, 255, 0.055) 42%, transparent 50%) -190% 0 / 60% 220% no-repeat,
     linear-gradient(165deg, rgba(43, 255, 154, 0.12), rgba(0, 10, 8, 0.4) 40%, rgba(4, 6, 10, 0.9) 100%),
     linear-gradient(160deg, #0f1a13 0%, #0a1119 55%, #0a0f1a 100%);
+  transform: translateZ(0);
   animation: adventureSelectFade 0.28s ease both, adventureSelectSheen 5s ease-in-out infinite 0.4s;
 }
 
