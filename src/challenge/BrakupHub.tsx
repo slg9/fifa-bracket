@@ -142,10 +142,19 @@ function writeClassicKnockoutPicks(picks: Record<string, string>) {
 function readSeenOutcomeKeys() {
   try {
     const parsed = JSON.parse(localStorage.getItem(SEEN_OUTCOMES_STORAGE_KEY) ?? '[]') as unknown
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
+    return Array.isArray(parsed) ? normalizeSeenOutcomeKeys(parsed.filter((item): item is string => typeof item === 'string')) : []
   } catch {
     return []
   }
+}
+
+function normalizeSeenOutcomeKey(key: string) {
+  const [matchId, winnerId] = key.split(':')
+  return matchId && winnerId ? `${matchId}:${winnerId}` : key
+}
+
+function normalizeSeenOutcomeKeys(keys: string[]) {
+  return [...new Set(keys.map(normalizeSeenOutcomeKey).filter(Boolean))]
 }
 
 function outcomeStorageKey(matchId: string, winnerId: string | undefined) {
@@ -716,9 +725,17 @@ export function BrakupHub({
       return
     }
     getSeenOutcomeKeys(accessToken).then((keys) => {
-      setRemoteSeenOutcomeKeys(keys)
-      const merged = [...new Set([...readSeenOutcomeKeys(), ...keys])]
+      const remoteKeys = normalizeSeenOutcomeKeys(keys)
+      setRemoteSeenOutcomeKeys(remoteKeys)
+      const merged = normalizeSeenOutcomeKeys([...readSeenOutcomeKeys(), ...remoteKeys])
       localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify(merged))
+      if (merged.length !== keys.length || merged.some((key, index) => key !== keys[index])) {
+        void markSeenOutcomeKeys(accessToken, merged).then((savedKeys) => {
+          const normalizedSavedKeys = normalizeSeenOutcomeKeys(savedKeys)
+          setRemoteSeenOutcomeKeys(normalizedSavedKeys)
+          localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify(normalizedSavedKeys))
+        }).catch(() => undefined)
+      }
       setSeenOutcomeVersion((version) => version + 1)
     }).catch(() => undefined)
   }, [accessToken])
@@ -1238,13 +1255,14 @@ export function BrakupHub({
     if (outcomeNotice && !forcedOutcomeNotice) {
       const seen = new Set(readSeenOutcomeKeys())
       pendingOutcomeNotices.forEach((item) => seen.add(item.key))
-      const nextSeen = [...new Set([...remoteSeenOutcomeKeys, ...seen])]
+      const nextSeen = normalizeSeenOutcomeKeys([...remoteSeenOutcomeKeys, ...seen])
       localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify(nextSeen))
       setRemoteSeenOutcomeKeys(nextSeen)
       if (accessToken) {
         void markSeenOutcomeKeys(accessToken, nextSeen).then((keys) => {
-          setRemoteSeenOutcomeKeys(keys)
-          localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify(keys))
+          const normalizedKeys = normalizeSeenOutcomeKeys(keys)
+          setRemoteSeenOutcomeKeys(normalizedKeys)
+          localStorage.setItem(SEEN_OUTCOMES_STORAGE_KEY, JSON.stringify(normalizedKeys))
         }).catch(() => undefined)
       }
       setSeenOutcomeVersion((version) => version + 1)

@@ -23,6 +23,15 @@ const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? process.env.BRAKUP_FR
 const BLOB_ACCESS = process.env.BRAKUP_BLOB_ACCESS === 'public' ? 'public' : 'private'
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000
 
+function normalizeSeenOutcomeKey(key: string) {
+  const [matchId, winnerId] = key.split(':')
+  return matchId && winnerId ? `${matchId}:${winnerId}` : key
+}
+
+function normalizeSeenOutcomeKeys(keys: string[]) {
+  return [...new Set(keys.map(normalizeSeenOutcomeKey).filter(Boolean))]
+}
+
 function base64Url(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('base64url')
 }
@@ -499,7 +508,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return
       }
       const keys = await readJson<string[]>(`challenge/${payload.emailHash}/seen-outcomes.json`, [])
-      res.status(200).json({ data: { keys: Array.isArray(keys) ? keys.filter((key) => typeof key === 'string') : [] } })
+      res.status(200).json({ data: { keys: Array.isArray(keys) ? normalizeSeenOutcomeKeys(keys.filter((key) => typeof key === 'string')) : [] } })
       return
     }
 
@@ -513,7 +522,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const incoming = Array.isArray(body.keys) ? body.keys.filter((key): key is string => typeof key === 'string') : []
       const pathname = `challenge/${payload.emailHash}/seen-outcomes.json`
       const current = await readJson<string[]>(pathname, [])
-      const merged = [...new Set([...(Array.isArray(current) ? current : []), ...incoming])].slice(-500)
+      const merged = normalizeSeenOutcomeKeys([...(Array.isArray(current) ? current : []), ...incoming]).slice(-500)
       await writeJson(pathname, merged)
       res.status(200).json({ data: { keys: merged } })
       return
