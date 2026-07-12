@@ -145,7 +145,17 @@ function todayMatchToBattle(match: TodayMatch): KnockoutMatch {
   }
 }
 
-function scoreFromBattleResult(result: BattleResult, playerSide: 'home' | 'away'): AdventureScore {
+function scoreFromBattleResult(result: BattleResult, playerSide: 'home' | 'away', match: KnockoutMatch): AdventureScore {
+  const rawHomeId = match.home.kind === 'team' ? match.home.teamId : null
+  const rawAwayId = match.away.kind === 'team' ? match.away.teamId : null
+  const controlledTeamId = playerSide === 'away' ? rawAwayId : rawHomeId
+  const opponentTeamId = playerSide === 'away' ? rawHomeId : rawAwayId
+  if (rawHomeId === controlledTeamId && rawAwayId === opponentTeamId) {
+    return { home: result.homeScore, away: result.awayScore }
+  }
+  if (rawHomeId === opponentTeamId && rawAwayId === controlledTeamId) {
+    return { home: result.awayScore, away: result.homeScore }
+  }
   return playerSide === 'home'
     ? { home: result.homeScore, away: result.awayScore }
     : { home: result.awayScore, away: result.homeScore }
@@ -320,6 +330,12 @@ export default function AdventureWorldCup({
     [teams],
   )
   const carouselTeam = sortedTeams.length ? sortedTeams[Math.min(teamCarouselIndex, sortedTeams.length - 1)] : undefined
+  const carouselTeamPower = carouselTeam ? teamPower(carouselTeam.id) : 0
+  const carouselTeamStats = carouselTeam ? [
+    { label: 'ATT', val: 60 + hashString(`${carouselTeam.id}:att`) % 35 },
+    { label: 'MIL', val: 60 + hashString(`${carouselTeam.id}:mid`) % 35 },
+    { label: 'DEF', val: 60 + hashString(`${carouselTeam.id}:def`) % 35 },
+  ] : []
   const carouselGroupTeams = useMemo(
     () => carouselTeam ? teams.filter((team) => team.groupId === carouselTeam.groupId) : [],
     [carouselTeam, teams],
@@ -354,6 +370,10 @@ export default function AdventureWorldCup({
     : []
   const playerEliminated = Boolean(save.teamId && groupComplete && (!qualified || !nextKnockoutMatch && !autoKnockoutState.winners.M104))
   const playerChampion = Boolean(save.teamId && autoKnockoutState.winners.M104 === save.teamId)
+  const playerGroupEliminated = Boolean(save.teamId && groupComplete && !qualified)
+  const simulatedChampion = autoKnockoutState.winners.M104 ? teamsById.get(autoKnockoutState.winners.M104) : undefined
+  const simulatedFinal = autoKnockoutState.matches.find((match) => match.id === 'M104')
+  const simulatedFinalScore = autoKnockoutState.scores.M104
   const groupPlayedCount = selectedTeamMatches.filter((match) => save.groupScores[match.id]).length
   const nextMission = nextGroupMatch
     ? { stage: `Groupe ${selectedTeam?.groupId} · match ${groupPlayedCount + 1}/3`, label: `${teamName(teamsById.get(nextGroupMatch.homeTeamId))} vs ${teamName(teamsById.get(nextGroupMatch.awayTeamId))}`, tone: 'group' }
@@ -362,7 +382,7 @@ export default function AdventureWorldCup({
       : playerChampion
         ? { stage: 'Trophee', label: 'Champion du monde', tone: 'trophy' }
         : playerEliminated
-        ? { stage: 'Fin de parcours', label: qualified ? 'Éliminé en phase finale' : 'Éliminé en groupes', tone: 'danger' }
+        ? { stage: 'Fin de parcours', label: qualified ? 'Éliminé en phase finale' : `Champion simulé : ${teamName(simulatedChampion)}`, tone: 'danger' }
           : { stage: 'Objectif', label: 'Termine tes matchs de groupe', tone: 'group' }
   const adventurePoints = useMemo(() => {
     if (!save.teamId) return 0
@@ -388,15 +408,17 @@ export default function AdventureWorldCup({
   }, [autoKnockoutState.matches, playerChampion, qualified, save.groupScores, save.knockoutScores, save.knockoutWinners, save.teamId, selectedTeamMatches])
   const adventureMapMatches = useMemo<KnockoutMatch[]>(() => {
     const groupNodes = selectedTeamMatches.map(groupMatchToBattle)
-    const knockoutNodes = groupComplete && qualified
-      ? playerKnockoutPath
+    const knockoutNodes = groupComplete
+      ? qualified
+        ? playerKnockoutPath
+        : []
       : [
-          { id: 'ADV-R32', stage: '16e de finale', label: '16e', dateLabel: '', home: { kind: 'placeholder' as const, label: 'À déterminer' }, away: { kind: 'placeholder' as const, label: 'À déterminer' }, qualificationStatus: 'projected' as const },
-          { id: 'ADV-R16', stage: '8e de finale', label: '8e', dateLabel: '', home: { kind: 'placeholder' as const, label: 'À déterminer' }, away: { kind: 'placeholder' as const, label: 'À déterminer' }, qualificationStatus: 'projected' as const },
-          { id: 'ADV-QF', stage: 'Quart de finale', label: 'QF', dateLabel: '', home: { kind: 'placeholder' as const, label: 'À déterminer' }, away: { kind: 'placeholder' as const, label: 'À déterminer' }, qualificationStatus: 'projected' as const },
-          { id: 'ADV-SF', stage: 'Demi-finale', label: 'SF', dateLabel: '', home: { kind: 'placeholder' as const, label: 'À déterminer' }, away: { kind: 'placeholder' as const, label: 'À déterminer' }, qualificationStatus: 'projected' as const },
-          { id: 'ADV-F', stage: 'Finale', label: 'Finale', dateLabel: '', home: { kind: 'placeholder' as const, label: 'À déterminer' }, away: { kind: 'placeholder' as const, label: 'À déterminer' }, qualificationStatus: 'projected' as const },
-        ]
+        { id: 'ADV-R32', stage: '16e de finale', label: '16e', dateLabel: '', home: { kind: 'placeholder' as const, label: 'À déterminer' }, away: { kind: 'placeholder' as const, label: 'À déterminer' }, qualificationStatus: 'projected' as const },
+        { id: 'ADV-R16', stage: '8e de finale', label: '8e', dateLabel: '', home: { kind: 'placeholder' as const, label: 'À déterminer' }, away: { kind: 'placeholder' as const, label: 'À déterminer' }, qualificationStatus: 'projected' as const },
+        { id: 'ADV-QF', stage: 'Quart de finale', label: 'QF', dateLabel: '', home: { kind: 'placeholder' as const, label: 'À déterminer' }, away: { kind: 'placeholder' as const, label: 'À déterminer' }, qualificationStatus: 'projected' as const },
+        { id: 'ADV-SF', stage: 'Demi-finale', label: 'SF', dateLabel: '', home: { kind: 'placeholder' as const, label: 'À déterminer' }, away: { kind: 'placeholder' as const, label: 'À déterminer' }, qualificationStatus: 'projected' as const },
+        { id: 'ADV-F', stage: 'Finale', label: 'Finale', dateLabel: '', home: { kind: 'placeholder' as const, label: 'À déterminer' }, away: { kind: 'placeholder' as const, label: 'À déterminer' }, qualificationStatus: 'projected' as const },
+      ]
     return [...groupNodes, ...knockoutNodes]
   }, [groupComplete, playerKnockoutPath, qualified, selectedTeamMatches])
   const adventureRouteIds = useMemo(() => adventureMapMatches.map((match) => match.id), [adventureMapMatches])
@@ -422,13 +444,18 @@ export default function AdventureWorldCup({
     }
     return Object.fromEntries(entries)
   }, [playerKnockoutPath, save.groupScores, save.knockoutScores, save.teamId, selectedTeamMatches])
-  const adventureZoneBanners = useMemo(() => [
-    { label: `GROUPE ${selectedTeam?.groupId ?? ''}`, y: 2380 },
-    { label: 'PHASE FINALE', y: 1740 },
-    { label: 'QUARTS', y: 1170 },
-    { label: 'DEMI-FINALES', y: 700 },
-    { label: 'FINALE', y: 390 },
-  ], [selectedTeam?.groupId])
+  const adventureZoneBanners = useMemo(() => {
+    const banners = [{ label: `GROUPE ${selectedTeam?.groupId ?? ''}`, y: 2380 }]
+    if (!playerGroupEliminated) {
+      banners.push(
+        { label: 'PHASE FINALE', y: 1740 },
+        { label: 'QUARTS', y: 1170 },
+        { label: 'DEMI-FINALES', y: 700 },
+        { label: 'FINALE', y: 390 },
+      )
+    }
+    return banners
+  }, [playerGroupEliminated, selectedTeam?.groupId])
   const dailyPlayedCount = todayMatches.filter((match) => dailyResults[match.id]).length
 
   useEffect(() => {
@@ -446,8 +473,8 @@ export default function AdventureWorldCup({
     setSeenNoticeKey(key)
     setNotice(qualified
       ? { tone: 'success', title: 'Qualification !', text: `${teamName(selectedTeam)} continue l'aventure. Ton adversaire de phase finale est généré.` }
-      : { tone: 'danger', title: 'Éliminé en groupes', text: `${teamName(selectedTeam)} ne passe pas. Tu peux relancer une aventure avec une autre équipe.` })
-  }, [groupComplete, qualified, save.teamId, seenNoticeKey, selectedTeam])
+      : { tone: 'danger', title: 'Éliminé en groupes', text: `${teamName(selectedTeam)} ne passe pas. La phase finale est simulée jusqu'au champion : ${teamName(simulatedChampion)}.` })
+  }, [groupComplete, qualified, save.teamId, seenNoticeKey, selectedTeam, simulatedChampion])
 
   useEffect(() => {
     if (!save.teamId || !playerEliminated || !qualified) return
@@ -534,7 +561,7 @@ export default function AdventureWorldCup({
   const handleBattleComplete = (result: BattleResult) => {
     if (!battle) return
     if (battle.kind === 'daily') {
-      const score = scoreFromBattleResult(result, battle.playerSide)
+      const score = scoreFromBattleResult(result, battle.playerSide, battle.match)
       setDailyResults((current) => ({
         ...current,
         [battle.sourceId]: {
@@ -548,7 +575,7 @@ export default function AdventureWorldCup({
     }
     if (!save.teamId) return
     const playerTeamId = save.teamId
-    const score = scoreFromBattleResult(result, battle.playerSide)
+    const score = scoreFromBattleResult(result, battle.playerSide, battle.match)
     if (battle.kind === 'group') {
       const playedMatch = groupMatches.find((match) => match.id === battle.sourceId)
       const upToMatchday = playedMatch?.matchday ?? groupPlayedCount + 1
@@ -618,9 +645,9 @@ export default function AdventureWorldCup({
         ) : null}
         <section className="adventure-team-select">
           <div className="adventure-team-select__head">
-            <p>Coupe du Monde aventure</p>
+            <p>Mode aventure</p>
             <h1>Choisis ta nation</h1>
-            <span>Les nations sont classees par ordre alphabetique.</span>
+            <span>Les nations sont classées par ordre alphabétique.</span>
           </div>
           {carouselTeam ? (
             <div className="adventure-team-carousel">
@@ -633,24 +660,36 @@ export default function AdventureWorldCup({
                 ‹
               </button>
               <div className="adventure-team-carousel__stage">
-                <div className="adventure-team-carousel__flag">
-                  <Flag team={carouselTeam} />
-                </div>
-                <strong>{teamName(carouselTeam)}</strong>
-                <small>{carouselTeam.fifaCode}</small>
-                <div className="adventure-team-carousel__meta">
-                  <span>Groupe {carouselTeam.groupId}</span>
-                  <div className="adventure-team-carousel__bubbles" aria-label={`Autres equipes du groupe ${carouselTeam.groupId}`}>
+                <div className="adventure-team-carousel__card">
+                  <div className="adventure-team-carousel__ovr">
+                    <strong>{carouselTeamPower}</strong>
+                    <small>OVR</small>
+                  </div>
+                  <div className="adventure-team-carousel__corner-flag">
+                    <Flag team={carouselTeam} />
+                  </div>
+                  <div className="adventure-team-carousel__flag">
+                    <Flag team={carouselTeam} />
+                  </div>
+                  <strong>{teamName(carouselTeam)}</strong>
+                  <small>{carouselTeam.fifaCode ?? carouselTeam.id} · GROUPE {carouselTeam.groupId}</small>
+                  <div className="adventure-team-carousel__bubbles" aria-label={`Autres équipes du groupe ${carouselTeam.groupId}`}>
                     {carouselOtherTeams.map((team) => (
                       <span className="adventure-team-carousel__bubble" key={team.id} title={teamName(team)}>
                         <Flag team={team} />
                       </span>
                     ))}
                   </div>
+                  <div className="adventure-team-carousel__stats" aria-label="Niveau de l'équipe">
+                    {carouselTeamStats.map((stat) => (
+                      <div className="adventure-team-carousel__stat" key={stat.label}>
+                        <small>{stat.label}</small>
+                        <span><i style={{ width: `${stat.val}%` }} /></span>
+                        <b>{stat.val}</b>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <button type="button" className="adventure-team-carousel__cta" onClick={() => startAdventure(carouselTeam.id)}>
-                  Choisir cette nation
-                </button>
               </div>
               <button
                 type="button"
@@ -660,6 +699,17 @@ export default function AdventureWorldCup({
               >
                 ›
               </button>
+              <button type="button" className="adventure-team-carousel__cta" onClick={() => startAdventure(carouselTeam.id)}>
+                Sélectionner
+              </button>
+              <div className="adventure-team-carousel__dots" aria-hidden="true">
+                {sortedTeams.map((team, index) => (
+                  <span
+                    key={team.id}
+                    className={index === teamCarouselIndex ? 'is-active' : undefined}
+                  />
+                ))}
+              </div>
             </div>
           ) : null}
         </section>
@@ -734,6 +784,29 @@ export default function AdventureWorldCup({
           }}
         />
       </section>
+      {playerGroupEliminated && simulatedChampion ? (
+        <section className="adventure-elimination-summary" aria-label="Résultat de la phase finale simulée">
+          <span>Phase finale simulée</span>
+          <div className="adventure-elimination-summary__winner">
+            <Flag team={simulatedChampion} />
+            <div>
+              <small>Champion du monde</small>
+              <strong>{teamName(simulatedChampion)}</strong>
+            </div>
+          </div>
+          {simulatedFinal && simulatedFinalScore ? (
+            <p>
+              Finale : {teamName(simulatedFinal.home.kind === 'team' ? teamsById.get(simulatedFinal.home.teamId) : undefined)}
+              {' '}
+              {simulatedFinalScore.home} - {simulatedFinalScore.away}
+              {' '}
+              {teamName(simulatedFinal.away.kind === 'team' ? teamsById.get(simulatedFinal.away.teamId) : undefined)}
+            </p>
+          ) : (
+            <p>Le tableau a été joué automatiquement jusqu'à la finale.</p>
+          )}
+        </section>
+      ) : null}
       {showAdventureMenu ? (
         <div className="adventure-menu-modal" role="dialog" aria-modal="true" aria-label="Menu aventure">
           <button type="button" className="adventure-menu-modal__scrim" onClick={() => setShowAdventureMenu(false)} aria-label="Fermer" />
@@ -748,7 +821,7 @@ export default function AdventureWorldCup({
             </div>
             <div className="adventure-menu-modal__stats">
               <div><span>Points</span><strong>{adventurePoints}</strong></div>
-              <div><span>Qualification</span><strong>{groupComplete ? qualified ? 'OK' : 'En cours' : 'En cours'}</strong></div>
+              <div><span>Qualification</span><strong>{groupComplete ? qualified ? 'OK' : 'Non qualifié' : 'En cours'}</strong></div>
               <div><span>Objectif</span><strong>{nextMission.stage}</strong></div>
             </div>
             <p>{nextMission.label}</p>

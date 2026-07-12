@@ -69,16 +69,19 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
   const awayName = awayTeamName ?? awayTeamId
   const matchLabel = `${homeName} - ${awayName}`
   const scoreLabel = `${result.homeScore}-${result.awayScore}`
+  const isDraw = result.winnerId == null || result.homeScore === result.awayScore
   const aggregatedScorers = aggregateScorers(result.scorers)
   const scorerNames = aggregatedScorers.map(scorerDisplayName)
   const difficultyMeta = difficulty ? DIFFICULTY_LABELS[difficulty] : null
-  const shareText = playerWon
+  const shareText = isDraw
+    ? `Brakup ${matchLabel}: match nul ${scoreLabel}${difficultyMeta ? ` en difficulté ${difficultyMeta.label}` : ''}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. À toi de faire mieux ?`
+    : playerWon
     ? `Brakup ${matchLabel}: j'ai gagné mon duel ${scoreLabel}${difficultyMeta ? ` en difficulté ${difficultyMeta.label}` : ''}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. Et toi, tu veux tenter ton prono ?`
     : `Brakup ${matchLabel}: j'ai tenté mon duel ${scoreLabel}${difficultyMeta ? ` en difficulté ${difficultyMeta.label}` : ''}${scorerNames.length ? ` avec ${scorerNames.join(', ')} buteur` : ''}. À toi de faire mieux ?`
 
   const shareRows = aggregatedScorers.length
     ? aggregatedScorers.slice(0, 4).map((scorer) => ({ label: `Buteur: ${scorerDisplayName(scorer)}`, tone: 'win' as const }))
-    : [{ label: playerWon ? 'Duel gagné' : 'Duel joué', tone: playerWon ? 'win' as const : 'neutral' as const }]
+    : [{ label: isDraw ? 'Match nul' : playerWon ? 'Duel gagné' : 'Duel joué', tone: playerWon ? 'win' as const : 'neutral' as const }]
 
   useEffect(() => {
     setShareStatus('idle')
@@ -135,20 +138,20 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
           homeLabel: homeName,
           awayLabel: awayName,
         },
-        boomLabel: playerWon ? 'VICTOIRE' : 'MATCH JOUÉ',
-        headline: playerWon ? 'Victoire Brakup' : 'Bien essayé',
+        boomLabel: isDraw ? 'MATCH NUL' : playerWon ? 'VICTOIRE' : 'MATCH JOUÉ',
+        headline: isDraw ? 'Match nul' : playerWon ? 'Victoire Brakup' : 'Bien essayé',
         subline: `${homeName} ${scoreLabel} ${awayName}`,
         messageLines: [
           `Match ${matchLabel}`,
           `Score Brakup: ${homeName} ${scoreLabel} ${awayName}`,
           difficultyMeta ? `Difficulté: ${difficultyMeta.label}` : scorerNames.length ? `Buteur: ${scorerNames.slice(0, 3).join(', ')}` : '',
         ],
-        pointsLabel: playerWon ? 'Duel gagné' : 'Résultat partagé',
+        pointsLabel: isDraw ? 'Match nul' : playerWon ? 'Duel gagné' : 'Résultat partagé',
         rows: shareRows,
         cta: 'Tente ta chance avec ton prono.',
       })
       const published = await publishResultShare({
-        title: playerWon ? `Victoire Brakup - ${matchLabel}` : `Résultat Brakup - ${matchLabel}`,
+        title: isDraw ? `Match nul Brakup - ${matchLabel}` : playerWon ? `Victoire Brakup - ${matchLabel}` : `Résultat Brakup - ${matchLabel}`,
         description: shareText,
         redirectUrl: `${window.location.origin}/challenge`,
         imageDataUrl: await blobToDataUrl(blob),
@@ -263,9 +266,9 @@ export function MatchResult({ result, playerWon, homeTeamId, awayTeamId, homeTea
       <div className="battle-match-result__content">
         {playerWon ? <img className="battle-match-result__logo" src="/brakup-logo.png" alt="Brakup" /> : null}
         <span className="battle-match-result__eyebrow">MATCH TERMINÉ</span>
-        <div className="battle-match-result__trophy">{playerWon ? '🏆' : '◌'}</div>
-        <h1>{playerWon ? 'VICTOIRE !' : 'Bien essayé'}</h1>
-        <p>{result.commentary ?? (playerWon ? `${homeName} remporte le duel !` : `${awayName} s'impose cette fois`)}</p>
+        <div className="battle-match-result__trophy">{playerWon ? '🏆' : isDraw ? '=' : '◌'}</div>
+        <h1>{isDraw ? 'MATCH NUL' : playerWon ? 'VICTOIRE !' : 'Bien essayé'}</h1>
+        <p>{result.commentary ?? (isDraw ? `${homeName} et ${awayName} se neutralisent.` : playerWon ? `${homeName} remporte le duel !` : `${awayName} s'impose cette fois`)}</p>
         <div className="battle-match-result__score">
           {homeFlag ? <span className="battle-match-result__score-flag">{homeFlag}</span> : null}
           <strong>{result.homeScore}</strong><i>-</i><strong>{result.awayScore}</strong>
