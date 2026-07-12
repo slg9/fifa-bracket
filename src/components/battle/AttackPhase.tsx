@@ -123,6 +123,9 @@ const ROULETTE_ACTIVE_START = 0
 const ROULETTE_ACTIVE_END = 900
 const ROULETTE_COOLDOWN = 760
 const POWER_DOUBLE_TAP_MS = 320
+const PICKUP_COLLECT_MIN_Y = GD_PLAYER_Y - 4
+const PICKUP_COLLECT_MAX_Y = GD_PLAYER_Y + 18
+const PICKUP_MISSED_Y = GD_PLAYER_Y + 24
 const FEVER_DURATION = 3600
 const POWER_SHOT_FLOW_THRESHOLD = 92
 const ATTACK_MAX_LIVES = 3
@@ -616,10 +619,12 @@ function addSurvivalPressure(wave: SlalomWave, index: number, passedCount: numbe
   }
 }
 
-function generateSlalomBonusPickups(waves: SlalomWave[], seed: string, difficulty: BattleDifficulty): SlalomBonusPickup[] {
+function generateSlalomBonusPickups(waves: SlalomWave[], seed: string, difficulty: BattleDifficulty, survivalMode = false): SlalomBonusPickup[] {
   const rng = createRng(`${seed}-bonus-pickups`)
   const bonusEvery = difficulty === 'easy' ? 7 : 6
-  const bonusPool: BonusKind[] = ['coin', 'boots', 'whistle', 'slowmo', 'wide', 'blast', 'blast', 'roulette', 'roulette']
+  const bonusPool: BonusKind[] = survivalMode
+    ? ['boots', 'boots', 'slowmo', 'slowmo', 'wide', 'wide', 'blast', 'blast', 'roulette', 'roulette']
+    : ['coin', 'boots', 'whistle', 'slowmo', 'wide', 'wide', 'blast', 'blast', 'roulette', 'roulette']
   const pickups: SlalomBonusPickup[] = []
 
   for (let i = 3; i < waves.length - 2; i += bonusEvery) {
@@ -635,7 +640,7 @@ function generateSlalomBonusPickups(waves: SlalomWave[], seed: string, difficult
       id: `pickup-${i}`,
       worldY: (current.worldY + next.worldY) / 2,
       x,
-      width: difficulty === 'hard' ? 13 : 15,
+      width: difficulty === 'hard' ? 18 : 20,
       bonusKind: bonusPool[Math.floor(rng() * bonusPool.length)],
       collected: false,
       checked: false,
@@ -1216,7 +1221,7 @@ export function AttackPhase({
     if (shotOnly) return
     const generatedWaves = generateSlalomWaves({ difficulty, seed: slalomSeedRef.current, players: awayTeamPlayers })
     const waves = generatedWaves
-    const generatedPickups = generateSlalomBonusPickups(waves, slalomSeedRef.current, difficulty)
+    const generatedPickups = generateSlalomBonusPickups(waves, slalomSeedRef.current, difficulty, survivalDribbleOnly)
     const generatedSprings = generateSlalomSpringPickups(waves, slalomSeedRef.current, difficulty)
     const pickups = survivalDribbleOnly ? normalizeSurvivalBonusPickups(generatedPickups) : generatedPickups
     gdFallPctRef.current = 0
@@ -1309,6 +1314,7 @@ export function AttackPhase({
       generated,
       `${slalomSeedRef.current}-survival-${batch}-${gdCheckedRef.current}`,
       nextDifficulty,
+      true,
     ))
     const generatedSprings = generateSlalomSpringPickups(
       generated,
@@ -1493,41 +1499,45 @@ export function AttackPhase({
 
     if (bonusKind === 'coin') {
       sfx.bonusCoin()
-      if (!survivalDribbleOnly) shotBonusRef.current.widerGreen += 1
+      if (!survivalDribbleOnly) {
+        shotBonusRef.current.widerGreen += 2
+        shotBonusRef.current.powerShot = true
+      }
       setGdComment(bonusText.pickup)
+      auraDuration = 3000
     } else if (bonusKind === 'boots') {
       sfx.bonusCoin()
       shieldChargesRef.current = Math.min(2, shieldChargesRef.current + 1)
-      if (!survivalDribbleOnly) shotBonusRef.current.widerGreen += 0.5
+      if (!survivalDribbleOnly) shotBonusRef.current.widerGreen += 1
       setGdComment(bonusText.pickup)
-      auraDuration = 4200
+      auraDuration = 6500
     } else if (bonusKind === 'whistle') {
       sfx.whistle()
-      if (!survivalDribbleOnly) shotBonusRef.current.slowKeeper += 1
+      if (!survivalDribbleOnly) shotBonusRef.current.slowKeeper += 2
       setGdComment(bonusText.pickup)
-      auraDuration = 2600
+      auraDuration = 6500
     } else if (bonusKind === 'slowmo') {
       sfx.slowmo()
-      slowmoUntilRef.current = performance.now() + 3600
-      if (!survivalDribbleOnly) shotBonusRef.current.slowKeeper += 0.5
+      slowmoUntilRef.current = performance.now() + 7000
+      if (!survivalDribbleOnly) shotBonusRef.current.slowKeeper += 1
       setGdComment(bonusText.pickup)
-      auraDuration = 3600
+      auraDuration = 7000
     } else if (bonusKind === 'wide') {
-      wideGateUntilRef.current = performance.now() + 4200
+      wideGateUntilRef.current = performance.now() + 7600
       if (wideGateTimeoutRef.current) window.clearTimeout(wideGateTimeoutRef.current)
       setWideGateActive(true)
       wideGateTimeoutRef.current = window.setTimeout(() => {
         setWideGateActive(false)
         wideGateTimeoutRef.current = null
-      }, 4200)
+      }, 7600)
       sfx.wideGate()
-      if (!survivalDribbleOnly) shotBonusRef.current.widerGreen += 0.75
+      if (!survivalDribbleOnly) shotBonusRef.current.widerGreen += 1.25
       setGdComment(bonusText.pickup)
-      auraDuration = 4200
+      auraDuration = 7600
     } else if (bonusKind === 'roulette') {
       const now = performance.now()
       rouletteStartedAtRef.current = now
-      rouletteUntilRef.current = now + ROULETTE_DURATION
+      rouletteUntilRef.current = now + ROULETTE_DURATION * 1.35
       rouletteCooldownUntilRef.current = now + ROULETTE_COOLDOWN * 0.45
       sfx.jump()
       setRouletteActive(true)
@@ -1535,15 +1545,15 @@ export function AttackPhase({
       window.setTimeout(() => {
         rouletteStartedAtRef.current = null
         setRouletteActive(false)
-      }, ROULETTE_DURATION)
-      auraDuration = ROULETTE_DURATION
+      }, ROULETTE_DURATION * 1.35)
+      auraDuration = ROULETTE_DURATION * 1.35
     } else {
       blastNextWaveRef.current = true
       setSuperAttackerActive(true)
       sfx.blastPower()
       setGdComment('BALLON EN FEU LANCE')
-      window.setTimeout(() => setSuperAttackerActive(false), 1200)
-      auraDuration = 1200
+      window.setTimeout(() => setSuperAttackerActive(false), 2400)
+      auraDuration = 2400
     }
 
     flowRef.current = Math.min(100, flowRef.current + 8)
@@ -1955,11 +1965,15 @@ export function AttackPhase({
       for (const pickup of pickups) {
         if (pickup.checked) continue
         const pickupScreenY = pickup.worldY + fall
-        if (pickupScreenY < GD_PLAYER_Y - 5) continue
-        pickup.checked = true
-        if (Math.abs(playerX - pickup.x) <= pickup.width / 2) {
+        if (pickupScreenY < PICKUP_COLLECT_MIN_Y) continue
+        const pickupHitRadius = Math.max(pickup.width / 2, 10)
+        if (pickupScreenY <= PICKUP_COLLECT_MAX_Y && Math.abs(playerX - pickup.x) <= pickupHitRadius) {
           collectBonusPickup(pickup)
+          pickupsChanged = true
+          continue
         }
+        if (pickupScreenY < PICKUP_MISSED_Y) continue
+        pickup.checked = true
         pickupsChanged = true
       }
       if (pickupsChanged) {
@@ -1970,11 +1984,15 @@ export function AttackPhase({
       for (const pickup of springs) {
         if (pickup.checked) continue
         const pickupScreenY = pickup.worldY + fall
-        if (pickupScreenY < GD_PLAYER_Y - 5) continue
-        pickup.checked = true
-        if (Math.abs(playerX - pickup.x) <= pickup.width / 2 + 4) {
+        if (pickupScreenY < PICKUP_COLLECT_MIN_Y) continue
+        const springHitRadius = Math.max(pickup.width / 2, 11)
+        if (pickupScreenY <= PICKUP_COLLECT_MAX_Y && Math.abs(playerX - pickup.x) <= springHitRadius) {
           collectSpringPickup(pickup)
+          springsChanged = true
+          continue
         }
+        if (pickupScreenY < PICKUP_MISSED_Y) continue
+        pickup.checked = true
         springsChanged = true
       }
       if (springsChanged) {
@@ -2209,7 +2227,11 @@ export function AttackPhase({
 
       shotTime += delta
 
-      const keeperSpeedMultiplier = shotBonusRef.current.slowKeeper > 0 || flowRef.current >= POWER_SHOT_FLOW_THRESHOLD ? 0.85 : 1
+      const keeperSpeedMultiplier = shotBonusRef.current.slowKeeper > 1
+        ? 0.68
+        : shotBonusRef.current.slowKeeper > 0 || flowRef.current >= POWER_SHOT_FLOW_THRESHOLD
+          ? 0.78
+          : 1
       const keeperSpeed = keeperCfg.speed * keeperSpeedMultiplier
       const kx = Math.max(8, Math.min(92,
         50 +
