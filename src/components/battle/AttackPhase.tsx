@@ -678,9 +678,8 @@ function getWaveInstruction(wave?: SlalomWave) {
   return 'Evite les joueurs'
 }
 
-function getWaveGateCenter(wave: SlalomWave, elapsed: number) {
-  if (!wave.moveAmplitude || !wave.moveFrequency) return wave.gateCenterX
-  return Math.max(8, Math.min(92, wave.gateCenterX + wave.moveAmplitude * Math.sin(elapsed * wave.moveFrequency * Math.PI * 2 + (wave.movePhase ?? 0))))
+function getWaveGateCenter(wave: SlalomWave, _elapsed: number) {
+  return wave.gateCenterX
 }
 
 function getJumpTone(wave: SlalomWave, now: number, jump: { isJumping: boolean; isActive: boolean; elapsed: number }) {
@@ -3840,7 +3839,7 @@ export function AttackPhase({
                 const rewardBalls = wave.rewardBalls ?? buildRewardBalls(wave.id, wave.gateCenterX, visualGateWidth, Math.max(1, wave.rewardBallCount ?? 1), wave.rewardPattern ?? 'vertical')
                 const collectedRewardBalls = rewardBalls.filter((ball) => ball.collected).length
                 const rewardPattern = wave.rewardPattern ?? 'vertical'
-                const moveAmp = wave.moveAmplitude ?? 0
+                const moveAmp = 0
                 const moveDur = wave.moveFrequency ? `${1 / wave.moveFrequency}s` : '1.4s'
                 const moveDelay = wave.movePhase && wave.moveFrequency ? `${-(wave.movePhase / (Math.PI * 2)) / wave.moveFrequency}s` : '0s'
                 const waveMotionStyle = {
@@ -3888,7 +3887,7 @@ export function AttackPhase({
                     {wave.defenders.map((defender) => (
                       <div
                         key={defender.id}
-                        className={`atk-slalom-defender is-${defender.variant}${defender.moveAmplitude ? ' is-mobile' : ''}`}
+                        className={`atk-slalom-defender is-${defender.variant}`}
                         style={{
                           left: `${defender.x}%`,
                           top: defender.yOffset,
@@ -4206,4 +4205,3 @@ export function AttackPhase({
 }
 
 export default AttackPhase
-
