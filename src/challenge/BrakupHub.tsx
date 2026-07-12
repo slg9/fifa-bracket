@@ -10,6 +10,7 @@ import BracketChallenge from './BracketChallenge'
 import ChallengeSplash from './ChallengeSplash'
 import ChallengeLoading from './ChallengeLoading'
 import SurvivalArcade from './SurvivalArcade'
+import AdventureWorldCup from './AdventureWorldCup'
 import WorldCupMapMenu from './WorldCupMapMenu'
 import useChallengePreload from './useChallengePreload'
 import EmailEntry from './EmailEntry'
@@ -48,7 +49,7 @@ export interface BrakupHubProps {
   locale?: Locale
 }
 
-type HubView = 'challenge' | 'battle' | 'brackets' | 'board' | 'viewBracket' | 'guide' | 'arcade'
+type HubView = 'challenge' | 'official' | 'battle' | 'brackets' | 'board' | 'viewBracket' | 'guide' | 'arcade'
 type SavedProfile = StoredChallengeProfile
 
 const AUTOSAVE_STORAGE_KEY = 'brakup:autosave-at'
@@ -264,6 +265,7 @@ function readInitialView(): HubView {
   const params = new URLSearchParams(window.location.search)
   if (params.has('board')) return 'board'
   if (params.has('brackets')) return 'brackets'
+  if (params.has('official')) return 'official'
   if (params.has('match')) return 'battle'
   return 'challenge'
 }
@@ -613,7 +615,7 @@ export function BrakupHub({
   }, [activeBracketId, battleBonuses, battleBonusesByMatch, battleScores, brackets, picks, progressBreakdown, progressStats.points, savedProfile, scorers])
 
   useEffect(() => {
-    if (view !== 'challenge' || showSplash) return
+    if (view !== 'official' || showSplash) return
     const now = performance.now()
     if (!mapDataSettling && now - mapSyncEndedAtRef.current < 1200) return
     setMapDataSettling(true)
@@ -624,7 +626,7 @@ export function BrakupHub({
     return () => window.clearTimeout(timeoutId)
   }, [officialMapSignature, mapDataSettling, showSplash, view])
 
-  // Reconstruire un BattleResult pour un match d?j? jou?
+  // Reconstruire un BattleResult pour un match déjà joué
   function makeExistingBattleResult(match: KnockoutMatch, battleScores: Record<string, { p: number; o: number }>, scorers: Record<string, BattleScorer[]>): import('../types').BattleResult | null {
     if (match.home.kind !== 'team' || match.away.kind !== 'team') return null
     const matchId = match.id
@@ -643,7 +645,7 @@ export function BrakupHub({
       awayScore: normalizedScore.o,
       winnerId,
       playerScore: normalizedScore.p,
-      rounds: [], // Pas de rounds d?taill?s pour un match d?j? jou?
+      rounds: [], // Pas de rounds détaillés pour un match déjà joué
       scorers: scorers[matchId] ?? [],
       penalties: undefined,
       simulated: true,
@@ -754,6 +756,7 @@ export function BrakupHub({
     const nextParams = new URLSearchParams()
     if (next === 'brackets') nextParams.set('brackets', '')
     if (next === 'board') nextParams.set('board', '')
+    if (next === 'official') nextParams.set('official', '')
     if (next === 'battle' && matchId) nextParams.set('match', matchId)
     const query = nextParams.toString().replace(/=$/, '')
     window.history.pushState({}, '', `${localizedChallengeHref(locale)}${query ? `?${query}` : ''}`)
@@ -781,6 +784,26 @@ export function BrakupHub({
 
   const returnToMap = () => {
     navigate('challenge')
+  }
+
+  const returnToSplashChoice = () => {
+    window.history.pushState({}, '', localizedChallengeHref(locale))
+    setShowGameMenu(false)
+    setShowBracket(false)
+    setShowEmailEntry(false)
+    setShowLoginEntry(false)
+    setShowOTPEntry(false)
+    setShowProfileSettings(false)
+    setOutcomeNoticeKey(null)
+    setForcedOutcomeNotice(null)
+    setOutcomeSharePreviewOpen(false)
+    setActiveMatchId(null)
+    setViewedBracketEntry(null)
+    setView('challenge')
+    setSplashDialogueSeen(true)
+    setShowSplash(true)
+    trackAnalytics('challenge_navigation', { view: 'splash_choice' }, 'challenge')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
 
@@ -947,10 +970,11 @@ export function BrakupHub({
   const handleBattleComplete = (result: BattleResult) => {
     const mid = activeMatchId ?? ''
     const officialReplay = Boolean(mid && realResults[mid])
-    const nextPicks = mid ? { ...picks, [mid]: result.winnerId } : picks
     const playerTeamId = activeMatch?.home.kind === 'team' && activeMatch.away.kind === 'team'
       ? activeSide === 'away' ? activeMatch.away.teamId : activeMatch.home.teamId
       : result.winnerId
+    const resultWinnerId = result.winnerId ?? playerTeamId ?? ''
+    const nextPicks = mid && resultWinnerId ? { ...picks, [mid]: resultWinnerId } : picks
     const winnerScore = result.winnerId === playerTeamId ? result.homeScore : result.awayScore
     const loserScore = result.winnerId === playerTeamId ? result.awayScore : result.homeScore
     const nextBattleScores = mid ? { ...battleScores, [mid]: { p: winnerScore, o: loserScore } } : battleScores
@@ -971,7 +995,7 @@ export function BrakupHub({
     }
     trackAnalytics('challenge_battle_complete', {
       matchId: mid,
-      winnerId: result.winnerId,
+      winnerId: resultWinnerId,
       playerScore: result.playerScore,
       homeScore: result.homeScore,
       awayScore: result.awayScore,
@@ -1544,13 +1568,14 @@ export function BrakupHub({
   }
 
   return (
-    <div className={`brakup-shell${view === 'challenge' ? ' brakup-shell--map-only' : ''}${view === 'board' ? ' brakup-shell--board-page' : ''}${view === 'guide' ? ' brakup-shell--guide-page' : ''}${view === 'arcade' ? ' brakup-shell--arcade-page' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
+    <div className={`brakup-shell${view === 'challenge' || view === 'official' ? ' brakup-shell--map-only' : ''}${view === 'board' ? ' brakup-shell--board-page' : ''}${view === 'guide' ? ' brakup-shell--guide-page' : ''}${view === 'arcade' ? ' brakup-shell--arcade-page' : ''}${introActive ? ' brakup-shell--intro' : ''}`}>
       {view === 'challenge' && showSplash && !challengePreload.ready ? <ChallengeLoading progress={challengePreload.progress} /> : null}
       {view === 'challenge' && showSplash && challengePreload.ready ? <ChallengeSplash locale={locale} skipDialogue={splashDialogueSeen} onPlay={() => { markSplashDialogueSeen(); setSplashDialogueSeen(true); setShowSplash(false) }} onMiniGames={() => { markSplashDialogueSeen(); setSplashDialogueSeen(true); setShowSplash(false); setView('arcade') }} /> : null}
-      {view !== 'guide' && view !== 'arcade' ? <header className="brakup-topbar">
+      {!(['guide', 'arcade', 'challenge'] as HubView[]).includes(view) ? <header className="brakup-topbar">
         <button type="button" className="brakup-brand" onClick={() => { sfx.tab(); returnToMap() }}><img src="/favicon-512.png" alt="" className="brakup-brand__ico" /><div><strong>BRAKUP</strong><small>World Cup Challenge</small></div></button>
         <nav>
-          <button type="button" className={view === 'challenge' ? 'is-active' : ''} onClick={() => { sfx.tab(); returnToMap() }}>Challenge</button>
+          <button type="button" className={view === 'challenge' ? 'is-active' : ''} onClick={() => { sfx.tab(); returnToMap() }}>Aventure</button>
+          <button type="button" className={view === 'official' ? 'is-active' : ''} onClick={() => { sfx.tab(); setShowSplash(false); navigate('official') }}>Officiel</button>
           <button type="button" onClick={() => { sfx.tab(); setShowSplash(false); navigate('arcade') }}>Mini jeux</button>
           <button type="button" className={view === 'board' ? 'is-active' : ''} onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
           <button type="button" className="brakup-lang-switch" onClick={() => { sfx.tab(); navigateGuide() }}>FAQ</button>
@@ -1563,7 +1588,7 @@ export function BrakupHub({
           teamsById={teamsById} 
           onComplete={handleBattleComplete} 
           playerSide={activeSide} 
-          onQuit={returnToMap}
+          onQuit={returnToSplashChoice}
           showControls={showBattleControls}
           ownerPseudo={savedProfile.pseudo || undefined}
           difficultySetting={difficultySetting}
@@ -1572,10 +1597,21 @@ export function BrakupHub({
         />
       ) : null}
       {view === 'battle' && (!activeMatch || activeMatch.home.kind !== 'team' || activeMatch.away.kind !== 'team') ? <section className="brakup-empty"><span>⚽</span><h2>Ce match n’est pas encore disponible</h2><button type="button" className="brakup-button" onClick={returnToMap}>Retour au bracket</button></section> : null}
-      {view === 'arcade' ? <SurvivalArcade teamsById={teamsById} playerName={savedProfile.pseudo || undefined} onBack={returnToMap} /> : null}
-      {view === 'challenge' ? <>
+      {view === 'arcade' ? <SurvivalArcade teamsById={teamsById} playerName={savedProfile.pseudo || undefined} onBack={returnToSplashChoice} /> : null}
+      {view === 'challenge' && !showSplash ? (
+        <AdventureWorldCup
+          teams={seed.teams}
+          groupMatches={groupMatches ?? seed.matches}
+          teamsById={teamsById}
+          difficultySetting={difficultySetting}
+          onDifficultyChange={updateDifficultySetting}
+          onOpenOfficial={() => navigate('official')}
+          todayMatches={todayMatches}
+        />
+      ) : null}
+      {view === 'official' ? <>
         <div className={`wcmap-sync-shell${mapDataSettling ? ' is-settling' : ''}`}>
-          <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} scorers={scorers} realScorers={realScorers} realResults={realResults} officialScores={officialScoreMap} autosavedAt={autosavedAt} ownerPseudo={hasSyncedProfile ? menuPseudo : ''} introReady={!showSplash && !mapDataSettling} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} />
+          <WorldCupMapMenu key={mapResetKey} matches={matches} teamsById={teamsById} picks={picks} scores={battleScores} scorers={scorers} realScorers={realScorers} realResults={realResults} officialScores={officialScoreMap} autosavedAt={autosavedAt} ownerPseudo={hasSyncedProfile ? menuPseudo : ''} introReady={!showSplash && !mapDataSettling} mapBadge={{ tone: 'official', title: 'Matchs officiels', subtitle: 'Coupe du Monde 2026' }} onPick={handlePick} onPlay={handlePlay} onSimulate={handleSimulate} />
           {mapDataSettling ? <MapSyncLoading /> : null}
         </div>
         {!showBracket && !mapDataSettling ? <button type="button" className="game-menu-button" onClick={() => { sfx.click(); setShowGameMenu(true) }} aria-label="Ouvrir le menu jeu">
@@ -1587,7 +1623,7 @@ export function BrakupHub({
 
       {view === 'guide' ? <ChallengeGuidePage locale={locale} onBackToGame={returnFromGuideToGame} /> : null}
 
-      {view === 'challenge' && showGameMenu ? (
+      {(view === 'challenge' || view === 'official') && showGameMenu ? (
         <div className="game-menu-modal" role="dialog" aria-modal="true" aria-label="Menu jeu">
           <button type="button" className="game-menu-modal__scrim" onClick={() => setShowGameMenu(false)} aria-label="Fermer le menu" />
           <div className="game-menu-modal__panel">
@@ -1638,7 +1674,7 @@ export function BrakupHub({
               <strong>{difficultySetting === 'auto' ? 'Auto' : difficultySetting === 'easy' ? 'Facile' : difficultySetting === 'medium' ? 'Moyen' : 'Difficile'}</strong>
             </div>
             <button type="button" className="game-menu-modal__item game-menu-modal__item--primary" onClick={() => { sfx.bracket(); setShowGameMenu(false); openBracketOverlay() }}>Tableau</button>
-            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); returnToMap() }}>Carte des matchs</button>
+            <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); returnToMap() }}>Aventure</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); setShowGameMenu(false); setShowSplash(false); navigate('arcade') }}>Mini jeux</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigate('board') }}>Classement</button>
             <button type="button" className="game-menu-modal__item" onClick={() => { sfx.tab(); navigateGuide() }}>Comment jouer / FAQ</button>
@@ -1688,7 +1724,7 @@ export function BrakupHub({
         </div>
       ) : null}
 
-      {view === 'challenge' && simulatedMatch?.home.kind === 'team' && simulatedMatch.away.kind === 'team' ? (
+      {view === 'official' && simulatedMatch?.home.kind === 'team' && simulatedMatch.away.kind === 'team' ? (
         <div className="brakup-coin-overlay">
           <CoinFlip
             homeTeamId={simulatedMatch.home.teamId}
@@ -1704,7 +1740,7 @@ export function BrakupHub({
       ) : null}
 
       {/* Bracket overlay — fullscreen, opens from the ⊞ button */}
-      {view === 'challenge' && showBracket ? (
+      {view === 'official' && showBracket ? (
         <div className="brakup-bracket-overlay">
           <div className="brakup-bracket-overlay__bar brakup-bracket-overlay__bar--return-only">
             <button type="button" className="brakup-bracket-overlay__close" onClick={() => { sfx.click(); closeBracketOverlay() }}>Retour au jeu</button>
@@ -1741,7 +1777,7 @@ export function BrakupHub({
           </div>
         </div>
       ) : null}
-      {view === 'challenge' && outcomeNotice ? (
+      {view === 'official' && outcomeNotice ? (
         <div className={`brakup-outcome${outcomeNotice.progress.correct ? ' is-correct' : outcomeIsPartial ? ' is-partial' : ' is-wrong'}${isOutcomeCapturingShare ? ' is-share-capturing' : ''}`} role="dialog" aria-modal="true">
           <div className="brakup-outcome__panel">
             <div className="brakup-outcome__matchup" aria-label={`${outcomeHomeLabel} contre ${outcomeAwayLabel}`}>

@@ -34,6 +34,9 @@ type BattleEngineProps = {
   existingResult?: BattleResult | null
   difficultySetting?: BattleDifficultySetting
   onDifficultyChange?: (difficulty: BattleDifficultySetting) => void
+  allowDraw?: boolean
+  disableSpecialDraw?: boolean
+  allowRetry?: boolean
 }
 
 type RetrySnapshot = {
@@ -119,7 +122,7 @@ const DRAW_ROUND_COUNT = 3
 const DRAW_POOL: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
 const STANDARD_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'fruit_ninja']
 const SUDDEN_DEATH_ROUNDS: BattleRoundType[] = ['attack', 'defense', 'attack', 'defense']
-const DRAW_EXPLAIN_TEXT = "La machine tire 3 symboles au hasard.\n3 symboles diff?rents : ordre du match al?atoire.\n2 symboles identiques : mort subite (rare), avec une seule relance.\n3 symboles identiques : mode hasard (tr?s rare), avec une seule relance."
+const DRAW_EXPLAIN_TEXT = "La machine tire 3 symboles au hasard.\n3 symboles différents : ordre du match aléatoire.\n2 symboles identiques : mort subite (rare), avec une seule relance.\n3 symboles identiques : mode hasard (très rare), avec une seule relance."
 const MAX_SUDDEN_DEATH_ROUNDS = 4 // 2 full attack+defense cycles before forcing a result
 // Weighted draw: the uniform 3-reel draw made sudden death land ~67% of the time
 const DRAW_SUDDEN_DEATH_CHANCE = 0.15
@@ -333,13 +336,15 @@ function BattleFlag({ team, emoji }: { team?: Team; emoji: string }) {
   return <span>{emoji}</span>
 }
 
-export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false, ownerPseudo, existingResult, difficultySetting = 'medium', onDifficultyChange }: BattleEngineProps) {
+export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide, showControls = false, ownerPseudo, existingResult, difficultySetting = 'medium', onDifficultyChange, allowDraw = false, disableSpecialDraw = false, allowRetry = true }: BattleEngineProps) {
   const rawHomeId = entrantId(match, 'home')
   const rawAwayId = entrantId(match, 'away')
   const homeTeamId = playerSide === 'away' ? rawAwayId : rawHomeId
   const awayTeamId = playerSide === 'away' ? rawHomeId : rawAwayId
   const homeTeam = teamsById.get(homeTeamId)
   const awayTeam = teamsById.get(awayTeamId)
+  const controlledTeam = playerSide === 'away' ? awayTeam : homeTeam
+  const controlledTeamId = playerSide === 'away' ? awayTeamId : homeTeamId
   const homeFlag = homeTeam?.flagEmoji ?? ''
   const awayFlag = awayTeam?.flagEmoji ?? ''
   const homeKit = useMemo(() => resolveTeamKit(homeTeam, homeTeamId), [homeTeam, homeTeamId])
@@ -422,7 +427,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
   const result = useMemo<BattleResult>(() => ({
     homeScore: state.playerScore,
     awayScore: state.opponentScore,
-    winnerId: coinFlipWinnerId ?? (state.playerScore > state.opponentScore ? homeTeamId : awayTeamId),
+    winnerId: coinFlipWinnerId ?? (state.playerScore === state.opponentScore && allowDraw ? null : state.playerScore > state.opponentScore ? homeTeamId : awayTeamId),
     playerScore: state.playerScore,
     difficulty: state.difficulty,
     rounds: history,
@@ -452,10 +457,10 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     sfx.rouletteReveal()
     sfx.battle()
 
-    const finalRounds = drawRoundSequence()
+    const finalRounds = disableSpecialDraw ? shuffled(STANDARD_ROUNDS) : drawRoundSequence()
     const outcome = drawOutcome(finalRounds)
-    const suddenDeathDraw = outcome === 'sudden_death'
-    const coinFlipDraw = outcome === 'coin_flip'
+    const suddenDeathDraw = !disableSpecialDraw && outcome === 'sudden_death'
+    const coinFlipDraw = !disableSpecialDraw && outcome === 'coin_flip'
     const playableRounds = suddenDeathDraw ? SUDDEN_DEATH_ROUNDS : finalRounds
     drawLockedRef.current = [false, false, false]
     setDrawLockedReels([false, false, false])
@@ -597,8 +602,9 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
 
   const completeRound = (success: boolean, isGoal: boolean, outcome: RoundOutcome, scorer?: BattleScorer, counterEligible = success, retryMode: RetrySnapshot['mode'] = 'round') => {
     const isOpponentScoringRound = currentRound === 'defense' || currentRound === 'fruit_ninja'
-    const nextPlayerScore = state.playerScore + Number(currentRound === 'attack' && isGoal)
-    const nextOpponentScore = state.opponentScore + Number(isOpponentScoringRound && isGoal)
+    const goalValue = Math.max(1, Math.round(scorer?.goals ?? 1))
+    const nextPlayerScore = state.playerScore + (currentRound === 'attack' && isGoal ? goalValue : 0)
+    const nextOpponentScore = state.opponentScore + (isOpponentScoringRound && isGoal ? goalValue : 0)
     const nextHistory = [...history, { type: currentRound, success, isGoal, ...(scorer ? { scorer } : {}) }]
     let action: NextAction
     const earnsCounterAttack = !suddenDeath && isOpponentScoringRound && counterEligible
@@ -608,7 +614,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     } else if (!suddenDeath && state.roundIndex < state.suddenDeathStartIndex - 1) {
       action = { type: 'next' }
     } else if (!suddenDeath) {
-      action = nextPlayerScore === nextOpponentScore ? { type: 'next', append: 'attack' } : { type: 'finish' }
+      action = nextPlayerScore === nextOpponentScore && !allowDraw ? { type: 'next', append: 'attack' } : { type: 'finish' }
     } else {
       const suddenDeathCompleted = state.roundIndex - state.suddenDeathStartIndex + 1
       if (currentRound === 'attack') {
@@ -724,7 +730,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
     if (!suddenDeath && state.roundIndex < state.suddenDeathStartIndex - 1) {
       action = { type: 'next' }
     } else if (!suddenDeath) {
-      action = nextPlayerScore === nextOpponentScore ? { type: 'next', append: 'attack' } : { type: 'finish' }
+      action = nextPlayerScore === nextOpponentScore && !allowDraw ? { type: 'next', append: 'attack' } : { type: 'finish' }
     } else if (nextPlayerScore !== nextOpponentScore) {
       action = { type: 'finish' }
     } else {
@@ -971,6 +977,9 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           <strong>VS</strong>
           <span>{awayTeam?.shortName?.toUpperCase() ?? awayTeamId.toUpperCase()} <BattleFlag team={awayTeam} emoji={awayFlag || awayTeamId.slice(0, 2).toUpperCase()} /></span>
         </div>
+        <div className="battle-draw__side-note">
+          Tu joues <strong>{controlledTeam?.shortName?.toUpperCase() ?? controlledTeam?.name?.toUpperCase() ?? controlledTeamId.toUpperCase()}</strong>
+        </div>
 
         {/* Casino cabinet — contained so lever never overflows */}
         <div className="battle-draw__cabinet-wrap">
@@ -1118,7 +1127,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
               : currentRound === 'defense'
                 ? isSuddenGoalSave
                   ? <><b>{roundStartCommentaryPlayer ?? awayTeam?.name ?? awayTeamId}</b> frappe en mort subite. Ton gardien doit sortir le ballon !</>
-                  : <><b>{roundStartCommentaryPlayer ?? awayTeam?.name ?? awayTeamId}</b> attaque en force - protege ta surface !</>
+                  : <><b>{roundStartCommentaryPlayer ?? awayTeam?.name ?? awayTeamId}</b> attaque en force - protège ta surface !</>
                 : <><b>{awayAttackerName ?? awayTeam?.name ?? awayTeamId}</b> et ses partenaires preparent des grosses frappes. Ton gardien doit tenir face aux tirs massifs !</>}
           </p>
         </div>
@@ -1203,7 +1212,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
             mode="goal_save"
             onAudioOverride={setAudioOverride}
             roundIntroComment={`Mince, tu t'es fait prendre la balle par ${roundScorer?.name ?? awayAttackerName ?? awayTeam?.name ?? awayTeamId}. Il arme sa frappe. Donne tout pour bloquer.`}
-            onRetry={retrySnapshot ? handleRetryRound : undefined}
+            onRetry={allowRetry && retrySnapshot ? handleRetryRound : undefined}
             retryLabel="Réessayer l'attaque"
             startLabel="Bloquer le tir"
             onResult={handleInterceptionGoalSaveEnd}
@@ -1238,7 +1247,7 @@ export function BattleEngine({ match, teamsById, onComplete, onQuit, playerSide,
           opponentName={awayTeam?.name}
           nextRoundType={nextRoundType}
           onContinue={roundOutcome === 'intercepted' ? handleStartInterceptionGoalSave : () => { sfx.click(); advanceRound() }}
-          onRetry={retrySnapshot ? handleRetryRound : undefined}
+          onRetry={allowRetry && retrySnapshot ? handleRetryRound : undefined}
         />
       ) : null}
       {state.phase === 'coin_flip' ? (

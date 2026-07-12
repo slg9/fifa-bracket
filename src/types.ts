@@ -154,6 +154,7 @@ export type BattleScorer = {
   teamCode?: string
   number?: number
   goals?: number
+  bonusLabel?: string
   controlled?: boolean
 }
 
@@ -257,7 +258,7 @@ export type BattleRound = {
 export type BattleResult = {
   homeScore: number
   awayScore: number
-  winnerId: string
+  winnerId: string | null
   playerScore: number
   difficulty?: BattleDifficulty
   rounds: Array<{ type: BattleRoundType; success: boolean; isGoal: boolean; scorer?: BattleScorer }>

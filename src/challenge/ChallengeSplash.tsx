@@ -22,23 +22,23 @@ type DialogueStep = {
 const DIALOGUE_STEPS: DialogueStep[] = [
   {
     image: '/challenge-splash-oups.png',
-    eyebrow: { fr: 'Oups...', en: 'Oops...' },
-    fr: "Mais t'étais où ? Tu as raté les premiers matchs de la phase finale de la Coupe du Monde. Oups... Pas grave, champion, on va rattraper ça ensemble !",
-    en: "Where were you? You missed the first knockout matches of the World Cup. No worries, champ, we can still catch up together!",
+    eyebrow: { fr: 'Ton aventure', en: 'Your run' },
+    fr: "Choisis ton pays et vis sa Coupe du Monde depuis les groupes. Trois matchs pour survivre, puis chaque tour peut devenir le dernier.",
+    en: "Choose your country and play its World Cup from the group stage. Three matches to survive, then every knockout round can be the last.",
     action: { fr: 'Continuer', en: 'Continue' },
   },
   {
     image: '/challenge-splash-explain.png',
-    eyebrow: { fr: 'Comment ça marche', en: 'How it works' },
-    fr: "Ici, tu ne fais pas juste un pronostic : tu joues le match en mini-jeu. À la fin, tu obtiens un score, des buteurs et un vainqueur. Si la réalité te donne raison, tu gagnes des points, tu grimpes au classement et tu peux viser le top 3. Tu peux aussi rejouer les matchs déjà joués et tenter de reproduire leur scénario.",
-    en: "Here, you do not just predict: you play the match as a mini-game. At the end, you get a score, scorers and a winner. If reality matches your call, you earn points, climb the leaderboard and can chase the top 3. You can also replay finished matches and try to recreate the real scenario.",
+    eyebrow: { fr: 'La pression monte', en: 'Pressure rises' },
+    fr: "Les autres matchs sont simulés, les classements bougent, les meilleurs troisièmes sont calculés et ton prochain adversaire apparaît quand tu te qualifies.",
+    en: "Other matches are simulated, standings move, best third-placed teams are calculated and your next opponent appears when you qualify.",
     action: { fr: 'Continuer', en: 'Continue' },
   },
   {
     image: '/challenge-splash-letsgo.png',
     eyebrow: { fr: 'À toi de jouer', en: 'Your move' },
-    fr: "Prêt à disputer ton premier match ? Tu peux jouer le prochain match ou rejouer ceux déjà passés. À toi, champion !",
-    en: "Ready for your first match? You can play the next match or replay the ones already finished. Your move, champion!",
+    fr: "Marque des points aventure, consulte les classements et garde le mode officiel à portée pour rejouer les vrais matchs du jour.",
+    en: "Score adventure points, check the standings and keep official mode close to replay today's real fixtures.",
     action: { fr: 'Jouer', en: 'Play' },
     final: true,
   },
@@ -124,8 +124,8 @@ export function ChallengeSplash({ onPlay, onMiniGames, skipDialogue = false, loc
                   </svg>
                 </span>
                 <span className="splash__mode-copy">
-                  <b>{locale === 'en' ? 'World Cup' : 'Coupe du Monde'}</b>
-                  <small>{locale === 'en' ? 'Main challenge' : 'Mode principal'}</small>
+                  <b>{locale === 'en' ? 'Adventure' : 'Aventure'}</b>
+                  <small>{locale === 'en' ? 'Group stage to final' : "Groupes jusqu'à la finale"}</small>
                 </span>
               </button>
               {onMiniGames ? (
@@ -139,7 +139,7 @@ export function ChallengeSplash({ onPlay, onMiniGames, skipDialogue = false, loc
               ) : null}
             </div>
             <p className="splash__sub">World Cup Challenge 2026</p>
-            <p className="splash__hint">{locale === 'en' ? 'Build your bracket · Play the matches' : 'Construis ton bracket · Joue les matchs'}</p>
+            <p className="splash__hint">{locale === 'en' ? 'Choose a country · Survive the World Cup' : 'Choisis un pays · Survis à la Coupe du Monde'}</p>
           </div>
         ) : (
           <div className={`splash-dialogue splash-dialogue--${stepIndex + 1}`}>

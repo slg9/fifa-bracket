@@ -1,0 +1,25 @@
+import { expect, test } from '@playwright/test'
+
+test('adventure mobile first-run and standings', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('http://127.0.0.1:5174/challenge?skipSplash')
+  await page.evaluate(() => {
+    localStorage.removeItem('brakup:worldcup-adventure:v1')
+    localStorage.setItem('brakup:splash-seen', 'true')
+  })
+  await page.reload()
+  await expect(page.locator('.adventure-team-carousel__stage')).toBeVisible()
+  await page.screenshot({ path: '/tmp/adventure-select-mobile.png', fullPage: true })
+  await page.getByRole('button', { name: 'Choisir cette nation' }).click()
+  await expect(page.locator('.adventure-sim-overlay')).toBeVisible()
+  await page.waitForTimeout(1200)
+  await expect(page.locator('.adventure-map-host .wcmap__viewport')).toBeVisible()
+  await expect(page.locator('.adventure-notice')).toBeVisible()
+  await page.getByRole('button', { name: 'Continuer' }).click()
+  await expect(page.locator('.adventure-notice')).toBeHidden()
+  await page.screenshot({ path: '/tmp/adventure-map-mobile.png', fullPage: true })
+  await page.getByRole('button', { name: 'Ouvrir le menu aventure' }).click()
+  await page.getByRole('button', { name: 'Groupes' }).click()
+  await expect(page.locator('.adventure-standings-modal')).toBeVisible()
+  await page.screenshot({ path: '/tmp/adventure-standings-mobile.png', fullPage: true })
+})

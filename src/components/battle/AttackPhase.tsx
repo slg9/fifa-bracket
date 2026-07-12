@@ -21,6 +21,7 @@ export type ShotPrecisionBonus = {
   label: string
   multiplier: number
   points: number
+  goals: number
   tone: 'top-corner' | 'post-corner' | 'bar' | 'center' | 'clean'
 }
 
@@ -40,6 +41,7 @@ type AttackPhaseProps = {
   shotAudioMode?: 'normal' | 'heartOnly'
   shotTitle?: string
   shotGoalCount?: number
+  shotResultGoalCount?: number
   shotMultiplierTotal?: number
   onShotPrecisionBonus?: (bonus: ShotPrecisionBonus) => void
   roundIntroComment?: string
@@ -95,11 +97,11 @@ function shotPrecisionBonusForTarget(target: { x: number; y: number }): ShotPrec
   const underBar = target.y <= 9 && target.x >= 28 && target.x <= 72
   const deadCenter = distanceToCenter <= 7
 
-  if (inTopCorner) return { label: 'LUCARNE', multiplier: 2.5, points: 420, tone: 'top-corner' }
-  if (nearPostCorner) return { label: 'COIN DU POTEAU', multiplier: 2, points: 320, tone: 'post-corner' }
-  if (underBar) return { label: 'SOUS LA BARRE', multiplier: 1.8, points: 260, tone: 'bar' }
-  if (deadCenter) return { label: 'PLEIN CENTRE', multiplier: 1.6, points: 220, tone: 'center' }
-  return { label: 'TIR MILLIMÉTRÉ', multiplier: 1.2, points: 140, tone: 'clean' }
+  if (inTopCorner) return { label: 'LUCARNE', multiplier: 2.5, points: 420, goals: 2, tone: 'top-corner' }
+  if (nearPostCorner) return { label: 'COIN DU POTEAU', multiplier: 2, points: 320, goals: 2, tone: 'post-corner' }
+  if (underBar) return { label: 'SOUS LA BARRE', multiplier: 1.8, points: 260, goals: 2, tone: 'bar' }
+  if (deadCenter) return { label: 'PLEIN CENTRE', multiplier: 1.6, points: 220, goals: 1, tone: 'center' }
+  return { label: 'TIR MILLIMÉTRÉ', multiplier: 1.2, points: 140, goals: 1, tone: 'clean' }
 }
 
 function formatShotMultiplier(value: number) {
@@ -123,9 +125,10 @@ const ROULETTE_ACTIVE_START = 0
 const ROULETTE_ACTIVE_END = 900
 const ROULETTE_COOLDOWN = 760
 const POWER_DOUBLE_TAP_MS = 320
-const PICKUP_COLLECT_MIN_Y = GD_PLAYER_Y - 4
-const PICKUP_COLLECT_MAX_Y = GD_PLAYER_Y + 18
-const PICKUP_MISSED_Y = GD_PLAYER_Y + 24
+const PICKUP_COLLECT_MIN_Y = GD_PLAYER_Y + 2
+const PICKUP_COLLECT_MAX_Y = GD_PLAYER_Y + 14
+const PICKUP_MISSED_Y = GD_PLAYER_Y + 20
+const SPRING_ROW_SPEED_MULTIPLIER = 2.35
 const FEVER_DURATION = 3600
 const POWER_SHOT_FLOW_THRESHOLD = 92
 const ATTACK_MAX_LIVES = 3
@@ -677,10 +680,10 @@ function generateSlalomSpringPickups(waves: SlalomWave[], seed: string, difficul
 function getWaveInstruction(wave?: SlalomWave) {
   if (wave?.type === 'slide_wall') return 'SAUTE !'
   if (wave?.type === 'double_slide_wall') return 'SAUTE !'
-  if (wave?.type === 'moving_gate') return 'Ballons mobiles !'
-  if (wave?.type === 'diagonal_press') return 'Evite le pressing'
-  if (wave?.type === 'narrow_gate') return 'Ballons bonus !'
-  return 'Evite les joueurs'
+  if (wave?.type === 'moving_gate') return 'Porte mobile !'
+  if (wave?.type === 'diagonal_press') return 'Évite le pressing'
+  if (wave?.type === 'narrow_gate') return 'Porte serrée !'
+  return 'Évite les joueurs'
 }
 
 function getWaveGateCenter(wave: SlalomWave, _elapsed: number) {
@@ -688,7 +691,7 @@ function getWaveGateCenter(wave: SlalomWave, _elapsed: number) {
 }
 
 function getJumpTone(wave: SlalomWave, now: number, jump: { isJumping: boolean; isActive: boolean; elapsed: number }) {
-  if (wave.type !== 'slide_wall' && wave.type !== 'double_slide_wall') return 'INTERCEPTE !'
+  if (wave.type !== 'slide_wall' && wave.type !== 'double_slide_wall') return 'INTERCEPTÉ !'
   if (!jump.isJumping) return 'TACLE !'
   if (jump.elapsed < JUMP_ACTIVE_START) return 'TROP TARD !'
   if (now && jump.elapsed > JUMP_ACTIVE_END) return 'TROP TOT !'
@@ -716,16 +719,16 @@ function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive
     return Math.abs(playerX - obstacle.x) <= hitbox
   })
   const blocked = defenderHit || obstacleHit
-  const blockLabel = defenderHit ? 'INTERCEPTE !' : 'OBSTACLE !'
-  const technicalLabel = inGate ? perfectGate ? 'BALLONS PARFAITS !' : 'BALLONS !' : 'EVITE !'
+  const blockLabel = defenderHit ? 'INTERCEPTÉ !' : 'OBSTACLE !'
+  const technicalLabel = inGate ? perfectGate ? 'PASSAGE PARFAIT !' : 'PASSAGE !' : 'ÉVITÉ !'
 
   if (rouletteActive) return { success: true, label: 'ROULETTE !', quality: 'perfect', ideal: true }
   if (wave.type === 'gate') return { success: !blocked, label: blocked ? blockLabel : technicalLabel, quality, ideal: inGate }
-  if (wave.type === 'narrow_gate') return { success: !blocked, label: blocked ? blockLabel : inGate ? perfectGate ? 'BALLONS PARFAITS !' : 'BALLONS !' : 'CONTOURNE !', quality, ideal: inGate }
-  if (wave.type === 'slide_wall') return { success: !blocked, label: blocked ? jump.isActive ? 'SAUTE !' : obstacleHit ? 'HAIE !' : 'TACLE !' : jump.isActive ? 'SAUT BONUS !' : 'EVITE !', quality: jump.isActive ? 'perfect' : 'clean', ideal: jump.isActive }
-  if (wave.type === 'double_slide_wall') return { success: !blocked, label: blocked ? jump.isActive ? 'SAUTE !' : obstacleHit ? 'HAIE !' : 'TACLE !' : jump.isActive ? 'SAUT BONUS !' : 'EVITE !', quality: jump.isActive ? 'perfect' : 'clean', ideal: jump.isActive }
-  if (wave.type === 'diagonal_press') return { success: !blocked, label: blocked ? defenderHit ? 'PRESSE !' : 'OBSTACLE !' : inGate ? perfectGate ? 'BALLONS PARFAITS !' : 'BALLONS !' : 'CONTOURNE !', quality, ideal: inGate }
-  if (wave.type === 'moving_gate') return { success: !blocked, label: blocked ? blockLabel : inGate ? perfectGate ? 'BALLONS PARFAITS !' : 'BALLONS !' : 'EVITE !', quality, ideal: inGate }
+  if (wave.type === 'narrow_gate') return { success: !blocked, label: blocked ? blockLabel : inGate ? perfectGate ? 'PASSAGE PARFAIT !' : 'PASSAGE !' : 'CONTOURNE !', quality, ideal: inGate }
+  if (wave.type === 'slide_wall') return { success: !blocked, label: blocked ? jump.isActive ? 'SAUTE !' : obstacleHit ? 'HAIE !' : 'TACLE !' : jump.isActive ? 'SAUT BONUS !' : 'ÉVITÉ !', quality: jump.isActive ? 'perfect' : 'clean', ideal: jump.isActive }
+  if (wave.type === 'double_slide_wall') return { success: !blocked, label: blocked ? jump.isActive ? 'SAUTE !' : obstacleHit ? 'HAIE !' : 'TACLE !' : jump.isActive ? 'SAUT BONUS !' : 'ÉVITÉ !', quality: jump.isActive ? 'perfect' : 'clean', ideal: jump.isActive }
+  if (wave.type === 'diagonal_press') return { success: !blocked, label: blocked ? defenderHit ? 'PRESSE !' : 'OBSTACLE !' : inGate ? perfectGate ? 'PASSAGE PARFAIT !' : 'PASSAGE !' : 'CONTOURNE !', quality, ideal: inGate }
+  if (wave.type === 'moving_gate') return { success: !blocked, label: blocked ? blockLabel : inGate ? perfectGate ? 'PASSAGE PARFAIT !' : 'PASSAGE !' : 'ÉVITÉ !', quality, ideal: inGate }
   return { success: !blocked, label: blocked ? blockLabel : technicalLabel, quality, ideal: inGate }
 }
 
@@ -877,7 +880,7 @@ function scoreSurvivalDribble(stats: { waves: number; combo: number; bonusesUsed
 }
 
 function bonusPowerText(kind: BonusKind) {
-  if (kind === 'boots') return { short: 'BOUCLIER', pickup: 'BOUCLIER - 1 ERREUR PROTEGEE', hint: 'protege 1 erreur' }
+  if (kind === 'boots') return { short: 'BOUCLIER', pickup: 'BOUCLIER - 1 ERREUR PROTÉGÉE', hint: 'protège 1 erreur' }
   if (kind === 'whistle') return { short: 'GARDIEN LENT', pickup: 'GARDIEN RALENTI', hint: 'gardien lent' }
   if (kind === 'slowmo') return { short: 'SLOWMO', pickup: 'SLOWMO - JEU RALENTI', hint: 'ralenti' }
   if (kind === 'wide') return { short: 'BALLONS AIMANTES', pickup: 'BALLONS AIMANTES', hint: 'ballons +' }
@@ -902,6 +905,7 @@ export function AttackPhase({
   shotAudioMode = 'normal',
   shotTitle,
   shotGoalCount,
+  shotResultGoalCount,
   shotMultiplierTotal,
   onShotPrecisionBonus,
   roundIntroComment,
@@ -950,7 +954,7 @@ export function AttackPhase({
   const opponentTextColor = opponentKit?.text ?? '#ffffff'
   const isSuddenDeathShot = shotTitle === 'TIR DE MORT SUBITE'
 
-  // Utiliser tous les joueurs de l'?quipe (plus de limite ? 6)
+  // Utiliser tous les joueurs de l'équipe (plus de limite à 6)
   // Pour commencer par les attaquants, il faudrait avoir les rôles dans les données
   const forwardPlayers = useMemo(() => [...homeTeamPlayers], [homeTeamPlayers])
   const shooterOptions = useMemo(() => buildShooterOptions(forwardPlayers, homeTeamId, homeTeamPlayerNumbers), [homeTeamId, forwardPlayers, homeTeamPlayerNumbers])
@@ -996,6 +1000,7 @@ export function AttackPhase({
   const gdBonusPickupsRef = useRef<SlalomBonusPickup[]>([])
   const gdSpringPickupsRef = useRef<SlalomSpringPickup[]>([])
   const springSkipWaveIdRef = useRef<string | null>(null)
+  const springBoostUntilRef = useRef(0)
   const springJumpTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const storedBonusPowersRef = useRef<StoredBonusPower[]>([])
   const isJumpingRef    = useRef(false)
@@ -1254,6 +1259,7 @@ export function AttackPhase({
     fireballChargesRef.current = 0
     storedBonusPowersRef.current = []
     springSkipWaveIdRef.current = null
+    springBoostUntilRef.current = 0
     if (springJumpTimeoutRef.current) {
       window.clearTimeout(springJumpTimeoutRef.current)
       springJumpTimeoutRef.current = null
@@ -1476,7 +1482,7 @@ export function AttackPhase({
     if (!survivalDribbleOnly && ((nextFlow >= 100 && wasBelowMax) || comboRef.current >= cfg.waveCount) && !shotBonusRef.current.powerShot) {
       shotBonusRef.current.powerShot = true
       sfx.powerShot()
-      setGdComment('TIR BOOSTE CHARGE')
+      setGdComment('TIR BOOSTÉ CHARGÉ')
       activateBonusFieldFx('coin', 1300)
     }
   }, [activateBonusFieldFx, cfg.waveCount, collectGoldenBallsForWave, survivalDribbleOnly])
@@ -1592,7 +1598,7 @@ export function AttackPhase({
 
     sfx.bonusCoin()
     setBonusFlash(true)
-    setGdComment('CAISSE EXPLOSEE !')
+    setGdComment('CAISSE EXPLOSÉE !')
     setPowerupLabel(`NOUVEAU BONUS : ${bonusPowerText(pickup.bonusKind).pickup}`)
     if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
     commentTimerRef.current = setTimeout(() => setGdComment(null), 760)
@@ -1606,6 +1612,7 @@ export function AttackPhase({
     pickup.checked = true
     const nextWave = gdWallsRef.current.find((wave) => !wave.checked && wave.worldY < pickup.worldY)
     springSkipWaveIdRef.current = nextWave?.id ?? null
+    springBoostUntilRef.current = performance.now() + 1250
     jumpStartedAtRef.current = performance.now()
     isJumpingRef.current = true
     setGdJumping(true)
@@ -1656,7 +1663,7 @@ export function AttackPhase({
       setGhostActive(true)
       window.setTimeout(() => setGhostActive(false), ATTACK_GHOST_DURATION)
       setGdFlash(true)
-      setGdComment('BOUCLIER CASSE - ERREUR PROTEGEE')
+      setGdComment('BOUCLIER CASSÉ - ERREUR PROTÉGÉE')
       window.setTimeout(() => setGdFlash(false), 300)
       return attackLivesRef.current
     }
@@ -1945,9 +1952,10 @@ export function AttackPhase({
         : gdCheckedRef.current / Math.max(1, cfg.waveCount)
       const survivalEnduranceSpeed = survivalDribbleOnly ? 1 + Math.min(2.25, gdCheckedRef.current * 0.014 + gdElapsedRef.current * 0.006) : 1
       const speed = cfg.gdSpeed * (1 + progress * cfg.difficultyRamp) * survivalEnduranceSpeed * (isSlowmoActive ? 0.68 : 1) * (superAttackerNow ? 1.5 : 1)
+      const springSpeedMultiplier = springSkipWaveIdRef.current && now < springBoostUntilRef.current ? SPRING_ROW_SPEED_MULTIPLIER : 1
 
       // Walls fall: update ONE container transform  GPU composited, zero layout reflow
-      gdFallPctRef.current += speed * delta
+      gdFallPctRef.current += speed * springSpeedMultiplier * delta
       if (wallContainerRef.current) {
         wallContainerRef.current.style.transform = `translateY(${gdFallPctRef.current}%)`
       }
@@ -1966,7 +1974,7 @@ export function AttackPhase({
         if (pickup.checked) continue
         const pickupScreenY = pickup.worldY + fall
         if (pickupScreenY < PICKUP_COLLECT_MIN_Y) continue
-        const pickupHitRadius = Math.max(pickup.width / 2, 10)
+        const pickupHitRadius = Math.max(pickup.width / 2, 8.5)
         if (pickupScreenY <= PICKUP_COLLECT_MAX_Y && Math.abs(playerX - pickup.x) <= pickupHitRadius) {
           collectBonusPickup(pickup)
           pickupsChanged = true
@@ -1985,7 +1993,7 @@ export function AttackPhase({
         if (pickup.checked) continue
         const pickupScreenY = pickup.worldY + fall
         if (pickupScreenY < PICKUP_COLLECT_MIN_Y) continue
-        const springHitRadius = Math.max(pickup.width / 2, 11)
+        const springHitRadius = Math.max(pickup.width / 2, 10)
         if (pickupScreenY <= PICKUP_COLLECT_MAX_Y && Math.abs(playerX - pickup.x) <= springHitRadius) {
           collectSpringPickup(pickup)
           springsChanged = true
@@ -2010,7 +2018,7 @@ export function AttackPhase({
           shotBonusRef.current.powerShot = true
           setGdComment('DRIBBLE PARFAIT !')
         } else if (flowRef.current >= POWER_SHOT_FLOW_THRESHOLD) {
-          setGdComment('FACE AU GARDIEN - TIR BOOSTE !')
+          setGdComment('FACE AU GARDIEN - TIR BOOSTÉ !')
         } else {
           setGdComment('FACE AU GARDIEN !')
         }
@@ -2066,6 +2074,7 @@ export function AttackPhase({
 
         if (springSkipWaveIdRef.current === wall.id) {
           springSkipWaveIdRef.current = null
+          springBoostUntilRef.current = 0
           wall.passed = true
           wall.idealPassed = true
           registerDribbleSuccess(wall, { label: 'SAUT GÉANT !', quality: 'perfect', ideal: true })
@@ -2367,12 +2376,17 @@ export function AttackPhase({
 
       const precisionBonus = shotPrecisionBonusForTarget(at)
       onShotPrecisionBonus?.(precisionBonus)
+      const goalScorer: BattleScorer = {
+        ...selectedShooterRef.current,
+        goals: precisionBonus.goals,
+        bonusLabel: precisionBonus.goals > 1 ? precisionBonus.label : undefined,
+      }
       setBallFlight({ id: Date.now(), target: aimTarget, state: 'goal', duration: FLIGHT_MS })
       window.setTimeout(() => {
         setShotPrecisionBonus(precisionBonus)
-        setResultLabel(`BUT !|${precisionBonus.label} \u00b7 x${formatShotMultiplier(precisionBonus.multiplier)} \u00b7 +${precisionBonus.points}`)
+        setResultLabel(`BUT !|${precisionBonus.goals > 1 ? `Bravo, tu mets une ${precisionBonus.label.toLowerCase()}. Ton but compte double : +2 buts.` : `${selectedShooterRef.current.name} marque.`}`)
       }, FLIGHT_MS)
-      window.setTimeout(() => finish(true, 'goal', selectedShooterRef.current), FLIGHT_MS + 800)
+      window.setTimeout(() => finish(true, 'goal', goalScorer), FLIGHT_MS + 800)
     }, KICK_DELAY_MS)
   }
 
@@ -2488,6 +2502,8 @@ export function AttackPhase({
   const effectiveGaugeGreenPx = getEffectiveGaugeGreenPx()
   const gaugeGreenLeftPct = gaugeGreenLeft.current * 100  // % of track
   const shotBoostReady = shotBonusRef.current.powerShot || flow >= POWER_SHOT_FLOW_THRESHOLD
+  const displayedShotResultGoalCount = shotResultGoalCount ?? shotGoalCount
+  const showShotArcadeStats = shotGoalCount != null
   const [resultTitle, resultDetail] = resultLabel?.split('|') ?? [null, null]
   const nextGdWave = gdWallsDisplay.find((wave) => !wave.checked)
   const gdInstruction = getWaveInstruction(nextGdWave)
@@ -2868,13 +2884,13 @@ export function AttackPhase({
         .atk-life-badge i.is-on { background:#FF4455;box-shadow:0 0 10px rgba(255,68,85,.72); }
         .atk-perfect-badge { margin-top:7px; width:max-content; padding:7px 13px; border-radius:999px; color:#03131d; background:linear-gradient(90deg,#bdfcff,#2bff9a,#b8ff6a); font:900 13px 'Barlow Condensed',sans-serif; letter-spacing:.16em; box-shadow:0 0 24px rgba(43,255,154,.6),0 0 44px rgba(184,255,106,.28); animation:atkPerfectDance .48s cubic-bezier(.18,1.38,.28,1) both; }
         .atk-perfect-badge.is-fever { background:linear-gradient(90deg,#ffdf73,#ff5f7c); box-shadow:0 0 20px rgba(255,184,0,.54); animation:atkFeverPulse .36s ease-in-out infinite alternate; }
-        .atk-power-slots { position:absolute; right:10px; top:50%; transform:translateY(-50%); z-index:31; display:grid; gap:9px; pointer-events:none; }
-        .atk-power-slot { position:relative; width:58px; height:66px; border:2px solid rgba(255,255,255,.82); border-radius:14px; background:linear-gradient(180deg,#fff4a8,#FFB800 58%,#ff7a1a); box-shadow:0 0 22px rgba(255,184,0,.74),0 12px 18px rgba(0,0,0,.34); display:grid; place-items:center; padding:0; animation:atkPowerSlotBlink .48s ease-in-out infinite alternate; }
+        .atk-power-slots { position:absolute; left:10px; top:57%; transform:translateY(-50%); z-index:31; display:grid; gap:8px; pointer-events:none; }
+        .atk-power-slot { position:relative; width:50px; height:58px; border:2px solid rgba(255,255,255,.82); border-radius:13px; background:linear-gradient(180deg,#fff4a8,#FFB800 58%,#ff7a1a); box-shadow:0 0 18px rgba(255,184,0,.68),0 10px 14px rgba(0,0,0,.3); display:grid; place-items:center; padding:0; animation:atkPowerSlotBlink .48s ease-in-out infinite alternate; }
         .atk-power-slot::before { content:''; position:absolute; inset:-8px; border:2px dashed rgba(255,216,74,.72); border-radius:18px; animation:atkBonusHalo .72s ease-out infinite; pointer-events:none; }
         .atk-power-slot::after { content:'?'; position:absolute; left:5px; top:1px; color:rgba(32,19,0,.5); font:900 18px 'Barlow Condensed',sans-serif; }
-        .atk-power-slot__icon { position:relative; z-index:1; width:38px; height:38px; display:block; filter:drop-shadow(0 2px 2px rgba(0,0,0,.26)); }
+        .atk-power-slot__icon { position:relative; z-index:1; width:32px; height:32px; display:block; filter:drop-shadow(0 2px 2px rgba(0,0,0,.26)); }
         .atk-power-slot__icon svg { width:100%; height:100%; display:block; overflow:visible; }
-        .atk-power-slot__tap { position:absolute; left:50%; bottom:-13px; transform:translateX(-50%); padding:2px 6px; border-radius:999px; background:#111827; color:#ffdf73; font:900 9px 'Barlow Condensed',sans-serif; letter-spacing:.12em; box-shadow:0 0 12px rgba(255,184,0,.62); white-space:nowrap; }
+        .atk-power-slot__tap { position:absolute; left:50%; bottom:-12px; transform:translateX(-50%); padding:2px 5px; border-radius:999px; background:#111827; color:#ffdf73; font:900 8px 'Barlow Condensed',sans-serif; letter-spacing:.1em; box-shadow:0 0 10px rgba(255,184,0,.56); white-space:nowrap; }
         .atk-power-slot.is-blast { background:linear-gradient(180deg,#fff4a8,#FF4455 64%,#7f0614); }
         .atk-power-slot.is-boots { background:linear-gradient(180deg,#dff7ff,#7dd3fc); }
         .atk-power-slot.is-slowmo { background:linear-gradient(180deg,#e7d5ff,#a855f7); }
@@ -2943,7 +2959,7 @@ export function AttackPhase({
         .atk-gd-player.is-roulette::after { content:'ROULETTE'; position:absolute; left:50%; top:-26px; transform:translateX(-50%); color:#FFB800; font:900 12px 'Barlow Condensed',sans-serif; letter-spacing:.14em; white-space:nowrap; text-shadow:0 0 14px rgba(255,184,0,.9); animation:atkPowerupPop .2s ease-out both; }
         .atk-gd-player.is-flowing .atk-player-inner { filter:drop-shadow(0 0 18px rgba(43,255,154,.82)); }
         .atk-gd-player.is-max-flow .atk-player-inner { filter:drop-shadow(0 0 22px rgba(255,184,0,.9)) drop-shadow(0 0 16px rgba(43,255,154,.62)); }
-        .atk-gd-player.is-max-flow::after { content:'TIR BOOSTE'; position:absolute; left:50%; top:-22px; transform:translateX(-50%); color:#ffdd73; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; white-space:nowrap; text-shadow:0 0 12px rgba(255,184,0,.8); }
+        .atk-gd-player.is-max-flow::after { content:'TIR BOOSTÉ'; position:absolute; left:50%; top:-22px; transform:translateX(-50%); color:#ffdd73; font:900 10px 'Barlow Condensed',sans-serif; letter-spacing:.1em; white-space:nowrap; text-shadow:0 0 12px rgba(255,184,0,.8); }
         @keyframes atkBonusAura { from{ opacity:.62; transform:translate(-50%,-50%) scale(.92); filter:blur(.2px); } to{ opacity:1; transform:translate(-50%,-50%) scale(1.08); filter:blur(1px); } }
         @keyframes atkWideGatePulse { from{ transform:translate(-50%,-50%) scaleX(.92); filter:brightness(1); } to{ transform:translate(-50%,-50%) scaleX(1.08); filter:brightness(1.16); } }
         @keyframes atkWideGateBar { from{ transform:translate(-50%,-50%) scaleX(.76); } to{ transform:translate(-50%,-50%) scaleX(1.18); } }
@@ -3166,7 +3182,7 @@ export function AttackPhase({
           width: 100%; height: 100%; border-radius: 0;
         }
         .atk-shot-game.is-boosted { background:radial-gradient(circle at 50% 64%,rgba(255,184,0,.18),transparent 32%),linear-gradient(180deg,#06172a,#082d1e 62%,#0a1419); }
-        .atk-shot-game.is-boosted::after { content:'TIR BOOSTE'; position:absolute; left:50%; top:max(72px,calc(env(safe-area-inset-top) + 54px)); transform:translateX(-50%); z-index:12; color:#ffdf73; font:900 13px 'Barlow Condensed',sans-serif; letter-spacing:.18em; text-shadow:0 0 18px rgba(255,184,0,.9); pointer-events:none; animation:atkPowerupPop .42s ease-out both, atkFeverPulse .46s ease-in-out .42s infinite alternate; }
+        .atk-shot-game.is-boosted::after { content:'TIR BOOSTÉ'; position:absolute; left:50%; top:max(72px,calc(env(safe-area-inset-top) + 54px)); transform:translateX(-50%); z-index:12; color:#ffdf73; font:900 13px 'Barlow Condensed',sans-serif; letter-spacing:.18em; text-shadow:0 0 18px rgba(255,184,0,.9); pointer-events:none; animation:atkPowerupPop .42s ease-out both, atkFeverPulse .46s ease-in-out .42s infinite alternate; }
         .atk-shot-game.is-boosted .atk-gauge-green { background:linear-gradient(90deg,#2bff9a,#ffdf73); box-shadow:0 0 22px rgba(255,184,0,.85),0 0 12px rgba(43,255,154,.72); }
         .atk-shot-game.is-boosted .atk-shot-shooter .atk-kawaii { filter:drop-shadow(0 0 22px rgba(255,184,0,.86)) drop-shadow(0 0 12px rgba(43,255,154,.6)); }
         .atk-shot-game .goal-arcade > svg {
@@ -3943,7 +3959,7 @@ export function AttackPhase({
                   } as CSSProperties}
                 >
                   <span className="atk-bonus-orb is-mystery">?</span>
-                  <span className="atk-bonus-choice-label">MYSTERE</span>
+                  <span className="atk-bonus-choice-label">MYSTÈRE</span>
                   {pickup.collected ? <span className="atk-pass-pop">{bonusPowerText(pickup.bonusKind).short}</span> : null}
                 </div>
               ))}
@@ -4025,7 +4041,7 @@ export function AttackPhase({
           ref={shotGameRef}
         >
           {shotTitle ? <div className="atk-shot-title">{shotTitle}</div> : null}
-          {shotGoalCount != null ? (
+          {showShotArcadeStats ? (
             <div className="atk-shot-scoreline">
               <span>Buts d'affilée</span>
               <strong>{shotGoalCount}</strong>
@@ -4191,8 +4207,8 @@ export function AttackPhase({
           {resultLabel && (
             <div className="atk-result-overlay" style={{ color: resultLabel.startsWith('BUT !') ? '#2bff9a' : resultLabel.startsWith('ARRÊT !') ? '#FFB800' : '#FF4455' }}>
               <span>{resultTitle}</span>
-              {resultLabel.startsWith('BUT !') && shotGoalCount != null ? <b className="atk-result-goals">BIEN JOUÉ - BUTS x{shotGoalCount}</b> : null}
-              {resultLabel.startsWith('BUT !') && shotPrecisionBonus ? (
+              {resultLabel.startsWith('BUT !') && showShotArcadeStats && displayedShotResultGoalCount != null ? <b className="atk-result-goals">BIEN JOUÉ - BUTS x{displayedShotResultGoalCount}</b> : null}
+              {resultLabel.startsWith('BUT !') && showShotArcadeStats && shotPrecisionBonus ? (
                 <b className={`atk-result-multiplier is-${shotPrecisionBonus.tone}`}>
                   {shotPrecisionBonus.label} · x{formatShotMultiplier(shotPrecisionBonus.multiplier)} · +{shotPrecisionBonus.points}
                 </b>

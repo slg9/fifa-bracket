@@ -57,7 +57,7 @@ function liteDefenseCfg(base:Cfg,survivalMode:boolean):Cfg{
 const BULLET_SPEED=410, POWERUP_SPEED=26, DANGER_Y=88, ENEMY_SPAWN_Y=-18, DEFENSE_FIRST_SPAWN_DELAY=1150, TACKLE_COOLDOWN=2500, TACKLE_MAX=1000, LIGHTNING_COOLDOWN=7000, KAMIKAZE_BLAST_RADIUS=17, BOOTS_DURATION=6400, SUPER_ATTACKER_DURATION=7200, SUPER_DEFENSE_ROW_GAP=2400, SUPER_DEFENSE_MAX_ACTIVE=9
 const LANES = [14, 32, 50, 68, 86]
 const SHOOTER_MIN_X=8, SHOOTER_MAX_X=92, SHOOTER_SPEED=180
-const HP:Record<EnemyType,number>={normal:1,sprinter:1,tank:3,dribbler:1,feinter:1,captain:3,kamikaze:1,giant:18,super_attacker:7}
+const HP:Record<EnemyType,number>={normal:1,sprinter:1,tank:2,dribbler:1,feinter:1,captain:2,kamikaze:1,giant:10,super_attacker:4}
 const HIT:Record<EnemyType,{x:number;y:number}>={normal:{x:8.5,y:9.5},sprinter:{x:7.5,y:9},tank:{x:12,y:12},dribbler:{x:8,y:9.5},feinter:{x:8.5,y:9.5},captain:{x:13,y:13},kamikaze:{x:10,y:11},giant:{x:22,y:26},super_attacker:{x:18,y:22}}
 function label(players:string[],i:number){return players.length?players[i%players.length].split(' ').pop()?.slice(0,7)??'9':['9','11','7','10','8','6'][i%6]}
 function enemy(type:EnemyType,x:number,delay:number,cfg:Cfg,difficulty:BattleDifficulty,wave:string,labelText:string,extra:Partial<Enemy>={}):Enemy{const mult=type==='sprinter'?1.36:type==='tank'?.72:type==='captain'?.68:type==='kamikaze'?1.08:type==='dribbler'?.92:type==='giant'?.32:type==='super_attacker'?.58:1; const hp=type==='tank'&&difficulty==='easy'?2:HP[type]; return {id:crypto.randomUUID(),type,x,y:ENEMY_SPAWN_Y,baseX:x,speed:cfg.speed*mult*(difficulty==='hard'?1.08:difficulty==='easy'?.92:1),health:hp,maxHealth:hp,state:'waiting',spawnDelay:delay,wave,label:labelText,...extra}}
@@ -117,10 +117,10 @@ function DefensePowerIcon({kind}:{kind:PowerUpKind}){if(kind==='boots')return <s
 function damage(enemies:Enemy[], ids:Set<string>, amount:number|((enemy:Enemy)=>number), now:number){let killed=0, hurt=0; const next=enemies.map(e=>{if(!ids.has(e.id)||e.state!=='active')return e; const hit=typeof amount==='function'?amount(e):amount, hp=e.health-hit; if(hp<=0){killed++; return {...e,health:0,state:'destroyed' as const,hitUntil:now+260}} hurt++; return {...e,health:hp,hitUntil:now+180}}); return {next,killed,hurt}}
 function createSuperDefenseRow(cfg:Cfg,difficulty:BattleDifficulty,players:string[],rowIndex:number):Enemy[]{
   const rowPatterns: Array<Array<{x:number;type:'giant'|'super_attacker'}>> = difficulty === 'easy'
-    ? [[{x:50,type:'super_attacker'}],[{x:50,type:'giant'}]]
+    ? [[{x:50,type:'super_attacker'}]]
     : difficulty === 'medium'
-      ? [[{x:38,type:'giant'},{x:62,type:'super_attacker'}],[{x:50,type:'giant'}]]
-      : [[{x:36,type:'giant'},{x:64,type:'super_attacker'}],[{x:32,type:'giant'},{x:68,type:'giant'}],[{x:50,type:'giant'},{x:72,type:'super_attacker'}]]
+      ? [[{x:50,type:'giant'}],[{x:50,type:'super_attacker'}]]
+      : [[{x:38,type:'giant'},{x:62,type:'super_attacker'}],[{x:50,type:'giant'}],[{x:50,type:'super_attacker'}]]
   const row = rowPatterns[rowIndex % rowPatterns.length]
   return row.map((slot,i)=>{
     const type: EnemyType = slot.type

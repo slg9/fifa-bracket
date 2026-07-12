@@ -301,7 +301,7 @@ const EXACT_TRANSLATIONS = new Map<string, string>([
   ['INTERCEPTÉ !', 'INTERCEPTED!'],
   ['MAGNIFIQUE !', 'BEAUTIFUL!'],
   ['TROP LENT !', 'TOO SLOW!'],
-  ['TIR BOOSTE', 'BOOSTED SHOT'],
+  ['TIR BOOSTÉ', 'BOOSTED SHOT'],
   ['CONTRE-ATTAQUE', 'COUNTER ATTACK'],
   ['Choisis une équipe', 'Choose a team'],
   ["Choisis l'équipe", 'Choose the team'],
