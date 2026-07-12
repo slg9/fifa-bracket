@@ -1,4 +1,4 @@
-const CACHE_NAME = 'brakup-pwa-v2'
+const CACHE_NAME = 'brakup-pwa-v3'
 const APP_SHELL = [
   '/site.webmanifest',
   '/favicon.ico',
@@ -35,14 +35,7 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate' || request.destination === 'document') {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          if (response.ok && url.origin === self.location.origin) {
-            const copy = response.clone()
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
-          }
-          return response
-        })
-        .catch(() => caches.match(request).then((cached) => cached ?? caches.match('/'))),
+        .catch(() => caches.match(request).then((cached) => cached ?? Response.error())),
     )
     return
   }

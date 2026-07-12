@@ -18,7 +18,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
       window.location.reload()
     })
 
-    navigator.serviceWorker.register('/sw.js').then((registration) => {
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then((registration) => {
       void registration.update()
     }).catch(() => {
       // PWA support should never block the app.
