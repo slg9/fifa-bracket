@@ -95,8 +95,115 @@ function hashString(value: string) {
   return Math.abs(hash)
 }
 
+const FIFA_RANK_BY_CODE: Record<string, number> = {
+  FRA: 1,
+  ARG: 2,
+  ESP: 3,
+  ENG: 4,
+  BRA: 5,
+  MAR: 6,
+  POR: 7,
+  BEL: 8,
+  NED: 9,
+  MEX: 10,
+  CRO: 11,
+  COL: 12,
+  URU: 13,
+  USA: 14,
+  GER: 15,
+  SUI: 16,
+  JPN: 17,
+  SEN: 18,
+  IRN: 19,
+  KOR: 20,
+  ECU: 22,
+  AUT: 23,
+  AUS: 24,
+  TUR: 25,
+  NOR: 26,
+  CAN: 27,
+  SWE: 29,
+  QAT: 30,
+  EGY: 34,
+  CIV: 35,
+  TUN: 36,
+  ALG: 39,
+  SCO: 40,
+  PAR: 42,
+  GHA: 50,
+  KSA: 51,
+  RSA: 60,
+  PAN: 61,
+  CPV: 66,
+  JOR: 68,
+  UZB: 72,
+  IRQ: 82,
+  NZL: 84,
+  HAI: 86,
+  CZE: 89,
+  BIH: 90,
+  COD: 92,
+  CUW: 94,
+}
+
+const TEAM_STAT_PROFILE_BY_CODE: Record<string, { att?: number; mid?: number; def?: number }> = {
+  FRA: { att: 3, mid: 2, def: 2 },
+  ARG: { att: 2, mid: 3, def: 1 },
+  ESP: { att: 1, mid: 4, def: 2 },
+  ENG: { att: 2, mid: 2, def: 1 },
+  BRA: { att: 4, mid: 1, def: 0 },
+  POR: { att: 3, mid: 2, def: 0 },
+  NED: { att: 1, mid: 2, def: 3 },
+  MAR: { att: 1, mid: 2, def: 4 },
+  BEL: { att: 2, mid: 2, def: 0 },
+  GER: { att: 2, mid: 2, def: 0 },
+  URU: { att: 1, mid: 2, def: 3 },
+  CRO: { att: 0, mid: 4, def: 1 },
+  COL: { att: 2, mid: 2, def: 1 },
+  SUI: { att: 0, mid: 2, def: 3 },
+  NOR: { att: 5, mid: 2, def: -1 },
+  SEN: { att: 1, mid: 1, def: 3 },
+  USA: { att: 1, mid: 2, def: 0 },
+  MEX: { att: 1, mid: 1, def: 1 },
+  JPN: { att: 1, mid: 3, def: 1 },
+  KOR: { att: 2, mid: 1, def: 0 },
+  EGY: { att: 3, mid: 0, def: 0 },
+  SWE: { att: 1, mid: 1, def: 2 },
+  CIV: { att: 2, mid: 1, def: 0 },
+  GHA: { att: 2, mid: 0, def: -1 },
+  CPV: { att: 0, mid: 1, def: 2 },
+}
+
+function clampRating(value: number) {
+  return Math.max(58, Math.min(97, Math.round(value)))
+}
+
+function overallFromRank(rank: number) {
+  if (rank <= 4) return 97 - rank
+  if (rank <= 10) return 93 - (rank - 4) * 0.65
+  if (rank <= 20) return 89 - (rank - 10) * 0.48
+  if (rank <= 40) return 84.2 - (rank - 20) * 0.25
+  if (rank <= 70) return 79.2 - (rank - 40) * 0.2
+  if (rank <= 100) return 73.2 - (rank - 70) * 0.18
+  return 67
+}
+
+function teamRating(teamOrCode?: Team | string) {
+  const code = typeof teamOrCode === 'string' ? teamOrCode : teamOrCode?.fifaCode ?? teamOrCode?.id ?? ''
+  const rank = FIFA_RANK_BY_CODE[code] ?? 96
+  const overall = clampRating(overallFromRank(rank))
+  const profile = TEAM_STAT_PROFILE_BY_CODE[code] ?? {}
+  return {
+    rank,
+    overall,
+    att: clampRating(overall + (profile.att ?? 0)),
+    mid: clampRating(overall + (profile.mid ?? 0)),
+    def: clampRating(overall + (profile.def ?? 0)),
+  }
+}
+
 function teamPower(teamId: string) {
-  return 62 + hashString(teamId) % 34
+  return teamRating(teamId).overall
 }
 
 function simulatedScore(matchId: string, homeTeamId: string, awayTeamId: string): AdventureScore {
@@ -352,11 +459,12 @@ export default function AdventureWorldCup({
     [teams],
   )
   const carouselTeam = sortedTeams.length ? sortedTeams[Math.min(teamCarouselIndex, sortedTeams.length - 1)] : undefined
-  const carouselTeamPower = carouselTeam ? teamPower(carouselTeam.id) : 0
+  const carouselTeamRating = teamRating(carouselTeam)
+  const carouselTeamPower = carouselTeam ? carouselTeamRating.overall : 0
   const carouselTeamStats = carouselTeam ? [
-    { label: 'ATT', val: 60 + hashString(`${carouselTeam.id}:att`) % 35 },
-    { label: 'MIL', val: 60 + hashString(`${carouselTeam.id}:mid`) % 35 },
-    { label: 'DEF', val: 60 + hashString(`${carouselTeam.id}:def`) % 35 },
+    { label: 'ATT', val: carouselTeamRating.att },
+    { label: 'MIL', val: carouselTeamRating.mid },
+    { label: 'DEF', val: carouselTeamRating.def },
   ] : []
   const carouselGroupTeams = useMemo(
     () => carouselTeam ? teams.filter((team) => team.groupId === carouselTeam.groupId) : [],
@@ -757,7 +865,7 @@ export default function AdventureWorldCup({
                     <Flag team={carouselTeam} />
                   </div>
                   <strong>{teamName(carouselTeam)}</strong>
-                  <small>{carouselTeam.fifaCode ?? carouselTeam.id} · GROUPE {carouselTeam.groupId}</small>
+                  <small>#{carouselTeamRating.rank} FIFA · {carouselTeam.fifaCode ?? carouselTeam.id} · GROUPE {carouselTeam.groupId}</small>
                   <div className="adventure-team-carousel__bubbles" aria-label={`Autres équipes du groupe ${carouselTeam.groupId}`}>
                     {carouselOtherTeams.map((team) => (
                       <span className="adventure-team-carousel__bubble" key={team.id} title={teamName(team)}>
