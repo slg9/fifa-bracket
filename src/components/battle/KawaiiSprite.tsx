@@ -149,6 +149,8 @@ const KNOWN_PLAYER_APPEARANCES: Record<string, Partial<PlayerAppearance> & { ski
   robertlewandowski: { skinTone: 'light', hair: '#4a3324', hairStyle: 'parted', faceShape: 'long', eye: 'sharp', facialHair: 'stubble', brow: true },
   maghnesakliouche: { skinTone: 'light', hair: '#19120f', hairStyle: 'curls', faceShape: 'long', eye: 'round', eyeColor: '#7ea5c8', facialHair: 'goatee', brow: true },
   jeanphilippemateta: { skinTone: 'deep', hair: '#111', hairStyle: 'shaved', faceShape: 'round', eye: 'round', facialHair: 'none', brow: false },
+  bradleybarcola: { skinTone: 'deep', hair: '#111', hairStyle: 'crop', faceShape: 'long', eye: 'round', facialHair: 'none', brow: true },
+  desiredoue: { skinTone: 'brown', hair: '#151515', hairStyle: 'crop', faceShape: 'round', eye: 'round', facialHair: 'none', brow: true },
 }
 
 function normalizeAppearanceName(value: string) {
