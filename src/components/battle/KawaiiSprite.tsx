@@ -149,7 +149,10 @@ const KNOWN_PLAYER_APPEARANCES: Record<string, Partial<PlayerAppearance> & { ski
   robertlewandowski: { skinTone: 'light', hair: '#4a3324', hairStyle: 'parted', faceShape: 'long', eye: 'sharp', facialHair: 'stubble', brow: true },
   maghnesakliouche: { skinTone: 'light', hair: '#19120f', hairStyle: 'curls', faceShape: 'long', eye: 'round', eyeColor: '#7ea5c8', facialHair: 'goatee', brow: true },
   jeanphilippemateta: { skinTone: 'deep', hair: '#111', hairStyle: 'shaved', faceShape: 'round', eye: 'round', facialHair: 'none', brow: false },
+  michaelolise: { skinTone: 'brown', hair: '#17110d', hairStyle: 'crop', faceShape: 'oval', eye: 'sharp', facialHair: 'none', brow: true },
+  marcusthuram: { skinTone: 'deep', hair: '#14100d', hairStyle: 'buzz', faceShape: 'long', eye: 'round', facialHair: 'none', brow: false },
   bradleybarcola: { skinTone: 'deep', hair: '#111', hairStyle: 'crop', faceShape: 'long', eye: 'round', facialHair: 'none', brow: true },
+  rayancherki: { skinTone: 'light', hair: '#1d1714', hairStyle: 'crop', faceShape: 'round', eye: 'round', facialHair: 'none', brow: false },
   desiredoue: { skinTone: 'brown', hair: '#151515', hairStyle: 'crop', faceShape: 'round', eye: 'round', facialHair: 'none', brow: true },
 }
 
@@ -205,17 +208,20 @@ function HairShape({ appearance }: { appearance: PlayerAppearance }) {
     return null
   }
   const face = faceShapeProps(appearance.faceShape)
-  const sideInset = Math.max(1, 18.2 - face.rx)
-  const left = 25 + sideInset
-  const right = 55 - sideInset
-  const crownY = appearance.faceShape === 'long' ? 1 : appearance.faceShape === 'round' ? 2.2 : 1.4
-  const frontY = appearance.faceShape === 'long' ? 12.4 : appearance.faceShape === 'round' ? 10.2 : 11.2
-  const innerY = appearance.faceShape === 'long' ? 9.8 : appearance.faceShape === 'round' ? 8.4 : 9.1
+  const isRound = appearance.faceShape === 'round'
+  const isLong = appearance.faceShape === 'long'
+  const hairScale = appearance.hairStyle === 'buzz' ? .72 : isLong ? .7 : isRound ? .77 : .74
+  const left = 40 - face.rx * hairScale
+  const right = 40 + face.rx * hairScale
+  const faceTop = 19 - face.ry
+  const crownY = Math.max(.25, faceTop + .35)
+  const frontY = crownY + (isLong ? 11.1 : isRound ? 8.6 : 9.6)
+  const innerY = frontY - (appearance.hairStyle === 'buzz' ? 2.2 : 1.7)
   if (appearance.hairStyle === 'buzz') {
-    return <path d={`M${left + 1.2} ${frontY - 1.9} C31 ${crownY + 3.2} 35 ${crownY + 2} 40 ${crownY + 2} C45 ${crownY + 2} 49 ${crownY + 3.2} ${right - 1.2} ${frontY - 1.9} C49 ${innerY - .8} 44.5 ${innerY - 1.3} 40 ${innerY - 1.3} C35.5 ${innerY - 1.3} 31 ${innerY - .8} ${left + 1.2} ${frontY - 1.9} Z`} fill={fill} opacity=".84" />
+    return <path d={`M${left} ${frontY} C${left + 3} ${crownY + 2.8} ${35} ${crownY + 1.9} 40 ${crownY + 1.9} C45 ${crownY + 1.9} ${right - 3} ${crownY + 2.8} ${right} ${frontY} C${right - 5} ${innerY} 45 ${innerY - .6} 40 ${innerY - .6} C35 ${innerY - .6} ${left + 5} ${innerY} ${left} ${frontY} Z`} fill={fill} opacity=".84" />
   }
   return (
-    <path d={`M${left} ${frontY} C30 ${crownY + 3} 35 ${crownY} 40 ${crownY} C45 ${crownY} 50 ${crownY + 3} ${right} ${frontY} C49 ${innerY + .9} 44.5 ${innerY} 40 ${innerY} C35.5 ${innerY} 31 ${innerY + .9} ${left} ${frontY} Z`} fill={fill} />
+    <path d={`M${left} ${frontY} C${left + 2.8} ${crownY + 2.2} 35 ${crownY} 40 ${crownY} C45 ${crownY} ${right - 2.8} ${crownY + 2.2} ${right} ${frontY} C${right - 4.8} ${innerY + .7} 45 ${innerY} 40 ${innerY} C35 ${innerY} ${left + 4.8} ${innerY + .7} ${left} ${frontY} Z`} fill={fill} />
   )
 }
 
