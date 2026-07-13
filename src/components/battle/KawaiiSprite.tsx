@@ -212,21 +212,21 @@ type HairCapShape = {
 }
 
 const HAIR_CAP_BY_FACE: Record<FaceShape, HairCapShape> = {
-  long: { left: 25.2, right: 54.8, crown: -0.1, front: 13.1, inner: 9.6, lift: 2.8 },
-  oval: { left: 24.1, right: 55.9, crown: 0.3, front: 12.3, inner: 9.2, lift: 2.6 },
-  round: { left: 23.1, right: 56.9, crown: 1.0, front: 11.6, inner: 8.7, lift: 2.4 },
-  square: { left: 23.2, right: 56.8, crown: 1.0, front: 12.5, inner: 9.4, lift: 2.5 },
+  long: { left: 23.8, right: 56.2, crown: -0.2, front: 13.2, inner: 9.5, lift: 2.9 },
+  oval: { left: 23.2, right: 56.8, crown: 0.2, front: 12.4, inner: 9.1, lift: 2.7 },
+  round: { left: 22.4, right: 57.6, crown: 0.9, front: 11.7, inner: 8.6, lift: 2.5 },
+  square: { left: 22.6, right: 57.4, crown: 0.9, front: 12.6, inner: 9.3, lift: 2.6 },
 }
 
 function buildHairCapPath(shape: HairCapShape, buzz: boolean) {
-  const inset = buzz ? 2.2 : 0
+  const inset = buzz ? .45 : 0
   const left = shape.left + inset
   const right = shape.right - inset
-  const crown = shape.crown + (buzz ? 2.1 : 0)
-  const front = shape.front - (buzz ? 1.7 : 0)
-  const inner = shape.inner - (buzz ? .8 : 0)
-  const sideCurve = buzz ? 2.1 : shape.lift
-  const innerInset = buzz ? 5.2 : 4.8
+  const crown = shape.crown + (buzz ? 1.1 : 0)
+  const front = shape.front - (buzz ? 1.2 : 0)
+  const inner = shape.inner - (buzz ? .55 : 0)
+  const sideCurve = buzz ? shape.lift * .9 : shape.lift
+  const innerInset = buzz ? 4.9 : 4.8
 
   return `M${left} ${front} C${left + sideCurve} ${crown + 2.4} 33.5 ${crown} 40 ${crown} C46.5 ${crown} ${right - sideCurve} ${crown + 2.4} ${right} ${front} C${right - innerInset} ${inner + .7} 45 ${inner} 40 ${inner} C35 ${inner} ${left + innerInset} ${inner + .7} ${left} ${front} Z`
 }
@@ -239,7 +239,7 @@ function HairShape({ appearance }: { appearance: PlayerAppearance }) {
   const cap = HAIR_CAP_BY_FACE[appearance.faceShape]
   const path = buildHairCapPath(cap, appearance.hairStyle === 'buzz')
   if (appearance.hairStyle === 'buzz') {
-    return <path d={path} fill={fill} opacity=".84" />
+    return <path d={path} fill={fill} />
   }
   return (
     <path d={path} fill={fill} />
