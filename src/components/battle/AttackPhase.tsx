@@ -44,6 +44,7 @@ type AttackPhaseProps = {
   shotResultGoalCount?: number
   shotMultiplierTotal?: number
   onShotPrecisionBonus?: (bonus: ShotPrecisionBonus) => void
+  showShotDoubleGoalCopy?: boolean
   roundIntroComment?: string
   showControls?: boolean
   fixedShooterName?: string | null
@@ -803,6 +804,8 @@ function DribbleDefenderSprite({
 
 function KawaiiFootballer({
   label,
+  playerName,
+  teamId,
   jerseyColor,
   accentColor,
   shortsColor,
@@ -812,6 +815,8 @@ function KawaiiFootballer({
   motion,
 }: {
   label: string
+  playerName?: string
+  teamId?: string
   jerseyColor: string
   accentColor: string
   shortsColor: string
@@ -834,7 +839,9 @@ function KawaiiFootballer({
       withBall={withBall}
       role="player"
       motion={motion}
-      seed={label}
+      seed={playerName ?? label}
+      playerName={playerName}
+      teamId={teamId}
       className="atk-kawaii is-player"
     />
   )
@@ -912,6 +919,7 @@ export function AttackPhase({
   shotResultGoalCount,
   shotMultiplierTotal,
   onShotPrecisionBonus,
+  showShotDoubleGoalCopy = true,
   roundIntroComment,
   showControls = false,
   fixedShooterName = null,
@@ -2350,7 +2358,12 @@ export function AttackPhase({
       setBallFlight({ id: Date.now(), target: aimTarget, state: 'goal', duration: FLIGHT_MS })
       window.setTimeout(() => {
         setShotPrecisionBonus(precisionBonus)
-        setResultLabel(`BUT !|${precisionBonus.goals > 1 ? `Bravo, tu mets une ${precisionBonus.label.toLowerCase()}. Ton but compte double : +2 buts.` : `${selectedShooterRef.current.name} marque.`}`)
+        const detail = precisionBonus.goals > 1
+          ? showShotDoubleGoalCopy
+            ? `Bravo, tu mets une ${precisionBonus.label.toLowerCase()}. Ton but compte double : +2 buts.`
+            : `Bravo, tir en ${precisionBonus.label.toLowerCase()}.`
+          : `${selectedShooterRef.current.name} marque.`
+        setResultLabel(`BUT !|${detail}`)
       }, FLIGHT_MS)
       window.setTimeout(() => finish(true, 'goal', goalScorer), FLIGHT_MS + 800)
     }, KICK_DELAY_MS)
@@ -2489,7 +2502,9 @@ export function AttackPhase({
   const visibleSpringPickups = phase === 'gd'
     ? gdSpringPickupsDisplay.filter((pickup) => pickup.worldY >= visibleMinWorldY && pickup.worldY <= visibleMaxWorldY && (!pickup.checked || pickup.collected))
     : []
-  const shotTutorialComment = roundIntroComment ?? `${selectedShooter.name} est prêt. Choisis ta zone, puis frappe quand la jauge blanche passe sur le vert. Vise la lucarne : le but compte double.`
+  const shotTutorialComment = roundIntroComment ?? (showShotDoubleGoalCopy
+    ? `${selectedShooter.name} est prêt. Choisis ta zone, puis frappe quand la jauge blanche passe sur le vert. Vise la lucarne : le but compte double.`
+    : `${selectedShooter.name} est prêt. Choisis ta zone, puis frappe quand la jauge blanche passe sur le vert. Vise la lucarne pour le bonus de précision.`)
   const dribbleTutorialPowers: Array<{ kind: BonusKind; label: string; className: string }> = survivalDribbleOnly
     ? [
       { kind: 'boots', label: 'Bouclier', className: 'atk-dribble-demo__bonus-icon--boot' },
@@ -3714,7 +3729,7 @@ export function AttackPhase({
           <div className="atk-tutorial__title">ATTAQUE</div>
           <div className="atk-tutorial__comment">
             <div className="atk-tutorial__avatar">
-              <KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="ready" />
+              <KawaiiFootballer label={String(selectedShooter.number ?? 9)} playerName={selectedShooter.name} teamId={homeTeamId} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="ready" />
             </div>
             <span><b>Tutoriel.</b> Ramasse les ballons dorés, saute les haies, dribble les joueurs et garde tes pouvoirs pour le bon moment.</span>
           </div>
@@ -3744,7 +3759,7 @@ export function AttackPhase({
               <span className="atk-dribble-demo__def atk-dribble-demo__def--r"><KawaiiFootballer label="5" jerseyColor={opponentJerseyColor} accentColor={opponentAccentColor} shortsColor={opponentShortsColor} textColor={opponentTextColor} /></span>
             </div>
             <span className="atk-dribble-demo__player">
-              <KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="run" />
+              <KawaiiFootballer label={String(selectedShooter.number ?? 9)} playerName={selectedShooter.name} teamId={homeTeamId} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="run" />
             </span>
             <span className="atk-dribble-demo__finger"><svg viewBox="0 0 36 54"><path d="M15 4c3.2 0 5.7 2.5 5.7 5.7v13.1l1.4-1.2c2.2-1.8 5.4-1.4 7.1.9l1.4 1.9c1.1 1.5 1.5 3.3 1.2 5.1l-2.1 12.3c-.7 4.1-4.2 7.1-8.4 7.1h-8.2c-3.2 0-6.1-1.8-7.6-4.6L2.7 37c-1.1-2-.4-4.5 1.6-5.6 1.8-1 4-.6 5.3.9V9.7C9.6 6.5 12.1 4 15 4z" fill="#fff" stroke="#101827" strokeWidth="2.2" strokeLinejoin="round"/><path d="M15.1 8.2v21.4M20.8 22.8v8.1M25.4 25.1v7.7" stroke="rgba(16,24,39,.46)" strokeWidth="1.7" strokeLinecap="round"/></svg><span className="atk-dribble-demo__tap atk-dribble-demo__tap--jump"></span><span className="atk-dribble-demo__tap atk-dribble-demo__tap--jump2"></span><span className="atk-dribble-demo__tap-hint atk-dribble-demo__tap-hint--jump">1 TAP</span><span className="atk-dribble-demo__tap-hint atk-dribble-demo__tap-hint--jump2">1 TAP</span></span>
             <div className="atk-dribble-demo__caption"><span><b>1 TAP</b> saute au-dessus des haies</span><span><b>1 TAP</b> dribble les joueurs</span><span><b>DOUBLE TAP</b> utilise tes pouvoirs</span></div>
@@ -3995,6 +4010,8 @@ export function AttackPhase({
               <div className="atk-player-inner">
                 <KawaiiFootballer
                   label={attackerShort ?? '9'}
+                  playerName={selectedShooter.name}
+                  teamId={homeTeamId}
                   jerseyColor={playerJerseyColor}
                   accentColor={playerAccentColor}
                   shortsColor={playerShortsColor}
@@ -4053,6 +4070,8 @@ export function AttackPhase({
             <div className={`atk-shot-shooter${ballFlight ? ' is-kicking' : ''}`} aria-hidden="true">
               <KawaiiFootballer
                 label={String(selectedShooter.number ?? 9)}
+                playerName={selectedShooter.name}
+                teamId={homeTeamId}
                 jerseyColor={playerJerseyColor}
                 accentColor={playerAccentColor}
                 shortsColor={playerShortsColor}
@@ -4081,6 +4100,8 @@ export function AttackPhase({
                   <div className="atk-shooter-select__avatar">
                     <KawaiiFootballer
                       label={String(selectedShooter.number ?? 9)}
+                      playerName={selectedShooter.name}
+                      teamId={homeTeamId}
                       jerseyColor={playerJerseyColor}
                       accentColor={playerAccentColor}
                       shortsColor={playerShortsColor}
@@ -4109,7 +4130,7 @@ export function AttackPhase({
           {showShotTutorial && !shotTutorialDone && !ballFlight && !resultLabel ? (
             <div className="atk-shot-tutorial">
               <div className="atk-shot-tutorial__title">{shotTitle ?? 'TIR'}</div>
-              <div className="atk-shot-tutorial__comment"><div className="atk-shot-tutorial__avatar"><KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer /></div><span>{shotTutorialComment}</span></div>
+              <div className="atk-shot-tutorial__comment"><div className="atk-shot-tutorial__avatar"><KawaiiFootballer label={String(selectedShooter.number ?? 9)} playerName={selectedShooter.name} teamId={homeTeamId} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer /></div><span>{shotTutorialComment}</span></div>
               <div className="atk-shot-tutorial__label">Tutoriel tir</div>
               {showShotDemo ? (
               <div className="atk-shot-demo" aria-hidden="true">
@@ -4129,7 +4150,7 @@ export function AttackPhase({
                     </circle>
                   </g>
                 </svg>
-                <div className="atk-shot-demo__player"><KawaiiFootballer label={String(selectedShooter.number ?? 9)} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="idle" /></div>
+                <div className="atk-shot-demo__player"><KawaiiFootballer label={String(selectedShooter.number ?? 9)} playerName={selectedShooter.name} teamId={homeTeamId} jerseyColor={playerJerseyColor} accentColor={playerAccentColor} shortsColor={playerShortsColor} textColor={playerTextColor} withBall isPlayer motion="idle" /></div>
                 <span className="atk-shot-demo__ball" />
                 <span className="atk-shot-demo__hand" />
                 <div className="atk-shot-demo__gauge"><span className="atk-shot-demo__green" /><i /></div>
@@ -4143,7 +4164,7 @@ export function AttackPhase({
                 <span className="atk-shot-step atk-shot-step--hold">Maintiens le <b>ballon</b></span>
                 <span className="atk-shot-step atk-shot-step--aim">Ajuste le <b>lancer</b></span>
                 <span className="atk-shot-step atk-shot-step--release">Relâche quand la <b>jauge blanche</b> passe sur le vert</span>
-                <span className="atk-shot-step">Vise la <b>lucarne</b> : but x2</span>
+                {showShotDoubleGoalCopy ? <span className="atk-shot-step">Vise la <b>lucarne</b> : but x2</span> : null}
                 <span className="atk-shot-warning">Attention au gardien</span>
               </div>
               <button type="button" className="atk-shot-tutorial__btn" onClick={() => { sfx.click(); markBattleTutorialSeen('attack-shot'); setShowShotTutorial(false); setShotTutorialDone(true) }}>
@@ -4176,7 +4197,7 @@ export function AttackPhase({
           {shooterSelectionDone && shotTutorialDone && !hasAimedTarget && !ballFlight && !resultLabel && (
             <div className="atk-aim-hint">MAINTIENS LA BALLE, TIRE VERS LE BAS</div>
           )}
-          {shooterSelectionDone && shotTutorialDone && !ballFlight && !resultLabel ? (
+          {showShotDoubleGoalCopy && shooterSelectionDone && shotTutorialDone && !ballFlight && !resultLabel ? (
             <div className="atk-corner-bonus-hint">Lucarne = but compte double</div>
           ) : null}
           {shooterSelectionDone && shotTutorialDone && shotAimWarning && !ballFlight && !resultLabel && (

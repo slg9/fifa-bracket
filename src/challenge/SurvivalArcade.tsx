@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import type { BattleDifficulty, BattleScorer, DefenseOutcome, Team } from '../types'
 import { resolveTeamKit } from '../lib/teamKits'
+import { splitTeamPlayerRoles } from '../lib/playerRoles'
 import { setGameAudioVolume, setGameMuted, useGameAudio, useGameAudioVolume, useGameMuted } from '../lib/useGameAudio'
 import { sfx } from '../lib/sfx'
 import AttackPhase, { type AttackEndReason, type ShotPrecisionBonus, type SurvivalDribbleStats } from '../components/battle/AttackPhase'
@@ -126,20 +127,17 @@ function scoreForMiniSurvival(seconds: number, stats: SurvivalMiniStats) {
   return Math.max(0, Math.round(seconds * 10 + stats.score))
 }
 
-function scoreForShotSurvival(seconds: number, goals: number, stats: SurvivalShotStats) {
+function scoreForShotSurvival(goals: number, stats: SurvivalShotStats) {
   if (goals <= 0) return 0
-  return Math.max(0, Math.round(goals * 1000 + goals * goals * 130 + stats.precisionScore * stats.multiplierTotal - seconds * 12))
+  return Math.max(0, Math.round(goals * 1000 + goals * goals * 130 + stats.precisionScore * stats.multiplierTotal))
 }
 
 function splitPlayers(team?: Team) {
-  const names = Array.from(new Set((team?.players ?? []).map((name) => name.trim()).filter(Boolean)))
-  const attackers = team?.playerRoles?.attackers?.length ? team.playerRoles.attackers : names.slice(-8)
-  const defenders = team?.playerRoles?.defenders?.length ? team.playerRoles.defenders : names.slice(3, 10)
-  const keepers = team?.playerRoles?.keepers?.length ? team.playerRoles.keepers : names.slice(0, 1)
+  const roles = splitTeamPlayerRoles(team)
   return {
-    attackers: attackers.length ? attackers : ['Buteur'],
-    defenders: defenders.length ? defenders : ['Defenseur'],
-    keeper: keepers[0] ?? 'Gardien',
+    attackers: roles.attackers.length ? roles.attackers : ['Buteur'],
+    defenders: roles.defenders.length ? roles.defenders : ['Defenseur'],
+    keeper: roles.keepers[0] ?? 'Gardien',
   }
 }
 
@@ -222,7 +220,7 @@ export function SurvivalArcade({ teamsById, playerName, onBack }: SurvivalArcade
   const score = selectedId === 'attack'
     ? scoreForAttackSurvival(elapsed, attackDribbleStats)
     : selectedId === 'shot'
-      ? scoreForShotSurvival(elapsed, rounds, shotStats)
+      ? scoreForShotSurvival(rounds, shotStats)
     : usesDirectSurvivalStats
       ? scoreForMiniSurvival(elapsed, miniStats)
       : scoreFor(elapsed, rounds, level)
@@ -395,7 +393,7 @@ export function SurvivalArcade({ teamsById, playerName, onBack }: SurvivalArcade
     const finalScoreValue = selectedId === 'attack'
       ? scoreForAttackSurvival(finalSeconds, attackDribbleStats)
       : selectedId === 'shot'
-        ? scoreForShotSurvival(finalSeconds, rounds, shotStats)
+        ? scoreForShotSurvival(rounds, shotStats)
       : usesDirectSurvivalStats
         ? scoreForMiniSurvival(finalSeconds, miniStats)
       : scoreFor(finalSeconds, rounds, level)
@@ -536,7 +534,7 @@ export function SurvivalArcade({ teamsById, playerName, onBack }: SurvivalArcade
               <AttackPhase key={runKey} difficulty="easy" homeTeamId={home?.id ?? 'HOME'} awayTeamId={away?.id ?? 'AWAY'} homeTeamPlayers={homeRoles.attackers} homeTeamPlayerNumbers={home?.playerNumbers} awayTeamPlayers={awayRoles.defenders} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} onAudioOverride={setAudioOverride} onGameplayStart={armGameplayTimer} roundIntroComment="Survie attaque : dribble le plus longtemps possible." survivalDribbleOnly onSurvivalDribbleScore={setAttackDribbleStats} />
             ) : null}
             {activeGame === 'shot' ? (
-              <AttackPhase key={runKey} difficulty={difficulty} homeTeamId={home?.id ?? 'HOME'} awayTeamId={away?.id ?? 'AWAY'} homeTeamPlayers={homeRoles.attackers} homeTeamPlayerNumbers={home?.playerNumbers} awayTeamPlayers={awayRoles.defenders} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} onAudioOverride={setAudioOverride} onGameplayStart={armGameplayTimer} shotOnly shotTitle={shotStreakShooterName && rounds > 0 ? `SÉRIE x${rounds}` : 'SURVIE TIR'} shotGoalCount={rounds} shotResultGoalCount={rounds + 1} shotMultiplierTotal={shotStats.multiplierTotal} onShotPrecisionBonus={handleShotPrecisionBonus} roundIntroComment={shotStreakShooterName && rounds > 0 ? `${shotStreakShooterName} enchaîne. Buts d'affilée : ${rounds}.` : "Choisis ton tireur. La série continue tant que tu marques."} fixedShooterName={rounds > 0 ? shotStreakShooterName : null} rememberedShooterName={rounds === 0 ? shotStreakShooterName : null} skipShotShooterSelect={Boolean(shotStreakShooterName && rounds > 0)} skipShotTutorial={Boolean(shotStreakShooterName && rounds > 0)} />
+              <AttackPhase key={runKey} difficulty={difficulty} homeTeamId={home?.id ?? 'HOME'} awayTeamId={away?.id ?? 'AWAY'} homeTeamPlayers={homeRoles.attackers} homeTeamPlayerNumbers={home?.playerNumbers} awayTeamPlayers={awayRoles.defenders} playerKit={homeKit} opponentKit={awayKit} onRoundEnd={handleAttackEnd} onAudioOverride={setAudioOverride} onGameplayStart={armGameplayTimer} shotOnly shotTitle={shotStreakShooterName && rounds > 0 ? `SÉRIE x${rounds}` : 'SURVIE TIR'} shotGoalCount={rounds} shotResultGoalCount={rounds + 1} shotMultiplierTotal={shotStats.multiplierTotal} onShotPrecisionBonus={handleShotPrecisionBonus} showShotDoubleGoalCopy={false} roundIntroComment={shotStreakShooterName && rounds > 0 ? `${shotStreakShooterName} enchaîne. Buts d'affilée : ${rounds}.` : "Choisis ton tireur. La série continue tant que tu marques."} fixedShooterName={rounds > 0 ? shotStreakShooterName : null} rememberedShooterName={rounds === 0 ? shotStreakShooterName : null} skipShotShooterSelect={Boolean(shotStreakShooterName && rounds > 0)} skipShotTutorial={Boolean(shotStreakShooterName && rounds > 0)} />
             ) : null}
             {activeGame === 'defense' ? (
               <DefensePhase
