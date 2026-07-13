@@ -202,26 +202,47 @@ function faceShapeProps(shape: FaceShape) {
   return { rx: 17.2, ry: 18.6 }
 }
 
+type HairCapShape = {
+  left: number
+  right: number
+  crown: number
+  front: number
+  inner: number
+  lift: number
+}
+
+const HAIR_CAP_BY_FACE: Record<FaceShape, HairCapShape> = {
+  long: { left: 25.2, right: 54.8, crown: -0.1, front: 13.1, inner: 9.6, lift: 2.8 },
+  oval: { left: 24.1, right: 55.9, crown: 0.3, front: 12.3, inner: 9.2, lift: 2.6 },
+  round: { left: 23.1, right: 56.9, crown: 1.0, front: 11.6, inner: 8.7, lift: 2.4 },
+  square: { left: 23.2, right: 56.8, crown: 1.0, front: 12.5, inner: 9.4, lift: 2.5 },
+}
+
+function buildHairCapPath(shape: HairCapShape, buzz: boolean) {
+  const inset = buzz ? 2.2 : 0
+  const left = shape.left + inset
+  const right = shape.right - inset
+  const crown = shape.crown + (buzz ? 2.1 : 0)
+  const front = shape.front - (buzz ? 1.7 : 0)
+  const inner = shape.inner - (buzz ? .8 : 0)
+  const sideCurve = buzz ? 2.1 : shape.lift
+  const innerInset = buzz ? 5.2 : 4.8
+
+  return `M${left} ${front} C${left + sideCurve} ${crown + 2.4} 33.5 ${crown} 40 ${crown} C46.5 ${crown} ${right - sideCurve} ${crown + 2.4} ${right} ${front} C${right - innerInset} ${inner + .7} 45 ${inner} 40 ${inner} C35 ${inner} ${left + innerInset} ${inner + .7} ${left} ${front} Z`
+}
+
 function HairShape({ appearance }: { appearance: PlayerAppearance }) {
   const fill = appearance.hair
   if (appearance.hairStyle === 'shaved') {
     return null
   }
-  const face = faceShapeProps(appearance.faceShape)
-  const isRound = appearance.faceShape === 'round'
-  const isLong = appearance.faceShape === 'long'
-  const hairScale = appearance.hairStyle === 'buzz' ? .72 : isLong ? .7 : isRound ? .77 : .74
-  const left = 40 - face.rx * hairScale
-  const right = 40 + face.rx * hairScale
-  const faceTop = 19 - face.ry
-  const crownY = Math.max(.25, faceTop + .35)
-  const frontY = crownY + (isLong ? 11.1 : isRound ? 8.6 : 9.6)
-  const innerY = frontY - (appearance.hairStyle === 'buzz' ? 2.2 : 1.7)
+  const cap = HAIR_CAP_BY_FACE[appearance.faceShape]
+  const path = buildHairCapPath(cap, appearance.hairStyle === 'buzz')
   if (appearance.hairStyle === 'buzz') {
-    return <path d={`M${left} ${frontY} C${left + 3} ${crownY + 2.8} ${35} ${crownY + 1.9} 40 ${crownY + 1.9} C45 ${crownY + 1.9} ${right - 3} ${crownY + 2.8} ${right} ${frontY} C${right - 5} ${innerY} 45 ${innerY - .6} 40 ${innerY - .6} C35 ${innerY - .6} ${left + 5} ${innerY} ${left} ${frontY} Z`} fill={fill} opacity=".84" />
+    return <path d={path} fill={fill} opacity=".84" />
   }
   return (
-    <path d={`M${left} ${frontY} C${left + 2.8} ${crownY + 2.2} 35 ${crownY} 40 ${crownY} C45 ${crownY} ${right - 2.8} ${crownY + 2.2} ${right} ${frontY} C${right - 4.8} ${innerY + .7} 45 ${innerY} 40 ${innerY} C35 ${innerY} ${left + 4.8} ${innerY + .7} ${left} ${frontY} Z`} fill={fill} />
+    <path d={path} fill={fill} />
   )
 }
 
