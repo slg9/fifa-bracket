@@ -92,10 +92,11 @@ const DEFAULT_MATCH_SEQUENCE = [
 ]
 
 function buildNodePositions(routeIds: string[]) {
+  const denominator = Math.max(1, routeIds.length - 1)
   return Object.fromEntries(routeIds.map((id, index) => {
-    const t = index / (DEFAULT_MATCH_SEQUENCE.length - 1)
+    const t = index / denominator
     const y = Math.round(ROUTE_Y_START - t * (ROUTE_Y_START - ROUTE_Y_END))
-    return [id, { x: ROUTE_X[index] ?? 50, y }]
+    return [id, { x: ROUTE_X[index % ROUTE_X.length] ?? 50, y }]
   })) as Record<string, { x: number; y: number }>
 }
 
@@ -385,6 +386,7 @@ function MatchNode({
   introState,
   onClick,
   mode = 'prediction',
+  fixedTeamId = null,
 }: {
   node: DisplayNode
   selecting: boolean
@@ -395,6 +397,7 @@ function MatchNode({
   introState?: 'hidden' | 'revealed'
   onClick: () => void
   mode?: 'prediction' | 'adventure'
+  fixedTeamId?: string | null
 }) {
   const isLocked = node.status === 'locked'
   const isCompleted = node.status === 'completed'
@@ -402,6 +405,12 @@ function MatchNode({
   const isLive = node.status === 'live'
   const isAvailable = node.status === 'available'
   const isPicked = node.status === 'picked'
+  const showPlayChip = !readOnly
+    && !isLocked
+    && !isCompleted
+    && !isClosed
+    && Boolean(node.homeTeam && node.awayTeam)
+    && (invite || isLive || (mode === 'adventure' && recommended && (isAvailable || isPicked)))
   const displayScore = scoreForNode(node, score)
   const officialScore = node.progress.realScore
   const hasBrakupScore = Boolean(score)
@@ -416,8 +425,13 @@ function MatchNode({
   const hasPlayedMarker = hasBrakupScore || node.progress.played || hasOfficialResult
   const officialPending = hasBrakupScore && !hasOfficialResult
   const officialOnly = hasOfficialResult && !hasPick
-  const adventureWon = mode === 'adventure' && Boolean(panelScore) && panelScore ? panelScore.home > panelScore.away : false
-  const adventureLost = mode === 'adventure' && Boolean(panelScore) && panelScore ? panelScore.home < panelScore.away : false
+  const adventureTeamSide = fixedTeamId === node.homeTeam?.id ? 'home' : fixedTeamId === node.awayTeam?.id ? 'away' : null
+  const adventureWon = mode === 'adventure' && Boolean(panelScore) && adventureTeamSide
+    ? adventureTeamSide === 'home' ? panelScore!.home > panelScore!.away : panelScore!.away > panelScore!.home
+    : false
+  const adventureLost = mode === 'adventure' && Boolean(panelScore) && adventureTeamSide
+    ? adventureTeamSide === 'home' ? panelScore!.home < panelScore!.away : panelScore!.away < panelScore!.home
+    : false
   const stageBadge = mode === 'adventure' && panelScore
     ? {
         className: [adventureWon ? 'is-correct' : adventureLost ? 'is-wrong' : 'is-pending', 'is-filled'].join(' '),
@@ -530,6 +544,7 @@ function MatchNode({
       </div>
 
       <span className="wcmap__round-chip">{node.roundShort}</span>
+      {showPlayChip ? <span className="wcmap__play-chip">Jouer</span> : null}
 
       <span className="wcmap__badge-rail" aria-hidden="true">
         {isLocked ? <span className="wcmap__status-badge wcmap__status-badge--lock">{'\uD83D\uDD12'}</span> : null}
@@ -1255,6 +1270,7 @@ export function WorldCupMapMenu({
                 introState={introState}
                 onClick={() => handleSelectNode(node)}
                 mode={mode}
+                fixedTeamId={fixedTeamId}
               />
             )
           })}

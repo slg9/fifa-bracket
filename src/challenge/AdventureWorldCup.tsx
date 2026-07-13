@@ -5,6 +5,7 @@ import { buildKnockoutBracket, computeStandings, getBestThirdPlacedTeams, knocko
 import { sfx } from '../lib/sfx'
 import type { AdventureProgressEntry, AdventureScore, BattleDifficultySetting, BattleResult, GroupMatch, KnockoutEntrant, KnockoutMatch, RankedStandingRow, Team } from '../types'
 import WorldCupMapMenu from './WorldCupMapMenu'
+import { playGameSound } from '../lib/useGameAudio'
 
 type AdventureBattle = {
   kind: 'group' | 'knockout' | 'daily'
@@ -34,6 +35,16 @@ type DailyMatchResult = {
   playedAt: string
 }
 
+type AdventureNoticeState = {
+  tone: 'success' | 'danger' | 'trophy'
+  title: string
+  text: string
+  variant?: 'dialogue'
+  image?: string
+  eyebrow?: string
+  trophy?: boolean
+}
+
 type AdventureWorldCupProps = {
   teams: Team[]
   groupMatches: GroupMatch[]
@@ -42,6 +53,11 @@ type AdventureWorldCupProps = {
   onDifficultyChange: (difficulty: BattleDifficultySetting) => void
   onOpenOfficial: () => void
   challengeToken?: string | null
+  accountPseudo?: string
+  accountEmail?: string
+  onLogin?: () => void
+  onLogout?: () => void
+  onOpenProfile?: () => void
   todayMatches?: TodayMatch[]
 }
 
@@ -232,6 +248,15 @@ function knockoutWinner(matchId: string, homeTeamId: string, awayTeamId: string,
 
 function teamName(team?: Team) {
   return team?.shortName || team?.name || 'Équipe'
+}
+
+function nextKnockoutStageLabel(stage: string) {
+  const normalized = stage.toLowerCase()
+  if (normalized.includes('16e') || normalized.includes('round of 32')) return 'les 8e de finale'
+  if (normalized.includes('8e') || normalized.includes('round of 16')) return 'les quarts de finale'
+  if (normalized.includes('quart')) return 'les demi-finales'
+  if (normalized.includes('demi')) return 'la finale'
+  return 'le prochain tour'
 }
 
 function teamFlagImageUrl(team?: Team) {
@@ -436,6 +461,11 @@ export default function AdventureWorldCup({
   onDifficultyChange,
   onOpenOfficial,
   challengeToken = null,
+  accountPseudo = '',
+  accountEmail = '',
+  onLogin,
+  onLogout,
+  onOpenProfile,
   todayMatches = [],
 }: AdventureWorldCupProps) {
   const [save, setSave] = useState<AdventureSave>(readAdventureSave)
@@ -445,7 +475,7 @@ export default function AdventureWorldCup({
   const [showAdventureMenu, setShowAdventureMenu] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [simulationOpen, setSimulationOpen] = useState(false)
-  const [notice, setNotice] = useState<{ tone: 'success' | 'danger' | 'trophy'; title: string; text: string } | null>(null)
+  const [notice, setNotice] = useState<AdventureNoticeState | null>(null)
   const [seenNoticeKey, setSeenNoticeKey] = useState<string | null>(null)
   const [teamCarouselIndex, setTeamCarouselIndex] = useState(0)
   const [dailyResults, setDailyResults] = useState<Record<string, DailyMatchResult>>(readDailyResults)
@@ -495,12 +525,14 @@ export default function AdventureWorldCup({
   const nextKnockoutMatch = qualified && save.teamId
     ? autoKnockoutState.matches.find((match) => teamInMatch(match, save.teamId) && !save.knockoutWinners[match.id]) ?? null
     : null
+  const playerLostKnockoutMatch = qualified && save.teamId
+    ? autoKnockoutState.matches.findLast((match) => teamInMatch(match, save.teamId) && save.knockoutWinners[match.id] && save.knockoutWinners[match.id] !== save.teamId) ?? null
+    : null
   const playerKnockoutPath = qualified && save.teamId
     ? autoKnockoutState.matches.filter((match) => teamInMatch(match, save.teamId) && (save.knockoutWinners[match.id] || match.id === nextKnockoutMatch?.id))
     : []
-  const playerEliminated = Boolean(save.teamId && groupComplete && (!qualified || !nextKnockoutMatch && !autoKnockoutState.winners.M104))
   const playerChampion = Boolean(save.teamId && autoKnockoutState.winners.M104 === save.teamId)
-  const playerGroupEliminated = Boolean(save.teamId && groupComplete && !qualified)
+  const playerEliminated = Boolean(save.teamId && groupComplete && !playerChampion && (!qualified || playerLostKnockoutMatch))
   const simulatedChampion = autoKnockoutState.winners.M104 ? teamsById.get(autoKnockoutState.winners.M104) : undefined
   const simulatedFinal = autoKnockoutState.matches.find((match) => match.id === 'M104')
   const simulatedFinalScore = autoKnockoutState.scores.M104
@@ -539,7 +571,9 @@ export default function AdventureWorldCup({
   const adventureMapMatches = useMemo<KnockoutMatch[]>(() => {
     const groupNodes = selectedTeamMatches.map(groupMatchToBattle)
     const knockoutNodes = groupComplete
-      ? qualified
+      ? playerEliminated
+        ? autoKnockoutState.matches
+        : qualified
         ? playerKnockoutPath
         : []
       : [
@@ -550,13 +584,16 @@ export default function AdventureWorldCup({
         { id: 'ADV-F', stage: 'Finale', label: 'Finale', dateLabel: '', home: { kind: 'placeholder' as const, label: 'À déterminer' }, away: { kind: 'placeholder' as const, label: 'À déterminer' }, qualificationStatus: 'projected' as const },
       ]
     return [...groupNodes, ...knockoutNodes]
-  }, [groupComplete, playerKnockoutPath, qualified, selectedTeamMatches])
+  }, [autoKnockoutState.matches, groupComplete, playerEliminated, playerKnockoutPath, qualified, selectedTeamMatches])
   const adventureRouteIds = useMemo(() => adventureMapMatches.map((match) => match.id), [adventureMapMatches])
   const adventureMapPicks = useMemo(() => {
     const teamId = save.teamId
     if (!teamId) return {}
-    return Object.fromEntries(adventureMapMatches.map((match) => [match.id, teamId]))
-  }, [adventureMapMatches, save.teamId])
+    return Object.fromEntries(adventureMapMatches.map((match) => {
+      if (teamInMatch(match, teamId)) return [match.id, teamId]
+      return [match.id, autoKnockoutState.winners[match.id] ?? teamId]
+    }))
+  }, [adventureMapMatches, autoKnockoutState.winners, save.teamId])
   const adventureMapScores = useMemo(() => {
     if (!save.teamId) return {}
     const entries: Array<[string, { p: number; o: number }]> = []
@@ -566,27 +603,27 @@ export default function AdventureWorldCup({
       const playerHome = match.homeTeamId === save.teamId
       entries.push([match.id, { p: playerHome ? score.home : score.away, o: playerHome ? score.away : score.home }])
     }
-    for (const match of playerKnockoutPath) {
-      const score = save.knockoutScores[match.id]
+    for (const match of adventureMapMatches) {
+      if (selectedTeamMatches.some((groupMatch) => groupMatch.id === match.id)) continue
+      const score = autoKnockoutState.scores[match.id] ?? save.knockoutScores[match.id]
       if (!score) continue
-      const playerHome = match.home.kind === 'team' && match.home.teamId === save.teamId
-      entries.push([match.id, { p: playerHome ? score.home : score.away, o: playerHome ? score.away : score.home }])
+      const pickedTeamId = teamInMatch(match, save.teamId) ? save.teamId : autoKnockoutState.winners[match.id]
+      const pickedHome = match.home.kind === 'team' && match.home.teamId === pickedTeamId
+      entries.push([match.id, { p: pickedHome ? score.home : score.away, o: pickedHome ? score.away : score.home }])
     }
     return Object.fromEntries(entries)
-  }, [playerKnockoutPath, save.groupScores, save.knockoutScores, save.teamId, selectedTeamMatches])
+  }, [adventureMapMatches, autoKnockoutState.scores, autoKnockoutState.winners, save.groupScores, save.knockoutScores, save.teamId, selectedTeamMatches])
   const adventureZoneBanners = useMemo(() => {
-    const banners = [{ label: `GROUPE ${selectedTeam?.groupId ?? ''}`, y: 2380 }]
-    if (!playerGroupEliminated) {
-      banners.push(
-        { label: 'PHASE FINALE', y: 1740 },
-        { label: 'QUARTS', y: 1170 },
-        { label: 'DEMI-FINALES', y: 700 },
-        { label: 'FINALE', y: 390 },
-      )
-    }
-    return banners
-  }, [playerGroupEliminated, selectedTeam?.groupId])
+    return [
+      { label: `GROUPE ${selectedTeam?.groupId ?? ''}`, y: 2380 },
+      { label: 'PHASE FINALE', y: 1740 },
+      { label: 'QUARTS', y: 1170 },
+      { label: 'DEMI-FINALES', y: 700 },
+      { label: 'FINALE', y: 390 },
+    ]
+  }, [selectedTeam?.groupId])
   const dailyPlayedCount = todayMatches.filter((match) => dailyResults[match.id]).length
+  const hasSyncedAccount = Boolean(challengeToken && accountPseudo)
 
   useEffect(() => {
     if (!challengeToken) {
@@ -664,27 +701,58 @@ export default function AdventureWorldCup({
     const key = qualified ? `${save.teamId}:qualified` : `${save.teamId}:group-out`
     if (seenNoticeKey === key) return
     setSeenNoticeKey(key)
+    if (!qualified) playGameSound('/audio/sad.mp3', { volume: 0.74, kind: 'sfx' })
     setNotice(qualified
-      ? { tone: 'success', title: 'Qualification !', text: `${teamName(selectedTeam)} continue l'aventure. Ton adversaire de phase finale est généré.` }
-      : { tone: 'danger', title: 'Éliminé en groupes', text: `${teamName(selectedTeam)} ne passe pas. La phase finale est simulée jusqu'au champion : ${teamName(simulatedChampion)}.` })
+      ? {
+          tone: 'success',
+          title: 'Qualification !',
+          eyebrow: 'Phase finale',
+          text: `${teamName(selectedTeam)} sort du groupe. Le tableau s'ouvre maintenant : un match à élimination directe, et chaque erreur peut arrêter la Coupe.`,
+          variant: 'dialogue',
+          image: '/challenge-splash-letsgo.png',
+        }
+      : {
+          tone: 'danger',
+          title: 'Éliminé en groupes',
+          eyebrow: 'Fin de parcours',
+          text: `Triste nouvelle, ${teamName(selectedTeam)} ne passe pas les groupes. Le reste de la Coupe est simulé jusqu'au bout.\nChampion simulé : ${teamName(simulatedChampion)}.`,
+          variant: 'dialogue',
+          image: '/challenge-splash-explain.png',
+        })
   }, [groupComplete, qualified, save.teamId, seenNoticeKey, selectedTeam, simulatedChampion])
 
   useEffect(() => {
     if (!save.teamId || !playerEliminated || !qualified) return
-    const lastLostMatch = autoKnockoutState.matches.findLast((match) => teamInMatch(match, save.teamId) && save.knockoutWinners[match.id] && save.knockoutWinners[match.id] !== save.teamId)
-    if (!lastLostMatch) return
-    const key = `${save.teamId}:out:${lastLostMatch.id}`
+    if (!playerLostKnockoutMatch) return
+    const key = `${save.teamId}:out:${playerLostKnockoutMatch.id}`
     if (seenNoticeKey === key) return
     setSeenNoticeKey(key)
-    setNotice({ tone: 'danger', title: 'Éliminé', text: `Défaite en ${lastLostMatch.stage}. Le parcours s'arrête ici.` })
-  }, [autoKnockoutState.matches, playerEliminated, qualified, save.knockoutWinners, save.teamId, seenNoticeKey])
+    playGameSound('/audio/sad.mp3', { volume: 0.74, kind: 'sfx' })
+    setNotice({
+      tone: 'danger',
+      title: 'Disqualifié',
+      eyebrow: 'Fin de parcours',
+      text: `Triste nouvelle, tu es éliminé en ${playerLostKnockoutMatch.stage}. Les autres matchs sont simulés jusqu'à la finale.\nChampion simulé : ${teamName(simulatedChampion)}.`,
+      variant: 'dialogue',
+      image: '/challenge-splash-explain.png',
+    })
+  }, [playerEliminated, playerLostKnockoutMatch, qualified, save.teamId, seenNoticeKey, simulatedChampion])
 
   useEffect(() => {
     if (!playerChampion || !selectedTeam) return
     const key = `${selectedTeam.id}:champion`
     if (seenNoticeKey === key) return
     setSeenNoticeKey(key)
-    setNotice({ tone: 'trophy', title: 'Champion du monde !', text: `${selectedTeam.name} gagne la Coupe du Monde dans ton aventure.` })
+    playGameSound('/audio/cup-victory-parade.mp3', { volume: 0.86, kind: 'sfx' })
+    setNotice({
+      tone: 'trophy',
+      title: 'Champion du monde !',
+      eyebrow: 'Trophée',
+      text: `Bravo champion ! ${selectedTeam.name} gagne la Coupe du Monde. Tu as soulevé le trophée.`,
+      variant: 'dialogue',
+      image: '/challenge-splash-letsgo.png',
+      trophy: true,
+    })
   }, [playerChampion, seenNoticeKey, selectedTeam])
 
   const startAdventure = (teamId: string) => {
@@ -701,7 +769,10 @@ export default function AdventureWorldCup({
       setNotice({
         tone: 'success',
         title: 'Phase de groupe',
+        eyebrow: 'Début de parcours',
         text: 'Ton aventure commence en phase de groupe. Chaque point compte : remporte un maximum de matchs. Dans cette phase, une phase perdue ne peut pas être recommencée.',
+        variant: 'dialogue',
+        image: '/challenge-splash-explain.png',
       })
     }, 900)
     setBattle(null)
@@ -792,10 +863,11 @@ export default function AdventureWorldCup({
     } else {
       const rawHomeId = battle.match.home.kind === 'team' ? battle.match.home.teamId : null
       const rawAwayId = battle.match.away.kind === 'team' ? battle.match.away.teamId : null
-      const resolvedWinnerId = result.winnerId ?? (rawHomeId && rawAwayId ? knockoutWinner(battle.sourceId, rawHomeId, rawAwayId, score) : rawHomeId ?? rawAwayId ?? save.teamId)
-      const winnerId = battle.playerSide === 'home'
-        ? resolvedWinnerId
-        : resolvedWinnerId === rawAwayId ? rawAwayId : rawHomeId ?? resolvedWinnerId
+      const winnerId = score.home > score.away
+        ? rawHomeId ?? save.teamId
+        : score.away > score.home
+          ? rawAwayId ?? save.teamId
+          : result.winnerId ?? (rawHomeId && rawAwayId ? knockoutWinner(battle.sourceId, rawHomeId, rawAwayId, score) : rawHomeId ?? rawAwayId ?? save.teamId)
       setSave((current) => touchAdventureSave({
         ...current,
         knockoutScores: {
@@ -807,6 +879,17 @@ export default function AdventureWorldCup({
           [battle.sourceId]: winnerId,
         },
       }))
+      if (winnerId === playerTeamId && battle.sourceId !== 'M104') {
+        const nextStage = nextKnockoutStageLabel(battle.match.stage)
+        setNotice({
+          tone: 'success',
+          title: 'Qualification !',
+          eyebrow: battle.match.stage,
+          text: `Bravo ! Tu te qualifies pour ${nextStage}. La Coupe continue, reste concentré.`,
+          variant: 'dialogue',
+          image: '/challenge-splash-letsgo.png',
+        })
+      }
     }
     setBattle(null)
   }
@@ -922,7 +1005,7 @@ export default function AdventureWorldCup({
 
   return (
     <main className="adventure-shell adventure-shell--map">
-      <button type="button" className="adventure-map-menu-button" onClick={() => { sfx.click(); setShowAdventureMenu(true) }} aria-label="Ouvrir le menu aventure">
+      <button type="button" className="game-menu-button adventure-map-menu-button" onClick={() => { sfx.click(); setShowAdventureMenu(true) }} aria-label="Ouvrir le menu aventure">
         <span />
         <span />
         <span />
@@ -977,7 +1060,7 @@ export default function AdventureWorldCup({
           }}
         />
       </section>
-      {playerGroupEliminated && simulatedChampion ? (
+      {playerEliminated && simulatedChampion ? (
         <section className="adventure-elimination-summary" aria-label="Résultat de la phase finale simulée">
           <span>Phase finale simulée</span>
           <div className="adventure-elimination-summary__winner">
@@ -1010,6 +1093,23 @@ export default function AdventureWorldCup({
                 <span>Ton aventure</span>
                 <strong>{selectedTeam.name}</strong>
                 <small>Groupe {selectedTeam.groupId} · {rankText(playerStanding)}</small>
+              </div>
+            </div>
+            <div className="adventure-menu-modal__account">
+              <div>
+                <span>{hasSyncedAccount ? 'Compte connecté' : 'Compte invité'}</span>
+                <strong>{hasSyncedAccount ? accountPseudo : 'Invité'}</strong>
+                <small>{hasSyncedAccount ? accountEmail || 'Progression synchronisée' : 'Progression locale sur cet appareil'}</small>
+              </div>
+              <div>
+                {hasSyncedAccount && onOpenProfile ? (
+                  <button type="button" onClick={() => { setShowAdventureMenu(false); onOpenProfile() }}>Profil</button>
+                ) : null}
+                {hasSyncedAccount && onLogout ? (
+                  <button type="button" onClick={() => { setShowAdventureMenu(false); onLogout() }}>Se déconnecter</button>
+                ) : onLogin ? (
+                  <button type="button" onClick={() => { setShowAdventureMenu(false); onLogin() }}>Se connecter</button>
+                ) : null}
               </div>
             </div>
             <div className="adventure-menu-modal__stats">
@@ -1082,9 +1182,82 @@ function AdventureNotice({
   notice,
   onClose,
 }: {
-  notice: { tone: 'success' | 'danger' | 'trophy'; title: string; text: string }
+  notice: AdventureNoticeState
   onClose: () => void
 }) {
+  const [visibleChars, setVisibleChars] = useState(notice.variant === 'dialogue' ? 0 : notice.text.length)
+  const isDialogue = notice.variant === 'dialogue'
+  const visibleText = notice.text.slice(0, visibleChars)
+  const textDone = visibleChars >= notice.text.length
+
+  useEffect(() => {
+    setVisibleChars(isDialogue ? 0 : notice.text.length)
+  }, [isDialogue, notice.text])
+
+  useEffect(() => {
+    if (!isDialogue || textDone) return
+    const timeoutId = window.setTimeout(() => {
+      setVisibleChars((count) => Math.min(notice.text.length, count + 2))
+      sfx.dialogueBlip()
+    }, 28)
+    return () => window.clearTimeout(timeoutId)
+  }, [isDialogue, notice.text.length, textDone, visibleChars])
+
+  const handleAdvance = () => {
+    if (isDialogue && !textDone) {
+      setVisibleChars(notice.text.length)
+      return
+    }
+    onClose()
+  }
+
+  if (isDialogue) {
+    return (
+      <div className={`adventure-notice is-${notice.tone} is-dialogue`} role="dialog" aria-modal="true">
+        <div className="adventure-notice__dialogue-frame">
+          <div
+            className="adventure-notice__dialogue-bg"
+            style={notice.image ? { backgroundImage: `url(${notice.image})` } : undefined}
+            aria-hidden="true"
+          />
+          {notice.trophy ? (
+            <div className="adventure-notice__trophy" aria-hidden="true">
+              <div className="adventure-notice__cup">
+                <span />
+                <i />
+              </div>
+            </div>
+          ) : null}
+          <div className="splash-dialogue adventure-notice__dialogue">
+            <div className="splash-dialogue__box" aria-live="polite">
+              <div className="splash-dialogue__head">
+                <span>{notice.eyebrow || notice.title}</span>
+              </div>
+              <p>
+                {visibleText.split('\n').map((line, index, lines) => (
+                  <span key={index}>
+                    {line}
+                    {index < lines.length - 1 ? <br /> : null}
+                  </span>
+                ))}
+                {!textDone ? <i className="splash-dialogue__cursor" aria-hidden="true" /> : null}
+              </p>
+              {textDone ? (
+                <button type="button" className="splash-dialogue__next is-final" onClick={handleAdvance}>
+                  Continuer
+                </button>
+              ) : (
+                <button type="button" className="splash-dialogue__skip" onClick={handleAdvance}>
+                  Afficher
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`adventure-notice is-${notice.tone}`} role="dialog" aria-modal="true">
       <button type="button" className="adventure-notice__scrim" onClick={onClose} aria-label="Fermer" />

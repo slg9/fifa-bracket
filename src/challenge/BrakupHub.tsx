@@ -1613,6 +1613,11 @@ export function BrakupHub({
           onDifficultyChange={updateDifficultySetting}
           onOpenOfficial={() => navigate('official')}
           challengeToken={accessToken}
+          accountPseudo={hasSyncedProfile ? menuPseudo : ''}
+          accountEmail={hasSyncedProfile ? savedProfile.email : ''}
+          onLogin={() => { setLoginError(null); setLoginSent(false); setLoginEmail(null); setShowLoginEntry(true) }}
+          onLogout={handleLogout}
+          onOpenProfile={() => { setProfileError(null); setShowProfileSettings(true) }}
           todayMatches={todayMatches}
         />
       ) : null}
@@ -1660,7 +1665,7 @@ export function BrakupHub({
                 )}
                 {hasSyncedProfile ? (
                   <button type="button" onClick={handleLogout}>
-                    Se deconnecter
+                    Se déconnecter
                   </button>
                 ) : (
                   <button type="button" onClick={() => { setLoginError(null); setLoginSent(false); setLoginEmail(null); setShowLoginEntry(true); setShowGameMenu(false) }}>
@@ -1668,7 +1673,7 @@ export function BrakupHub({
                   </button>
                 )}
               </div>
-              <small>{hasSyncedProfile ? savedProfile.email || 'Compte synchronise' : 'Progression invite sur cet appareil'}</small>
+              <small>{hasSyncedProfile ? savedProfile.email || 'Compte synchronisé' : 'Progression invitée sur cet appareil'}</small>
               {hasSyncedProfile && saveError ? <small>{saveError}</small> : null}
             </div>
             <div className="game-menu-modal__score">

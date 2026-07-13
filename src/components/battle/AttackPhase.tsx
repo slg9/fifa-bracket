@@ -117,9 +117,6 @@ const PLAYER_SPEED  = 60
 const JUMP_DURATION = 780
 const JUMP_ACTIVE_START = 0
 const JUMP_ACTIVE_END = 700
-const DASH_DISTANCE = 18
-const DASH_DURATION = 210
-const DASH_COOLDOWN = 620
 const ROULETTE_DURATION = 980
 const ROULETTE_ACTIVE_START = 0
 const ROULETTE_ACTIVE_END = 900
@@ -128,7 +125,9 @@ const POWER_DOUBLE_TAP_MS = 320
 const PICKUP_COLLECT_MIN_Y = GD_PLAYER_Y + 2
 const PICKUP_COLLECT_MAX_Y = GD_PLAYER_Y + 14
 const PICKUP_MISSED_Y = GD_PLAYER_Y + 20
-const SPRING_ROW_SPEED_MULTIPLIER = 2.35
+const SPRING_ROW_SPEED_MULTIPLIER = 3.35
+const SPRING_SAFE_DURATION = 1850
+const SPRING_SAFE_PASSES = 2
 const FEVER_DURATION = 3600
 const POWER_SHOT_FLOW_THRESHOLD = 92
 const ATTACK_MAX_LIVES = 3
@@ -686,8 +685,11 @@ function getWaveInstruction(wave?: SlalomWave) {
   return 'Évite les joueurs'
 }
 
-function getWaveGateCenter(wave: SlalomWave, _elapsed: number) {
-  return wave.gateCenterX
+function getWaveGateCenter(wave: SlalomWave, elapsed: number) {
+  if (!wave.moveAmplitude || !wave.moveFrequency) return wave.gateCenterX
+  const phase = (wave.movePhase ?? 0) + elapsed * wave.moveFrequency * Math.PI * 2
+  const movingCenter = wave.gateCenterX + Math.sin(phase) * wave.moveAmplitude
+  return Math.max(GD_MIN_X + 2, Math.min(GD_MAX_X - 2, movingCenter))
 }
 
 function getJumpTone(wave: SlalomWave, now: number, jump: { isJumping: boolean; isActive: boolean; elapsed: number }) {
@@ -699,23 +701,25 @@ function getJumpTone(wave: SlalomWave, now: number, jump: { isJumping: boolean; 
 }
 
 function evaluateWaveSuccess(wave: SlalomWave, playerX: number, jump: { isActive: boolean }, elapsed: number, dashActive = false, rouletteActive = false, wideActive = false): { success: boolean; label: string; quality?: DribbleQuality; ideal?: boolean } {
-  const halfGate = wave.gateWidth / 2 + (dashActive && isGatePassWave(wave) ? 3 : 0) + (wideActive && isGatePassWave(wave) ? 6 : 0)
+  const halfGate = wave.gateWidth / 2 + (dashActive && isGatePassWave(wave) ? 3 : 0) + (wideActive && isGatePassWave(wave) ? 12 : 0)
   const center = getWaveGateCenter(wave, elapsed)
   const inGate = playerX >= center - halfGate && playerX <= center + halfGate
   const perfectGate = inGate && Math.abs(playerX - center) <= Math.max(3.2, wave.gateWidth * 0.16)
   const quality: DribbleQuality = perfectGate ? 'perfect' : 'clean'
   const defenderHit = wave.defenders.some((defender) => {
     if (defender.variant === 'sliding' && jump.isActive) return false
-    const hitbox = defender.variant === 'sliding' ? 14 : defender.variant === 'press' ? 10.5 : 9
+    const baseHitbox = defender.variant === 'sliding' ? 14 : defender.variant === 'press' ? 10.5 : 9
+    const hitbox = baseHitbox * (wideActive ? 0.58 : 1)
     return Math.abs(playerX - defender.x) <= hitbox
   })
   const obstacleHit = wave.obstacles.some((obstacle) => {
     if (obstacle.requiresJump && jump.isActive) return false
-    const hitbox =
+    const baseHitbox =
       obstacle.kind === 'cone' ? 5.9
       : obstacle.kind === 'mannequin' ? 6.2
       : obstacle.kind === 'wall' ? Math.max(9.5, obstacle.width * 0.39)
       : Math.max(10.5, obstacle.width * 0.38)
+    const hitbox = baseHitbox * (wideActive ? 0.62 : 1)
     return Math.abs(playerX - obstacle.x) <= hitbox
   })
   const blocked = defenderHit || obstacleHit
@@ -883,9 +887,9 @@ function bonusPowerText(kind: BonusKind) {
   if (kind === 'boots') return { short: 'BOUCLIER', pickup: 'BOUCLIER - 1 ERREUR PROTÉGÉE', hint: 'protège 1 erreur' }
   if (kind === 'whistle') return { short: 'GARDIEN LENT', pickup: 'GARDIEN RALENTI', hint: 'gardien lent' }
   if (kind === 'slowmo') return { short: 'SLOWMO', pickup: 'SLOWMO - JEU RALENTI', hint: 'ralenti' }
-  if (kind === 'wide') return { short: 'BALLONS AIMANTES', pickup: 'BALLONS AIMANTES', hint: 'ballons +' }
-  if (kind === 'roulette') return { short: 'ROULETTE', pickup: 'ROULETTE CHARGEE', hint: 'dribble invincible' }
-  if (kind === 'blast') return { short: 'BALLON FEU', pickup: 'BALLON EN FEU CHARGE', hint: 'double tap' }
+  if (kind === 'wide') return { short: 'ÉCARTEUR', pickup: 'ÉCARTEUR - PASSAGES OUVERTS', hint: 'portes +' }
+  if (kind === 'roulette') return { short: 'ROULETTE', pickup: 'ROULETTE CHARGÉE', hint: 'dribble invincible' }
+  if (kind === 'blast') return { short: 'BALLON FEU', pickup: 'BALLON EN FEU CHARGÉ', hint: 'double tap' }
   return { short: 'TIR FACILE', pickup: 'TIR FACILE - ZONE VERTE +', hint: 'zone verte +' }
 }
 //  Component 
@@ -1001,6 +1005,8 @@ export function AttackPhase({
   const gdSpringPickupsRef = useRef<SlalomSpringPickup[]>([])
   const springSkipWaveIdRef = useRef<string | null>(null)
   const springBoostUntilRef = useRef(0)
+  const springSafeUntilRef = useRef(0)
+  const springSafePassesRef = useRef(0)
   const springJumpTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const storedBonusPowersRef = useRef<StoredBonusPower[]>([])
   const isJumpingRef    = useRef(false)
@@ -1062,6 +1068,10 @@ export function AttackPhase({
   const gameplayStartedRef = useRef(false)
 
   const finishSpringJump = useCallback(() => {
+    springSkipWaveIdRef.current = null
+    springBoostUntilRef.current = 0
+    springSafeUntilRef.current = 0
+    springSafePassesRef.current = 0
     isJumpingRef.current = false
     jumpStartedAtRef.current = null
     setGdJumping(false)
@@ -1260,6 +1270,8 @@ export function AttackPhase({
     storedBonusPowersRef.current = []
     springSkipWaveIdRef.current = null
     springBoostUntilRef.current = 0
+    springSafeUntilRef.current = 0
+    springSafePassesRef.current = 0
     if (springJumpTimeoutRef.current) {
       window.clearTimeout(springJumpTimeoutRef.current)
       springJumpTimeoutRef.current = null
@@ -1529,17 +1541,18 @@ export function AttackPhase({
       setGdComment(bonusText.pickup)
       auraDuration = 7000
     } else if (bonusKind === 'wide') {
-      wideGateUntilRef.current = performance.now() + 7600
+      const wideDuration = 10500
+      wideGateUntilRef.current = performance.now() + wideDuration
       if (wideGateTimeoutRef.current) window.clearTimeout(wideGateTimeoutRef.current)
       setWideGateActive(true)
       wideGateTimeoutRef.current = window.setTimeout(() => {
         setWideGateActive(false)
         wideGateTimeoutRef.current = null
-      }, 7600)
+      }, wideDuration)
       sfx.wideGate()
-      if (!survivalDribbleOnly) shotBonusRef.current.widerGreen += 1.25
+      if (!survivalDribbleOnly) shotBonusRef.current.widerGreen += 1.75
       setGdComment(bonusText.pickup)
-      auraDuration = 7600
+      auraDuration = wideDuration
     } else if (bonusKind === 'roulette') {
       const now = performance.now()
       rouletteStartedAtRef.current = now
@@ -1611,9 +1624,12 @@ export function AttackPhase({
     pickup.collected = true
     pickup.checked = true
     const nextWave = gdWallsRef.current.find((wave) => !wave.checked && wave.worldY < pickup.worldY)
+    const now = performance.now()
     springSkipWaveIdRef.current = nextWave?.id ?? null
-    springBoostUntilRef.current = performance.now() + 1250
-    jumpStartedAtRef.current = performance.now()
+    springBoostUntilRef.current = now + SPRING_SAFE_DURATION
+    springSafeUntilRef.current = now + SPRING_SAFE_DURATION + 450
+    springSafePassesRef.current = SPRING_SAFE_PASSES
+    jumpStartedAtRef.current = now
     isJumpingRef.current = true
     setGdJumping(true)
     setGdSpringJumping(true)
@@ -1699,81 +1715,6 @@ export function AttackPhase({
     }, JUMP_DURATION)
   }
 
-  const moveDribblePlayerTo = (nextX: number) => {
-    gdPlayerXRef.current = Math.max(GD_MIN_X, Math.min(GD_MAX_X, nextX))
-    if (playerElRef.current) {
-      const width = gameWidthRef.current || containerRectRef.current.width
-      const x = (gdPlayerXRef.current / 100) * width - 29
-      playerElRef.current.style.transform = `translateX(${x}px)`
-      playerElRef.current.style.setProperty('--atk-player-x', `${x}px`)
-    }
-  }
-
-  const getEvadeTargetX = (wave?: SlalomWave) => {
-    if (!wave || !isGatePassWave(wave)) return null
-    return getWaveGateCenter(wave, gdElapsedRef.current)
-  }
-
-  const handleDash = (direction?: -1 | 1, targetX?: number | null) => {
-    const now = performance.now()
-    if (now < dashCooldownUntilRef.current) return
-    const currentX = gdPlayerXRef.current
-    const hasTarget = targetX != null && Math.abs(targetX - currentX) > 1
-    const inferredDirection: -1 | 1 = hasTarget
-      ? targetX > currentX ? 1 : -1
-      : direction
-        ?? (keysRef.current.left && !keysRef.current.right ? -1 : keysRef.current.right && !keysRef.current.left ? 1 : currentX < 50 ? 1 : -1)
-    dashDirectionRef.current = inferredDirection
-    dashUntilRef.current = now + DASH_DURATION
-    dashCooldownUntilRef.current = now + (now < feverUntilRef.current ? DASH_COOLDOWN * 0.58 : DASH_COOLDOWN)
-    dashTargetXRef.current = hasTarget ? targetX : null
-    const nextX = hasTarget
-      ? currentX + Math.max(-DASH_DISTANCE, Math.min(DASH_DISTANCE, targetX - currentX))
-      : currentX + inferredDirection * DASH_DISTANCE
-    moveDribblePlayerTo(nextX)
-    sfx.jump()
-    setDashActive(true)
-    setGdComment(hasTarget ? 'VERS LES BALLONS !' : now < feverUntilRef.current ? 'FEVER DASH !' : 'ESQUIVE !')
-    if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
-    commentTimerRef.current = setTimeout(() => setGdComment(null), 520)
-    window.setTimeout(() => {
-      dashTargetXRef.current = null
-      setDashActive(false)
-    }, DASH_DURATION)
-  }
-
-  const handleRandomEvade = (wave?: SlalomWave) => {
-    const options = [
-      () => handleDash(undefined, getEvadeTargetX(wave)),
-      () => handleJump(),
-    ]
-    options[Math.floor(Math.random() * options.length)]?.()
-  }
-
-  const handleManualRoulette = () => {
-    const now = performance.now()
-    if (now < rouletteCooldownUntilRef.current) return false
-    rouletteStartedAtRef.current = now
-    rouletteUntilRef.current = now + ROULETTE_DURATION
-    rouletteCooldownUntilRef.current = now + ROULETTE_COOLDOWN
-    sfx.jump()
-    setRouletteActive(true)
-    setGdComment('ROULETTE !')
-    if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
-    commentTimerRef.current = setTimeout(() => setGdComment(null), 620)
-    window.setTimeout(() => {
-      rouletteStartedAtRef.current = null
-      setRouletteActive(false)
-    }, ROULETTE_DURATION)
-    return true
-  }
-
-  const shouldRouletteNextWave = (wave?: SlalomWave) => Boolean(
-    wave
-    && !wave.requiresJump
-    && (wave.defenders.length > 0 || wave.obstacles.some((obstacle) => !obstacle.requiresJump))
-  )
-
   const getNextActionWave = () => {
     const fall = gdFallPctRef.current
     const immediateWave = gdWallsRef.current
@@ -1812,8 +1753,9 @@ export function AttackPhase({
       handleJump()
       return
     }
-    if (shouldRouletteNextWave(nextWave) && handleManualRoulette()) return
-    handleRandomEvade(nextWave)
+    setGdComment('GLISSE POUR BOUGER')
+    if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
+    commentTimerRef.current = setTimeout(() => setGdComment(null), 520)
   }
 
   const handleTapAction = () => {
@@ -1952,7 +1894,7 @@ export function AttackPhase({
         : gdCheckedRef.current / Math.max(1, cfg.waveCount)
       const survivalEnduranceSpeed = survivalDribbleOnly ? 1 + Math.min(2.25, gdCheckedRef.current * 0.014 + gdElapsedRef.current * 0.006) : 1
       const speed = cfg.gdSpeed * (1 + progress * cfg.difficultyRamp) * survivalEnduranceSpeed * (isSlowmoActive ? 0.68 : 1) * (superAttackerNow ? 1.5 : 1)
-      const springSpeedMultiplier = springSkipWaveIdRef.current && now < springBoostUntilRef.current ? SPRING_ROW_SPEED_MULTIPLIER : 1
+      const springSpeedMultiplier = springSafePassesRef.current > 0 && now < springBoostUntilRef.current ? SPRING_ROW_SPEED_MULTIPLIER : 1
 
       // Walls fall: update ONE container transform  GPU composited, zero layout reflow
       gdFallPctRef.current += speed * springSpeedMultiplier * delta
@@ -2071,6 +2013,30 @@ export function AttackPhase({
         const jump = getJumpState(now)
         const roulette = getRouletteState(now)
         const ghostActiveNow = now < ghostUntilRef.current
+
+        if (springSafePassesRef.current > 0 && now < springSafeUntilRef.current) {
+          if (springSkipWaveIdRef.current === wall.id) springSkipWaveIdRef.current = null
+          springSafePassesRef.current = Math.max(0, springSafePassesRef.current - 1)
+          wall.passed = true
+          wall.idealPassed = true
+          registerDribbleSuccess(wall, { label: 'TREMPLIN !', quality: 'perfect', ideal: true })
+          gdCheckedRef.current++
+          publishSurvivalDribbleScore()
+          setGdWallsDisplay([...gdWallsRef.current])
+          const landingDone = springSafePassesRef.current <= 0
+          setGdComment(landingDone ? 'RÉCEPTION OK !' : 'TREMPLIN !')
+          if (commentTimerRef.current) clearTimeout(commentTimerRef.current)
+          commentTimerRef.current = setTimeout(() => setGdComment(null), 760)
+          if (landingDone) {
+            springBoostUntilRef.current = 0
+            if (springJumpTimeoutRef.current) window.clearTimeout(springJumpTimeoutRef.current)
+            springJumpTimeoutRef.current = window.setTimeout(() => {
+              finishSpringJump()
+            }, 420)
+          }
+          markSlalomCompleteIfNeeded(wall)
+          continue
+        }
 
         if (springSkipWaveIdRef.current === wall.id) {
           springSkipWaveIdRef.current = null
@@ -2523,7 +2489,7 @@ export function AttackPhase({
   const visibleSpringPickups = phase === 'gd'
     ? gdSpringPickupsDisplay.filter((pickup) => pickup.worldY >= visibleMinWorldY && pickup.worldY <= visibleMaxWorldY && (!pickup.checked || pickup.collected))
     : []
-  const shotTutorialComment = roundIntroComment ?? `${selectedShooter.name} est prêt. Choisis ta zone, puis frappe quand la jauge blanche passe sur le vert.`
+  const shotTutorialComment = roundIntroComment ?? `${selectedShooter.name} est prêt. Choisis ta zone, puis frappe quand la jauge blanche passe sur le vert. Vise la lucarne : le but compte double.`
   const dribbleTutorialPowers: Array<{ kind: BonusKind; label: string; className: string }> = survivalDribbleOnly
     ? [
       { kind: 'boots', label: 'Bouclier', className: 'atk-dribble-demo__bonus-icon--boot' },
@@ -3454,6 +3420,27 @@ export function AttackPhase({
           animation: atkWarningPop 1.5s ease-out both;
         }
         @keyframes atkWarningPop { 0%{opacity:0;scale:.86} 12%{opacity:1;scale:1.04} 72%{opacity:1;scale:1} 100%{opacity:0;scale:.96} }
+        .atk-corner-bonus-hint {
+          position: absolute;
+          left: 50%;
+          top: max(116px, calc(env(safe-area-inset-top) + 104px));
+          z-index: 24;
+          transform: translateX(-50%);
+          width: min(86%, 330px);
+          padding: 7px 11px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 216, 74, .42);
+          background: rgba(20, 13, 0, .62);
+          color: #ffdf70;
+          font: 900 12px 'Barlow Condensed',sans-serif;
+          letter-spacing: .11em;
+          line-height: 1.1;
+          text-align: center;
+          text-transform: uppercase;
+          text-shadow: 0 0 12px rgba(255,184,0,.48);
+          pointer-events: none;
+          box-shadow: 0 0 20px rgba(255,184,0,.16);
+        }
         .atk-shooter-select {
           position: absolute; inset: 0; z-index: 46;
           display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
@@ -3872,12 +3859,12 @@ export function AttackPhase({
             >
               {visibleGdWalls.map((wave) => {
                 const isWideGatePower = wideGateActive && isGatePassWave(wave)
-                const visualGateWidth = isWideGatePower ? Math.min(78, wave.gateWidth + 12) : wave.gateWidth
+                const visualGateWidth = isWideGatePower ? Math.min(86, wave.gateWidth + 24) : wave.gateWidth
                 const isSlideWave = wave.type === 'slide_wall' || wave.type === 'double_slide_wall'
                 const rewardBalls = wave.rewardBalls ?? buildRewardBalls(wave.id, wave.gateCenterX, visualGateWidth, Math.max(1, wave.rewardBallCount ?? 1), wave.rewardPattern ?? 'vertical')
                 const collectedRewardBalls = rewardBalls.filter((ball) => ball.collected).length
                 const rewardPattern = wave.rewardPattern ?? 'vertical'
-                const moveAmp = 0
+                const moveAmp = wave.moveAmplitude ?? 0
                 const moveDur = wave.moveFrequency ? `${1 / wave.moveFrequency}s` : '1.4s'
                 const moveDelay = wave.movePhase && wave.moveFrequency ? `${-(wave.movePhase / (Math.PI * 2)) / wave.moveFrequency}s` : '0s'
                 const waveMotionStyle = {
@@ -3925,7 +3912,7 @@ export function AttackPhase({
                     {wave.defenders.map((defender) => (
                       <div
                         key={defender.id}
-                        className={`atk-slalom-defender is-${defender.variant}`}
+                        className={`atk-slalom-defender is-${defender.variant}${defender.moveAmplitude ? ' is-mobile' : ''}`}
                         style={{
                           left: `${defender.x}%`,
                           top: defender.yOffset,
@@ -4156,6 +4143,7 @@ export function AttackPhase({
                 <span className="atk-shot-step atk-shot-step--hold">Maintiens le <b>ballon</b></span>
                 <span className="atk-shot-step atk-shot-step--aim">Ajuste le <b>lancer</b></span>
                 <span className="atk-shot-step atk-shot-step--release">Relâche quand la <b>jauge blanche</b> passe sur le vert</span>
+                <span className="atk-shot-step">Vise la <b>lucarne</b> : but x2</span>
                 <span className="atk-shot-warning">Attention au gardien</span>
               </div>
               <button type="button" className="atk-shot-tutorial__btn" onClick={() => { sfx.click(); markBattleTutorialSeen('attack-shot'); setShowShotTutorial(false); setShotTutorialDone(true) }}>
@@ -4188,6 +4176,9 @@ export function AttackPhase({
           {shooterSelectionDone && shotTutorialDone && !hasAimedTarget && !ballFlight && !resultLabel && (
             <div className="atk-aim-hint">MAINTIENS LA BALLE, TIRE VERS LE BAS</div>
           )}
+          {shooterSelectionDone && shotTutorialDone && !ballFlight && !resultLabel ? (
+            <div className="atk-corner-bonus-hint">Lucarne = but compte double</div>
+          ) : null}
           {shooterSelectionDone && shotTutorialDone && shotAimWarning && !ballFlight && !resultLabel && (
             <div className="atk-aim-warning">TIRE LE ROND JAUNE VERS LE BAS, VISE, PUIS RELACHE DANS LE VERT</div>
           )}
@@ -4232,7 +4223,7 @@ export function AttackPhase({
           <div className="atk-controls__stat">FLOW {flow}<small>Vie {attackLives}/{ATTACK_MAX_LIVES} - Combo x{comboDisplay}</small></div>
           <div className="atk-controls__buttons">
             <button type="button" className="atk-ctrl-btn" data-control="left" aria-label="Gauche" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.left = true }} onPointerUp={() => { keysRef.current.left = false }} onPointerCancel={() => { keysRef.current.left = false }} onPointerLeave={() => { keysRef.current.left = false }}>&larr;</button>
-            <button type="button" className={`atk-ctrl-btn atk-ctrl-btn--evade${gdJumping || dashActive || rouletteActive ? ' is-jumping' : ''}${nextGdWave?.requiresJump ? ' is-danger' : ''}`} data-control="jump" aria-label={nextGdWave?.requiresJump ? 'Saut' : shouldRouletteNextWave(nextGdWave) ? 'Dribble' : 'Action'} onPointerDown={(e) => { e.stopPropagation(); handleTapAction() }}><b>{nextGdWave?.requiresJump ? '\u2191' : shouldRouletteNextWave(nextGdWave) ? '\u21bb' : '\u21af'}</b>{nextGdWave?.requiresJump ? '1 TAP SAUT' : shouldRouletteNextWave(nextGdWave) ? '1 TAP DRIBBLE' : '1 TAP'}</button>
+            <button type="button" className={`atk-ctrl-btn atk-ctrl-btn--evade${gdJumping || dashActive || rouletteActive ? ' is-jumping' : ''}${nextGdWave?.requiresJump ? ' is-danger' : ''}`} data-control="jump" aria-label={nextGdWave?.requiresJump ? 'Saut' : 'Pouvoir'} onPointerDown={(e) => { e.stopPropagation(); handleTapAction() }}><b>{nextGdWave?.requiresJump ? '\u2191' : '\u2726'}</b>{nextGdWave?.requiresJump ? '1 TAP SAUT' : 'DOUBLE TAP POUVOIR'}</button>
             <button type="button" className="atk-ctrl-btn" data-control="right" aria-label="Droite" onPointerDown={(e) => { e.stopPropagation(); keysRef.current.right = true }} onPointerUp={() => { keysRef.current.right = false }} onPointerCancel={() => { keysRef.current.right = false }} onPointerLeave={() => { keysRef.current.right = false }}>&rarr;</button>
           </div>
           <div className={`atk-controls__phase${gdBadgeClass}`}>SLALOM<small>{gdInstruction}</small></div>
