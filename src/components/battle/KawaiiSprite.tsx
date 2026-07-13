@@ -205,10 +205,10 @@ function HairShape({ appearance }: { appearance: PlayerAppearance }) {
     return null
   }
   if (appearance.hairStyle === 'buzz') {
-    return <path d="M25 15 C28 9 33 6 40 6 C47 6 52 9 55 15 C50 13 45 12 40 12 C35 12 30 13 25 15 Z" fill={fill} opacity=".82" />
+    return <path d="M22 15 C24 3 33 -1 40 -1 C47 -1 56 3 58 15 C52 12 46 10.5 40 10.5 C34 10.5 28 12 22 15 Z" fill={fill} opacity=".84" />
   }
   return (
-    <path d="M23 17 C25 8 33 4 40 4 C47 4 55 8 57 17 C52 14 46 12 40 12 C34 12 28 14 23 17 Z" fill={fill} />
+    <path d="M21 17 C23 2 32 -2 40 -2 C48 -2 57 2 59 17 C53 14 46 12 40 12 C34 12 27 14 21 17 Z" fill={fill} />
   )
 }
 
