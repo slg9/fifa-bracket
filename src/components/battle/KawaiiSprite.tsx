@@ -205,10 +205,10 @@ function HairShape({ appearance }: { appearance: PlayerAppearance }) {
     return null
   }
   if (appearance.hairStyle === 'buzz') {
-    return <ellipse cx="40" cy="9.5" rx="13.5" ry="5.5" fill={fill} opacity=".82" />
+    return <path d="M25 15 C28 9 33 6 40 6 C47 6 52 9 55 15 C50 13 45 12 40 12 C35 12 30 13 25 15 Z" fill={fill} opacity=".82" />
   }
   return (
-    <ellipse cx="40" cy="8.5" rx="15.5" ry="6.5" fill={fill} />
+    <path d="M23 17 C25 8 33 4 40 4 C47 4 55 8 57 17 C52 14 46 12 40 12 C34 12 28 14 23 17 Z" fill={fill} />
   )
 }
 
