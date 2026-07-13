@@ -148,6 +148,7 @@ const KNOWN_PLAYER_APPEARANCES: Record<string, Partial<PlayerAppearance> & { ski
   darwinnunez: { skinTone: 'light', hair: '#3b2518', hairStyle: 'sweep', faceShape: 'long', eye: 'sharp', facialHair: 'goatee', brow: true },
   robertlewandowski: { skinTone: 'light', hair: '#4a3324', hairStyle: 'parted', faceShape: 'long', eye: 'sharp', facialHair: 'stubble', brow: true },
   maghnesakliouche: { skinTone: 'light', hair: '#19120f', hairStyle: 'curls', faceShape: 'long', eye: 'round', eyeColor: '#7ea5c8', facialHair: 'goatee', brow: true },
+  jeanphilippemateta: { skinTone: 'deep', hair: '#111', hairStyle: 'shaved', faceShape: 'round', eye: 'round', facialHair: 'none', brow: false },
 }
 
 function normalizeAppearanceName(value: string) {
@@ -199,16 +200,13 @@ function faceShapeProps(shape: FaceShape) {
 function HairShape({ appearance }: { appearance: PlayerAppearance }) {
   const fill = appearance.hair
   if (appearance.hairStyle === 'shaved') {
-    return <path d="M24 16 Q40 6 56 16 Q50 9 40 8 Q30 9 24 16 Z" fill={fill} opacity=".72" />
+    return null
   }
   if (appearance.hairStyle === 'buzz') {
-    return <path d="M23 16 Q40 3 57 16 Q50 9 40 8 Q30 9 23 16 Z" fill={fill} />
+    return <ellipse cx="40" cy="9.5" rx="13.5" ry="5.5" fill={fill} opacity=".82" />
   }
   return (
-    <path
-      d="M22 16 Q40 1 58 16 Q54 6 46 3 Q40 1 34 3 Q26 6 22 16 Z"
-      fill={fill}
-    />
+    <ellipse cx="40" cy="8.5" rx="15.5" ry="6.5" fill={fill} />
   )
 }
 
