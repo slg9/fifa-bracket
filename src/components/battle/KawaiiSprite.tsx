@@ -204,11 +204,18 @@ function HairShape({ appearance }: { appearance: PlayerAppearance }) {
   if (appearance.hairStyle === 'shaved') {
     return null
   }
+  const face = faceShapeProps(appearance.faceShape)
+  const sideInset = Math.max(1, 18.2 - face.rx)
+  const left = 25 + sideInset
+  const right = 55 - sideInset
+  const crownY = appearance.faceShape === 'long' ? 1 : appearance.faceShape === 'round' ? 2.2 : 1.4
+  const frontY = appearance.faceShape === 'long' ? 12.4 : appearance.faceShape === 'round' ? 10.2 : 11.2
+  const innerY = appearance.faceShape === 'long' ? 9.8 : appearance.faceShape === 'round' ? 8.4 : 9.1
   if (appearance.hairStyle === 'buzz') {
-    return <path d="M26 14 C28 4 34 1 40 1 C46 1 52 4 54 14 C49 11.8 44.5 10.6 40 10.6 C35.5 10.6 31 11.8 26 14 Z" fill={fill} opacity=".84" />
+    return <path d={`M${left + 1.2} ${frontY - 1.9} C31 ${crownY + 3.2} 35 ${crownY + 2} 40 ${crownY + 2} C45 ${crownY + 2} 49 ${crownY + 3.2} ${right - 1.2} ${frontY - 1.9} C49 ${innerY - .8} 44.5 ${innerY - 1.3} 40 ${innerY - 1.3} C35.5 ${innerY - 1.3} 31 ${innerY - .8} ${left + 1.2} ${frontY - 1.9} Z`} fill={fill} opacity=".84" />
   }
   return (
-    <path d="M25 16 C27 3 34 0 40 0 C46 0 53 3 55 16 C50 13.2 45 12 40 12 C35 12 30 13.2 25 16 Z" fill={fill} />
+    <path d={`M${left} ${frontY} C30 ${crownY + 3} 35 ${crownY} 40 ${crownY} C45 ${crownY} 50 ${crownY + 3} ${right} ${frontY} C49 ${innerY + .9} 44.5 ${innerY} 40 ${innerY} C35.5 ${innerY} 31 ${innerY + .9} ${left} ${frontY} Z`} fill={fill} />
   )
 }
 
